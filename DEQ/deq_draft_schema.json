@@ -1,0 +1,61 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "string",
+        "format": "uri",
+        "description": "Version identifier with a reference to a schema definition."
+      },
+      "display": {
+        "type": "string",
+        "description": "A display string."
+      },
+      "cohortDefinition": {
+        "$ref": "clinical-cohort-definition-language-schema.json",
+        "description": "Reference to a cohort definition in CCDL schemas."
+      },
+      "dataExtraction": {
+        "type": "object",
+        "properties": {
+          "attributeGroups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "groupReference": {
+                  "type": "string",
+                  "description": "Reference to a resource group, e.g., an ID or a resource URL."
+                },
+                "attributes": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "attributeRef": {
+                        "type": "string",
+                        "description": "Unique reference to an attribute; mapping required."
+                      },
+                      "mustHave": {
+                        "type": "boolean",
+                        "description": "Indicates whether the attribute is essential in the resource."
+                      }
+                    },
+                    "required": ["attributeRef", "mustHave"],
+                    "description": "List of attributes, with reference and necessity indicated."
+                  }
+                },
+                "filter": {
+                  "$ref": "clinical-cohort-definition-language-schema.json",
+                  "description": "Reference to filter definitions in CCDL schemas."
+                }
+              },
+              "required": ["groupReference", "attributes"]
+            }
+          }
+        }
+      }
+    },
+    "required": ["version", "cohortDefinition", "dataExtraction"]
+  }
+  

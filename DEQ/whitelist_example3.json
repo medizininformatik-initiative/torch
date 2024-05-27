@@ -1,0 +1,22 @@
+{
+  "version": "whitelist1.0",
+  "dataExtraction": {
+    "attributeGroups": [
+      { 
+      "groupReference":"Fall",
+      
+        "attributes": [
+          {"attributeRef":"diagnosis"},
+          {"attributeRef":"participant"}
+        ]
+      },
+      { 
+      "groupReference":"Medikation",
+      
+        "attributes": [
+          {"attributeRef":"code"},
+          {"attributeRef":"form"}]
+      } 
+    ]
+  }
+}

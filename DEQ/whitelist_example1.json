@@ -1,0 +1,26 @@
+{
+  "version": "whitelist1.0",
+  "dataExtraction": {
+    "attributeGroups": [
+      { 
+      "groupReference":"Diagnose",
+      
+        "attributes": [
+          {"attributeRef":"code"},
+          {"attributeRef":"system"}, 
+          {"attributeRef":"recordDate"}
+        ]
+      },
+      { 
+      "groupReference":"Laboruntersuchung",
+      
+        "attributes": [
+          {"attributeRef":"valueRange"},
+          {"attributeRef":"valueRatio"}, 
+          {"attributeRef":"vaulueQuantity"},
+          {"attributeRef":"vaulueCodeableConcept"}
+        ]
+      } 
+    ]
+  }
+}

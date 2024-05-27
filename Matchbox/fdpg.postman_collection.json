@@ -1,0 +1,279 @@
+{
+	"info": {
+		"_postman_id": "91aaa691-4e17-414e-a9d2-b104ea68eb85",
+		"name": "fdpg",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+		"_exporter_id": "27323862"
+	},
+	"item": [
+		{
+			"name": "Capability Statement",
+			"protocolProfileBehavior": {
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/metadata",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"metadata"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "FML TO Structured Map",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true
+				}
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/fhir+json"
+					},
+					{
+						"key": "Content-Type",
+						"value": "text/fhir-mapping"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "/// url = 'http://example.org/fhir/StructureMap/copy-multiple-resources' \r\n/// name = 'CopyMultipleResources'\r\n/// title = 'Copy Multiple Resources'\r\n\r\n\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias sourceBundle as source;\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias targetBundle as target;\r\n\r\ngroup CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {\r\n    src.resourceType as rt -> tgt.resourceType = rt;\r\n    src.type as t -> tgt.type = t;\r\n    src.entry as sentry -> tgt.entry as tentry then  CopyEntry(sentry,tentry);\r\n}\r\n\r\ngroup CopyEntry(source src : Entry, target tgt : Entry) {\r\n    src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;\r\n    //src.resource as resource -> tgt.resource as tresource then CopyBasic( resource, tresource);\r\n    //src.resource as resource where($this.ofType(Patient)) -> tgt.resource = create('Patient') as tresource then  CopyPatient(resource, tresource) \"create Patient\" ;\r\n    //src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then  CopyObservation(resource, tresource) \"create Observation\" ;\r\n    src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then  CopyCondition(resource, tresource) \"create Condition\" ;\r\n}\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src , target tgt ) {\r\n   src.id as id -> tgt.id = id \"copy ID\";\r\n   src.meta as meta -> tgt.meta = meta \"copy Meta\";\r\n}\r\n\r\ngroup CopyObservation(source src : Observation, target tgt : Observation) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyObservation create Identifier\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"CopyObservation create Code\" ;\r\n    src.effectiveDateTime as effective -> tgt.effective=effective \"CopyObservation copy effective\";\r\n    src.value as value where($this.ofType(Quantity)) -> tgt.value = create('Quantity') as quantity then CopyQuantity(value,quantity) \"CopyObservation create Quantity\" ;\r\n    src.status as status -> tgt.status = status \"copy status\";\r\n    src.subject as subject -> tgt.subject = subject \"copy subject\";\r\n}\r\n\r\n\r\ngroup CopyCondition(source src : Condition, target tgt : Condition) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyCondition create Identifier\" ;\r\n    src.clinicalStatus as clinicalStatus -> tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then  CopyCodeableConcept(clinicalStatus, tclinicalStatus) \"CopyCondition create clinicalStatus\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"create Code\" ;\r\n}\r\n\r\ngroup CopyIdentifier(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\ngroup CopyClinicalStatus(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyCodeableConcept(source src :CodeableConcept, target tgt :CodeableConcept) {\r\n    src.coding as coding -> tgt.coding = create('Coding') as tcoding then  CopyCoding(coding, tcoding) \"create Identifier\" ;\r\n}\r\n\r\n\r\ngroup CopyCoding(source src :coding , target tgt :coding) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src.version as version -> tgt.version = version \"copy version\";\r\n}\r\n\r\ngroup CopyPatient(source src : Patient, target tgt : Patient) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.gender as gender -> tgt.gender = gender \"copy Gender\";\r\n}\r\n\r\n\r\ngroup CopyQuantity(source src :Quantity, target tgt :Quantity) {\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) \"absent value\";\r\n   \r\n    src.unit as unit -> tgt.unit= unit \"copy unit\";\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n}\r\n\r\ngroup DataAbsentReason (source src :Extension, target tgt :Extension) {\r\n    src -> tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' \"create url\" ;\r\n    src -> tgt.value = create('code') as value then { \r\n        src -> value.value=\"masked\" \"set masked\";\r\n } \"set valueCode\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src.value as value-> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src -> tgt = src \"copy value\";\r\n}",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/StructureMap",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"StructureMap"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Convert FML to Structured Map",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true
+				}
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/fhir+json"
+					},
+					{
+						"key": "Content-Type",
+						"value": "text/fhir-mapping"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "/// url = 'http://example.org/fhir/StructureMap/copy-multiple-resources' \r\n/// name = 'CopyMultipleResources'\r\n/// title = 'Copy Multiple Resources'\r\n\r\n\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias sourceBundle as source;\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias targetBundle as target;\r\n\r\ngroup CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {\r\n    src.resourceType as rt -> tgt.resourceType = rt;\r\n    src.type as t -> tgt.type = t;\r\n    src.entry as sentry -> tgt.entry as tentry then  CopyEntry(sentry,tentry);\r\n}\r\n\r\ngroup CopyEntry(source src : Entry, target tgt : Entry) {\r\n    src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;\r\n    //src.resource as resource -> tgt.resource as tresource then CopyBasic( resource, tresource);\r\n    //src.resource as resource where($this.ofType(Patient)) -> tgt.resource = create('Patient') as tresource then  CopyPatient(resource, tresource) \"create Patient\" ;\r\n    //src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then  CopyObservation(resource, tresource) \"create Observation\" ;\r\n    src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then  CopyCondition(resource, tresource) \"create Condition\" ;\r\n}\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src , target tgt ) {\r\n   src.id as id -> tgt.id = id \"copy ID\";\r\n   src.meta as meta -> tgt.meta = meta \"copy Meta\";\r\n}\r\n\r\ngroup CopyObservation(source src : Observation, target tgt : Observation) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyObservation create Identifier\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"CopyObservation create Code\" ;\r\n    src.effectiveDateTime as effective -> tgt.effective=effective \"CopyObservation copy effective\";\r\n    src.value as value where($this.ofType(Quantity)) -> tgt.value = create('Quantity') as quantity then CopyQuantity(value,quantity) \"CopyObservation create Quantity\" ;\r\n    src.status as status -> tgt.status = status \"copy status\";\r\n    src.subject as subject -> tgt.subject = subject \"copy subject\";\r\n}\r\n\r\n\r\ngroup CopyCondition(source src : Condition, target tgt : Condition) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyCondition create Identifier\" ;\r\n    src.clinicalStatus as clinicalStatus -> tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then  CopyCodeableConcept(clinicalStatus, tclinicalStatus) \"CopyCondition create clinicalStatus\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"create Code\" ;\r\n}\r\n\r\ngroup CopyIdentifier(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\ngroup CopyClinicalStatus(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyCodeableConcept(source src :CodeableConcept, target tgt :CodeableConcept) {\r\n    src.coding as coding -> tgt.coding = create('Coding') as tcoding then  CopyCoding(coding, tcoding) \"create Identifier\" ;\r\n}\r\n\r\n\r\ngroup CopyCoding(source src :coding , target tgt :coding) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src.version as version -> tgt.version = version \"copy version\";\r\n}\r\n\r\ngroup CopyPatient(source src : Patient, target tgt : Patient) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.gender as gender -> tgt.gender = gender \"copy Gender\";\r\n}\r\n\r\n\r\ngroup CopyQuantity(source src :Quantity, target tgt :Quantity) {\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) \"absent value\";\r\n   \r\n    src.unit as unit -> tgt.unit= unit \"copy unit\";\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n}\r\n\r\ngroup DataAbsentReason (source src :Extension, target tgt :Extension) {\r\n    src -> tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' \"create url\" ;\r\n    src -> tgt.value = create('code') as value then { \r\n        src -> value.value=\"masked\" \"set masked\";\r\n } \"set valueCode\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src.value as value-> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src -> tgt = src \"copy value\";\r\n}",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/StructureMap/$convert",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"StructureMap",
+						"$convert"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Upload  Structured Map Directly",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true
+				}
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/fhir+json"
+					},
+					{
+						"key": "Content-Type",
+						"value": "text/fhir-mapping"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "/// url = 'http://example.org/fhir/StructureMap/copy-multiple-resources' \r\n/// name = 'CopyMultipleResources'\r\n/// title = 'Copy Multiple Resources'\r\n\r\n\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias sourceBundle as source;\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias targetBundle as target;\r\n\r\ngroup CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {\r\n    src.resourceType as rt -> tgt.resourceType = rt;\r\n    src.type as t -> tgt.type = t;\r\n    src.entry as sentry -> tgt.entry as tentry then  CopyEntry(sentry,tentry);\r\n}\r\n\r\ngroup CopyEntry(source src : Entry, target tgt : Entry) {\r\n    src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;\r\n    //src.resource as resource -> tgt.resource as tresource then CopyBasic( resource, tresource);\r\n    //src.resource as resource where($this.ofType(Patient)) -> tgt.resource = create('Patient') as tresource then  CopyPatient(resource, tresource) \"create Patient\" ;\r\n    //src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then  CopyObservation(resource, tresource) \"create Observation\" ;\r\n    src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then  CopyCondition(resource, tresource) \"create Condition\" ;\r\n}\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src , target tgt ) {\r\n   src.id as id -> tgt.id = id \"copy ID\";\r\n   src.meta as meta -> tgt.meta = meta \"copy Meta\";\r\n}\r\n\r\ngroup CopyObservation(source src : Observation, target tgt : Observation) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyObservation create Identifier\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"CopyObservation create Code\" ;\r\n    src.effectiveDateTime as effective -> tgt.effective=effective \"CopyObservation copy effective\";\r\n    src.value as value where($this.ofType(Quantity)) -> tgt.value = create('Quantity') as quantity then CopyQuantity(value,quantity) \"CopyObservation create Quantity\" ;\r\n    src.status as status -> tgt.status = status \"copy status\";\r\n    src.subject as subject -> tgt.subject = subject \"copy subject\";\r\n}\r\n\r\n\r\ngroup CopyCondition(source src : Condition, target tgt : Condition) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyCondition create Identifier\" ;\r\n    src.clinicalStatus as clinicalStatus -> tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then  CopyCodeableConcept(clinicalStatus, tclinicalStatus) \"CopyCondition create clinicalStatus\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"create Code\" ;\r\n}\r\n\r\ngroup CopyIdentifier(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\ngroup CopyClinicalStatus(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyCodeableConcept(source src :CodeableConcept, target tgt :CodeableConcept) {\r\n    src.coding as coding -> tgt.coding = create('Coding') as tcoding then  CopyCoding(coding, tcoding) \"create Identifier\" ;\r\n}\r\n\r\n\r\ngroup CopyCoding(source src :coding , target tgt :coding) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src.version as version -> tgt.version = version \"copy version\";\r\n}\r\n\r\ngroup CopyPatient(source src : Patient, target tgt : Patient) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.gender as gender -> tgt.gender = gender \"copy Gender\";\r\n}\r\n\r\n\r\ngroup CopyQuantity(source src :Quantity, target tgt :Quantity) {\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) \"absent value\";\r\n   \r\n    src.unit as unit -> tgt.unit= unit \"copy unit\";\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n}\r\n\r\ngroup DataAbsentReason (source src :Extension, target tgt :Extension) {\r\n    src -> tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' \"create url\" ;\r\n    src -> tgt.value = create('code') as value then { \r\n        src -> value.value=\"masked\" \"set masked\";\r\n } \"set valueCode\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src.value as value-> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src -> tgt = src \"copy value\";\r\n}",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/StructureMap",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"StructureMap"
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Convert Ressource",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true,
+					"content-type": true
+				}
+			},
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/fhir+json"
+					},
+					{
+						"key": "Content-Type",
+						"value": "application/fhir+json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\r\n  \"resourceType\": \"Bundle\",\r\n  \"type\": \"transaction\",\r\n  \"entry\": [ {\r\n    \"fullUrl\": \"Patient/VHF00001\",\r\n    \"resource\": {\r\n      \"resourceType\": \"Patient\",\r\n      \"id\": \"VHF00001\",\r\n      \"meta\": {\r\n        \"profile\": [ \"https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient\" ]\r\n      },\r\n      \"identifier\": [ {\r\n        \"use\": \"usual\",\r\n        \"type\": {\r\n          \"coding\": [ {\r\n            \"system\": \"http://terminology.hl7.org/CodeSystem/v2-0203\",\r\n            \"code\": \"MR\"\r\n          } ]\r\n        },\r\n        \"system\": \"https://VHF.de/pid\",\r\n        \"value\": \"VHF00001\"\r\n      } ],\r\n      \"name\": [ {\r\n        \"use\": \"official\",\r\n        \"family\": \"DUMMY_SURNAME\",\r\n        \"given\": [ \"DUMMY_NAME\" ]\r\n      } ],\r\n      \"gender\": \"male\",\r\n      \"birthDate\": \"2003-11-01\",\r\n      \"address\": [ {\r\n        \"extension\": [ {\r\n          \"url\": \"http://terminology.hl7.org/CodeSystem/data-absent-reason\",\r\n          \"valueCode\": \"unknown\"\r\n        } ]\r\n      } ]\r\n    },\r\n    \"request\": {\r\n      \"method\": \"PUT\",\r\n      \"url\": \"Patient/VHF00001\"\r\n    }\r\n  }, {\r\n    \"fullUrl\": \"Encounter/VHF00001-E-1\",\r\n    \"resource\": {\r\n      \"resourceType\": \"Encounter\",\r\n      \"id\": \"VHF00001-E-1\",\r\n      \"meta\": {\r\n        \"profile\": [ \"https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung\" ]\r\n      },\r\n      \"identifier\": [ {\r\n        \"type\": {\r\n          \"coding\": [ {\r\n            \"system\": \"http://terminology.hl7.org/CodeSystem/v2-0203\",\r\n            \"code\": \"VN\"\r\n          } ]\r\n        },\r\n        \"_system\": {\r\n          \"extension\": [ {\r\n            \"url\": \"http://terminology.hl7.org/CodeSystem/data-absent-reason\",\r\n            \"valueCode\": \"unknown\"\r\n          } ]\r\n        },\r\n        \"value\": \"VHF00001-E-1\",\r\n        \"assigner\": {\r\n          \"identifier\": {\r\n            \"system\": \"https://www.medizininformatik-initiative.de/fhir/core/NamingSystem/org-identifier\",\r\n            \"value\": \"VHF\"\r\n          }\r\n        }\r\n      } ],\r\n      \"status\": \"finished\",\r\n      \"class\": {\r\n        \"system\": \"http://terminology.hl7.org/CodeSystem/v3-ActCode\",\r\n        \"code\": \"IMP\",\r\n        \"display\": \"inpatient encounter\"\r\n      },\r\n      \"type\": [ {\r\n        \"coding\": [ {\r\n          \"code\": \"einrichtungskontakt\",\r\n          \"display\": \"Einrichtungskontakt\"\r\n        } ]\r\n      } ],\r\n      \"subject\": {\r\n        \"reference\": \"Patient/VHF00001\"\r\n      },\r\n      \"period\": {\r\n        \"start\": \"2021-01-01T00:00:00+01:00\",\r\n        \"end\": \"2021-01-02T00:00:00+01:00\"\r\n      },\r\n      \"diagnosis\": [ {\r\n        \"condition\": {\r\n          \"reference\": \"Condition/VHF00001-CD-1\"\r\n        },\r\n        \"use\": {\r\n          \"coding\": [ {\r\n            \"system\": \"http://terminology.hl7.org/CodeSystem/diagnosis-role\",\r\n            \"code\": \"CC\",\r\n            \"display\": \"Chief complaint\"\r\n          } ]\r\n        }\r\n      } ]\r\n    },\r\n    \"request\": {\r\n      \"method\": \"PUT\",\r\n      \"url\": \"Encounter/VHF00001-E-1\"\r\n    }\r\n  }, {\r\n    \"fullUrl\": \"Encounter/VHF00001-E-1-A-1\",\r\n    \"resource\": {\r\n      \"resourceType\": \"Encounter\",\r\n      \"id\": \"VHF00001-E-1-A-1\",\r\n      \"meta\": {\r\n        \"profile\": [ \"https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung\" ]\r\n      },\r\n      \"status\": \"finished\",\r\n      \"class\": {\r\n        \"extension\": [ {\r\n          \"url\": \"http://terminology.hl7.org/CodeSystem/data-absent-reason\",\r\n          \"valueCode\": \"unknown\"\r\n        } ]\r\n      },\r\n      \"type\": [ {\r\n        \"coding\": [ {\r\n          \"code\": \"abteilungskontakt\",\r\n          \"display\": \"Abteilungskontakt\"\r\n        } ]\r\n      } ],\r\n      \"serviceType\": {\r\n        \"coding\": [ {\r\n          \"system\": \"http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel\",\r\n          \"code\": \"0300\",\r\n          \"display\": \"Kardiologie\"\r\n        } ]\r\n      },\r\n      \"subject\": {\r\n        \"reference\": \"Patient/VHF00001\"\r\n      },\r\n      \"period\": {\r\n        \"start\": \"2021-01-01T00:00:00+01:00\",\r\n        \"end\": \"2021-01-02T00:00:00+01:00\"\r\n      },\r\n      \"diagnosis\": [ {\r\n        \"condition\": {\r\n          \"_reference\": {\r\n            \"extension\": [ {\r\n              \"url\": \"http://terminology.hl7.org/CodeSystem/data-absent-reason\",\r\n              \"valueCode\": \"unknown\"\r\n            } ]\r\n          }\r\n        }\r\n      } ],\r\n      \"partOf\": {\r\n        \"reference\": \"Encounter/VHF00001-E-1\"\r\n      }\r\n    },\r\n    \"request\": {\r\n      \"method\": \"PUT\",\r\n      \"url\": \"Encounter/VHF00001-E-1-A-1\"\r\n    }\r\n  }, {\r\n    \"fullUrl\": \"Observation/VHF00001-E-1-OL-1\",\r\n    \"resource\": {\r\n      \"resourceType\": \"Observation\",\r\n      \"id\": \"VHF00001-E-1-OL-1\",\r\n      \"meta\": {\r\n        \"profile\": [ \"https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab\" ]\r\n      },\r\n      \"identifier\": [ {\r\n        \"type\": {\r\n          \"coding\": [ {\r\n            \"system\": \"http://terminology.hl7.org/CodeSystem/v2-0203\",\r\n            \"code\": \"OBI\"\r\n          } ]\r\n        },\r\n        \"system\": \"https://VHF.de/befund\",\r\n        \"value\": \"VHF00001-E-1-OL-1\",\r\n        \"assigner\": {\r\n          \"identifier\": {\r\n            \"system\": \"https://www.medizininformatik-initiative.de/fhir/core/NamingSystem/org-identifier\",\r\n            \"value\": \"VHF\"\r\n          }\r\n        }\r\n      } ],\r\n      \"status\": \"final\",\r\n      \"category\": [ {\r\n        \"coding\": [ {\r\n          \"system\": \"http://terminology.hl7.org/CodeSystem/observation-category\",\r\n          \"code\": \"laboratory\",\r\n          \"display\": \"Laboratory\"\r\n        }, {\r\n          \"system\": \"http://loinc.org\",\r\n          \"code\": \"26436-6\",\r\n          \"display\": \"Laboratory studies (set)\"\r\n        } ]\r\n      } ],\r\n      \"code\": {\r\n        \"coding\": [ {\r\n          \"system\": \"http://loinc.org\",\r\n          \"code\": \"33762-6\"\r\n        } ],\r\n        \"text\": \"NT-proBNP SerPl-mCnc\"\r\n      },\r\n      \"subject\": {\r\n        \"reference\": \"Patient/VHF00001\"\r\n      },\r\n      \"encounter\": {\r\n        \"reference\": \"Encounter/VHF00001-E-1\"\r\n      },\r\n      \"effectiveDateTime\": \"2021-01-01T00:00:00+01:00\",\r\n      \"valueQuantity\": {\r\n        \"value\": 51.94,\r\n        \"unit\": \"picogram per milliliter\",\r\n        \"system\": \"http://unitsofmeasure.org\",\r\n        \"code\": \"pg/mL\"\r\n      }\r\n    },\r\n    \"request\": {\r\n      \"method\": \"PUT\",\r\n      \"url\": \"Observation/VHF00001-E-1-OL-1\"\r\n    }\r\n  }, {\r\n    \"fullUrl\": \"Condition/VHF00001-CD-1\",\r\n    \"resource\": {\r\n      \"resourceType\": \"Condition\",\r\n      \"id\": \"VHF00001-CD-1\",\r\n      \"meta\": {\r\n        \"profile\": [ \"https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose\" ]\r\n      },\r\n      \"identifier\": [ {\r\n        \"value\": \"VHF00001-CD-1\"\r\n      } ],\r\n      \"code\": {\r\n        \"coding\": [ {\r\n          \"system\": \"http://fhir.de/CodeSystem/bfarm/icd-10-gm\",\r\n          \"version\": \"2020\",\r\n          \"code\": \"I95.0\"\r\n        } ],\r\n        \"text\": \"Idiopathische Hypotonie\"\r\n      },\r\n      \"subject\": {\r\n        \"reference\": \"Patient/VHF00001\"\r\n      },\r\n      \"recordedDate\": \"2021-01-01T00:00:00+01:00\"\r\n    },\r\n    \"request\": {\r\n      \"method\": \"PUT\",\r\n      \"url\": \"Condition/VHF00001-CD-1\"\r\n    }\r\n  } ]\r\n}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/StructureMap/$transform?source=http://example.org/fhir/StructureMap/copy-multiple-resources",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"StructureMap",
+						"$transform"
+					],
+					"query": [
+						{
+							"key": "source",
+							"value": "http://example.org/fhir/StructureMap/copy-multiple-resources"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Get Structuremap",
+			"protocolProfileBehavior": {
+				"disabledSystemHeaders": {
+					"accept": true
+				},
+				"disableBodyPruning": true
+			},
+			"request": {
+				"method": "GET",
+				"header": [
+					{
+						"key": "Accept",
+						"value": "application/fhir+json"
+					},
+					{
+						"key": "Content-Type",
+						"value": "text/fhir-mapping"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "/// url = 'http://example.org/fhir/StructureMap/copy-multiple-resources'\r\n/// name = 'CopyMultipleResources'\r\n/// title = 'Copy Multiple Resources'\r\n\r\n\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias sourceBundle as source;\r\nuses \"http://hl7.org/fhir/StructureDefinition/Bundle\" alias targetBundle as target;\r\n\r\ngroup CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {\r\n    src.resourceType as rt -> tgt.resourceType = rt;\r\n    src.type as t -> tgt.type = t;\r\n    src.entry as sentry -> tgt.entry as tentry then  CopyEntry(sentry,tentry);\r\n}\r\n\r\ngroup CopyEntry(source src : Entry, target tgt : Entry) {\r\n    src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;\r\n    //src.resource as resource -> tgt.resource as tresource then CopyBasic( resource, tresource);\r\n    //src.resource as resource where($this.ofType(Patient)) -> tgt.resource = create('Patient') as tresource then  CopyPatient(resource, tresource) \"create Patient\" ;\r\n    //src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then  CopyObservation(resource, tresource) \"create Observation\" ;\r\n    src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then  CopyCondition(resource, tresource) \"create Condition\" ;\r\n}\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src , target tgt ) {\r\n   src.id as id -> tgt.id = id \"copy ID\";\r\n   src.meta as meta -> tgt.meta = meta \"copy Meta\";\r\n}\r\n\r\ngroup CopyObservation(source src : Observation, target tgt : Observation) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyObservation create Identifier\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"CopyObservation create Code\" ;\r\n    src.effectiveDateTime as effective -> tgt.effective=effective \"CopyObservation copy effective\";\r\n    src.value as value where($this.ofType(Quantity)) -> tgt.value = create('Quantity') as quantity then CopyQuantity(value,quantity) \"CopyObservation create Quantity\" ;\r\n    src.status as status -> tgt.status = status \"copy status\";\r\n    src.subject as subject -> tgt.subject = subject \"copy subject\";\r\n}\r\n\r\n\r\ngroup CopyCondition(source src : Condition, target tgt : Condition) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) \"CopyCondition create Identifier\" ;\r\n    src.clinicalStatus as clinicalStatus -> tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then  CopyCodeableConcept(clinicalStatus, tclinicalStatus) \"CopyCondition create clinicalStatus\" ;\r\n    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) \"create Code\" ;\r\n}\r\n\r\ngroup CopyIdentifier(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\ngroup CopyClinicalStatus(source src :Identifier, target tgt :Identifier) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.value as value -> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyCodeableConcept(source src :CodeableConcept, target tgt :CodeableConcept) {\r\n    src.coding as coding -> tgt.coding = create('Coding') as tcoding then  CopyCoding(coding, tcoding) \"create Identifier\" ;\r\n}\r\n\r\n\r\ngroup CopyCoding(source src :coding , target tgt :coding) {\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src.version as version -> tgt.version = version \"copy version\";\r\n}\r\n\r\ngroup CopyPatient(source src : Patient, target tgt : Patient) {\r\n    src as src -> tgt as tgt then CopyBasic(src, tgt) \"copy Basic\";\r\n    src.gender as gender -> tgt.gender = gender \"copy Gender\";\r\n}\r\n\r\n\r\ngroup CopyQuantity(source src :Quantity, target tgt :Quantity) {\r\n    src.code as code -> tgt.code = code \"copy code\";\r\n    src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) \"absent value\";\r\n   \r\n    src.unit as unit -> tgt.unit= unit \"copy unit\";\r\n    src.system as system -> tgt.system = system \"copy system\";\r\n}\r\n\r\ngroup DataAbsentReason (source src :Extension, target tgt :Extension) {\r\n    src -> tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' \"create url\" ;\r\n    src -> tgt.value = create('code') as value then { \r\n        src -> value.value=\"masked\" \"set masked\";\r\n } \"set valueCode\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src.value as value-> tgt.value = value \"copy value\";\r\n}\r\n\r\n\r\ngroup CopyDecimal(source src :decimal, target tgt :decimal) {\r\n    src -> tgt = src \"copy value\";\r\n}",
+					"options": {
+						"raw": {
+							"language": "text"
+						}
+					}
+				},
+				"url": {
+					"raw": "http://localhost:8080/matchboxv3/fhir/StructureMap/copy-multiple-resources",
+					"protocol": "http",
+					"host": [
+						"localhost"
+					],
+					"port": "8080",
+					"path": [
+						"matchboxv3",
+						"fhir",
+						"StructureMap",
+						"copy-multiple-resources"
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

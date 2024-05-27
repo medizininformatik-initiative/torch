@@ -1,0 +1,25 @@
+{
+  "version": "whitelist1.0",
+  "dataExtraction": {
+    "attributeGroups": [
+      { 
+      "groupReference":"Patient",
+      
+        "attributes": [
+          {"attributeRef":"gender"},
+          {"attributeRef":"deceased"}
+        ]
+      },
+      { 
+      "groupReference":"Prozedur",
+      
+        "attributes": [
+          {"attributeRef":"bodySite"},
+          {"attributeRef":"performer"}, 
+          {"attributeRef":"code"},
+          {"attributeRef":"statusReason"}
+        ]
+      } 
+    ]
+  }
+}

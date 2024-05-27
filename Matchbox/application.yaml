@@ -1,0 +1,28 @@
+server:
+  servlet:
+    context-path: /matchboxv3
+matchbox:
+  fhir:
+    context:
+      onlyOneEngine: true
+spring:
+  datasource:
+    url: 'jdbc:postgresql://matchbox-db:5432/matchbox'
+    username: matchbox
+    password: matchbox
+    driverClassName: org.postgresql.Driver
+
+    # database connection pool size
+    hikari:
+      maximum-pool-size: 10
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQLDialect
+
+hapi:
+  fhir:
+    implementationguides:
+
+      KDSPerson:
+        name: de.medizininformatikinitiative.kerndatensatz.person
+        version": 2024.0.0
