@@ -1,0 +1,128 @@
+/// url = 'http://example.org/fhir/StructureMap/library'
+/// name = 'library'
+/// title = 'library'
+
+
+/*
+Library that implements basic copying of FHIR resources.
+TODO Extensions copying is not implemented yet.
+
+*/
+
+
+// Copies ID and Metainformation
+group CopyBasic(source src , target tgt ) {
+   src.id as id -> tgt.id = id "copy ID";
+   src.meta as meta -> tgt.meta = meta "copy Meta";
+}
+
+
+group CopyIdentifier(source src :Identifier, target tgt :Identifier) {
+    src.system as system -> tgt.system = system "copy system";
+    src.value as value -> tgt.value = value "copy value";
+}
+
+group CopyClinicalStatus(source src :Identifier, target tgt :Identifier) {
+    src.system as system -> tgt.system = system "copy system";
+    src.value as value -> tgt.value = value "copy value";
+}
+
+
+group CopyCodeableConcept(source src :CodeableConcept, target tgt :CodeableConcept) {
+    src.coding as coding -> tgt.coding = create('Coding') as tcoding then  CopyCoding(coding, tcoding) "create Codeableconcept" ; 
+}
+
+group CopyExtension(source src :Extension, target tgt :Extension) {
+    src.url as url -> tgt.url = url "copy url";
+    src.value as value -> tgt.value = value "copy value";
+}
+
+
+
+group CopyCoding(source src :coding , target tgt :coding) {
+    src.system as system -> tgt.system = system "copy system";
+    src.code as code -> tgt.code = code "copy code";
+    src.version as version -> tgt.version = version "copy version";
+}
+
+
+group CopyQuantity(source src :Quantity, target tgt :Quantity) {
+    src.value as value -> tgt.value = value "copy value";
+    src.comparator as comparator -> tgt.comparator = comparator "copy comparator";
+    src.unit as unit -> tgt.unit= unit "copy unit";
+    src.system as system -> tgt.system = system "copy system";
+    src.code as code -> tgt.code = code "copy code";
+}
+
+//creates a DataAbsentReason extension with the value masked
+group DataAbsentReason (source src :Extension, target tgt :Extension) {
+    src -> tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' "create url" ;
+    src -> tgt.value = create('code') as value then { 
+        src -> value.value="masked" "set masked";
+ } "set valueCode";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,368 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [ {
+    "fullUrl": "Patient/VHF00004",
+    "resource": {
+      "resourceType": "Patient",
+      "id": "VHF00004",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      },
+      "identifier": [ {
+        "use": "usual",
+        "type": {
+          "coding": [ {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "MR"
+          } ]
+        },
+        "system": "https://VHF.de/pid",
+        "value": "VHF00004"
+      } ],
+      "name": [ {
+        "use": "official",
+        "family": "DUMMY_SURNAME",
+        "given": [ "DUMMY_NAME" ]
+      } ],
+      "gender": "male",
+      "birthDate": "2002-07-01",
+      "address": [ {
+        "extension": [ {
+          "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      } ]
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Patient/VHF00004"
+    }
+  }, {
+    "fullUrl": "Encounter/VHF00004-E-1",
+    "resource": {
+      "resourceType": "Encounter",
+      "id": "VHF00004-E-1",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung" ]
+      },
+      "identifier": [ {
+        "type": {
+          "coding": [ {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "VN"
+          } ]
+        },
+        "_system": {
+          "extension": [ {
+            "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+            "valueCode": "unknown"
+          } ]
+        },
+        "value": "VHF00004-E-1",
+        "assigner": {
+          "identifier": {
+            "system": "https://www.medizininformatik-initiative.de/fhir/core/NamingSystem/org-identifier",
+            "value": "VHF"
+          }
+        }
+      } ],
+      "status": "finished",
+      "class": {
+        "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+        "code": "IMP",
+        "display": "inpatient encounter"
+      },
+      "type": [ {
+        "coding": [ {
+          "code": "einrichtungskontakt",
+          "display": "Einrichtungskontakt"
+        } ]
+      } ],
+      "subject": {
+        "reference": "Patient/VHF00004"
+      },
+      "period": {
+        "start": "2021-01-01T00:00:00+01:00",
+        "end": "2021-01-02T00:00:00+01:00"
+      },
+      "diagnosis": [ {
+        "condition": {
+          "reference": "Condition/VHF00004-CD-1"
+        },
+        "use": {
+          "coding": [ {
+            "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+            "code": "CC",
+            "display": "Chief complaint"
+          } ]
+        }
+      } ]
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Encounter/VHF00004-E-1"
+    }
+  }, {
+    "fullUrl": "Encounter/VHF00004-E-1-A-1",
+    "resource": {
+      "resourceType": "Encounter",
+      "id": "VHF00004-E-1-A-1",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung" ]
+      },
+      "status": "finished",
+      "class": {
+        "extension": [ {
+          "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+          "valueCode": "unknown"
+        } ]
+      },
+      "type": [ {
+        "coding": [ {
+          "code": "abteilungskontakt",
+          "display": "Abteilungskontakt"
+        } ]
+      } ],
+      "serviceType": {
+        "coding": [ {
+          "system": "http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel",
+          "code": "0300",
+          "display": "Kardiologie"
+        } ]
+      },
+      "subject": {
+        "reference": "Patient/VHF00004"
+      },
+      "period": {
+        "start": "2021-01-01T00:00:00+01:00",
+        "end": "2021-01-02T00:00:00+01:00"
+      },
+      "diagnosis": [ {
+        "condition": {
+          "_reference": {
+            "extension": [ {
+              "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+              "valueCode": "unknown"
+            } ]
+          }
+        }
+      } ],
+      "partOf": {
+        "reference": "Encounter/VHF00004-E-1"
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Encounter/VHF00004-E-1-A-1"
+    }
+  }, {
+    "fullUrl": "Observation/VHF00004-E-1-OL-1",
+    "resource": {
+      "resourceType": "Observation",
+      "id": "VHF00004-E-1-OL-1",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab" ]
+      },
+      "identifier": [ {
+        "type": {
+          "coding": [ {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "OBI"
+          } ]
+        },
+        "system": "https://VHF.de/befund",
+        "value": "VHF00004-E-1-OL-1",
+        "assigner": {
+          "identifier": {
+            "system": "https://www.medizininformatik-initiative.de/fhir/core/NamingSystem/org-identifier",
+            "value": "VHF"
+          }
+        }
+      } ],
+      "status": "final",
+      "category": [ {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+          "code": "laboratory",
+          "display": "Laboratory"
+        }, {
+          "system": "http://loinc.org",
+          "code": "26436-6",
+          "display": "Laboratory studies (set)"
+        } ]
+      } ],
+      "code": {
+        "coding": [ {
+          "system": "http://loinc.org",
+          "code": "33762-6"
+        } ],
+        "text": "NT-proBNP SerPl-mCnc"
+      },
+      "subject": {
+        "reference": "Patient/VHF00004"
+      },
+      "encounter": {
+        "reference": "Encounter/VHF00004-E-1"
+      },
+      "effectiveDateTime": "2021-01-01T00:00:00+01:00",
+      "valueQuantity": {
+        "value": 53.5,
+        "unit": "picogram per milliliter",
+        "system": "http://unitsofmeasure.org",
+        "code": "pg/mL"
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Observation/VHF00004-E-1-OL-1"
+    }
+  }, {
+    "fullUrl": "Condition/VHF00004-CD-1",
+    "resource": {
+      "resourceType": "Condition",
+      "id": "VHF00004-CD-1",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+      },
+      "identifier": [ {
+        "value": "VHF00004-CD-1"
+      } ],
+      "code": {
+        "coding": [ {
+          "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+          "version": "2020",
+          "code": "I95.0"
+        } ],
+        "text": "Idiopathische Hypotonie"
+      },
+      "subject": {
+        "reference": "Patient/VHF00004"
+      },
+      "recordedDate": "2021-01-01T00:00:00+01:00"
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Condition/VHF00004-CD-1"
+    }
+  }, {
+    "fullUrl": "Consent/VHF00004-CO-1",
+    "resource": {
+      "resourceType": "Consent",
+      "id": "VHF00004-CO-1",
+      "meta": {
+        "profile": [ "http://fhir.de/ConsentManagement/StructureDefinition/Consent" ]
+      },
+      "status": "active",
+      "scope": {
+        "coding": [ {
+          "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+          "code": "research"
+        } ]
+      },
+      "category": [ {
+        "coding": [ {
+          "system": "http://loinc.org",
+          "code": "59284-0"
+        } ]
+      } ],
+      "patient": {
+        "reference": "Patient/VHF00004"
+      },
+      "dateTime": "2021-01-01T00:00:00+01:00",
+      "policy": [ {
+        "uri": "https://www.medizininformatik-initiative.de/sites/default/files/2020-04/MII_AG-Consent_Einheitlicher-Mustertext_v1.6d.pdf"
+      } ],
+      "provision": {
+        "type": "deny",
+        "period": {
+          "start": "2021-01-01T00:00:00+01:00",
+          "end": "2050-12-31T00:00:00+01:00"
+        },
+        "provision": [ {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.19",
+              "display": "BIOMAT_erheben"
+            } ]
+          } ]
+        }, {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.20",
+              "display": "BIOMAT_lagern_verarbeiten"
+            } ]
+          } ]
+        }, {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.21",
+              "display": "BIOMAT_Eigentum_uebertragen"
+            } ]
+          } ]
+        }, {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.22",
+              "display": "BIOMAT_wissenschaftlich_nutzen_EU_DSGVO_NIVEAU"
+            } ]
+          } ]
+        }, {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.23",
+              "display": "BIOMAT_Analysedaten_zusammenfuehren_Dritte"
+            } ]
+          } ]
+        }, {
+          "type": "permit",
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          },
+          "code": [ {
+            "coding": [ {
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.25",
+              "display": "BIOMAT_Zusatzmengen_entnehmen"
+            } ]
+          } ]
+        } ]
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Consent/VHF00004-CO-1"
+    }
+  } ]
+}

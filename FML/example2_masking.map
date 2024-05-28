@@ -1,0 +1,129 @@
+/// url = 'http://example.org/fhir/StructureMap/example2'
+/// name = 'Conditional Check'
+/// title = 'Conditional Check'
+
+/*
+Example that masks the quantity value of a observation
+*/
+
+
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias sourceBundle as source;
+uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias targetBundle as target;
+
+imports "http://example.org/fhir/StructureMap/library"
+
+group CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {
+    src.resourceType as rt -> tgt.resourceType = rt;
+    src.type as t -> tgt.type = t;
+    src.entry as sentry  -> tgt.entry as tentry then  CopyEntry(sentry,tentry);
+       }
+
+
+group CopyEntry(source src : Entry, target tgt : Entry) {
+    
+   
+    src.resource as resource where($this.ofType(Condition)) -> tgt.resource = create('Condition') as tresource then{
+        resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
+        src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
+    } "handle condition";
+
+    
+    src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then{
+        resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
+        src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
+    } "handle condition";
+    
+}
+
+
+group CopyObservation(source src : Observation, target tgt : Observation) {
+    src as src -> tgt as tgt then CopyBasic(src, tgt) "copy Basic";
+    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) "CopyObservation create Identifier" ;
+    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) "CopyObservation create Code" ;
+    src.effective as effective -> tgt.effective=effective "CopyObservation copy effective";
+    src.value as value where($this.ofType(Quantity)) -> tgt.value = create('Quantity') as quantity then CopyQuantity(value,quantity) "CopyObservation create Quantity" ;
+    src.status as status -> tgt.status = status "copy status";
+    src.subject as subject -> tgt.subject = subject "copy subject";
+}
+
+
+group CopyCondition(source src : Condition, target tgt : Condition) {
+    src as src -> tgt as tgt then CopyBasic(src, tgt) "copy Basic";
+    src.identifier as identifier -> tgt.identifier = create('Identifier') as tidentifier then  CopyIdentifier(identifier, tidentifier) "CopyCondition create Identifier" ;
+    src.clinicalStatus as clinicalStatus -> tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then  CopyCodeableConcept(clinicalStatus, tclinicalStatus) "CopyCondition create clinicalStatus" ;
+    src.code as code -> tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) "create Code" ;
+    src.abatment as abatment -> tgt.abatment = abatment;
+    src.onset as onset -> tgt.onset = onset;
+}
+
+
+
+group CopyQuantity(source src :Quantity, target tgt :Quantity) {
+    src.code as code -> tgt.code = code "copy code";
+    //src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) "absent value";
+    src.value as value -> tgt.value = value "copy value";
+    src.unit as unit -> tgt.unit= unit "copy unit";
+    src.system as system -> tgt.system = system "copy system";
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

@@ -1,0 +1,442 @@
+{
+  "resourceType": "StructureMap",
+  "id": "library",
+  "meta": {
+    "lastUpdated": "2024-05-28T08:16:21.345+00:00"
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><pre>/// url = &quot;http://example.org/fhir/StructureMap/library&quot;\r\n/// name = &quot;library&quot;\r\n/// title = &quot;library&quot;\r\n/// status = &quot;draft&quot;\r\n\r\n// library\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src, target tgt) {\r\n  src.id as id -&gt; tgt.id = id &quot;copy ID&quot;;\r\n  src.meta as meta -&gt; tgt.meta = meta &quot;copy Meta&quot;;\r\n}\r\n\r\ngroup CopyIdentifier(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyClinicalStatus(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCodeableConcept(source src : CodeableConcept, target tgt : CodeableConcept) {\r\n  src.coding as coding -&gt; tgt.coding = create('Coding') as tcoding then CopyCoding(coding, tcoding) &quot;create Codeableconcept&quot;;\r\n}\r\n\r\ngroup CopyExtension(source src : Extension, target tgt : Extension) {\r\n  src.url as url -&gt; tgt.url = url &quot;copy url&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCoding(source src : coding, target tgt : coding) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n  src.version as version -&gt; tgt.version = version &quot;copy version&quot;;\r\n}\r\n\r\ngroup CopyQuantity(source src : Quantity, target tgt : Quantity) {\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n  src.comparator as comparator -&gt; tgt.comparator = comparator &quot;copy comparator&quot;;\r\n  src.unit as unit -&gt; tgt.unit = unit &quot;copy unit&quot;;\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n}\r\n\r\n// creates a DataAbsentReason extension with the value masked\r\ngroup DataAbsentReason(source src : Extension, target tgt : Extension) {\r\n  src -&gt; tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' &quot;create url&quot;;\r\n  src -&gt; tgt.value = create('code') as value then {\r\n    src -&gt; value.value = 'masked' &quot;set masked&quot;;\r\n  } &quot;set valueCode&quot;;\r\n}\r\n\r\n</pre></div>"
+  },
+  "url": "http://example.org/fhir/StructureMap/library",
+  "name": "library",
+  "title": "library",
+  "status": "draft",
+  "description": "library",
+  "group": [ {
+    "name": "CopyBasic",
+    "typeMode": "none",
+    "documentation": "Copies ID and Metainformation",
+    "input": [ {
+      "name": "src",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy ID",
+      "source": [ {
+        "context": "src",
+        "element": "id",
+        "variable": "id"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "id",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "id"
+        } ]
+      } ]
+    }, {
+      "name": "copy Meta",
+      "source": [ {
+        "context": "src",
+        "element": "meta",
+        "variable": "meta"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "meta",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "meta"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyIdentifier",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Identifier",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Identifier",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy system",
+      "source": [ {
+        "context": "src",
+        "element": "system",
+        "variable": "system"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "system",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "system"
+        } ]
+      } ]
+    }, {
+      "name": "copy value",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "value"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyClinicalStatus",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Identifier",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Identifier",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy system",
+      "source": [ {
+        "context": "src",
+        "element": "system",
+        "variable": "system"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "system",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "system"
+        } ]
+      } ]
+    }, {
+      "name": "copy value",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "value"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyCodeableConcept",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "CodeableConcept",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "CodeableConcept",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "create Codeableconcept",
+      "source": [ {
+        "context": "src",
+        "element": "coding",
+        "variable": "coding"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "coding",
+        "variable": "tcoding",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "Coding"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyCoding",
+        "variable": [ "coding", "tcoding" ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyExtension",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Extension",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Extension",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy url",
+      "source": [ {
+        "context": "src",
+        "element": "url",
+        "variable": "url"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "url",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "url"
+        } ]
+      } ]
+    }, {
+      "name": "copy value",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "value"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyCoding",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "coding",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "coding",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy system",
+      "source": [ {
+        "context": "src",
+        "element": "system",
+        "variable": "system"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "system",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "system"
+        } ]
+      } ]
+    }, {
+      "name": "copy code",
+      "source": [ {
+        "context": "src",
+        "element": "code",
+        "variable": "code"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "code",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "code"
+        } ]
+      } ]
+    }, {
+      "name": "copy version",
+      "source": [ {
+        "context": "src",
+        "element": "version",
+        "variable": "version"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "version",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "version"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyQuantity",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Quantity",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Quantity",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy value",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "value"
+        } ]
+      } ]
+    }, {
+      "name": "copy comparator",
+      "source": [ {
+        "context": "src",
+        "element": "comparator",
+        "variable": "comparator"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "comparator",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "comparator"
+        } ]
+      } ]
+    }, {
+      "name": "copy unit",
+      "source": [ {
+        "context": "src",
+        "element": "unit",
+        "variable": "unit"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "unit",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "unit"
+        } ]
+      } ]
+    }, {
+      "name": "copy system",
+      "source": [ {
+        "context": "src",
+        "element": "system",
+        "variable": "system"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "system",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "system"
+        } ]
+      } ]
+    }, {
+      "name": "copy code",
+      "source": [ {
+        "context": "src",
+        "element": "code",
+        "variable": "code"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "code",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "code"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "DataAbsentReason",
+    "typeMode": "none",
+    "documentation": "creates a DataAbsentReason extension with the value masked",
+    "input": [ {
+      "name": "src",
+      "type": "Extension",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Extension",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "create url",
+      "source": [ {
+        "context": "src"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "url",
+        "transform": "copy",
+        "parameter": [ {
+          "valueString": "http://hl7.org/fhir/StructureDefinition/data-absent-reason"
+        } ]
+      } ]
+    }, {
+      "name": "set valueCode",
+      "source": [ {
+        "context": "src"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "variable": "value",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "code"
+        } ]
+      } ],
+      "rule": [ {
+        "name": "set masked",
+        "source": [ {
+          "context": "src"
+        } ],
+        "target": [ {
+          "context": "value",
+          "contextType": "variable",
+          "element": "value",
+          "transform": "copy",
+          "parameter": [ {
+            "valueString": "masked"
+          } ]
+        } ]
+      } ]
+    } ]
+  } ]
+}
