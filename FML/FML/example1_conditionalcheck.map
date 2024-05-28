@@ -5,6 +5,7 @@
 
 /*
 Example that implements a check on a condition field for the specific code I95.0  and copies the condition Ressource.
+Fail on VHF-Testdaten_01-VHF00006.json and VHF-Testdaten_01-VHF00002.json
 */
 
 
@@ -13,19 +14,27 @@ uses "http://hl7.org/fhir/StructureDefinition/Bundle" alias targetBundle as targ
 
 imports "http://example.org/fhir/StructureMap/library"
 
-group CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {
+group Init(source src : SourceBundle, target tgt : TargetBundle) {
+    
     src.resourceType as rt -> tgt.resourceType = rt;
     src.type as t -> tgt.type = t;
-    //existance check not working properly yet see /Testdaten/VHF-Testdaten_01-VHF00002.json throws no error despite FHIR PATH evaluating to false
-    src.entry as sentry check(src.entry.resource.ofType(Condition).exists()) -> tgt.entry as tentry then  CopyEntry(sentry,tentry);
-       
+    src as src check(src.ofType(Bundle)) -> tgt as tgt then CopyBundle(src, tgt) "copy Entry";
 }
 
+group CopyBundle(source src : SourceBundle, target tgt : TargetBundle){
+src.entry as sentry check(src.entry.resource.ofType(Condition).exists()) -> tgt.entry as tentry then  CopyEntry(sentry,tentry);
+}
 
 group CopyEntry(source src : Entry, target tgt : Entry) {
     
     //where acts as a filter to apply the check only to the resources of the correct type. 
-    src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then{
+   src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then{
+        resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
+        src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
+    } "handle Condition";
+
+     
+    src.resource as resource where($this.ofType(Condition)) -> tgt.resource = create('Condition') as tresource then{
         resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
         src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
     } "handle Condition";
