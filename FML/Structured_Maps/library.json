@@ -2,11 +2,11 @@
   "resourceType": "StructureMap",
   "id": "library",
   "meta": {
-    "lastUpdated": "2024-05-28T08:16:21.345+00:00"
+    "lastUpdated": "2024-05-28T12:49:21.422+00:00"
   },
   "text": {
     "status": "generated",
-    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><pre>/// url = &quot;http://example.org/fhir/StructureMap/library&quot;\r\n/// name = &quot;library&quot;\r\n/// title = &quot;library&quot;\r\n/// status = &quot;draft&quot;\r\n\r\n// library\r\n\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src, target tgt) {\r\n  src.id as id -&gt; tgt.id = id &quot;copy ID&quot;;\r\n  src.meta as meta -&gt; tgt.meta = meta &quot;copy Meta&quot;;\r\n}\r\n\r\ngroup CopyIdentifier(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyClinicalStatus(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCodeableConcept(source src : CodeableConcept, target tgt : CodeableConcept) {\r\n  src.coding as coding -&gt; tgt.coding = create('Coding') as tcoding then CopyCoding(coding, tcoding) &quot;create Codeableconcept&quot;;\r\n}\r\n\r\ngroup CopyExtension(source src : Extension, target tgt : Extension) {\r\n  src.url as url -&gt; tgt.url = url &quot;copy url&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCoding(source src : coding, target tgt : coding) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n  src.version as version -&gt; tgt.version = version &quot;copy version&quot;;\r\n}\r\n\r\ngroup CopyQuantity(source src : Quantity, target tgt : Quantity) {\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n  src.comparator as comparator -&gt; tgt.comparator = comparator &quot;copy comparator&quot;;\r\n  src.unit as unit -&gt; tgt.unit = unit &quot;copy unit&quot;;\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n}\r\n\r\n// creates a DataAbsentReason extension with the value masked\r\ngroup DataAbsentReason(source src : Extension, target tgt : Extension) {\r\n  src -&gt; tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' &quot;create url&quot;;\r\n  src -&gt; tgt.value = create('code') as value then {\r\n    src -&gt; value.value = 'masked' &quot;set masked&quot;;\r\n  } &quot;set valueCode&quot;;\r\n}\r\n\r\n</pre></div>"
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><pre>/// url = &quot;http://example.org/fhir/StructureMap/library&quot;\r\n/// name = &quot;library&quot;\r\n/// title = &quot;library&quot;\r\n/// status = &quot;draft&quot;\r\n\r\n// library\r\n\r\n// Library that implements basic copying of FHIR resources.\r\n// TODO Extensions copying is not implemented yet.\r\n// Copies ID and Metainformation\r\ngroup CopyBasic(source src, target tgt) {\r\n  src.id as id -&gt; tgt.id = id as tid &quot;copy ID&quot;;\r\n  src.meta as meta -&gt; tgt.meta = meta &quot;copy Meta&quot;;\r\n}\r\n\r\ngroup CopyIdentifier(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyClinicalStatus(source src : Identifier, target tgt : Identifier) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCodeableConcept(source src : CodeableConcept, target tgt : CodeableConcept) {\r\n  src.coding as coding -&gt; tgt.coding = create('Coding') as tcoding then CopyCoding(coding, tcoding) &quot;copy coding&quot;;\r\n}\r\n\r\ngroup CopyExtension(source src : Extension, target tgt : Extension) {\r\n  src.url as url -&gt; tgt.url = url &quot;copy url&quot;;\r\n  src.value as value -&gt; tgt.value = value as tvalue &quot;copy value&quot;;\r\n}\r\n\r\n// Unless overwritten it only copies data absent reason.\r\ngroup CopyValue(source src, target tgt) {\r\n  src.extension as extension where ($this.exists()) -&gt; tgt.extension as textension then CopyExtension(extension, textension) &quot;create extension&quot;;\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n}\r\n\r\ngroup CopyCoding(source src : coding, target tgt : coding) {\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n  src.version as version -&gt; tgt.version = version &quot;copy version&quot;;\r\n}\r\n\r\ngroup CopyQuantity(source src : Quantity, target tgt : Quantity) {\r\n  src.value as value -&gt; tgt.value = value &quot;copy value&quot;;\r\n  src.comparator as comparator -&gt; tgt.comparator = comparator &quot;copy comparator&quot;;\r\n  src.unit as unit -&gt; tgt.unit = unit &quot;copy unit&quot;;\r\n  src.system as system -&gt; tgt.system = system &quot;copy system&quot;;\r\n  src.code as code -&gt; tgt.code = code &quot;copy code&quot;;\r\n}\r\n\r\n// creates a DataAbsentReason extension with the value masked\r\ngroup DataAbsentReason(source src : Extension, target tgt : Extension) {\r\n  src -&gt; tgt.url = 'http://hl7.org/fhir/StructureDefinition/data-absent-reason' &quot;create url&quot;;\r\n  src -&gt; tgt.value = create('code') as value then {\r\n    src -&gt; value.value = 'masked' &quot;set masked&quot;;\r\n  } &quot;set valueCode&quot;;\r\n}\r\n\r\n</pre></div>"
   },
   "url": "http://example.org/fhir/StructureMap/library",
   "name": "library",
@@ -16,7 +16,7 @@
   "group": [ {
     "name": "CopyBasic",
     "typeMode": "none",
-    "documentation": "Copies ID and Metainformation",
+    "documentation": "Library that implements basic copying of FHIR resources.\r\nTODO Extensions copying is not implemented yet.\r\nCopies ID and Metainformation",
     "input": [ {
       "name": "src",
       "mode": "source"
@@ -35,6 +35,7 @@
         "context": "tgt",
         "contextType": "variable",
         "element": "id",
+        "variable": "tid",
         "transform": "copy",
         "parameter": [ {
           "valueId": "id"
@@ -160,7 +161,7 @@
       "mode": "target"
     } ],
     "rule": [ {
-      "name": "create Codeableconcept",
+      "name": "copy coding",
       "source": [ {
         "context": "src",
         "element": "coding",
@@ -208,6 +209,53 @@
         "parameter": [ {
           "valueId": "url"
         } ]
+      } ]
+    }, {
+      "name": "copy value",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "variable": "tvalue",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "value"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyValue",
+    "typeMode": "none",
+    "documentation": "Unless overwritten it only copies data absent reason.",
+    "input": [ {
+      "name": "src",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "create extension",
+      "source": [ {
+        "context": "src",
+        "element": "extension",
+        "variable": "extension",
+        "condition": "($this.exists())"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "extension",
+        "variable": "textension"
+      } ],
+      "dependent": [ {
+        "name": "CopyExtension",
+        "variable": [ "extension", "textension" ]
       } ]
     }, {
       "name": "copy value",

@@ -1,0 +1,417 @@
+{
+  "resourceType": "StructureMap",
+  "id": "example1",
+  "meta": {
+    "lastUpdated": "2024-05-28T12:53:22.336+00:00"
+  },
+  "text": {
+    "status": "generated",
+    "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\"><pre>/// url = &quot;http://example.org/fhir/StructureMap/example1&quot;\r\n/// name = &quot;Conditional Check&quot;\r\n/// title = &quot;Conditional Check&quot;\r\n/// status = &quot;draft&quot;\r\n\r\n// Conditional Check\r\n\r\nuses &quot;http://hl7.org/fhir/StructureDefinition/Bundle&quot; alias sourceBundle as source\r\nuses &quot;http://hl7.org/fhir/StructureDefinition/Bundle&quot; alias targetBundle as target\r\n\r\nimports &quot;http://example.org/fhir/StructureMap/library&quot;\r\n\r\ngroup CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {\r\n  src.resourceType as rt -&gt; tgt.resourceType = rt;\r\n  src.type as t -&gt; tgt.type = t;\r\n  // existance check not working properly yet see /Testdaten/VHF-Testdaten_01-VHF00002.json throws no error despite FHIR PATH evaluating to false\r\n  src.entry as sentry check (src.entry.resource.ofType(Condition).exists()) -&gt; tgt.entry as tentry then CopyEntry(sentry, tentry);\r\n}\r\n\r\ngroup CopyEntry(source src : Entry, target tgt : Entry) {\r\n  // where acts as a filter to apply the check only to the resources of the correct type.\r\n  src.resource as resource where ($this.ofType(Condition)) check ($this.code.coding.where(code = 'I95.0').exists()) -&gt; tgt.resource = create('Condition') as tresource then {\r\n    resource as resource -&gt; tresource as tresource then CopyCondition(resource, tresource) &quot;create Condition&quot;;\r\n    src.fullUrl as fullUrl -&gt; tgt.fullUrl = fullUrl;\r\n  } &quot;handle Condition&quot;;\r\n}\r\n\r\ngroup CopyObservation(source src : Observation, target tgt : Observation) {\r\n  src as src -&gt; tgt as tgt then CopyBasic(src, tgt) &quot;copy Basic&quot;;\r\n  src.identifier as identifier -&gt; tgt.identifier = create('Identifier') as tidentifier then CopyIdentifier(identifier, tidentifier) &quot;CopyObservation create Identifier&quot;;\r\n  src.code as code -&gt; tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) &quot;CopyObservation create Code&quot;;\r\n  src.effective as effective -&gt; tgt.effective = effective &quot;CopyObservation copy effective&quot;;\r\n  src.value as value where ($this.ofType(Quantity)) -&gt; tgt.value = create('Quantity') as quantity then CopyQuantity(value, quantity) &quot;CopyObservation create Quantity&quot;;\r\n  src.status as status -&gt; tgt.status = status &quot;copy status&quot;;\r\n  src.subject as subject -&gt; tgt.subject = subject &quot;copy subject&quot;;\r\n}\r\n\r\ngroup CopyCondition(source src : Condition, target tgt : Condition) {\r\n  src as src -&gt; tgt as tgt then CopyBasic(src, tgt) &quot;copy Basic&quot;;\r\n  src.identifier as identifier -&gt; tgt.identifier = create('Identifier') as tidentifier then CopyIdentifier(identifier, tidentifier) &quot;CopyCondition create Identifier&quot;;\r\n  src.clinicalStatus as clinicalStatus -&gt; tgt.clinicalStatus = create('CodeableConcept') as tclinicalStatus then CopyCodeableConcept(clinicalStatus, tclinicalStatus) &quot;CopyCondition create clinicalStatus&quot;;\r\n  src.code as code -&gt; tgt.code = create('CodeableConcept') as tcode then CopyCodeableConcept(code, tcode) &quot;create Code&quot;;\r\n  src.abatment as abatment -&gt; tgt.abatment = abatment;\r\n  src.onset as onset -&gt; tgt.onset = onset;\r\n}\r\n\r\n</pre></div>"
+  },
+  "url": "http://example.org/fhir/StructureMap/example1",
+  "name": "Conditional Check",
+  "title": "Conditional Check",
+  "status": "draft",
+  "description": "Conditional Check",
+  "structure": [ {
+    "url": "http://hl7.org/fhir/StructureDefinition/Bundle",
+    "mode": "source",
+    "alias": "sourceBundle"
+  }, {
+    "url": "http://hl7.org/fhir/StructureDefinition/Bundle",
+    "mode": "target",
+    "alias": "targetBundle"
+  } ],
+  "import": [ "http://example.org/fhir/StructureMap/library" ],
+  "group": [ {
+    "name": "CopyBundle",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "SourceBundle",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "TargetBundle",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "resourceType",
+      "source": [ {
+        "context": "src",
+        "element": "resourceType",
+        "variable": "rt"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "resourceType",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "rt"
+        } ]
+      } ]
+    }, {
+      "name": "type",
+      "source": [ {
+        "context": "src",
+        "element": "type",
+        "variable": "t"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "type",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "t"
+        } ]
+      } ]
+    }, {
+      "name": "entry",
+      "source": [ {
+        "context": "src",
+        "element": "entry",
+        "variable": "sentry",
+        "check": "(src.entry.resource.ofType(Condition).exists())"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "entry",
+        "variable": "tentry"
+      } ],
+      "dependent": [ {
+        "name": "CopyEntry",
+        "variable": [ "sentry", "tentry" ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyEntry",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Entry",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Entry",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "handle Condition",
+      "source": [ {
+        "context": "src",
+        "element": "resource",
+        "variable": "resource",
+        "condition": "($this.ofType(Condition))",
+        "check": "($this.code.coding.where(code = 'I95.0').exists())"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "resource",
+        "variable": "tresource",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "Condition"
+        } ]
+      } ],
+      "rule": [ {
+        "name": "create Condition",
+        "source": [ {
+          "context": "resource",
+          "variable": "resource"
+        } ],
+        "target": [ {
+          "context": "tresource",
+          "contextType": "variable",
+          "variable": "tresource"
+        } ],
+        "dependent": [ {
+          "name": "CopyCondition",
+          "variable": [ "resource", "tresource" ]
+        } ]
+      }, {
+        "name": "fullUrl",
+        "source": [ {
+          "context": "src",
+          "element": "fullUrl",
+          "variable": "fullUrl"
+        } ],
+        "target": [ {
+          "context": "tgt",
+          "contextType": "variable",
+          "element": "fullUrl",
+          "transform": "copy",
+          "parameter": [ {
+            "valueId": "fullUrl"
+          } ]
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyObservation",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Observation",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Observation",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy Basic",
+      "source": [ {
+        "context": "src",
+        "variable": "src"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "variable": "tgt"
+      } ],
+      "dependent": [ {
+        "name": "CopyBasic",
+        "variable": [ "src", "tgt" ]
+      } ]
+    }, {
+      "name": "CopyObservation create Identifier",
+      "source": [ {
+        "context": "src",
+        "element": "identifier",
+        "variable": "identifier"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "identifier",
+        "variable": "tidentifier",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "Identifier"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyIdentifier",
+        "variable": [ "identifier", "tidentifier" ]
+      } ]
+    }, {
+      "name": "CopyObservation create Code",
+      "source": [ {
+        "context": "src",
+        "element": "code",
+        "variable": "code"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "code",
+        "variable": "tcode",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "CodeableConcept"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyCodeableConcept",
+        "variable": [ "code", "tcode" ]
+      } ]
+    }, {
+      "name": "CopyObservation copy effective",
+      "source": [ {
+        "context": "src",
+        "element": "effective",
+        "variable": "effective"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "effective",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "effective"
+        } ]
+      } ]
+    }, {
+      "name": "CopyObservation create Quantity",
+      "source": [ {
+        "context": "src",
+        "element": "value",
+        "variable": "value",
+        "condition": "($this.ofType(Quantity))"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "value",
+        "variable": "quantity",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "Quantity"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyQuantity",
+        "variable": [ "value", "quantity" ]
+      } ]
+    }, {
+      "name": "copy status",
+      "source": [ {
+        "context": "src",
+        "element": "status",
+        "variable": "status"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "status",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "status"
+        } ]
+      } ]
+    }, {
+      "name": "copy subject",
+      "source": [ {
+        "context": "src",
+        "element": "subject",
+        "variable": "subject"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "subject",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "subject"
+        } ]
+      } ]
+    } ]
+  }, {
+    "name": "CopyCondition",
+    "typeMode": "none",
+    "input": [ {
+      "name": "src",
+      "type": "Condition",
+      "mode": "source"
+    }, {
+      "name": "tgt",
+      "type": "Condition",
+      "mode": "target"
+    } ],
+    "rule": [ {
+      "name": "copy Basic",
+      "source": [ {
+        "context": "src",
+        "variable": "src"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "variable": "tgt"
+      } ],
+      "dependent": [ {
+        "name": "CopyBasic",
+        "variable": [ "src", "tgt" ]
+      } ]
+    }, {
+      "name": "CopyCondition create Identifier",
+      "source": [ {
+        "context": "src",
+        "element": "identifier",
+        "variable": "identifier"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "identifier",
+        "variable": "tidentifier",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "Identifier"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyIdentifier",
+        "variable": [ "identifier", "tidentifier" ]
+      } ]
+    }, {
+      "name": "CopyCondition create clinicalStatus",
+      "source": [ {
+        "context": "src",
+        "element": "clinicalStatus",
+        "variable": "clinicalStatus"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "clinicalStatus",
+        "variable": "tclinicalStatus",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "CodeableConcept"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyCodeableConcept",
+        "variable": [ "clinicalStatus", "tclinicalStatus" ]
+      } ]
+    }, {
+      "name": "create Code",
+      "source": [ {
+        "context": "src",
+        "element": "code",
+        "variable": "code"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "code",
+        "variable": "tcode",
+        "transform": "create",
+        "parameter": [ {
+          "valueString": "CodeableConcept"
+        } ]
+      } ],
+      "dependent": [ {
+        "name": "CopyCodeableConcept",
+        "variable": [ "code", "tcode" ]
+      } ]
+    }, {
+      "name": "abatment",
+      "source": [ {
+        "context": "src",
+        "element": "abatment",
+        "variable": "abatment"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "abatment",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "abatment"
+        } ]
+      } ]
+    }, {
+      "name": "onset",
+      "source": [ {
+        "context": "src",
+        "element": "onset",
+        "variable": "onset"
+      } ],
+      "target": [ {
+        "context": "tgt",
+        "contextType": "variable",
+        "element": "onset",
+        "transform": "copy",
+        "parameter": [ {
+          "valueId": "onset"
+        } ]
+      } ]
+    } ]
+  } ]
+}

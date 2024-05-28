@@ -18,7 +18,8 @@ group CopyBundle(source src : SourceBundle, target tgt : TargetBundle) {
     src.type as t -> tgt.type = t;
     //existance check not working properly yet see /Testdaten/VHF-Testdaten_01-VHF00002.json throws no error despite FHIR PATH evaluating to false
     src.entry as sentry check(src.entry.resource.ofType(Condition).exists()) -> tgt.entry as tentry then  CopyEntry(sentry,tentry);
-       }
+       
+}
 
 
 group CopyEntry(source src : Entry, target tgt : Entry) {
@@ -27,7 +28,7 @@ group CopyEntry(source src : Entry, target tgt : Entry) {
     src.resource as resource where($this.ofType(Condition)) check($this.code.coding.where(code = 'I95.0').exists()) -> tgt.resource = create('Condition') as tresource then{
         resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
         src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
-    } "handle condition";
+    } "handle Condition";
     
 }
 

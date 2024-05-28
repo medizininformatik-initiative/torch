@@ -1,9 +1,10 @@
-/// url = 'http://example.org/fhir/StructureMap/example2'
-/// name = 'Conditional Check'
-/// title = 'Conditional Check'
+/// url = 'http://example.org/fhir/StructureMap/example3'
+/// name = 'Copying Extensions Example'
+/// title = 'Copying Extensions Example'
 
 /*
-Example that masks the quantity value of a observation
+Example how to copy data absent reason extensions from one resource to another.
+Copies the extension on ID from \Testdaten\VHF-Testdaten_01-VHF00001_withExtensions.json
 */
 
 
@@ -25,13 +26,13 @@ group CopyEntry(source src : Entry, target tgt : Entry) {
     src.resource as resource where($this.ofType(Condition)) -> tgt.resource = create('Condition') as tresource then{
         resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
         src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
-    } "handle condition";
+    } "handle Condition";
 
     
     src.resource as resource where($this.ofType(Observation)) -> tgt.resource = create('Observation') as tresource then{
         resource as resource -> tresource as tresource then CopyCondition(resource, tresource) "create Condition" ;
         src.fullUrl as fullUrl -> tgt.fullUrl = fullUrl;
-    } "handle condition";
+    } "handle Observation";
     
 }
 
@@ -58,72 +59,26 @@ group CopyCondition(source src : Condition, target tgt : Condition) {
 
 
 
+
 group CopyQuantity(source src :Quantity, target tgt :Quantity) {
-    src.code as code -> tgt.code = code "copy code";
-    //src -> tgt.value as tvalue, tvalue.extension as extension then DataAbsentReason(src, extension) "absent value";
     src.value as value -> tgt.value = value "copy value";
+    src.comparator as comparator -> tgt.comparator = comparator "copy comparator";
     src.unit as unit -> tgt.unit= unit "copy unit";
     src.system as system -> tgt.system = system "copy system";
+    src.code as code -> tgt.code = code "copy code";
 }
 
+// Copies ID and Metainformation
+group CopyBasic(source src , target tgt ) {
+    src.id as id -> tgt.id = create('string') as tid then CopyValue(id,tid) "copy ID";
+    src.meta as meta -> tgt.meta = meta  "copy Meta";
+ }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+ 
+ /*Overwrites the function in the library to copy the extension, but is functionally the same. 
+ Included for demonstration purposes.
+ */
+ group CopyValue(source src, target tgt){
+    src.extension as extension where($this.exists() and $this.url='http://terminology.hl7.org/CodeSystem/data-absent-reason') -> tgt.extension as textension then CopyExtension(extension, textension)'create extension'; 
+    src.value as value -> tgt.value = value  "copy value";
+}
