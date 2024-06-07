@@ -3,17 +3,20 @@ package de.medizininformatikinitiative.util;
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.*;
 
+import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.Map;
 
+import static de.medizininformatikinitiative.util.Reflector.getClassForDataType;
+
 public class BluePrint {
     private final FhirContext ctx;
-    private Map<String, ElementInfo> elementInfoMap = new HashMap<>();
+    private Map<String, BluePrintElement> elementInfoMap = new HashMap<>();
     DomainResource resource;
 
 
 
-
+    Factory factory = new Factory();
 
 
     public BluePrint(FhirContext ctx, StructureDefinition structureDefinition) {
@@ -42,15 +45,15 @@ public class BluePrint {
 
 
             String path = element.getPath();
-            ElementInfo elementInfo = new ElementInfo();
+            BluePrintElement elementInfo = new BluePrintElement();
             elementInfo.path = path;
             elementInfo.dataType = element.getType().isEmpty() ? "N/A" : element.getType().get(0).getWorkingCode();
             elementInfo.extensions = element.getExtension();
             elementInfo.minCardinality = element.getMin();
 
+
             elementInfoMap.put(path, elementInfo);
 
-            System.out.println("Path: " + path + " Min: " + element.getMin() + " Type: " + elementInfo.dataType);
 
 
 
@@ -60,34 +63,26 @@ public class BluePrint {
           Problem is that classnames and typenames are not neccessarily equivalent.
           E.g. URI has Type uri but class is called "URIType".
           */
-
-          /*
           if(element.getMin() > 0 ){
                 System.out.println("Path: "+path+" Min: "+element.getMin()+" Type: "+elementInfo.dataType);
                 String[] pathArray = path.split("\\.");
-                try {
-                    Class<?> clazz = Class.forName("org.hl7.fhir.r4.model." + elementInfo.dataType);
-                    System.out.println("ClassName "+"org.hl7.fhir.r4.model." + elementInfo.dataType+"clazz result "+clazz.getName());
-                    System.out.println("Constructors "+clazz.getConstructors().toString());
-                    //Element required = (Element) clazz.getDeclaredConstructor().newInstance();
-                    //resource.setProperty(path,required.addExtension(masked));
-                } catch (ClassNotFoundException //| NoSuchMethodException | InstantiationException |IllegalAccessException | InvocationTargetException
-                 e) {
-                    throw new RuntimeException(e);
-                }
+                Element required = factory.create(elementInfo.dataType);
+                required.addExtension(masked);
+                //resource.setProperty(path,required.addExtension(masked));
 
 
-            }*/
+
+            }
         }
     }
 
-    public  Map<String, ElementInfo> getElementInfoMap() {
+    public  Map<String, BluePrintElement> getElementInfoMap() {
         return elementInfoMap;
     }
 
     // Print ElementInfoMap
     public void printElementInfoMap() {
-        for (Map.Entry<String, ElementInfo> entry : elementInfoMap.entrySet()) {
+        for (Map.Entry<String, BluePrintElement> entry : elementInfoMap.entrySet()) {
             System.out.println(entry.getKey() + ": " + entry.getValue());
         }
     }

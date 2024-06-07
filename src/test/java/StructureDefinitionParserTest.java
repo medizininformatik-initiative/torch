@@ -1,4 +1,4 @@
-import de.medizininformatikinitiative.util.ElementInfo;
+import de.medizininformatikinitiative.util.BluePrintElement;
 import de.medizininformatikinitiative.StructureDefinitionParser;
 import de.medizininformatikinitiative.util.FhirExtensionsUtil;
 import de.medizininformatikinitiative.util.BluePrint;
@@ -32,6 +32,9 @@ public class StructureDefinitionParserTest {
     public StructureDefinitionParserTest() {
         try {
             parser.readStructureDefinition("src/test/resources/StructureDefinition-mii-pr-person-patient.json");
+            parser.readStructureDefinition("src/test/resources/Profile-DiagnosticReportLab.json");
+            parser.readStructureDefinition("src/test/resources/Profile-ObservationLab.json");
+            parser.readStructureDefinition("src/test/resources/Profile-ServiceRequestLab.json");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -43,19 +46,19 @@ public class StructureDefinitionParserTest {
     public void testElementMap() {
 
         // Retrieve the element info map from the resource creation
-        Map<String, ElementInfo> elementInfoMap = min.getElementInfoMap();
+        Map<String, BluePrintElement> elementInfoMap = min.getElementInfoMap();
 
         // Verify that the element info map contains expected entries
         assertNotNull(elementInfoMap, "Element info map should not be null");
         assertFalse(elementInfoMap.isEmpty(), "Element info map should not be empty");
 
         // Verify specific elements
-        ElementInfo identifierInfo = elementInfoMap.get("Patient.identifier");
+        BluePrintElement identifierInfo = elementInfoMap.get("Patient.identifier");
         assertNotNull(identifierInfo, "Identifier info should not be null");
         assertEquals("Patient.identifier", identifierInfo.path, "Path should match");
         assertEquals("Identifier", identifierInfo.dataType, "Data type should match");
 
-        ElementInfo nameInfo = elementInfoMap.get("Patient.name");
+        BluePrintElement nameInfo = elementInfoMap.get("Patient.name");
         assertNotNull(nameInfo, "Name info should not be null");
         assertEquals("Patient.name", nameInfo.path, "Path should match");
         assertEquals("HumanName", nameInfo.dataType, "Data type should match");
@@ -66,6 +69,12 @@ public class StructureDefinitionParserTest {
 
     @Test
     public void testCreateMinimalResource() {
+
+        /*
+        parse resource from file
+
+
+         */
 
             // Check that the resource is a Patient
             assertEquals("Patient", resource.getResourceType().name());
