@@ -23,9 +23,6 @@ public class StructureDefinitionParserTest {
 
     private StructureDefinitionParser parser = new StructureDefinitionParser();
 
-    private BluePrint min;
-
-    private   DomainResource resource;
 
 
 
@@ -38,13 +35,14 @@ public class StructureDefinitionParserTest {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        min = parser.resourceMap.get("https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient");
-        resource=min.getResource();
+
     }
 
     @Test
     public void testElementMap() {
+        BluePrint min = parser.resourceMap.get("https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient");
 
+        DomainResource resource=min.getResource();
         // Retrieve the element info map from the resource creation
         Map<String, BluePrintElement> elementInfoMap = min.getElementInfoMap();
 
@@ -75,13 +73,14 @@ public class StructureDefinitionParserTest {
 
 
          */
+        BluePrint min = parser.resourceMap.get("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
+
+        DomainResource resource=min.getResource();
 
             // Check that the resource is a Patient
-            assertEquals("Patient", resource.getResourceType().name());
-            Address address =  new Address();
-            address.setProperty("city", new StringType("test").addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
+            assertEquals("DiagnosticReport", resource.getResourceType().name());
 
-        resource.setProperty("address",address);
+            resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
             resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
 
             // Check that the resource is a Patient
