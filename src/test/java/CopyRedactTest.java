@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-public class StructureDefinitionParserTest {
+public class CopyRedactTest {
 
 
 
@@ -27,7 +27,7 @@ public class StructureDefinitionParserTest {
     private IParser parser;
 
     private FhirContext ctx;
-    public StructureDefinitionParserTest() {
+    public CopyRedactTest() {
         ctx=FhirContext.forR4();
         parser = ctx.newJsonParser();
         CDS= new CDSStructureDefinitionHandler();
@@ -49,12 +49,10 @@ public class StructureDefinitionParserTest {
 
 
     @Test
-    public void testCreateMinimalResource() {
+    public void testManualOperations() {
 
         /*
         parse resource from file
-
-
          */
         StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
 
@@ -65,7 +63,7 @@ public class StructureDefinitionParserTest {
         try {
             resource = resourceClass.getDeclaredConstructor().newInstance();
             // Check that the resource is a Patient
-            assertEquals("DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
+            assertEquals("InputResources/DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
             resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
             resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
 
