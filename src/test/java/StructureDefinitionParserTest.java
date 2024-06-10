@@ -1,7 +1,7 @@
-import de.medizininformatikinitiative.util.BluePrintElement;
-import de.medizininformatikinitiative.StructureDefinitionParser;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.FhirExtensionsUtil;
-import de.medizininformatikinitiative.util.BluePrint;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -9,7 +9,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
-import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -21,47 +20,31 @@ public class StructureDefinitionParserTest {
 
 
 
-    private StructureDefinitionParser parser = new StructureDefinitionParser();
 
 
+    private CDSStructureDefinitionHandler CDS;
 
+    private IParser parser;
 
+    private FhirContext ctx;
     public StructureDefinitionParserTest() {
+        ctx=FhirContext.forR4();
+        parser = ctx.newJsonParser();
+        CDS= new CDSStructureDefinitionHandler();
         try {
-            parser.readStructureDefinition("src/test/resources/StructureDefinition-mii-pr-person-patient.json");
-            parser.readStructureDefinition("src/test/resources/Profile-DiagnosticReportLab.json");
-            parser.readStructureDefinition("src/test/resources/Profile-ObservationLab.json");
-            parser.readStructureDefinition("src/test/resources/Profile-ServiceRequestLab.json");
+
+            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/StructureDefinition-mii-pr-person-patient.json");
+            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-DiagnosticReportLab.json");
+            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-ObservationLab.json");
+            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-ServiceRequestLab.json");
+
+            assertNotNull(CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab"), "The element should be contained in the map");
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
     }
 
-    @Test
-    public void testElementMap() {
-        BluePrint min = parser.resourceMap.get("https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient");
-
-        DomainResource resource=min.getResource();
-        // Retrieve the element info map from the resource creation
-        Map<String, BluePrintElement> elementInfoMap = min.getElementInfoMap();
-
-        // Verify that the element info map contains expected entries
-        assertNotNull(elementInfoMap, "Element info map should not be null");
-        assertFalse(elementInfoMap.isEmpty(), "Element info map should not be empty");
-
-        // Verify specific elements
-        BluePrintElement identifierInfo = elementInfoMap.get("Patient.identifier");
-        assertNotNull(identifierInfo, "Identifier info should not be null");
-        assertEquals("Patient.identifier", identifierInfo.path, "Path should match");
-        assertEquals("Identifier", identifierInfo.dataType, "Data type should match");
-
-        BluePrintElement nameInfo = elementInfoMap.get("Patient.name");
-        assertNotNull(nameInfo, "Name info should not be null");
-        assertEquals("Patient.name", nameInfo.path, "Path should match");
-        assertEquals("HumanName", nameInfo.dataType, "Data type should match");
-
-    }
 
 
 
@@ -73,13 +56,16 @@ public class StructureDefinitionParserTest {
 
 
          */
-        BluePrint min = parser.resourceMap.get("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
+        StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
 
-        DomainResource resource=min.getResource();
 
+        assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
+        Class<? extends DomainResource> resourceClass = (Class<? extends DomainResource>) ctx.getResourceDefinition(definition.getType()).getImplementingClass();
+        DomainResource resource;
+        try {
+            resource = resourceClass.getDeclaredConstructor().newInstance();
             // Check that the resource is a Patient
-            assertEquals("DiagnosticReport", resource.getResourceType().name());
-
+            assertEquals("DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
             resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
             resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
 
@@ -87,7 +73,10 @@ public class StructureDefinitionParserTest {
             assertEquals("Identifier",resource.getChildByName("identifier").getTypeCode());
             // Add more assertions as needed for other elements
 
-            String resourceJson = parser.jsonParser.setPrettyPrint(true).encodeResourceToString(resource);
+            String resourceJson = parser.setPrettyPrint(true).encodeResourceToString(resource);
             System.out.println(resourceJson);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }

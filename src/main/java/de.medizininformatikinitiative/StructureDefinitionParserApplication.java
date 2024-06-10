@@ -19,7 +19,7 @@ public class StructureDefinitionParserApplication {
     }
 
     @Bean
-    public CommandLineRunner commandLineRunner(StructureDefinitionParser parser) {
+    public CommandLineRunner commandLineRunner(CDSStructureDefinitionHandler parser) {
         return args -> parser.run();
     }
 }
