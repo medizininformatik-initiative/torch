@@ -1,0 +1,34 @@
+{
+  "resourceType": "Observation",
+  "id": "example-sliced",
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "29463-7",
+        "display": "Body weight"
+      }
+    ],
+    "text": "Body weight"
+  },
+  "subject": {
+    "reference": "Patient/example"
+  },
+  "effectiveDateTime": "2023-06-01T12:00:00Z",
+  "effectivePeriod": {
+    "start": "2023-05-01T00:00:00Z",
+    "end": "2023-05-31T23:59:59Z"
+  },
+  "valueQuantity": {
+    "value": 70,
+    "unit": "kg",
+    "system": "http://unitsofmeasure.org",
+    "code": "kg"
+  },
+  "meta": {
+    "profile": [
+      "http://hl7.org/fhir/StructureDefinition/Observation"
+    ]
+  }
+}

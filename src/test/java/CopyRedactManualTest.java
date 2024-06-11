@@ -12,17 +12,19 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-public class CopyRedactTest {
+public class CopyRedactManualTest {
 
 
 
@@ -35,7 +37,7 @@ public class CopyRedactTest {
     private IParser parser;
 
     private FhirContext ctx;
-    public CopyRedactTest() {
+    public CopyRedactManualTest() {
         ctx=FhirContext.forR4();
         parser = ctx.newJsonParser();
         CDS= new CDSStructureDefinitionHandler();
@@ -68,6 +70,7 @@ public class CopyRedactTest {
         ElementDefinition coding = elementMap.get("DiagnosticReport.code.coding");
         assertNotNull(coding, "The element should be contained in the snapshot");
 
+
         List <Attribute > attributeList =  new ArrayList<>();
         attributeList.add(new Attribute("DiagnosticReport.code.coding",true));
         AttributeGroup attributeGroup = null;
@@ -80,25 +83,23 @@ public class CopyRedactTest {
 
 
 
-        HashMap<String, AttributeGroup> AttributeGroups=new HashMap<>();;
+        HashMap<String, AttributeGroup> AttributeGroups=new HashMap<>();
         AttributeGroups.put("DiagnosticReport",attributeGroup);
         CopyRedactExecutor executor = new CopyRedactExecutor(CDS, AttributeGroups);
         try {
             DomainResource resource = executor.readResource("src/test/resources/InputResources/DiagnosticReport/Example-MI-Initative-Laborprofile-Laborbefund.json");
-            //String resourceJson = parser.setPrettyPrint(true).encodeResourceToString(resource);
-            //System.out.println(resourceJson);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
 
 
-        /*
-        try {
+
             Class<? extends DomainResource> resourceClass = (Class<? extends DomainResource>) ctx.getResourceDefinition(definition.getType()).getImplementingClass();
             DomainResource resource;
+        try {
             resource = resourceClass.getDeclaredConstructor().newInstance();
-            // Check that the resource is a Diagnostic Report
+        // Check that the resource is a Diagnostic Report
             assertEquals("DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
             resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
             resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
@@ -107,13 +108,11 @@ public class CopyRedactTest {
             // Add more assertions as needed for other elements
 
 
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-         */
+    } catch (Exception e) {
+        e.printStackTrace();
     }
+
+        }
 
     @Test
     public void testDiagnosis() {
