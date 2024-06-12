@@ -22,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-public class CopyRedactTest {
+public class CDSTest {
 
 
 
@@ -35,7 +35,7 @@ public class CopyRedactTest {
     private IParser parser;
 
     private FhirContext ctx;
-    public CopyRedactTest() {
+    public CDSTest() {
         ctx=FhirContext.forR4();
         parser = ctx.newJsonParser();
         CDS= new CDSStructureDefinitionHandler();
@@ -64,8 +64,8 @@ public class CopyRedactTest {
         StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
         assertNotNull(definition, "The element should be contained in the map");
         assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
-        HashMap<String, ElementDefinition> elementMap = CDS.getElementMap("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
-        ElementDefinition coding = elementMap.get("DiagnosticReport.code.coding");
+        StructureDefinition.StructureDefinitionSnapshotComponent elementMap = CDS.getSnapshot("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
+        ElementDefinition coding = elementMap.getElementByPath("DiagnosticReport.code.coding");
         assertNotNull(coding, "The element should be contained in the snapshot");
 
         List <Attribute > attributeList =  new ArrayList<>();
@@ -85,34 +85,10 @@ public class CopyRedactTest {
         CopyRedactExecutor executor = new CopyRedactExecutor(CDS, AttributeGroups);
         try {
             DomainResource resource = executor.readResource("src/test/resources/InputResources/DiagnosticReport/Example-MI-Initative-Laborprofile-Laborbefund.json");
-            //String resourceJson = parser.setPrettyPrint(true).encodeResourceToString(resource);
-            //System.out.println(resourceJson);
+
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
-
-        /*
-        try {
-            Class<? extends DomainResource> resourceClass = (Class<? extends DomainResource>) ctx.getResourceDefinition(definition.getType()).getImplementingClass();
-            DomainResource resource;
-            resource = resourceClass.getDeclaredConstructor().newInstance();
-            // Check that the resource is a Diagnostic Report
-            assertEquals("DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
-            resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
-            resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
-
-            assertEquals("Identifier",resource.getChildByName("identifier").getTypeCode());
-            // Add more assertions as needed for other elements
-
-
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-         */
     }
 
     @Test
@@ -132,14 +108,15 @@ public class CopyRedactTest {
             resource = resourceClass.getDeclaredConstructor().newInstance();
             // Check that the resource is a Diagnostic Report
             assertEquals("Condition", definition.getType(), "Resource type should be Condition");
-            resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
+            //resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
             resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
 
             assertEquals("Identifier",resource.getChildByName("identifier").getTypeCode());
             // Add more assertions as needed for other elements
-    /*
+
             String resourceJson = parser.setPrettyPrint(true).encodeResourceToString(resource);
-            System.out.println(resourceJson);*/
+            System.out.println(resourceJson);
+
         } catch (Exception e) {
             e.printStackTrace();
         }

@@ -5,6 +5,8 @@ import de.medizininformatikinitiative.CopyRedactExecutor;
 import de.medizininformatikinitiative.util.CRTDL.Attribute;
 import de.medizininformatikinitiative.util.CRTDL.AttributeGroup;
 import de.medizininformatikinitiative.util.FhirExtensionsUtil;
+import de.medizininformatikinitiative.util.Redaction;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -57,68 +59,11 @@ public class CopyRedactManualTest {
 
 
 
-
     @Test
-    public void testDiagnosticReport() {
-        /*
-        parse CDS from file
-         */
-        StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
-        assertNotNull(definition, "The element should be contained in the map");
-        assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
-        HashMap<String, ElementDefinition> elementMap = CDS.getElementMap("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab");
-        ElementDefinition coding = elementMap.get("DiagnosticReport.code.coding");
-        assertNotNull(coding, "The element should be contained in the snapshot");
+    public void testManualCopyOnDiagnosis() {
 
+        //parse CDS from file
 
-        List <Attribute > attributeList =  new ArrayList<>();
-        attributeList.add(new Attribute("DiagnosticReport.code.coding",true));
-        AttributeGroup attributeGroup = null;
-        try {
-            attributeGroup = new AttributeGroup(new URL("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab"));
-        } catch (MalformedURLException e) {
-            throw new RuntimeException(e);
-        }
-        attributeGroup.setAttributes(attributeList);
-
-
-
-        HashMap<String, AttributeGroup> AttributeGroups=new HashMap<>();
-        AttributeGroups.put("DiagnosticReport",attributeGroup);
-        CopyRedactExecutor executor = new CopyRedactExecutor(CDS, AttributeGroups);
-        try {
-            DomainResource resource = executor.readResource("src/test/resources/InputResources/DiagnosticReport/Example-MI-Initative-Laborprofile-Laborbefund.json");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-
-
-
-            Class<? extends DomainResource> resourceClass = (Class<? extends DomainResource>) ctx.getResourceDefinition(definition.getType()).getImplementingClass();
-            DomainResource resource;
-        try {
-            resource = resourceClass.getDeclaredConstructor().newInstance();
-        // Check that the resource is a Diagnostic Report
-            assertEquals("DiagnosticReport", definition.getType(), "Resource type should be DiagnosticReport");
-            resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
-            resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
-
-            assertEquals("Identifier",resource.getChildByName("identifier").getTypeCode());
-            // Add more assertions as needed for other elements
-
-
-    } catch (Exception e) {
-        e.printStackTrace();
-    }
-
-        }
-
-    @Test
-    public void testDiagnosis() {
-        /*
-        parse CDS from file
-         */
         StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
         assertNotNull(definition, "The element should be contained in the map");
 
@@ -131,17 +76,80 @@ public class CopyRedactManualTest {
             resource = resourceClass.getDeclaredConstructor().newInstance();
             // Check that the resource is a Diagnostic Report
             assertEquals("Condition", definition.getType(), "Resource type should be Condition");
-            resource.setProperty("code",new CodeableConcept().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
-            resource.setProperty("identifier",new Identifier().addExtension(FhirExtensionsUtil.createAbsentReasonExtension("masked")));
+            resource.setProperty("code",new CodeableConcept().setId("Test"));
+            resource.setId("TestID");
+            resource.setMeta(new Meta().addProfile("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"));
+            //resource.setProperty("identifier",new Identifier().setValue("Testing ID321"));
+            resource.setProperty("subject",new Reference().setReference("Patient/123"));
+            resource.setProperty("onset[x]",new DateTimeType("2024-10"));
+
+            DomainResource copyDestination = resourceClass.getDeclaredConstructor().newInstance();
+
+
+
 
             assertEquals("Identifier",resource.getChildByName("identifier").getTypeCode());
+
+            System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resource));
+
+            String TestString="{\n" +
+                    "  \"resourceType\": \"Condition\",\n" +
+                    "  \"id\": \"mii-exa-diagnose-condition-minimal\",\n" +
+                    "  \"meta\": {\n" +
+                    "    \"profile\": [\n" +
+                    "      \"https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose\"\n" +
+                    "    ]\n" +
+                    "  },\n" +
+                    "  \"clinicalStatus\": {\n" +
+                    "    \"coding\": [\n" +
+                    "      {\n" +
+                    "        \"code\": \"active\",\n" +
+                    "        \"system\": \"http://terminology.hl7.org/CodeSystem/condition-clinical\"\n" +
+                    "      }\n" +
+                    "    ]\n" +
+                    "  },\n" +
+                    "  \"code\": {\n" +
+                    "    \"coding\": [\n" +
+                    "      {\n" +
+                    "        \"system\": \"http://fhir.de/CodeSystem/bfarm/icd-10-gm\",\n" +
+                    "        \"display\": \"Prellung des Ellenbogens\"\n" +
+                    "      },\n" +
+                    "      {\n" +
+                    "        \"code\": \"91613004\",\n" +
+                    "        \"system\": \"http://snomed.info/sct\",\n" +
+                    "        \"version\": \"http://snomed.info/sct/900000000000207008/version/20230731\",\n" +
+                    "        \"display\": \"Contusion of elbow (disorder)\"\n" +
+                    "      }\n" +
+                    "    ],\n" +
+                    "    \"text\": \"Prellung des linken Ellenbogens\"\n" +
+                    "  },\n" +
+                    "  \"subject\": {\n" +
+                    "    \"reference\": \"Patient/12345\"\n" +
+                    "  },\n" +
+                    "  \"encounter\": {\n" +
+                    "    \"reference\": \"Encounter/12345\"\n" +
+                    "  },\n" +
+                    "  \"onsetPeriod\": {\n" +
+                    "    \"end\": \"2020-03-05T13:00:00+01:00\"\n" +
+                    "  }"+
+                    "}\n";
+
+            Redaction redaction = new Redaction(CDS);
+            resource= (DomainResource) redaction.redact(resource,"",1);
             // Add more assertions as needed for other elements
-    /*
-            String resourceJson = parser.setPrettyPrint(true).encodeResourceToString(resource);
-            System.out.println(resourceJson);*/
+            resource = (DomainResource) parser.parseResource(TestString);
+            resource= (DomainResource) redaction.redact(resource,"",1);
+
+            System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resource));
+
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+
+
+
+
+
 }
 
