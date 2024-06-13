@@ -1,10 +1,10 @@
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.CopyRedactExecutor;
 import de.medizininformatikinitiative.util.CRTDL.Attribute;
 import de.medizininformatikinitiative.util.CRTDL.AttributeGroup;
 import de.medizininformatikinitiative.util.FhirExtensionsUtil;
+import de.medizininformatikinitiative.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -82,9 +82,9 @@ public class CDSTest {
 
         HashMap<String, AttributeGroup> AttributeGroups=new HashMap<>();;
         AttributeGroups.put("DiagnosticReport",attributeGroup);
-        CopyRedactExecutor executor = new CopyRedactExecutor(CDS, AttributeGroups);
+
         try {
-            DomainResource resource = executor.readResource("src/test/resources/InputResources/DiagnosticReport/Example-MI-Initative-Laborprofile-Laborbefund.json");
+            DomainResource resource = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/DiagnosticReport/Example-MI-Initative-Laborprofile-Laborbefund.json");
 
         } catch (IOException e) {
             throw new RuntimeException(e);

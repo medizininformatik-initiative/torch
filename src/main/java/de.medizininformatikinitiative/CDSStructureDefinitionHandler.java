@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative;
 
+import de.medizininformatikinitiative.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.stereotype.Component;
 import ca.uhn.fhir.context.FhirContext;
@@ -38,7 +39,7 @@ public class CDSStructureDefinitionHandler {
             throw new IOException(e);
         }
 
-        StructureDefinition structureDefinition = jsonParser.parseResource(StructureDefinition.class, fileReader);
+        StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(),structureDefinition);
 
     }
