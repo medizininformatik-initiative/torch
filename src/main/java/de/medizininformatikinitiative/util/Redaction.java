@@ -57,14 +57,16 @@ public class Redaction {
             String childID = finalElementID + "." + child.getName();
             //System.out.println("Element ID "+childID+" recursion "+ finalRecursion);
             ElementDefinition childDefinition = null;
+            String type ="";
             try {
                 //System.out.println("Found Snapshot "+childID);
                 childDefinition = snapshot.getElementById(childID);
+                type = childDefinition.getType().get(0).getWorkingCode();
             } catch (NullPointerException e) {
                 try {
                     childDefinition = child.getStructure().getSnapshot().getElementById(child.getName());
                     childID = child.getName();
-
+                    type = childDefinition.getType().get(0).getWorkingCode();
                     //System.out.println("Fallback Snapshot "+childID);
                 } catch (NullPointerException ex) {
                     // System.out.println("No Definition Found "+childID);
@@ -83,11 +85,12 @@ public class Redaction {
                 //System.out.println(" Value to be handled " + childDefinition.getName() + " Min " + childDefinition.getMin());
 
                 if (childDefinition.getMin() > 0 && value.isEmpty()) {
-                    Element element = factory.create(value.fhirType()).addExtension(createAbsentReasonExtension("masked"));
+                    System.out.println("Redacted Child ");
+                    Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     //System.out.println("Redacted Element " + element + " " + element.isEmpty());
                     base.setProperty(child.getName(), element);
                 } else if (!value.isPrimitive()) {
-                    //System.out.println("Recursive Child  " + childID + " value" + value.fhirType() + " Child name " + child.getName() + " Base Name " + base.fhirType());
+                    System.out.println("Recursive Child  " + childID + " value" + value.fhirType() + " Child name " + child.getName() + " Base Name " + base.fhirType());
 
                     base.setProperty(child.getName(), redact(value, childID, finalRecursion));
                 } else {
@@ -99,14 +102,15 @@ public class Redaction {
                 //}
             } else {
                 if (childDefinition != null && childDefinition.getMin() > 0 && child.getTypeCode() != "Extension") {
-                    //System.out.println("To be Set to AbsentReasons " + definition.getName() + "TypeCode" + child.getTypeCode());
-                    Element element = factory.create(child.getTypeCode()).addExtension(createAbsentReasonExtension("masked"));
+
+                    System.out.println("To be Set to AbsentReasons " + child.getName() + " TypeCode " + child.getTypeCode());
+                    Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);
 
                     //System.out.println("Required Child ID " + childID);
                 } else if (child.getMinCardinality() > 0) {
-                    //System.out.println("Required Child  " + child.getName());
-                    Element element = factory.create(child.getTypeCode()).addExtension(createAbsentReasonExtension("masked"));
+                    System.out.println("Required Child  " + child.getName());
+                    Element element = factory.create(childDefinition.fhirType()).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);
                 }
             }
