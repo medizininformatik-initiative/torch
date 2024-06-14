@@ -53,45 +53,25 @@ public class Redaction {
         }
         //System.out.println("Element ID "+elementID+" recursion "+recursion);
 
-        String finalElementID = elementID;
+
         //System.out.println("ID Base "+base.getIdBase());
 
         ElementDefinition definition = snapshot.getElementById(elementID);
-        //TODO: Handle Slicing
 
 
         //System.out.println("Definition " + definition.getPath() + " Slicing " + definition.hasSlicing() + " Constraining " + definition.getSliceIsConstraining());
-
+        //TODO: Handle Slicing
         if (definition.hasSlicing()) {
             System.out.println("Definition " + definition.getPath() + " Slicing " + definition.hasSlicing() + " Constraining " + definition.getSliceIsConstraining());
-            /*ElementDefinition.ElementDefinitionSlicingComponent slicing = definition.getSlicing();
-
-            List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicing.getDiscriminator();
-            slicing.children().forEach(child -> {
-                System.out.println("Slicing Child " + child.getName() + " Type " + child.getTypeCode());
-                        child.getValues().forEach(values->{
-                            System.out.println("Discriminator Child Value "+values);
-                        });
-            });
-            slicingDiscriminator.forEach(discriminator -> {
-                System.out.println( " Path " + discriminator.getPathElement().getValue());
-                
-                discriminator.children().forEach(child -> {
-                    if (child.hasValues()) {
-                        System.out.println("Discriminator Child " + child.getName() + " Type " + child.getTypeCode());
-                        child.getValues().forEach(values->{
-                            System.out.println("Discriminator Child Value "+values);
-                        });
-                    }
-                    
-                });
-
-            });*/
             Slicing slicing = new Slicing(CDS);
-            slicing.checkSlicing(base, elementID, structureDefinition);
+            ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+            if(slicedElement.hasId()){
+                elementID=slicedElement.getIdElement().toString();
+            }
         }
 
         int finalRecursion = recursion;
+        String finalElementID = elementID;
         base.children().forEach(child -> {
             //System.out.println("TypeCode"+child.getTypeCode());
             String childID = finalElementID + "." + child.getName();
