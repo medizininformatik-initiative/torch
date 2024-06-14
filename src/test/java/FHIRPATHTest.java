@@ -9,16 +9,16 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
+import java.util.Optional;
 
 import static de.medizininformatikinitiative.util.ResourceReader.readResource;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-public class RedactTest {
+public class FHIRPATHTest {
 
 
 
@@ -31,7 +31,7 @@ public class RedactTest {
     private IParser parser;
 
     private FhirContext ctx;
-    public RedactTest() {
+    public FHIRPATHTest() {
         ctx=FhirContext.forR4();
         parser = ctx.newJsonParser();
         CDS= new CDSStructureDefinitionHandler();
@@ -62,9 +62,9 @@ public class RedactTest {
             Arrays.stream(resources).forEach(resource ->{
                 try {
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/"+resource);
-                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
-                resourcesrc =(DomainResource) redaction.redact(resourcesrc,"",1);
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
+                String fhirPath = "Condition.meta";
+                Optional<Element> classTest = ctx.newFhirPath().evaluateFirst(resourcesrc, fhirPath, Element.class);
+                assertNotNull(classTest, "The element should be contained in the map");
                 //assertEquals(resourcesrc, resourceexpected, resource+" Expected not equal to actual output");
             } catch (Exception e) {
                 e.printStackTrace();

@@ -1,0 +1,21 @@
+{
+  "resourceType": "Condition",
+  "id": "TestID",
+  "meta": {
+    "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+  },
+  "code": {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        } ]
+
+  },
+  "subject": {
+    "extension": [ {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "masked"
+    } ]
+  },
+  "onsetDateTime": "2024-10"
+}
