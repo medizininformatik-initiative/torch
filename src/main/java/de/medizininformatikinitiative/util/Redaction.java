@@ -62,24 +62,25 @@ public class Redaction {
         //System.out.println("Definition " + definition.getPath() + " Slicing " + definition.hasSlicing() + " Constraining " + definition.getSliceIsConstraining());
         //TODO: Handle Slicing
         if (definition.hasSlicing()) {
-            System.out.println("Definition " + definition.getPath() + " Slicing " + definition.hasSlicing() + " Constraining " + definition.getSliceIsConstraining());
-            Slicing slicing = new Slicing(CDS);
+              Slicing slicing = new Slicing(CDS);
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if(slicedElement.hasId()){
                 elementID=slicedElement.getIdElement().toString();
+                System.out.println("Found Slicing " + slicedElement.getPath() + " Element "+elementID);
+
             }
         }
 
         int finalRecursion = recursion;
         String finalElementID = elementID;
         base.children().forEach(child -> {
-            //System.out.println("TypeCode"+child.getTypeCode());
+            System.out.println("TypeCode"+child.getTypeCode());
             String childID = finalElementID + "." + child.getName();
-            //System.out.println("Element ID "+childID+" recursion "+ finalRecursion);
+            System.out.println("Element ID "+childID+" recursion "+ finalRecursion);
             ElementDefinition childDefinition = null;
             String type = "";
             try {
-                //System.out.println("Found Snapshot "+childID);
+                System.out.println("Found Snapshot "+childID);
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().get(0).getWorkingCode();
             } catch (NullPointerException e) {
@@ -93,20 +94,16 @@ public class Redaction {
                 }
             }
 
-            //System.out.println(" Value to be handled "+child.getName()+" Min "+child.getMinCardinality());
+            System.out.println(" Value to be handled "+child.getName()+" Min "+child.getMinCardinality());
             if (child.hasValues() && childDefinition != null) {
                 childrenEmpty.set(false);
-                //System.out.println("HasValue Child  " + childID);
+                System.out.println("HasValue Child  " + childID);
                 //List<Base> values = child.getValues();
                 //for(Base value:values){
                 Base value = child.getValues().get(0);
-
-                //System.out.println("Child " + childID + " has Pattern " + childDefinition.getFixedOrPattern());
-
-
                 if (childDefinition.getMin() > 0 && value.isEmpty()) {
                     Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
-                    //System.out.println("Redacted Element " + element + " " + element.isEmpty());
+                    System.out.println("Redacted Element " + element + " " + element.isEmpty());
                     base.setProperty(child.getName(), element);
                 } else if (!value.isPrimitive()) {
                     //System.out.println("Recursive Child  " + childID + " value" + value.fhirType() + " Child name " + child.getName() + " Base Name " + base.fhirType());
@@ -114,7 +111,7 @@ public class Redaction {
                     base.setProperty(child.getName(), redact(value, childID, finalRecursion));
                 } else {
 
-                  //  System.out.println("Primitive Value " + value.fhirType() + "  Empty " + value.isEmpty() + " " + value.isPrimitive());
+                    System.out.println("Primitive Value " + value.fhirType() + "  Empty " + value.isEmpty() + " " + value.isPrimitive());
                 }
 
 
@@ -122,7 +119,7 @@ public class Redaction {
             } else {
                 if (childDefinition != null && childDefinition.getMin() > 0 && child.getTypeCode() != "Extension") {
 
-                    //System.out.println("To be Set to AbsentReasons " + child.getName() + " TypeCode " + child.getTypeCode());
+                    System.out.println("To be Set to AbsentReasons " + child.getName() + " TypeCode " + child.getTypeCode());
                     Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);
 

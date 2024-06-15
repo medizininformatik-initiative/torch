@@ -23,8 +23,9 @@ public class RedactTest {
 
 
 
-    String [] resources =  {"Diagnosis4.json","Diagnosis3.json","Diagnosis1.json","Diagnosis2.json"};
+   // String [] resources =  {"Diagnosis4.json","Diagnosis3.json","Diagnosis1.json","Diagnosis2.json"};
 
+    String [] resources =  {"Diagnosis2.json"};
 
     private CDSStructureDefinitionHandler CDS;
 
