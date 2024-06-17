@@ -8,7 +8,7 @@ public class DiscriminatorResolver {
 
 
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice,String discriminator,String Path,StructureDefinition.StructureDefinitionSnapshotComponent snapshot){
-        System.out.println("Discriminator "+discriminator);
+        //System.out.println("Discriminator "+discriminator);
         return switch (discriminator) {
             case "exists" -> false;
             case "null" -> false;
@@ -62,11 +62,11 @@ public class DiscriminatorResolver {
         //System.out.println("Resolving Type"+path);
         if(path.equalsIgnoreCase("$this")){
             //no wandering needed
-            System.out.println("Base FHIR TYPE"+base.fhirType());
+            //System.out.println("Base FHIR TYPE"+base.fhirType());
 
-            System.out.println("Slice Type "+slice.getType().get(0).getWorkingCode());
+            //System.out.println("Slice Type "+slice.getType().get(0).getWorkingCode());
             if(base.fhirType().equalsIgnoreCase(slice.getType().get(0).getWorkingCode())) {
-                System.out.println("Type  Matched"+slice.getType().get(0).getWorkingCode()+" "+base.fhirType());
+                //System.out.println("Type  Matched"+slice.getType().get(0).getWorkingCode()+" "+base.fhirType());
                 return true;
             }
 

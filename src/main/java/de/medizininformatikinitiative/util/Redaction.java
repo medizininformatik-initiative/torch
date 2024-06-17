@@ -51,10 +51,7 @@ public class Redaction {
 
 
         }
-        //System.out.println("Element ID "+elementID+" recursion "+recursion);
 
-
-        //System.out.println("ID Base "+base.getIdBase());
 
         ElementDefinition definition = snapshot.getElementById(elementID);
 
@@ -106,7 +103,7 @@ public class Redaction {
                     System.out.println("Redacted Element " + element + " " + element.isEmpty());
                     base.setProperty(child.getName(), element);
                 } else if (!value.isPrimitive()) {
-                    //System.out.println("Recursive Child  " + childID + " value" + value.fhirType() + " Child name " + child.getName() + " Base Name " + base.fhirType());
+                    System.out.println("Recursive Child  " + childID + " value" + value.fhirType() + " Child name " + child.getName() + " Base Name " + base.fhirType());
 
                     base.setProperty(child.getName(), redact(value, childID, finalRecursion));
                 } else {

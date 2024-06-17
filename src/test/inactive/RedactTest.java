@@ -65,8 +65,8 @@ public class RedactTest {
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/"+resource);
                 DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
                 resourcesrc =(DomainResource) redaction.redact(resourcesrc,"",1);
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
-                //assertEquals(resourcesrc, resourceexpected, resource+" Expected not equal to actual output");
+                //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
+                assertEquals(resourcesrc, resourceexpected, resource+" Expected not equal to actual output");
             } catch (Exception e) {
                 e.printStackTrace();
             }
