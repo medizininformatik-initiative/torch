@@ -5,6 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
+import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
@@ -16,12 +17,12 @@ public class ResourceReader {
     public static IParser jsonParser = ctx.newJsonParser();
 
     public static Resource readResource(String path) throws IOException {
-        FileReader fileReader = null;
+        FileInputStream fis=null;
         try {
-            fileReader = new FileReader(path);
+            fis = new FileInputStream(path);
         } catch (FileNotFoundException e) {
             throw new IOException(e);
         }
-        return (Resource) jsonParser.parseResource(fileReader);
+        return (Resource) jsonParser.parseResource(fis);
     }
 }

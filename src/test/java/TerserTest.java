@@ -1,12 +1,11 @@
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.util.TerserUtil;
+import ca.uhn.fhir.util.TerserUtilHelper;
 import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.CRTDL.Attribute;
 import de.medizininformatikinitiative.util.ElementCopier;
-import de.medizininformatikinitiative.util.Redaction;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -15,16 +14,18 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 
+import static ca.uhn.fhir.util.TerserUtilHelper.newHelper;
 import static de.medizininformatikinitiative.util.ResourceReader.readResource;
 import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(SpringExtension.class)
 @SpringBootTest
-public class CopyTest {
+public class TerserTest {
 
 
-    String[] resources = {"Diagnosis1.json", "Diagnosis2.json","DiagnosisWithExtensionAtCode.json"};
+    String[] resources = {"Diagnosis1.json", "Diagnosis2.json"};
 
 
     private CDSStructureDefinitionHandler CDS;
@@ -33,7 +34,7 @@ public class CopyTest {
 
     private FhirContext ctx;
 
-    public CopyTest() {
+    public TerserTest() {
         ctx = FhirContext.forR4();
         parser = ctx.newJsonParser();
         CDS = new CDSStructureDefinitionHandler(ctx);
@@ -56,44 +57,40 @@ public class CopyTest {
 
 
     @Test
-    public void testDiagnosis() {
-        ElementCopier copier = new ElementCopier(CDS);
+    public void testCondition() {
 
-        Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/" + resource);
-                Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
-                DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-                copier.copy(resourcesrc, tgt, new Attribute("Condition.code.coding", false));
-                //copier.copy(resourcesrc, tgt, new Attribute("Condition.meta", true));
-                //copier.copy(resourcesrc, tgt, new Attribute("Condition.id", true));
-                //copier.copy(resourcesrc, tgt, new Attribute("Condition.code.extension", false));
-
+                Condition tgt = new Condition();
+                Coding coding = new Coding().setSystem("Test1");
+                Coding coding2 = new Coding().setSystem("Test2");
+                //TerserUtil.setFieldByFhirPath(ctx, "code.coding", tgt, coding);
+                TerserUtilHelper helper =  newHelper(ctx,tgt);
+                helper.setField("code","codeableConcept", coding);
+                helper.setField("code","codeableConcept", coding2);
                 assertNotNull(tgt);
-                //assertTrue(tgt.getNamedProperty("code").getValues().get(0).getNamedProperty("coding").hasValues(), resource + " Expected not equal to actual output");
+                List<Element> elements = ctx.newFhirPath().evaluate(tgt, "Condition.code.coding", Element.class);
+                System.out.println("Elements: "+elements.size());
                 System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
-                //parser.encodeToWriter(tgt,new FileWriter("src/test/resources/RedactTest/Output/" + resource));
             } catch (Exception e) {
                 e.printStackTrace();
             }
 
-        });
+
 
 
     }
-
-
     @Test
-    public void testObservation() {
-        ElementCopier copier = new ElementCopier(CDS);
+    public void testObservation(){
         try {
-            DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte.json");
-            Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
-            DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-            copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
-            copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
-            copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
+            Observation tgt = new Observation();
+            Quantity low = new Quantity(12.0);
+            //TerserUtil.setFieldByFhirPath(ctx, "code.coding", tgt, coding);
+            TerserUtilHelper helper =  newHelper(ctx,tgt);
+            //helper.setField("referenceRange.low","Quantity", low);
+            TerserUtil.setFieldByFhirPath(ctx, "Observation.referenceRange.low", tgt, low);
             assertNotNull(tgt);
+            List<Element> elements = ctx.newFhirPath().evaluate(tgt, "referenceRange.low", Element.class);
+            System.out.println("Elements: "+elements.size());
             System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
             e.printStackTrace();
@@ -101,6 +98,7 @@ public class CopyTest {
 
 
     }
+
 
 
 }

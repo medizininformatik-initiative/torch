@@ -84,6 +84,7 @@ public class Redaction {
                 try {
                     childDefinition = child.getStructure().getSnapshot().getElementById(child.getName());
                     childID = child.getName();
+                    //For redaction we can be greedy and take the first type
                     type = childDefinition.getType().get(0).getWorkingCode();
                     //System.out.println("Fallback Snapshot "+childID);
                 } catch (NullPointerException ex) {

@@ -17,19 +17,17 @@ public class CDSStructureDefinitionHandler {
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    public FhirContext ctx= FhirContext.forR4();;
+    public FhirContext ctx;
 
-    public IParser jsonParser = ctx.newJsonParser();
+    public IParser jsonParser;
 
-
-    public void run() {
-        try {
-
-            readStructureDefinition( "src/test/resources/patient-structure-definition.json");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public CDSStructureDefinitionHandler(FhirContext ctx) {
+        this.ctx = ctx;
+        this.jsonParser = ctx.newJsonParser();
     }
+
+
+
 
     public void readStructureDefinition(String filePath) throws IOException {
         FileReader fileReader = null;
@@ -41,6 +39,7 @@ public class CDSStructureDefinitionHandler {
 
         StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(),structureDefinition);
+
 
     }
 
