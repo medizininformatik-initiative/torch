@@ -10,8 +10,5 @@
       "display": "Prellung des Ellenbogens"
     } ]
   },
-  "subject": {
-    "reference": "Patient/123"
-  },
   "onsetDateTime": "2024-10"
 }

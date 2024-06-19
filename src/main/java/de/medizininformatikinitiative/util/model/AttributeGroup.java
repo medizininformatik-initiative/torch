@@ -1,11 +1,16 @@
-package de.medizininformatikinitiative.util.CRTDL;
+package de.medizininformatikinitiative.util.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.util.CRTDL.AttributeGroup;
+import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AttributeGroup {
+
+
+    // No-argument constructor
+    public AttributeGroup() {
+    }
     @JsonProperty("groupReference")
     private String groupReference;
 
@@ -16,4 +21,27 @@ public class AttributeGroup {
     private List<Filter> filter;
 
     // Getters and Setters
+    public String getGroupReference() {
+        return groupReference;
+    }
+
+    public void setGroupReference(String groupReference) {
+        this.groupReference = groupReference;
+    }
+
+    public List<Attribute> getAttributes() {
+        return attributes;
+    }
+
+    public void setAttributes(List<Attribute> attributes) {
+        this.attributes = attributes;
+    }
+
+    public List<Filter> getFilter() {
+        return filter;
+    }
+
+    public void setFilter(List<Filter> filter) {
+        this.filter = filter;
+    }
 }

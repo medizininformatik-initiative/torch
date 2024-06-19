@@ -23,10 +23,6 @@ public class RedactTest {
 
 
 
-   // String [] resources =  {"Diagnosis4.json","Diagnosis3.json","Diagnosis1.json","Diagnosis2.json"};
-
-    String [] resources =  {"Diagnosis1.json","Diagnosis2.json"};
-
     private CDSStructureDefinitionHandler CDS;
 
     private IParser parser;
@@ -60,13 +56,17 @@ public class RedactTest {
 
             Redaction redaction = new Redaction(CDS);
 
+
+            // String [] resources =  {"Diagnosis4.json","Diagnosis3.json","Diagnosis1.json","Diagnosis2.json"};
+
+            String [] resources =  {"Diagnosis1.json","Diagnosis2.json"};
+
             Arrays.stream(resources).forEach(resource ->{
                 try {
-                DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/"+resource);
+
+                DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Condition/"+resource);
                 DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
                 resourcesrc =(DomainResource) redaction.redact(resourcesrc,"",1);
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected));
                 assertTrue(resourcesrc.equalsDeep(resourceexpected),resource+" Expected not equal to actual output");
             } catch (Exception e) {
                 e.printStackTrace();

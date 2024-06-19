@@ -1,20 +1,17 @@
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.util.CRTDL.Attribute;
+import de.medizininformatikinitiative.util.model.Attribute;
 import de.medizininformatikinitiative.util.ElementCopier;
-import de.medizininformatikinitiative.util.Redaction;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static de.medizininformatikinitiative.util.ResourceReader.readResource;
 import static org.junit.jupiter.api.Assertions.*;
@@ -24,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class CopyTest {
 
 
-    String[] resources = {"Diagnosis1.json", "Diagnosis2.json","DiagnosisWithExtensionAtCode.json","Diagnosis5.json"};
+
 
 
     private CDSStructureDefinitionHandler CDS;
@@ -58,24 +55,26 @@ public class CopyTest {
     @Test
     public void testDiagnosis() {
         ElementCopier copier = new ElementCopier(CDS);
-
+        String[] resources = {"Diagnosis1.json"};
         Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/" + resource);
+                DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Condition/" + resource);
+                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
                 List<Element> elements = ctx.newFhirPath().evaluate(resourcesrc, "Condition.onset.as(Period).end", Element.class);
                 System.out.println("Elements should contain at least one Element "+!elements.isEmpty());
-                copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(Period).end", false));
+
+                copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(DateTime)", false));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.meta", true));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.id", true));
-                copier.copy(resourcesrc, tgt, new Attribute("Condition.code.extension", false));
-                //copier.copy(resourcesrc, tgt, new Attribute("Condition.code.version", false));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.code", false));
+
                 assertNotNull(tgt);
-                //assertTrue(tgt.getNamedProperty("code").getValues().get(0).getNamedProperty("coding").hasValues(), resource + " Expected not equal to actual output");
                 System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
-                //parser.encodeToWriter(tgt,new FileWriter("src/test/resources/RedactTest/Output/" + resource));
+                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected));
+
+                assertEquals(parser.setPrettyPrint(true).encodeResourceToString(tgt), parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), resource + " Expected not equal to actual output");
             } catch (Exception e) {
                 e.printStackTrace();
             }

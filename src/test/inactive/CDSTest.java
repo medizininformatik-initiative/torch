@@ -1,8 +1,8 @@
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.util.CRTDL.Attribute;
-import de.medizininformatikinitiative.util.CRTDL.AttributeGroup;
+import de.medizininformatikinitiative.util.model.Attribute;
+import de.medizininformatikinitiative.util.model.AttributeGroup;
 import de.medizininformatikinitiative.util.FhirExtensionsUtil;
 import de.medizininformatikinitiative.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
