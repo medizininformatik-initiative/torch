@@ -29,7 +29,7 @@
         "_version": {
           "extension": [
             {
-              "url": "http://hl7.org/fhir/StructureDefinition/illegal-in-Ressource",
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
               "valueCode": "masked"
             }
           ]
