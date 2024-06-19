@@ -1,6 +1,6 @@
 {
   "resourceType": "Condition",
-  "id": "TestID",
+  "id": "Diagnose1",
   "meta": {
     "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
   },
@@ -19,26 +19,17 @@
           "valueCode": "masked"
         } ]
       },
-      "display": "Prellung des Ellenbogens",
-      "_userSelected": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      }
-    } ],
-    "_text": {
-      "extension": [ {
-        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-        "valueCode": "masked"
-      } ]
-    }
+      "display": "Prellung des Ellenbogens"
+    } ]
   },
   "subject": {
+    "reference": "Patient/123"
+  },
+  "onsetDateTime": "2024-10",
+  "_recordedDate": {
     "extension": [ {
       "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
       "valueCode": "masked"
     } ]
-  },
-  "onsetDateTime": "2024-10"
+  }
 }

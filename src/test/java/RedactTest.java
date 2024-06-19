@@ -25,7 +25,7 @@ public class RedactTest {
 
    // String [] resources =  {"Diagnosis4.json","Diagnosis3.json","Diagnosis1.json","Diagnosis2.json"};
 
-    String [] resources =  {"Diagnosis2.json"};
+    String [] resources =  {"Diagnosis1.json","Diagnosis2.json"};
 
     private CDSStructureDefinitionHandler CDS;
 
@@ -35,7 +35,7 @@ public class RedactTest {
     public RedactTest() {
         ctx=FhirContext.forR4();
         parser = ctx.newJsonParser();
-        CDS= new CDSStructureDefinitionHandler();
+        CDS= new CDSStructureDefinitionHandler(ctx);
         try {
 
             CDS.readStructureDefinition("src/test/resources/StructureDefinitions/StructureDefinition-mii-pr-person-patient.json");
@@ -58,15 +58,16 @@ public class RedactTest {
     @Test
     public void testDiagnosis() {
 
-        Redaction redaction = new Redaction(CDS);
+            Redaction redaction = new Redaction(CDS);
 
             Arrays.stream(resources).forEach(resource ->{
                 try {
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/RedactTest/Input/"+resource);
                 DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
                 resourcesrc =(DomainResource) redaction.redact(resourcesrc,"",1);
-                //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
-                assertEquals(resourcesrc, resourceexpected, resource+" Expected not equal to actual output");
+                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourcesrc));
+                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected));
+                assertTrue(resourcesrc.equalsDeep(resourceexpected),resource+" Expected not equal to actual output");
             } catch (Exception e) {
                 e.printStackTrace();
             }

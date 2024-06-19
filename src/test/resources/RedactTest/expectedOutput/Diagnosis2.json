@@ -1,6 +1,6 @@
 {
   "resourceType": "Condition",
-  "id": "mii-exa-diagnose-condition-minimal",
+  "id": "Diagnose2",
   "meta": {
     "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
   },
@@ -11,7 +11,7 @@
     } ]
   },
   "code": {
-    "coding": [{
+    "coding": [ {
       "system": "http://snomed.info/sct",
       "version": "http://snomed.info/sct/900000000000207008/version/20230731",
       "code": "91613004",
@@ -30,26 +30,23 @@
           "valueCode": "masked"
         } ]
       },
-      "display": "Prellung des Ellenbogens",
-      "_userSelected": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      }
+      "display": "Prellung des Ellenbogens"
     } ],
     "text": "Prellung des linken Ellenbogens"
   },
   "subject": {
-    "extension": [ {
-      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-      "valueCode": "masked"
-    } ]
+    "reference": "Patient/12345"
   },
   "encounter": {
     "reference": "Encounter/12345"
   },
   "onsetPeriod": {
     "end": "2020-03-05T13:00:00+01:00"
+  },
+  "_recordedDate": {
+    "extension": [ {
+      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+      "valueCode": "masked"
+    } ]
   }
 }

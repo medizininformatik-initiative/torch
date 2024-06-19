@@ -21,18 +21,22 @@ import static de.medizininformatikinitiative.util.CopyUtils.reflectListSetter;
 
 public class ElementCopier {
 
-    private static final FhirContext ctx = FhirContext.forR4();
-    private static final IParser parser = ctx.newJsonParser().setPrettyPrint(true);
+    private  final FhirContext ctx;
+    private  final IParser parser;
 
     private static final ElementFactory factory = new ElementFactory();
 
     CDSStructureDefinitionHandler handler;
 
-    Slicing slicing = new Slicing(handler);
+    Slicing slicing;
 
 
     public ElementCopier(CDSStructureDefinitionHandler handler) {
         this.handler = handler;
+        this.ctx = handler.ctx;
+        this.parser = ctx.newJsonParser().setPrettyPrint(true);
+        this.slicing= new Slicing(handler);
+
     }
 
 

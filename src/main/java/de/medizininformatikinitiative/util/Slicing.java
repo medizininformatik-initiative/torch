@@ -17,13 +17,15 @@ import static de.medizininformatikinitiative.util.DiscriminatorResolver.resolveD
 
 public class Slicing {
 
-    private static final FhirContext ctx = FhirContext.forR4();
-    private static final IParser parser = ctx.newJsonParser().setPrettyPrint(true);
+    private FhirContext ctx;
+    private IParser parser;
 
     CDSStructureDefinitionHandler handler;
 
     public Slicing(CDSStructureDefinitionHandler handler) {
         this.handler = handler;
+        this.ctx = handler.ctx;
+        parser = ctx.newJsonParser().setPrettyPrint(true);
     }
 
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
