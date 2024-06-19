@@ -7,13 +7,14 @@ import ca.uhn.fhir.util.TerserUtilHelper;
 import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.CRTDL.Attribute;
 import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
-import org.hl7.fhir.instance.model.api.IBase;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.*;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
+import java.util.Objects;
 
 import static de.medizininformatikinitiative.util.CopyUtils.getElementName;
 import static de.medizininformatikinitiative.util.CopyUtils.reflectListSetter;
@@ -27,6 +28,8 @@ public class ElementCopier {
 
     CDSStructureDefinitionHandler handler;
 
+    Slicing slicing = new Slicing(handler);
+
 
     public ElementCopier(CDSStructureDefinitionHandler handler) {
         this.handler = handler;
@@ -36,12 +39,22 @@ public class ElementCopier {
     public DomainResource copy(DomainResource src, DomainResource tgt, Attribute attribute) throws mustHaveViolatedException {
         CanonicalType profileurl = src.getMeta().getProfile().get(0);
         StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
+        //List<StringType> legalExtensions = ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(path + '|' + type.profile +'|'+ sliceName)", StringType.class);
+        List<String> legalExtensions = new LinkedList<>();
+        ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(type.profile +'') ", StringType.class).forEach(stringType -> legalExtensions.add(stringType.getValue()));
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
 
         System.out.println("TGT set " + tgt.getClass());
-        List<Element> elements = ctx.newFhirPath().evaluate(src, attribute.AttributeRef, Element.class);
-        //TODO: Check for Extensions
+        System.out.println("Attribute FHIR PATH" + attribute.AttributeRef);
+        List<Base> elements = ctx.newFhirPath().evaluate(src, attribute.AttributeRef, Base.class);
+        //TODO Check Extensions on Element Level
+        elements.forEach(element -> {
+            if (element instanceof Element) {
+                checkExtensions(attribute.AttributeRef, legalExtensions, (Element) element, structureDefinition);
+            }
+        });
         if (elements.isEmpty()) {
             System.out.println("Elements Empty");
             if (attribute.mustHave) {
@@ -49,18 +62,20 @@ public class ElementCopier {
 
             }
         } else {
+            String shorthandFHIRPATH = (attribute.AttributeRef).replace(".as(", "").replace(")", "");
+
             DomainResource finalTgt = tgt;
             if (elements.size() == 1) {
                 System.out.println("1 Element" + elements.get(0).fhirType());
-                TerserUtil.setFieldByFhirPath(ctx.newTerser(), attribute.AttributeRef, finalTgt, elements.get(0));
+                TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, finalTgt, elements.get(0));
             } else {
                 //Assume branching before element
                 System.out.println("Multiple Elements " + elements.size());
                 int endIndex = attribute.AttributeRef.lastIndexOf(".");
-                System.out.println("Endindex "+endIndex);
+                System.out.println("Endindex " + endIndex);
                 if (endIndex != -1) {
-                    String ParentPath = attribute.AttributeRef.substring(0, endIndex); // not forgot to put check if(endIndex != -1)
-                    System.out.println("ParentPATH "+ParentPath);
+                    String ParentPath = shorthandFHIRPATH.substring(0, endIndex); // not forgot to put check if(endIndex != -1)
+                    System.out.println("ParentPATH " + ParentPath);
                     String type = snapshot.getElementByPath(ParentPath).getType().get(0).getWorkingCode();
                     elements.forEach(element -> {
                         helper.setField(ParentPath, type, element);
@@ -68,11 +83,18 @@ public class ElementCopier {
                 }
 
 
-
-
-
             }
 
+
+/*
+            try {
+                copyInit(attribute, tgt, elements, snapshot);
+            } catch (InvocationTargetException e) {
+                throw new RuntimeException(e);
+            } catch (IllegalAccessException e) {
+                throw new RuntimeException(e);
+            }
+*/
             return tgt;
         }
 
@@ -80,20 +102,40 @@ public class ElementCopier {
 
     }
 
-    public Element checkExtensions(Attribute attribute, Element element, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+    public void checkExtensions(String path, List<String> legalExtensions, Element element, StructureDefinition structureDefinition) {
 
         if (element.hasExtension()) {
+            //TODO get Slicing and handle it properly
             List<Extension> extensions = element.getExtension();
+            List urlToBeRemoved = new LinkedList();
+            extensions.forEach(extension -> {
+                        String extensionURL=extension.getUrl();
+                        System.out.println("Extension " +extensionURL );
+                        if (!Objects.equals(extensionURL, "http://hl7.org/fhir/StructureDefinition/data-absent-reason")) {
+                            if (!legalExtensions.contains(extensionURL)) {
+                                System.out.println("Illegal Extensions Found " + extension.getUrl());
+                                urlToBeRemoved.add(extension.getUrl());
+                            }
+                        }
+                    }
+            );
 
-            for (Extension extension : extensions) {
-                if (extension.getUrl().equals(attribute.AttributeRef)) {
-                    return element;
-                }
-            }
+            urlToBeRemoved.forEach(url -> element.removeExtension((String) url));
         }
-        return element;
-    }
+        element.children().
+                forEach(child ->
+                        {
+                            String childpath = path + "." + child.getName();
+                            child.getValues().forEach(value -> {
+                                if (value instanceof Element) {
+                                    checkExtensions(childpath, legalExtensions, (Element) value, structureDefinition);
+                                }
+                            });
+                        }
+                );
 
+
+    }
 
 
     public DomainResource copyInit(Attribute attribute, Resource tgt, List<Element> elements, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws InvocationTargetException, IllegalAccessException {
@@ -114,15 +156,15 @@ public class ElementCopier {
             list = true;
         }
         if (index == IDparts.length - 1) {
-            //System.out.println("Parent "+parent.getClass());
+
             //Reached Element
             if (list) {
                 Method listMethod = reflectListSetter(parent.getClass(), childname);
                 listMethod.invoke(parent, elements);
             }
 
-            Base returnvalue = parent.setProperty(childname, elements.get(0));
-            //System.out.println("Returnvalue "+returnvalue.getClass());
+            parent.setProperty(childname, elements.get(0));
+
             return parent;
         } else {
             System.out.println("Path " + path + " Childname " + childname + " Index " + index);

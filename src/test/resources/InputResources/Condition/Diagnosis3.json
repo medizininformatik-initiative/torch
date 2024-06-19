@@ -1,0 +1,8 @@
+{
+  "resourceType": "Condition",
+  "id": "Diagnose3",
+  "meta": {
+    "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+  },
+  "onsetDateTime": "2024-10"
+}

@@ -35,6 +35,12 @@
         </dependency>
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-validation-resources-r4</artifactId>
+            <version>${Hapi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-validation</artifactId>
             <version>${Hapi.version}</version>
         </dependency>

@@ -10,12 +10,15 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 
 @Component
 public class CDSStructureDefinitionHandler {
 
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
+
+    private HashMap<String, HashMap<String,String>> extensionsMap = new HashMap<>();
 
     public FhirContext ctx;
 
@@ -39,8 +42,6 @@ public class CDSStructureDefinitionHandler {
 
         StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(),structureDefinition);
-
-
     }
 
     public IParser getJsonParser() {
