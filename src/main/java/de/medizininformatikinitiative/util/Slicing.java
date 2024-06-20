@@ -22,12 +22,24 @@ public class Slicing {
 
     CDSStructureDefinitionHandler handler;
 
+    /**
+     * Constructor for Slicing
+     *
+     * @param handler CDSStructureDefinitionHandler
+     */
     public Slicing(CDSStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
         parser = ctx.newJsonParser().setPrettyPrint(true);
     }
 
+    /**
+     * Checks if the given element is a sliced element and returns the sliced element.
+     * @param base
+     * @param elementID
+     * @param structureDefinition
+     * @return
+     */
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(new ElementDefinition());
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
@@ -48,6 +60,15 @@ public class Slicing {
     return returnElement.get();
     }
 
+
+    /**
+     * Checks the condition for the given sliced element
+     * @param base
+     * @param sliced
+     * @param element
+     * @param structureDefinition
+     * @return
+     */
     public boolean checkCondition(Base base, ElementDefinition sliced, ElementDefinition element,StructureDefinition structureDefinition) {
         ElementDefinition.ElementDefinitionSlicingComponent slicingComponent = sliced.getSlicing();
         AtomicReference<Boolean> result= new AtomicReference<>(false);

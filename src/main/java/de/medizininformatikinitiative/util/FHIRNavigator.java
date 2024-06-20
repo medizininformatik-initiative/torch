@@ -17,6 +17,13 @@ public class FHIRNavigator {
         fhirContext = FhirContext.forR4();
     }
 
+    /**
+     * Navigates to the element with the given ID in the given resource.
+     * TODO: Use for more involved navigation.
+     * @param resource  The resource to navigate.
+     * @param elementId The ID of the element to navigate to.
+     * @return The navigated element, or null if the path is invalid.
+     */
     public Base navigateToElement(Resource resource, String elementId) {
         // Split the elementId into parts using the dot as a delimiter
         String[] pathParts = elementId.split("\\.");

@@ -30,13 +30,29 @@ public class CRTDLTest {
 
 
     @Test
-    public void testCRTDL() {
+    public void testCondition() {
         try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_diagnosis_withoutCCDL.json"))) {
             Root root = objectMapper.readValue(fis, Root.class);
             assertNotNull(root);
             Attribute attribute1 = root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
             assertEquals("Condition.code",attribute1.getAttributeRef());
             assertEquals(false,attribute1.isMustHave());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+
+    }
+
+
+    @Test
+    public void testObservation() {
+        try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_observation.json"))) {
+            Root root = objectMapper.readValue(fis, Root.class);
+            assertNotNull(root);
+            Attribute attribute2 = root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(1);
+            assertEquals("Observation.value",attribute2.getAttributeRef());
+            assertEquals(true,attribute2.isMustHave());
         } catch (Exception e) {
             e.printStackTrace();
         }

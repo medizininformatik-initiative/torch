@@ -13,12 +13,14 @@ import java.util.HashMap;
 import java.util.List;
 
 @Component
+
+
 public class CDSStructureDefinitionHandler {
 
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    private HashMap<String, HashMap<String,String>> extensionsMap = new HashMap<>();
+    private HashMap<String, HashMap<String, String>> extensionsMap = new HashMap<>();
 
     public FhirContext ctx;
 
@@ -30,8 +32,12 @@ public class CDSStructureDefinitionHandler {
     }
 
 
-
-
+    /**
+     * Reads a StructureDefinition from a file and stores it in the definitionsMap
+     *
+     * @param filePath
+     * @throws IOException
+     */
     public void readStructureDefinition(String filePath) throws IOException {
         FileReader fileReader = null;
         try {
@@ -41,19 +47,29 @@ public class CDSStructureDefinitionHandler {
         }
 
         StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
-        definitionsMap.put(structureDefinition.getUrl(),structureDefinition);
+        definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
     }
 
+    /**
+     * Returns HAPI JSON Parser
+     */
     public IParser getJsonParser() {
         return jsonParser;
     }
 
-    public StructureDefinition getDefinition(String url){
-        return definitionsMap.get(url);
-
+    /**
+     * Returns the StructureDefinition with the given URL
+     * TODO Advanced Version handling?
+     *
+     * @param url
+     * @return StructureDefinition
+     */
+    public StructureDefinition getDefinition(String url) {
+        String[] versionsplit = url.split("\\|");
+        return definitionsMap.get(versionsplit[0]);
     }
 
-    public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url){
+    public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         return (definitionsMap.get(url)).getSnapshot();
 
     }

@@ -62,17 +62,14 @@ public class CopyTest {
                 DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-                List<Element> elements = ctx.newFhirPath().evaluate(resourcesrc, "Condition.onset.as(Period).end", Element.class);
-                System.out.println("Elements should contain at least one Element "+!elements.isEmpty());
-
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(DateTime)", false));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.meta", true));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.id", true));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.code", false));
 
                 assertNotNull(tgt);
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
-                System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected));
+                //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+                //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected));
 
                 assertEquals(parser.setPrettyPrint(true).encodeResourceToString(tgt), parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), resource + " Expected not equal to actual output");
             } catch (Exception e) {
@@ -80,8 +77,6 @@ public class CopyTest {
             }
 
         });
-
-
     }
 
 
@@ -92,13 +87,12 @@ public class CopyTest {
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-            System.out.println("resourcesrc Class"+resourcesrc.getClass());
             List<Base> elements = ctx.newFhirPath().evaluate(resourcesrc, "Observation.value.as(Quantity)", Base.class);
             copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
             copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
             copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
             assertNotNull(tgt);
-            System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+           // System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
             e.printStackTrace();
         }

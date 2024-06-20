@@ -6,9 +6,7 @@ import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition.StructureDefinitionSnapshotComponent;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.medizininformatikinitiative.util.FhirExtensionsUtil.createAbsentReasonExtension;
@@ -28,6 +26,11 @@ public class Redaction {
     private CDSStructureDefinitionHandler CDS;
 
 
+    /**
+     * Constructor for Redaction
+     *
+     * @param CDS CDSStructureDefinitionHandler
+     */
     public Redaction(CDSStructureDefinitionHandler CDS) {
         this.CDS = CDS;
         ctx=CDS.ctx;
@@ -35,16 +38,28 @@ public class Redaction {
         factory = new Factory();
     }
 
+
+    /**
+     * Executes redaction operation on the given base element recursively.
+     * @param base
+     * @param elementID
+     * @param recursion
+     * @return
+     */
     public Base redact(Base base, String elementID, int recursion) {
         AtomicBoolean childrenEmpty = new AtomicBoolean(true);
         recursion++;
         //System.out.println("Redact Call "+elementID+" recursion "+recursion);
+
+        /**
+         * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
+         */
         if (base instanceof DomainResource) {
             recursion = 1;
             DomainResource resource = (DomainResource) base;
             if (resource.hasMeta()) {
                 CanonicalType profileurl = resource.getMeta().getProfile().get(0);
-                System.out.println("URL" + profileurl);
+                //System.out.println("URL" + profileurl);
                 structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
                 snapshot = structureDefinition.getSnapshot();
                 url=String.valueOf(profileurl.getValue());
@@ -79,14 +94,6 @@ public class Redaction {
                 //System.out.println("Found List "+child.getName()+" path "+ finalElementID +" Nr. of Values "+child.getValues().size() );
             }
 
-            if(child.getName()=="coding"){
-               child.getValues().forEach(
-                       value -> {
-                               System.out.println("Coding Value "+value.fhirType()+"  Empty? "+value.isEmpty()+" Value "+value.toString());
-
-                       }
-               );
-            }
             String childID = finalElementID + "." + child.getName();
             //System.out.println("Element ID "+childID+" recursion "+ finalRecursion);
             ElementDefinition childDefinition = null;
