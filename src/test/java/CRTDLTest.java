@@ -51,7 +51,7 @@ public class CRTDLTest {
             Root root = objectMapper.readValue(fis, Root.class);
             assertNotNull(root);
             Attribute attribute2 = root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(1);
-            assertEquals("Observation.value",attribute2.getAttributeRef());
+            assertEquals("Observation.value[x]",attribute2.getAttributeRef());
             assertEquals(true,attribute2.isMustHave());
         } catch (Exception e) {
             e.printStackTrace();

@@ -52,13 +52,10 @@ public class DiscriminatorResolver {
 
                     String BasePatternString = String.valueOf(base.getChildByName(child.getName()).getValues().get(0));
                     String childPAtternString = String.valueOf(child.getValues().get(0));
-                    //System.out.println("Value to be checked " + child.getName());
-                    //System.out.println(BasePatternString + " against " + childPAtternString);
                     if (childPAtternString.equalsIgnoreCase(BasePatternString)) {
                         //System.out.println("Pattern Matched");
 
                     } else {
-                        //System.out.println("Pattern Not Matched");
                         return false;
                     }
                 }
@@ -88,11 +85,7 @@ public class DiscriminatorResolver {
         //System.out.println("Resolving Type"+path);
         if (path.equalsIgnoreCase("$this")) {
             //no wandering needed
-            //System.out.println("Base FHIR TYPE"+base.fhirType());
-
-            //System.out.println("Slice Type "+slice.getType().get(0).getWorkingCode());
-            if (base.fhirType().equalsIgnoreCase(slice.getType().get(0).getWorkingCode())) {
-                //System.out.println("Type  Matched"+slice.getType().get(0).getWorkingCode()+" "+base.fhirType());
+              if (base.fhirType().equalsIgnoreCase(slice.getType().get(0).getWorkingCode())) {
                 return true;
             }
 

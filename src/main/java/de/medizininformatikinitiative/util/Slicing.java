@@ -75,10 +75,10 @@ public class Slicing {
         if (slicingComponent.hasDiscriminator()) {
             List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = sliced.getSlicing().getDiscriminator();
             slicingDiscriminator.forEach(discriminator -> {
-                //System.out.println(" Path " + discriminator.getPathElement().getValue());
+
                 String type = discriminator.getType().toCode();
                 StringType path = discriminator.getPathElement();
-                //System.out.println(" Type "+type+" Path "+path);
+
                 StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
                 result.set(resolveDiscriminator(base, element, type, path.getValue(), snapshot));
             });

@@ -17,6 +17,7 @@ import java.util.Objects;
 
 import static de.medizininformatikinitiative.util.CopyUtils.getElementName;
 import static de.medizininformatikinitiative.util.CopyUtils.reflectListSetter;
+import static de.medizininformatikinitiative.util.FHIRPATHbuilder.cleanFHIRPATH;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,10 +56,9 @@ public class ElementCopier {
      * @return Target Resource with copied elements
      * @throws mustHaveViolatedException if mandatory element is missing
      */
-    public DomainResource copy(DomainResource src, DomainResource tgt, Attribute attribute) throws mustHaveViolatedException {
+    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws mustHaveViolatedException {
         CanonicalType profileurl = src.getMeta().getProfile().get(0);
         StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
-        //List<StringType> legalExtensions = ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(path + '|' + type.profile +'|'+ sliceName)", StringType.class);
         List<String> legalExtensions = new LinkedList<>();
         ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(type.profile +'') ", StringType.class).forEach(stringType -> legalExtensions.add(stringType.getValue()));
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
@@ -68,7 +68,7 @@ public class ElementCopier {
         logger.debug("Attribute FHIR PATH" + attribute.getAttributeRef());
 
 
-        List<Base> elements = ctx.newFhirPath().evaluate(src, attribute.getAttributeRef(), Base.class);
+        List<Base> elements = ctx.newFhirPath().evaluate(src, cleanFHIRPATH(attribute.getAttributeRef()), Base.class);
         //TODO Check Extensions on Element Level
         elements.forEach(element -> {
             if (element instanceof Element) {
@@ -79,23 +79,26 @@ public class ElementCopier {
             //System.out.println("Elements Empty");
             if (attribute.isMustHave()) {
                 throw new mustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
-
             }
         } else {
             String shorthandFHIRPATH = (attribute.getAttributeRef().replace(".as(", "").replace(")", ""));
 
             DomainResource finalTgt = tgt;
             if (elements.size() == 1) {
-                //System.out.println("1 Element" + elements.get(0).fhirType());
+                System.out.println("Setting " + shorthandFHIRPATH);
+                if(attribute.getAttributeRef().endsWith("[x]")){
+                    String type = elements.get(0).getClass().getSimpleName();
+                    shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
+                }
                 TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, finalTgt, elements.get(0));
             } else {
                 //Assume branching before element
-                //System.out.println("Multiple Elements " + elements.size());
+
                 int endIndex = attribute.getAttributeRef().lastIndexOf(".");
-                //System.out.println("Endindex " + endIndex);
+
                 if (endIndex != -1) {
                     String ParentPath = shorthandFHIRPATH.substring(0, endIndex); // not forgot to put check if(endIndex != -1)
-                    //System.out.println("ParentPATH " + ParentPath);
+
                     String type = snapshot.getElementByPath(ParentPath).getType().get(0).getWorkingCode();
                     elements.forEach(element -> {
                         helper.setField(ParentPath, type, element);
@@ -115,10 +118,7 @@ public class ElementCopier {
                 throw new RuntimeException(e);
             }
 */
-            return tgt;
         }
-
-        return null;
 
     }
 
