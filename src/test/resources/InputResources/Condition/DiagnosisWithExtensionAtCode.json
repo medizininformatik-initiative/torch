@@ -3,7 +3,7 @@
   "id": "mii-exa-diagnose-mehrfachkodierung-primaercode",
   "meta": {
     "profile": [
-      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose|2024.0.0"
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
     ]
   },
   "code": {
@@ -58,8 +58,7 @@
     "coding": [
       {
         "code": "confirmed",
-        "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
-        "display": "confirmed"
+        "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status"
       }
     ]
   },

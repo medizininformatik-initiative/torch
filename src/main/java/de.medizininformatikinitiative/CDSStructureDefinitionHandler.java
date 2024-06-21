@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative;
 
+import de.medizininformatikinitiative.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.stereotype.Component;
 import ca.uhn.fhir.context.FhirContext;
@@ -9,26 +10,34 @@ import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 
 @Component
+
+
 public class CDSStructureDefinitionHandler {
+
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    public FhirContext ctx= FhirContext.forR4();;
+    private HashMap<String, HashMap<String, String>> extensionsMap = new HashMap<>();
 
-    public IParser jsonParser = ctx.newJsonParser();
+    public FhirContext ctx;
 
+    public IParser jsonParser;
 
-    public void run() {
-        try {
-
-            readStructureDefinition( "src/test/resources/patient-structure-definition.json");
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+    public CDSStructureDefinitionHandler(FhirContext ctx) {
+        this.ctx = ctx;
+        this.jsonParser = ctx.newJsonParser();
     }
 
+
+    /**
+     * Reads a StructureDefinition from a file and stores it in the definitionsMap
+     *
+     * @param filePath
+     * @throws IOException
+     */
     public void readStructureDefinition(String filePath) throws IOException {
         FileReader fileReader = null;
         try {
@@ -37,18 +46,31 @@ public class CDSStructureDefinitionHandler {
             throw new IOException(e);
         }
 
-        StructureDefinition structureDefinition = jsonParser.parseResource(StructureDefinition.class, fileReader);
-        System.out.println("StructureDefinition: " + structureDefinition.getUrl());
+        StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
-
     }
 
+    /**
+     * Returns HAPI JSON Parser
+     */
     public IParser getJsonParser() {
         return jsonParser;
     }
 
-    public StructureDefinition getDefinition(String url){
-        return definitionsMap.get(url);
+    /**
+     * Returns the StructureDefinition with the given URL
+     * TODO Advanced Version handling?
+     *
+     * @param url
+     * @return StructureDefinition
+     */
+    public StructureDefinition getDefinition(String url) {
+        String[] versionsplit = url.split("\\|");
+        return definitionsMap.get(versionsplit[0]);
+    }
+
+    public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
+        return (definitionsMap.get(url)).getSnapshot();
 
     }
 }
