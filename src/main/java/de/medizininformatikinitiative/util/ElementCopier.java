@@ -15,9 +15,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 
-import static de.medizininformatikinitiative.util.CopyUtils.getElementName;
-import static de.medizininformatikinitiative.util.CopyUtils.reflectListSetter;
+import static de.medizininformatikinitiative.util.CopyUtils.*;
 import static de.medizininformatikinitiative.util.FHIRPATHbuilder.cleanFHIRPATH;
+import static de.medizininformatikinitiative.util.FHIRPATHbuilder.handleSlicingForFHIRPATH;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -68,11 +68,12 @@ public class ElementCopier {
         logger.debug("Attribute FHIR PATH" + attribute.getAttributeRef());
 
 
-        List<Base> elements = ctx.newFhirPath().evaluate(src, cleanFHIRPATH(attribute.getAttributeRef()), Base.class);
+        List<Base> elements = ctx.newFhirPath().evaluate(src, cleanFHIRPATH(handleSlicingForFHIRPATH(attribute.getAttributeRef(),false)), Base.class);
         //TODO Check Extensions on Element Level
         elements.forEach(element -> {
             if (element instanceof Element) {
                 checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
+
             }
         });
         if (elements.isEmpty()) {
@@ -81,13 +82,13 @@ public class ElementCopier {
                 throw new mustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
             }
         } else {
-            String shorthandFHIRPATH = (attribute.getAttributeRef().replace(".as(", "").replace(")", ""));
+            String shorthandFHIRPATH = handleSlicingForFHIRPATH(attribute.getAttributeRef(),true);
 
             DomainResource finalTgt = tgt;
             if (elements.size() == 1) {
                 System.out.println("Setting " + shorthandFHIRPATH);
-                if(attribute.getAttributeRef().endsWith("[x]")){
-                    String type = elements.get(0).getClass().getSimpleName();
+                if(shorthandFHIRPATH.endsWith("[x]")){
+                    String type = capitalizeFirstLetter(elements.get(0).fhirType());
                     shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
                 }
                 TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, finalTgt, elements.get(0));

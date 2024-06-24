@@ -62,7 +62,7 @@ public class CopyTest {
                 DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-                copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(DateTime)", false));
+                copier.copy(resourcesrc, tgt, new Attribute("Condition.onset[x]:onsetDateTime", false));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.meta", true));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.id", true));
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.code", false));
