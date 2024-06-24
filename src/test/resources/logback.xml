@@ -22,13 +22,13 @@
     </appender>
 
     <!-- Root Logger -->
-    <root level="debug">
+    <CRTDL level="debug">
         <appender-ref ref="DEBUG_FILE" />
-    </root>
+    </CRTDL>
 
-    <root level="error">
+    <CRTDL level="error">
         <appender-ref ref="STDOUT" />
-    </root>
+    </CRTDL>
 
 
 </configuration>

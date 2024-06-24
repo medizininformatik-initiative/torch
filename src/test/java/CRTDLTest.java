@@ -1,11 +1,7 @@
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.util.ElementCopier;
+import de.medizininformatikinitiative.util.FHIRSearchBuilder;
 import de.medizininformatikinitiative.util.model.Attribute;
-import de.medizininformatikinitiative.util.model.Root;
-import org.hl7.fhir.r4.model.*;
+import de.medizininformatikinitiative.util.model.CRTDL;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -13,11 +9,11 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.IOException;
-import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.util.ResourceReader.readResource;
+import static java.util.stream.Collectors.toCollection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -28,18 +24,20 @@ public class CRTDLTest {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    private FHIRSearchBuilder searchBuilder;
 
     @Test
     public void testCondition() {
         try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_diagnosis_withoutCCDL.json"))) {
-            Root root = objectMapper.readValue(fis, Root.class);
-            assertNotNull(root);
-            Attribute attribute1 = root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
+            CRTDL CRTDL = objectMapper.readValue(fis, CRTDL.class);
+            assertNotNull(CRTDL);
+            Attribute attribute1 = CRTDL.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
             assertEquals("Condition.code",attribute1.getAttributeRef());
             assertEquals(false,attribute1.isMustHave());
         } catch (Exception e) {
             e.printStackTrace();
         }
+
 
 
     }
@@ -48,9 +46,9 @@ public class CRTDLTest {
     @Test
     public void testObservation() {
         try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_observation.json"))) {
-            Root root = objectMapper.readValue(fis, Root.class);
-            assertNotNull(root);
-            Attribute attribute2 = root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(1);
+            CRTDL CRTDL = objectMapper.readValue(fis, CRTDL.class);
+            assertNotNull(CRTDL);
+            Attribute attribute2 = CRTDL.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(1);
             assertEquals("Observation.value[x]",attribute2.getAttributeRef());
             assertEquals(true,attribute2.isMustHave());
         } catch (Exception e) {

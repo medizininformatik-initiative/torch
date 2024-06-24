@@ -38,6 +38,17 @@
                   "end": "2021-10-09"
                 }
               ]
+            },
+            {
+              "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+              "attributes": [
+                {
+                  "attributeRef": "Condition.identifier",
+                  "mustHave": false
+                }
+              ],
+              "filter": [
+              ]
             }
           ]
         }

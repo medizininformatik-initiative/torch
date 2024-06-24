@@ -3,6 +3,8 @@ package de.medizininformatikinitiative.util.model;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.net.URLEncoder;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Code {
 
@@ -17,6 +19,13 @@ public class Code {
 
     @JsonProperty("display")
     private String display;
+
+
+
+    public String getCodeURL(){
+        return URLEncoder.encode(system)+"|"+URLEncoder.encode(code);
+
+    }
 
     // Getters and Setters
 }
