@@ -1,7 +1,8 @@
+package de.medizininformatikinitiative;
+
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.ElementCopier;
 import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
 import de.medizininformatikinitiative.util.Redaction;
@@ -15,7 +16,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 
@@ -71,7 +71,7 @@ public class ResourceTransformationTest {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Root root = objectMapper.readValue(fis, Root.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
+            DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/de.medizininformatikinitiative.ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
