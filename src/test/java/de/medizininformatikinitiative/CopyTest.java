@@ -1,6 +1,7 @@
+package de.medizininformatikinitiative;
+
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.model.Attribute;
 import de.medizininformatikinitiative.util.ElementCopier;
 import org.hl7.fhir.r4.model.*;
@@ -59,7 +60,7 @@ public class CopyTest {
         Arrays.stream(resources).forEach(resource -> {
             try {
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
+                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/de.medizininformatikinitiative.CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(DateTime)", false));
