@@ -2,6 +2,8 @@ package de.medizininformatikinitiative.util.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.util.model.Attribute;
+import de.medizininformatikinitiative.util.model.Filter;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)

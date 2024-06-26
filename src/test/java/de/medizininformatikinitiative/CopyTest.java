@@ -60,7 +60,7 @@ public class CopyTest {
         Arrays.stream(resources).forEach(resource -> {
             try {
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/de.medizininformatikinitiative.CopyTest/expectedOutput/"+resource);
+                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
                 copier.copy(resourcesrc, tgt, new Attribute("Condition.onset.as(DateTime)", false));

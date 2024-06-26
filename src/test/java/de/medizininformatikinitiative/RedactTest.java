@@ -64,7 +64,7 @@ public class RedactTest {
                 try {
 
                 DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Condition/"+resource);
-                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/de.medizininformatikinitiative.RedactTest/expectedOutput/"+resource);
+                DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
                 resourcesrc =(DomainResource) redaction.redact(resourcesrc,"",1);
                 assertTrue(resourcesrc.equalsDeep(resourceexpected),resource+" Expected not equal to actual output");
             } catch (Exception e) {

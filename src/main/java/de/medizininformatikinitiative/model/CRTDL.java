@@ -5,10 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.util.model.CohortDefinition;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Root {
+public class CRTDL {
 
     // No-argument constructor
-    public Root() {
+    public CRTDL() {
     }
     @JsonProperty("version")
     private String version;

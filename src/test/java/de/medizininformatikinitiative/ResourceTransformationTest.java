@@ -7,7 +7,6 @@ import de.medizininformatikinitiative.util.ElementCopier;
 import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
 import de.medizininformatikinitiative.util.Redaction;
 import de.medizininformatikinitiative.util.model.Attribute;
-import de.medizininformatikinitiative.util.model.Root;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -69,13 +68,13 @@ public class ResourceTransformationTest {
     @Test
     public void testObservation() {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            Root root = objectMapper.readValue(fis, Root.class);
+            de.medizininformatikinitiative.util.model.CRTDL CRTDL = objectMapper.readValue(fis, de.medizininformatikinitiative.util.model.CRTDL.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/de.medizininformatikinitiative.ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
+            DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
-            root.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().forEach(attribute -> {
+            CRTDL.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().forEach(attribute -> {
                 try {
                     copier.copy(resourcesrc, tgt, attribute);
                 } catch (mustHaveViolatedException e) {
