@@ -10,6 +10,38 @@ public class FHIRPATHbuilder {
         return path;
     }
 
+    //Handles Elementdefinition Slicing in a fhir PATH of the form e.g. onset[x]:onsetPeriod
+    public static String handleSlicingForFHIRPATH(String input, boolean Terser){
+        if(input.contains(":")) {
+
+            String[] elementIDParts = input.split("\\.");
+            String result;
+            result = "";
+            for (String e : elementIDParts) {
+                if (e.contains(":")) {
+                    String[] sliceParts = e.split(":");
+                    String path = sliceParts[0].replace("[x]", "");
+                    if(Terser){
+                        result+="."+sliceParts[1];
+                    }else {
+                        String sliceName = sliceParts[1];
+                        result += "." + path + ".as(" + sliceName.replace(path, "") + ")";
+                    }
+                }else{
+                    if(result.isEmpty()){
+                        result+=e;
+                    }else {
+                        result += "." + e;
+                    }
+                }
+
+            }
+            return result;
+        }
+        return input;
+    }
+
+
 
     public static String cleanFHIRPATH(String input) {
         StringBuilder result = new StringBuilder();

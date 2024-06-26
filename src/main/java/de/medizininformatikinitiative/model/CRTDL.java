@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.util.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.util.model.CohortDefinition;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CRTDL {

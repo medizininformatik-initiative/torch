@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.util.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.util.model.AttributeGroup;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)

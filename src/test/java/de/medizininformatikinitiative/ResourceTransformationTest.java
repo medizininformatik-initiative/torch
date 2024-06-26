@@ -1,12 +1,12 @@
-package de.medizininformatikinitiative;
-
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
 import de.medizininformatikinitiative.util.ElementCopier;
 import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
 import de.medizininformatikinitiative.util.Redaction;
 import de.medizininformatikinitiative.util.model.Attribute;
+import de.medizininformatikinitiative.util.model.CRTDL;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -68,7 +68,7 @@ public class ResourceTransformationTest {
     @Test
     public void testObservation() {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            de.medizininformatikinitiative.util.model.CRTDL CRTDL = objectMapper.readValue(fis, de.medizininformatikinitiative.util.model.CRTDL.class);
+            CRTDL CRTDL = objectMapper.readValue(fis, CRTDL.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
