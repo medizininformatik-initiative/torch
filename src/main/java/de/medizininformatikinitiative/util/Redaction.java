@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
+import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -23,7 +23,7 @@ public class Redaction {
 
     private String url;
 
-    private CDSStructureDefinitionHandler CDS;
+    private CdsStructureDefinitionHandler CDS;
 
 
     /**
@@ -31,7 +31,7 @@ public class Redaction {
      *
      * @param CDS CDSStructureDefinitionHandler
      */
-    public Redaction(CDSStructureDefinitionHandler CDS) {
+    public Redaction(CdsStructureDefinitionHandler CDS) {
         this.CDS = CDS;
         ctx=CDS.ctx;
         parser=ctx.newJsonParser();

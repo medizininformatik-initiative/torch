@@ -2,13 +2,17 @@
   "resourceType": "Condition",
   "id": "Diagnose1",
   "meta": {
-    "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+    ]
   },
   "code": {
-    "coding": [ {
-      "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
-      "display": "Prellung des Ellenbogens"
-    } ]
+    "coding": [
+      {
+        "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "display": "Prellung des Ellenbogens"
+      }
+    ]
   },
   "onsetDateTime": "2024-10"
 }

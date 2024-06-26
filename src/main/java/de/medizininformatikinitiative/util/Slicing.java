@@ -2,9 +2,9 @@ package de.medizininformatikinitiative.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-;
 
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
+
+import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StringType;
@@ -20,14 +20,14 @@ public class Slicing {
     private FhirContext ctx;
     private IParser parser;
 
-    CDSStructureDefinitionHandler handler;
+    CdsStructureDefinitionHandler handler;
 
     /**
      * Constructor for Slicing
      *
      * @param handler CDSStructureDefinitionHandler
      */
-    public Slicing(CDSStructureDefinitionHandler handler) {
+    public Slicing(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
         parser = ctx.newJsonParser().setPrettyPrint(true);
@@ -43,7 +43,7 @@ public class Slicing {
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(new ElementDefinition());
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        String fhirPath = FHIRPATHbuilder.build("StructureDefinition.snapshot.element", "path = '" + elementID + "'");
+        String fhirPath = FhirPathBuilder.build("StructureDefinition.snapshot.element", "path = '" + elementID + "'");
         ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
 
 

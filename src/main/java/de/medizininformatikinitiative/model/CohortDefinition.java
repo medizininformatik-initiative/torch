@@ -1,8 +1,8 @@
-package de.medizininformatikinitiative.util.model;
+package de.medizininformatikinitiative.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.util.model.DataExtraction;
+import de.medizininformatikinitiative.model.DataExtraction;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class CohortDefinition {

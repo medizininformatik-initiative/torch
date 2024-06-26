@@ -1,96 +1,87 @@
 package de.medizininformatikinitiative;
 
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.model.Crtdl;
 import de.medizininformatikinitiative.util.ElementCopier;
-import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
+import de.medizininformatikinitiative.util.FhirSearchBuilder;
 import de.medizininformatikinitiative.util.Redaction;
-import de.medizininformatikinitiative.util.model.Attribute;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.StructureDefinition;
+
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.ArrayList;
 
 import static de.medizininformatikinitiative.util.ResourceReader.readResource;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest
-public class ResourceTransformationTest {
 
+public class ResourceTransformationTest extends BaseTest {
 
-    private final ElementCopier copier;
-    private final Redaction redaction;
-    private CDSStructureDefinitionHandler CDS;
+    @Autowired
+    private WebClient webClient;
 
-    private IParser parser;
+    private DataStore dataStore;
 
-    private FhirContext ctx;
-
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
-
-    public ResourceTransformationTest() {
-
-        ctx= FhirContext.forR4();
-        parser = ctx.newJsonParser();
-        CDS= new CDSStructureDefinitionHandler(ctx);
-        redaction = new Redaction(CDS);
-
-        copier = new ElementCopier(CDS);
-        try {
-
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/StructureDefinition-mii-pr-person-patient.json");
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-DiagnosticReportLab.json");
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-ObservationLab.json");
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-ServiceRequestLab.json");
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/Profile-ServiceRequestLab.json");
-            CDS.readStructureDefinition("src/test/resources/StructureDefinitions/StructureDefinition-mii-pr-diagnose-condition.json");
-
-            StructureDefinition definition = CDS.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
-            assertNotNull(definition, "The element should be contained in the map");
-            assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+    @BeforeAll void setup(){
+        dataStore = new DataStore(webClient, ctx);
     }
-
-
 
     @Test
     public void testObservation() {
+
+        Redaction redaction = new Redaction(cds);
+        ElementCopier copier = new ElementCopier(cds);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            de.medizininformatikinitiative.util.model.CRTDL CRTDL = objectMapper.readValue(fis, de.medizininformatikinitiative.util.model.CRTDL.class);
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
-            Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
-            DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-
-            CRTDL.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().forEach(attribute -> {
-                try {
-                    copier.copy(resourcesrc, tgt, attribute);
-                } catch (mustHaveViolatedException e) {
-                    throw new RuntimeException(e);
-                }
-            });
-            //TODO define technically required in all Ressources
-            copier.copy(resourcesrc, tgt, new Attribute("meta.profile", true));
-            copier.copy(resourcesrc, tgt, new Attribute("id", true));
-            //TODO Handle Custom ENUM Types like Status, since it has its Error in the valuesystem.
-            copier.copy(resourcesrc, tgt, new Attribute("status", true));
-
-            redaction.redact(tgt, "", 1);
+            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0));
             assertNotNull(tgt);
-            System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
-            //assertEquals(parser.setPrettyPrint(true).encodeResourceToString(tgt), parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), resourcesrc + " Expected not equal to actual output");
+            //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+            assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Test
+    public void testDataStore() {
+        DataStore dataStore = new DataStore(webClient, ctx);
+        Redaction redaction = new Redaction(cds);
+        ElementCopier copier = new ElementCopier(cds);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+            FhirSearchBuilder builder = new FhirSearchBuilder();
+            // Build search batches with MultiValueMap<String, String>
+            crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().forEach(
+                    group->{
+                       List<String> searchStrings = builder.getSearchBatches(
+                                group,
+                                Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(Collectors.toCollection(ArrayList::new)),
+                                2
+                        );
+                        assertNotNull(searchStrings);
+                    }
+            );
+
+            // Subscribe to the Flux to see the results (for demonstration purposes)
+            /*allResources.subscribe(resource -> {
+                // Process each resource
+                System.out.println(resource);
+            });*/
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -98,9 +89,6 @@ public class ResourceTransformationTest {
 
 
     }
-
-
-
 
 
 }

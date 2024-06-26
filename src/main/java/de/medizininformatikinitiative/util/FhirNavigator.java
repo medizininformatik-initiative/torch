@@ -1,19 +1,16 @@
 package de.medizininformatikinitiative.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Patient;
-import ca.uhn.fhir.util.ReflectionUtil;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.List;
 
-public class FHIRNavigator {
+public class FhirNavigator {
 
     private FhirContext fhirContext;
 
-    public FHIRNavigator() {
+    public FhirNavigator() {
         fhirContext = FhirContext.forR4();
     }
 

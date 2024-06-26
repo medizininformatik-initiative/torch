@@ -1,0 +1,534 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "a86a69be-826c-4a46-8b7a-d924a81f9066",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "1234-5",
+              "display": "Example lab test"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/1"
+        },
+        "effectiveDateTime": "2023-07-01T00:00:00Z",
+        "valueQuantity": {
+          "value": 7.2,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/a86a69be-826c-4a46-8b7a-d924a81f9066"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "http://hospital.smarthealthit.org",
+            "value": "123456"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Doe",
+            "given": [
+              "John"
+            ]
+          }
+        ],
+        "gender": "male",
+        "birthDate": "1980-01-01"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/1"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "2",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "123456",
+              "display": "Example diagnosis"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/1"
+        },
+        "onsetDateTime": "2023-06-01T00:00:00Z"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/2"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "b84c9b34-d374-4d76-ae61-544ecb84265f",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "5678-9",
+              "display": "Example lab test 2"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/2"
+        },
+        "effectiveDateTime": "2023-07-02T00:00:00Z",
+        "valueQuantity": {
+          "value": 5.1,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/b84c9b34-d374-4d76-ae61-544ecb84265f"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "2",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "http://hospital.smarthealthit.org",
+            "value": "654321"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Smith",
+            "given": [
+              "Jane"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1990-02-02"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/2"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "3",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "654321",
+              "display": "Example diagnosis 2"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/2"
+        },
+        "onsetDateTime": "2023-06-02T00:00:00Z"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/3"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "9101-2",
+              "display": "Example lab test 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "effectiveDateTime": "2023-07-03T00:00:00Z",
+        "valueQuantity": {
+          "value": 8.4,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "3",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "http://hospital.smarthealthit.org",
+            "value": "987654"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Johnson",
+            "given": [
+              "Alex"
+            ]
+          }
+        ],
+        "gender": "other",
+        "birthDate": "1975-03-03"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/3"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "789012",
+              "display": "Example diagnosis 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "onsetDateTime": "2023-06-03T00:00:00Z"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/4"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "d75e9g46-f487-4d88-cd8b-gg6c6c95387f",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "3456-7",
+              "display": "Example lab test 4"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/4"
+        },
+        "effectiveDateTime": "2023-07-04T00:00:00Z",
+        "valueQuantity": {
+          "value": 6.7,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/d75e9g46-f487-4d88-cd8b-gg6c6c95387f"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "use": "usual",
+            "system": "http://hospital.smarthealthit.org",
+            "value": "456789"
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Williams",
+            "given": [
+              "Chris"
+            ]
+          }
+        ],
+        "gender": "female",
+        "birthDate": "1985-04-04"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/4"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "5",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status",
+              "code": "confirmed"
+            }
+          ]
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/condition-category",
+                "code": "encounter-diagnosis"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "345678",
+              "display": "Example diagnosis 4"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/4"
+        },
+        "onsetDateTime": "2023-06-04T00:00:00Z"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/5"
+      }
+    }
+  ]
+}

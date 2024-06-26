@@ -6,26 +6,35 @@ import org.springframework.stereotype.Component;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 
-import java.io.FileNotFoundException;
-import java.io.FileReader;
+import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
 
 @Component
 
 
-public class CDSStructureDefinitionHandler {
+public class CdsStructureDefinitionHandler {
 
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    private HashMap<String, HashMap<String, String>> extensionsMap = new HashMap<>();
 
     public FhirContext ctx;
 
     public IParser jsonParser;
 
-    public CDSStructureDefinitionHandler(FhirContext ctx) {
+    public CdsStructureDefinitionHandler(FhirContext ctx, String fileDirectory) {
+        try {
+            processDirectory(fileDirectory);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+        this.ctx = ctx;
+        this.jsonParser = ctx.newJsonParser();
+    }
+
+    public CdsStructureDefinitionHandler(FhirContext ctx) {
+
         this.ctx = ctx;
         this.jsonParser = ctx.newJsonParser();
     }
@@ -38,13 +47,6 @@ public class CDSStructureDefinitionHandler {
      * @throws IOException
      */
     public void readStructureDefinition(String filePath) throws IOException {
-        FileReader fileReader = null;
-        try {
-            fileReader = new FileReader(filePath);
-        } catch (FileNotFoundException e) {
-            throw new IOException(e);
-        }
-
         StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
     }
@@ -71,5 +73,23 @@ public class CDSStructureDefinitionHandler {
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         return (definitionsMap.get(url)).getSnapshot();
 
+    }
+
+    /**
+     * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap
+     *
+     * @param directoryPath the path to the directory containing JSON files
+     * @throws IOException
+     */
+    private void processDirectory(String directoryPath) throws IOException {
+        File directory = new File(directoryPath);
+        if (directory.isDirectory()) {
+            File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".json"));
+            if (files != null) {
+                for (File file : files) {
+                    readStructureDefinition(file.getAbsolutePath());
+                }
+            }
+        }
     }
 }

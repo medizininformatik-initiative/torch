@@ -24,11 +24,8 @@
     } ],
     "text" : "NT-proBNP SerPl-mCnc"
   },
-  "subject" : {
-    "extension" : [ {
-      "url" : "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-      "valueCode" : "masked"
-    } ]
+  "subject": {
+    "reference": "Patient/VHF-MIXED-TEST-CASE-0001-a"
   },
   "_effectiveDateTime" : {
     "extension" : [ {

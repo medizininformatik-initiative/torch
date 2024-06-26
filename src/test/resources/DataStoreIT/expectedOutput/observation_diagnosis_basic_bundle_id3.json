@@ -1,0 +1,96 @@
+{
+  "resourceType": "Bundle",
+  "id": "3",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "789012",
+              "display": "Example diagnosis 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "_recordedDate": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "identifier": [
+          {
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                "valueCode": "masked"
+              }
+            ]
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                "valueCode": "masked"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "9101-2",
+              "display": "Example lab test 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "_effectiveDateTime": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "valueQuantity": {
+          "value": 8.4,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      }
+    }
+  ]
+}

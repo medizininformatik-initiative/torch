@@ -13,18 +13,18 @@ public class DiscriminatorResolver {
      * @param base          Element to be sliced
      * @param slice         ElementDefinition of the slice
      * @param discriminator Discriminator to be resolved
-     * @param Path          Path to the element
+     * @param path          path to the element
      * @param snapshot      Snapshot of the StructureDefinition
      * @return
      */
-    public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, String discriminator, String Path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+    public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, String discriminator, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         //System.out.println("Discriminator "+discriminator);
         return switch (discriminator) {
             case "exists" -> false;
             case "null" -> false;
-            case "pattern" -> resolvePattern(base, slice, Path, snapshot);
+            case "pattern" -> resolvePattern(base, slice, path, snapshot);
             case "profile" -> false;
-            case "type" -> resolveType(base, slice, Path, snapshot);
+            case "type" -> resolveType(base, slice, path, snapshot);
             case "value" -> false;
             default -> false;
         };

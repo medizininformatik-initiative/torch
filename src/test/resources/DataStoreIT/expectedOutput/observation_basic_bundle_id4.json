@@ -1,0 +1,49 @@
+{
+  "resourceType": "Bundle",
+  "id": "4",
+  "type": "collection",
+  "entry": [ {
+    "resource": {
+      "resourceType": "Observation",
+      "id": "d75e9g46-f487-4d88-cd8b-gg6c6c95387f",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab" ]
+      },
+      "identifier": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        } ]
+      } ],
+      "status": "final",
+      "category": [ {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        } ]
+      } ],
+      "code": {
+        "coding": [ {
+          "system": "http://loinc.org",
+          "code": "3456-7",
+          "display": "Example lab test 4"
+        } ]
+      },
+      "subject": {
+        "reference": "Patient/4"
+      },
+      "_effectiveDateTime": {
+        "extension": [ {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        } ]
+      },
+      "valueQuantity": {
+        "value": 6.7,
+        "unit": "mmol/L",
+        "system": "http://unitsofmeasure.org",
+        "code": "mmol/L"
+      }
+    }
+  } ]
+}
