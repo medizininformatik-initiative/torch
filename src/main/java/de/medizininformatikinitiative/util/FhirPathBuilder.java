@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.util;
 
 import static java.lang.String.format;
 
-public class FHIRPATHBuilder {
+public class FhirPathBuilder {
 
     //TODO Expand as needed
     public static String build(String path) {
@@ -11,7 +11,7 @@ public class FHIRPATHBuilder {
     }
 
     //Handles Elementdefinition Slicing in a fhir PATH of the form e.g. onset[x]:onsetPeriod
-    public static String handleSlicingForFHIRPATH(String input, boolean Terser){
+    public static String handleSlicingForFhirPath(String input, boolean Terser){
         if(input.contains(":")) {
 
             String[] elementIDParts = input.split("\\.");
@@ -44,7 +44,7 @@ public class FHIRPATHBuilder {
 
 
 
-    public static String cleanFHIRPATH(String input) {
+    public static String cleanFhirPath(String input) {
         StringBuilder result = new StringBuilder();
         int length = input.length();
         int i = 0;

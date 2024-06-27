@@ -7,15 +7,13 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 
 import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileReader;
 import java.io.IOException;
 import java.util.HashMap;
 
 @Component
 
 
-public class CDSStructureDefinitionHandler {
+public class CdsStructureDefinitionHandler {
 
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
@@ -25,7 +23,7 @@ public class CDSStructureDefinitionHandler {
 
     public IParser jsonParser;
 
-    public CDSStructureDefinitionHandler(FhirContext ctx, String fileDirectory) {
+    public CdsStructureDefinitionHandler(FhirContext ctx, String fileDirectory) {
         try {
             processDirectory(fileDirectory);
         } catch (IOException e) {
@@ -35,7 +33,7 @@ public class CDSStructureDefinitionHandler {
         this.jsonParser = ctx.newJsonParser();
     }
 
-    public CDSStructureDefinitionHandler(FhirContext ctx) {
+    public CdsStructureDefinitionHandler(FhirContext ctx) {
 
         this.ctx = ctx;
         this.jsonParser = ctx.newJsonParser();

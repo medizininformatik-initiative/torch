@@ -4,9 +4,8 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.util.TerserUtil;
 import ca.uhn.fhir.util.TerserUtilHelper;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.util.model.Attribute;
-import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
+import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
+import de.medizininformatikinitiative.model.Attribute;
 import org.hl7.fhir.r4.model.*;
 
 import java.lang.reflect.InvocationTargetException;
@@ -16,8 +15,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.util.CopyUtils.*;
-import static de.medizininformatikinitiative.util.FHIRPATHBuilder.cleanFHIRPATH;
-import static de.medizininformatikinitiative.util.FHIRPATHBuilder.handleSlicingForFHIRPATH;
+import static de.medizininformatikinitiative.util.FhirPathBuilder.cleanFhirPath;
+import static de.medizininformatikinitiative.util.FhirPathBuilder.handleSlicingForFhirPath;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,7 +29,7 @@ public class ElementCopier {
 
     private static final ElementFactory factory = new ElementFactory();
 
-    CDSStructureDefinitionHandler handler;
+    CdsStructureDefinitionHandler handler;
 
     Slicing slicing;
 
@@ -40,7 +39,7 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(CDSStructureDefinitionHandler handler) {
+    public ElementCopier(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
         this.parser = ctx.newJsonParser().setPrettyPrint(true);
@@ -54,9 +53,9 @@ public class ElementCopier {
      * @param tgt       Target Resource to copy to
      * @param attribute Attribute to copy containing FHIR Path and if it is a mandatory element.
      * @return Target Resource with copied elements
-     * @throws mustHaveViolatedException if mandatory element is missing
+     * @throws de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException if mandatory element is missing
      */
-    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws mustHaveViolatedException {
+    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException {
         CanonicalType profileurl = src.getMeta().getProfile().get(0);
         StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
         List<String> legalExtensions = new LinkedList<>();
@@ -67,7 +66,7 @@ public class ElementCopier {
         logger.debug("TGT set " + tgt.getClass());
         logger.debug("Attribute FHIR PATH" + attribute.getAttributeRef());
 
-        String fhirPath = cleanFHIRPATH(handleSlicingForFHIRPATH(attribute.getAttributeRef(),false));
+        String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(),false));
 
         List<Base> elements = ctx.newFhirPath().evaluate(src,fhirPath , Base.class);
         //TODO Check Extensions on Element Level
@@ -80,10 +79,10 @@ public class ElementCopier {
         if (elements.isEmpty()) {
             //System.out.println("Elements Empty");
             if (attribute.isMustHave()) {
-                throw new mustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
+                throw new de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
             }
         } else {
-            String shorthandFHIRPATH = handleSlicingForFHIRPATH(attribute.getAttributeRef(),true);
+            String shorthandFHIRPATH = handleSlicingForFhirPath(attribute.getAttributeRef(),true);
 
             DomainResource finalTgt = tgt;
             if (elements.size() == 1) {

@@ -3,7 +3,7 @@
 package de.medizininformatikinitiative.config;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
+import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.DataStore;
 import de.medizininformatikinitiative.util.ElementCopier;
 import de.medizininformatikinitiative.util.Redaction;
@@ -39,12 +39,12 @@ public class AppConfig {
     }
 
     @Bean
-    public ElementCopier elementCopier(CDSStructureDefinitionHandler cds) {
+    public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
         return new ElementCopier(cds);  // Or use your specific configuration to instantiate
     }
 
     @Bean
-    public Redaction redaction(CDSStructureDefinitionHandler cds) {
+    public Redaction redaction(CdsStructureDefinitionHandler cds) {
         return new Redaction(cds);  // Or use your specific configuration to instantiate
     }
 
@@ -54,7 +54,7 @@ public class AppConfig {
     }
 
     @Bean
-    public CDSStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext) {
-        return new CDSStructureDefinitionHandler(fhirContext,"src/test/resources/StructureDefinitions/");
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext) {
+        return new CdsStructureDefinitionHandler(fhirContext,"src/test/resources/StructureDefinitions/");
     }
 }

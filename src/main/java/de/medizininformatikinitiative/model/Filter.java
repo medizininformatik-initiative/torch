@@ -1,9 +1,8 @@
-package de.medizininformatikinitiative.util.model;
+package de.medizininformatikinitiative.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.util.TokenBuffer;
-import de.medizininformatikinitiative.util.model.Code;
+import de.medizininformatikinitiative.model.Code;
 
 import java.lang.reflect.Array;
 import java.util.LinkedList;

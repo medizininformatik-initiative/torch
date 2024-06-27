@@ -1,9 +1,9 @@
-package de.medizininformatikinitiative.util.model;
+package de.medizininformatikinitiative.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.util.model.Filter;
-import de.medizininformatikinitiative.util.model.Attribute;
+import de.medizininformatikinitiative.model.Filter;
+import de.medizininformatikinitiative.model.Attribute;
 
 import java.net.URLEncoder;
 import java.util.LinkedList;

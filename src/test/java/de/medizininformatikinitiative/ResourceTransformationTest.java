@@ -1,52 +1,80 @@
 package de.medizininformatikinitiative;
 
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.BaseTest;
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
+import de.medizininformatikinitiative.model.Crtdl;
 import de.medizininformatikinitiative.util.ElementCopier;
-import de.medizininformatikinitiative.util.Exceptions.mustHaveViolatedException;
+import de.medizininformatikinitiative.util.FhirSearchBuilder;
 import de.medizininformatikinitiative.util.Redaction;
-import de.medizininformatikinitiative.util.model.Attribute;
-import de.medizininformatikinitiative.util.model.CRTDL;
 import org.hl7.fhir.r4.model.DomainResource;
+
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ResourceType;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.Mock;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
-import java.io.IOException;
+import java.util.List;
+import java.util.stream.Stream;
+import java.util.ArrayList;
 
 import static de.medizininformatikinitiative.util.ResourceReader.readResource;
+import static java.util.stream.Collectors.toCollection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
-
 public class ResourceTransformationTest extends BaseTest {
-    @Mock
-    DataStore dataStore;
 
+    @Autowired
+    private WebClient webClient;
+
+    private DataStore dataStore;
+
+    @BeforeAll void setup(){
+        dataStore = new DataStore(webClient, ctx);
+    }
 
     @Test
     public void testObservation() {
-        Redaction redaction = new Redaction(CDS);
-        ElementCopier copier = new ElementCopier(CDS);
-        ResourceTransformer transformer= new ResourceTransformer( dataStore, copier,redaction, CDS,ctx);
+
+        Redaction redaction = new Redaction(cds);
+        ElementCopier copier = new ElementCopier(cds);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, copier, redaction, cds, ctx);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            CRTDL CRTDL = objectMapper.readValue(fis, CRTDL.class);
+            Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
             DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, CRTDL);
             assertNotNull(tgt);
             //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
-            assertEquals( parser.setPrettyPrint(true).encodeResourceToString(resourceexpected),parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
+            assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    @Test
+    public void testDataStore() {
+        DataStore dataStore = new DataStore(webClient, ctx);
+        Redaction redaction = new Redaction(cds);
+        ElementCopier copier = new ElementCopier(cds);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, copier, redaction, cds, ctx);
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
+            Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
+            FhirSearchBuilder builder = new FhirSearchBuilder(cds);
+            List<String> searchStrings = builder.buildSearchBatches(CRTDL, Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)), 2);
+            Flux<String> searchStringFlux = Flux.fromIterable(searchStrings);
+
+            Flux<Resource> allResources = searchStringFlux.flatMap(dataStore::getResources);
+
+            // Subscribe to the Flux to see the results (for demonstration purposes)
+            allResources.subscribe(resource -> {
+                // Process each resource
+                System.out.println(resource);
+            });
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -54,9 +82,6 @@ public class ResourceTransformationTest extends BaseTest {
 
 
     }
-
-
-
 
 
 }

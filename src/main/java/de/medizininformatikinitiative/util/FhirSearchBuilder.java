@@ -1,21 +1,17 @@
 package de.medizininformatikinitiative.util;
 
-import de.medizininformatikinitiative.CDSStructureDefinitionHandler;
-import de.medizininformatikinitiative.util.model.AttributeGroup;
-import de.medizininformatikinitiative.util.model.CRTDL;
-import de.medizininformatikinitiative.util.model.DataExtraction;
-import de.medizininformatikinitiative.util.model.Filter;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
+
+import de.medizininformatikinitiative.model.*;
 
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.util.ListUtils.splitListIntoBatches;
 
-public class FHIRSearchBuilder {
+public class FhirSearchBuilder {
 
     public static int batchSize=100;
 
@@ -27,20 +23,27 @@ public class FHIRSearchBuilder {
 
     public DataExtraction extraction;
 
-    private CDSStructureDefinitionHandler cdsStructureDefinitionHandler;
+    private CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
 
 
-    public FHIRSearchBuilder(CRTDL extraction,CDSStructureDefinitionHandler cds) {
-        this.extraction = (extraction.getCohortDefinition()).getDataExtraction();;
+    public FhirSearchBuilder(CdsStructureDefinitionHandler cds) {;
         this.cdsStructureDefinitionHandler = cds;
     }
 
-    public List<String> getSearchBatches(ArrayList<String> Patients, String serverUrl){
-        return getSearchBatches(Patients, serverUrl, batchSize);
+    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> Patients){
+        return buildSearchBatches(extraction,Patients, batchSize);
+    }
+    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> Patients, int batchSize){
+        this.extraction = (extraction.getCohortDefinition()).getDataExtraction();
+        return getSearchBatches(Patients, batchSize);
+    }
+
+    public List<String> getSearchBatches(ArrayList<String> Patients){
+        return getSearchBatches(Patients, batchSize);
     }
 
 
-        public List<String> getSearchBatches(ArrayList<String> Patients, String serverUrl,int size){
+        public List<String> getSearchBatches(ArrayList<String> Patients, int size){
 
         List<String> batches = splitListIntoBatches(Patients, size);
         List<AttributeGroup> attributeGroups = extraction.getAttributeGroups();
@@ -50,10 +53,10 @@ public class FHIRSearchBuilder {
             String groupString = "/"+resourceType+"?patient={patient}&_profile=" + URLEncoder.encode(group.getGroupReference());
             if(group.hasFilter()) {
                 modifiedFilters.addAll(group.getFilters().stream()
-                        .map(f -> serverUrl + groupString+"&" + f)
+                        .map(f -> groupString+"&" + f)
                         .toList());
             }else{
-                modifiedFilters.add(serverUrl + groupString);
+                modifiedFilters.add(groupString);
             }
 
         }
