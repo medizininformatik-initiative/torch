@@ -3,9 +3,6 @@ import de.medizininformatikinitiative.util.FHIRSearchBuilder;
 import de.medizininformatikinitiative.util.model.Attribute;
 import de.medizininformatikinitiative.util.model.CRTDL;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -17,14 +14,12 @@ import static java.util.stream.Collectors.toCollection;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-@ExtendWith(SpringExtension.class)
-@SpringBootTest
+
+
 public class CRTDLTest {
 
 
     private final ObjectMapper objectMapper = new ObjectMapper();
-
-    private FHIRSearchBuilder searchBuilder;
 
     @Test
     public void testCondition() {

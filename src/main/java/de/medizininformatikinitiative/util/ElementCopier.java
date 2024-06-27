@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.util.CopyUtils.*;
-import static de.medizininformatikinitiative.util.FHIRPATHbuilder.cleanFHIRPATH;
-import static de.medizininformatikinitiative.util.FHIRPATHbuilder.handleSlicingForFHIRPATH;
+import static de.medizininformatikinitiative.util.FHIRPATHBuilder.cleanFHIRPATH;
+import static de.medizininformatikinitiative.util.FHIRPATHBuilder.handleSlicingForFHIRPATH;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,8 +67,9 @@ public class ElementCopier {
         logger.debug("TGT set " + tgt.getClass());
         logger.debug("Attribute FHIR PATH" + attribute.getAttributeRef());
 
+        String fhirPath = cleanFHIRPATH(handleSlicingForFHIRPATH(attribute.getAttributeRef(),false));
 
-        List<Base> elements = ctx.newFhirPath().evaluate(src, cleanFHIRPATH(handleSlicingForFHIRPATH(attribute.getAttributeRef(),false)), Base.class);
+        List<Base> elements = ctx.newFhirPath().evaluate(src,fhirPath , Base.class);
         //TODO Check Extensions on Element Level
         elements.forEach(element -> {
             if (element instanceof Element) {
@@ -86,7 +87,7 @@ public class ElementCopier {
 
             DomainResource finalTgt = tgt;
             if (elements.size() == 1) {
-                System.out.println("Setting " + shorthandFHIRPATH);
+
                 if(shorthandFHIRPATH.endsWith("[x]")){
                     String type = capitalizeFirstLetter(elements.get(0).fhirType());
                     shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);

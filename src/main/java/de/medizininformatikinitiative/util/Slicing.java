@@ -43,7 +43,7 @@ public class Slicing {
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(new ElementDefinition());
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        String fhirPath = FHIRPATHbuilder.build("StructureDefinition.snapshot.element", "path = '" + elementID + "'");
+        String fhirPath = FHIRPATHBuilder.build("StructureDefinition.snapshot.element", "path = '" + elementID + "'");
         ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
 
 

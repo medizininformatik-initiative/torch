@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.util;
 
 import static java.lang.String.format;
 
-public class FHIRPATHbuilder {
+public class FHIRPATHBuilder {
 
     //TODO Expand as needed
     public static String build(String path) {
@@ -24,8 +24,9 @@ public class FHIRPATHbuilder {
                     if(Terser){
                         result+="."+sliceParts[1];
                     }else {
-                        String sliceName = sliceParts[1];
-                        result += "." + path + ".as(" + sliceName.replace(path, "") + ")";
+                        String sliceName = sliceParts[1].replace(path, "");
+                        String toLowerCase = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
+                        result += "." + path + ".as(" +toLowerCase  + ")";
                     }
                 }else{
                     if(result.isEmpty()){

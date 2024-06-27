@@ -31,7 +31,7 @@ public class FHIRSearchBuilder {
 
 
     public FHIRSearchBuilder(CRTDL extraction,CDSStructureDefinitionHandler cds) {
-        this.extraction = extraction.getCohortDefinition().getDataExtraction();;
+        this.extraction = (extraction.getCohortDefinition()).getDataExtraction();;
         this.cdsStructureDefinitionHandler = cds;
     }
 
