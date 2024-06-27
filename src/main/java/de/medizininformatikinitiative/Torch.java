@@ -15,8 +15,5 @@ public class Torch {
         SpringApplication.run(Torch.class, args);
     }
 
-    @Bean
-    FhirContext context() {
-        return FhirContext.forR4();
-    }
+
 }

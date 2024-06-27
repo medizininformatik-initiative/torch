@@ -3,6 +3,7 @@
 package de.medizininformatikinitiative.config;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.DataStore;
 import de.medizininformatikinitiative.util.ElementCopier;
@@ -56,5 +57,10 @@ public class AppConfig {
     @Bean
     public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext) {
         return new CdsStructureDefinitionHandler(fhirContext,"src/test/resources/StructureDefinitions/");
+    }
+
+    @Bean
+    public IParser parser(FhirContext fhirContext) {
+        return fhirContext.newJsonParser();
     }
 }
