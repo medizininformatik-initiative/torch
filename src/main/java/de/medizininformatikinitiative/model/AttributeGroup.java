@@ -6,8 +6,10 @@ import de.medizininformatikinitiative.model.Filter;
 import de.medizininformatikinitiative.model.Attribute;
 
 import java.net.URLEncoder;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -74,26 +76,17 @@ public class AttributeGroup {
         return false;
     }
 
-    public List<String> getFilters() {
-        String datefilter = "";
-        List<String> filterList = new LinkedList<>();
+
+    public Map<String, String> getFiltersAsMap() {
+        Map<String, String> filterMap = new HashMap<>();
         for (Filter filter : filter) {
             if ("date".equals(filter.getType())) {
-                datefilter = filter.getDateFilter();
-
+                filterMap.put("date", filter.getDateFilter());
             } else {
-                filterList.addAll(filter.getCodeFilter());
+                filterMap.putAll(filter.getCodeFilter());
             }
         }
-        if (!datefilter.isEmpty()) {
-            String finalDatefilter = datefilter;
-            filterList = filterList.stream()
-                    .map(s -> s + "&" + finalDatefilter)
-                    .collect(Collectors.toList());
-
-
-        }
-        return filterList;
+        return filterMap;
     }
 
 

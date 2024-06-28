@@ -5,8 +5,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.model.Code;
 
 import java.lang.reflect.Array;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Filter {
@@ -41,19 +43,34 @@ public class Filter {
         if (type.equals("date")) {
 
             if (start != null && !start.trim().isEmpty()) {
-                filterString += name + "=ge" + start;
+                filterString += "ge" + start;
             }
             if (end != null && !end.trim().isEmpty()) {
                 if (!filterString.isEmpty()) {
                     filterString += "&";
                 }
-                filterString += name + "=le" + end;
+                filterString += "le" + end;
             }
 
         }
         return filterString;
     }
 
+    Map<String, String> getCodeFilter() {
+        Map<String, String> clause = new HashMap<>();
+        String codeString = "";
+        if (type.equals("token")) {
+            for (int i = 0; i < codes.size(); i++) {
+                if (i > 0) {
+                    codeString += ",";
+                }
+                codeString += codes.get(i).getCodeURL();
+            }
+            clause.put(name, codeString);
+        }
+    return clause;
+    }
+/*
     List<String> getCodeFilter() {
         List<String> searchClauses = new LinkedList<String>();
         if (type.equals("token")) {
@@ -64,6 +81,6 @@ public class Filter {
         }
         return searchClauses;
     }
-
+*/
 
 }

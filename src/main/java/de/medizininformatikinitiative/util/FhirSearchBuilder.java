@@ -1,71 +1,78 @@
 package de.medizininformatikinitiative.util;
 
 import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
-
 import de.medizininformatikinitiative.model.*;
 
 import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.util.ListUtils.splitListIntoBatches;
 
 public class FhirSearchBuilder {
 
-    public static int batchSize=100;
+    public static int batchSize = 100;
 
-
-    //Change global batch size
-    public static void setBatchsize(int batchsize) {
-        batchSize=batchsize;
+    // Change global batch size
+    public static void setBatchsize(int batchSize) {
+        FhirSearchBuilder.batchSize = batchSize;
     }
 
     public DataExtraction extraction;
 
     private CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
 
-
-    public FhirSearchBuilder(CdsStructureDefinitionHandler cds) {;
+    public FhirSearchBuilder(CdsStructureDefinitionHandler cds) {
         this.cdsStructureDefinitionHandler = cds;
     }
 
-    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> Patients){
-        return buildSearchBatches(extraction,Patients, batchSize);
-    }
-    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> Patients, int batchSize){
-        this.extraction = (extraction.getCohortDefinition()).getDataExtraction();
-        return getSearchBatches(Patients, batchSize);
+    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> patients) {
+        return buildSearchBatches(extraction, patients, batchSize);
     }
 
-    public List<String> getSearchBatches(ArrayList<String> Patients){
-        return getSearchBatches(Patients, batchSize);
+    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> patients, int batchSize) {
+        this.extraction = extraction.getCohortDefinition().getDataExtraction();
+        return getSearchBatchesAsUrls(patients, batchSize);
     }
 
+    public List<String> getSearchBatchesAsUrls(ArrayList<String> patients) {
+        return getSearchBatchesAsUrls(patients, batchSize);
+    }
 
-        public List<String> getSearchBatches(ArrayList<String> Patients, int size){
+    public List<String> getSearchBatchesAsUrls(ArrayList<String> patients, int size) {
+        List<Map<String, String>> searchBatches = getSearchBatches(patients, size);
+        return searchBatches.stream()
+                .map(this::exportParametersAsString)
+                .collect(Collectors.toList());
+    }
 
-        List<String> batches = splitListIntoBatches(Patients, size);
+    public List<Map<String, String>> getSearchBatches(ArrayList<String> patients, int size) {
+        List<String> batches = splitListIntoBatches(patients, size);
         List<AttributeGroup> attributeGroups = extraction.getAttributeGroups();
-        List<String> modifiedFilters = new ArrayList<>();
-        for (AttributeGroup group : attributeGroups) {
-            String resourceType = (cdsStructureDefinitionHandler.getDefinition(group.getGroupReference())).getType();
-            String groupString = "/"+resourceType+"?patient={patient}&_profile=" + URLEncoder.encode(group.getGroupReference());
-            if(group.hasFilter()) {
-                modifiedFilters.addAll(group.getFilters().stream()
-                        .map(f -> groupString+"&" + f)
-                        .toList());
-            }else{
-                modifiedFilters.add(groupString);
+        List<Map<String, String>> searchBatches = new LinkedList<>();
+        for (String batch : batches) {
+            for (AttributeGroup group : attributeGroups) {
+                String resourceType = cdsStructureDefinitionHandler.getDefinition(group.getGroupReference()).getType();
+                Map<String, String> parameters = new HashMap<>();
+                parameters.put("resourceType", resourceType);
+                parameters.put("patient", batch);
+                parameters.put("_profile", group.getGroupReference());
+                if (group.hasFilter()) {
+                    parameters.putAll(group.getFiltersAsMap());
+                }
+                searchBatches.add(parameters);
             }
-
-        }
-        List<String> searchBatches = new LinkedList<>();
-        for(String batch: batches){
-            searchBatches.addAll(modifiedFilters.stream().map(f -> f.replace("{patient}", batch)).toList());
         }
         return searchBatches;
     }
 
-
+    public String exportParametersAsString(Map<String, String> parameters) {
+        return parameters.entrySet().stream()
+                .map(entry -> URLEncoder.encode(entry.getKey()) + "=" + URLEncoder.encode(entry.getValue()))
+                .collect(Collectors.joining("&"));
+    }
 }
