@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.util;
 import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.model.*;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -22,7 +23,6 @@ public class FhirSearchBuilder {
         FhirSearchBuilder.batchSize = batchSize;
     }
 
-    public DataExtraction extraction;
 
     private CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
 
@@ -30,27 +30,24 @@ public class FhirSearchBuilder {
         this.cdsStructureDefinitionHandler = cds;
     }
 
-    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> patients) {
-        return buildSearchBatches(extraction, patients, batchSize);
+    public List<Map<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients) {
+        return buildSearchBatches(crtdl, patients, batchSize);
     }
 
-    public List<String> buildSearchBatches(Crtdl extraction, ArrayList<String> patients, int batchSize) {
-        this.extraction = extraction.getCohortDefinition().getDataExtraction();
-        return getSearchBatchesAsUrls(patients, batchSize);
+    public List<Map<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients, int batchSize) {
+        return getSearchBatches(patients, batchSize, crtdl);
     }
 
-    public List<String> getSearchBatchesAsUrls(ArrayList<String> patients) {
-        return getSearchBatchesAsUrls(patients, batchSize);
-    }
+    public List<String> getSearchBatchesAsUrls(Crtdl crtdl,ArrayList<String> patients, int size) {
+        List<Map<String, String>> searchBatches = getSearchBatches(patients, size,crtdl);
 
-    public List<String> getSearchBatchesAsUrls(ArrayList<String> patients, int size) {
-        List<Map<String, String>> searchBatches = getSearchBatches(patients, size);
         return searchBatches.stream()
                 .map(this::exportParametersAsString)
                 .collect(Collectors.toList());
     }
 
-    public List<Map<String, String>> getSearchBatches(ArrayList<String> patients, int size) {
+    public List<Map<String, String>> getSearchBatches(ArrayList<String> patients, int size, Crtdl crtdl) {
+        DataExtraction extraction = crtdl.getCohortDefinition().getDataExtraction();
         List<String> batches = splitListIntoBatches(patients, size);
         List<AttributeGroup> attributeGroups = extraction.getAttributeGroups();
         List<Map<String, String>> searchBatches = new LinkedList<>();
@@ -72,7 +69,13 @@ public class FhirSearchBuilder {
 
     public String exportParametersAsString(Map<String, String> parameters) {
         return parameters.entrySet().stream()
-                .map(entry -> URLEncoder.encode(entry.getKey()) + "=" + URLEncoder.encode(entry.getValue()))
+                .map(entry -> {
+                    try {
+                        return URLEncoder.encode(entry.getKey(),"UTF-8") + "=" + URLEncoder.encode(entry.getValue(),"UTF-8");
+                    } catch (UnsupportedEncodingException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
                 .collect(Collectors.joining("&"));
     }
 }

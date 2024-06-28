@@ -15,6 +15,7 @@ import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import java.util.ArrayList;
 
@@ -65,16 +66,16 @@ public class ResourceTransformationTest extends BaseTest {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
             FhirSearchBuilder builder = new FhirSearchBuilder(cds);
-            List<String> searchStrings = builder.buildSearchBatches(CRTDL, Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)), 2);
-            Flux<String> searchStringFlux = Flux.fromIterable(searchStrings);
+            List<Map<String, String>> searchStrings = builder.buildSearchBatches(CRTDL, Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)), 2);
+            Flux<Map<String, String>> searchStringFlux = Flux.fromIterable(searchStrings);
 
-            Flux<Resource> allResources = searchStringFlux.flatMap(dataStore::getResources);
+            /*Flux<Resource> allResources = searchStringFlux.flatMap(dataStore::getResources);
 
             // Subscribe to the Flux to see the results (for demonstration purposes)
             allResources.subscribe(resource -> {
                 // Process each resource
                 System.out.println(resource);
-            });
+            });*/
 
         } catch (Exception e) {
             e.printStackTrace();

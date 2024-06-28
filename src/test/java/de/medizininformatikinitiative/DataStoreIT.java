@@ -128,7 +128,16 @@ public class DataStoreIT {
 
     @Test
     public void testFhirSearch() throws IOException {
-        String response = webClient.post()
+        try(FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic.json")) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+            assertNotNull(crtdl);
+            Attribute attribute1 = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
+            assertEquals("Condition.code", attribute1.getAttributeRef());
+            FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
+            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl, Stream.of("1").collect(toCollection(ArrayList::new)), 2);
+
+            String response = webClient.post()
                 .uri("/Condition/_search")
                 .accept(APPLICATION_JSON)
                 .retrieve()
@@ -171,11 +180,11 @@ public class DataStoreIT {
 
             // Log the response for debugging
             logger.info("FHIR Search Response: {}", response);
-
+*/
         } catch (Exception e) {
             logger.error("Data Store IT Error in CRTDL", e);
         }
-*/
+
 
     }
 }

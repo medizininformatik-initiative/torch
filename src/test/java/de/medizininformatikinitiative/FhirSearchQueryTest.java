@@ -29,7 +29,7 @@ public class FhirSearchQueryTest extends BaseTest{
             Attribute attribute1 = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
-            List<String> batches = searchBuilder.buildSearchBatches(crtdl,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
+            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
             System.out.println(batches.size());
             System.out.println(batches.get(0));
             assertEquals(10, batches.size());
