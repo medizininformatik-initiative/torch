@@ -4,13 +4,16 @@ import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.model.*;
 
 import java.io.UnsupportedEncodingException;
+import java.lang.ref.Reference;
 import java.net.URLEncoder;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import static de.medizininformatikinitiative.util.ListUtils.splitListIntoBatches;
 
@@ -23,43 +26,47 @@ public class FhirSearchBuilder {
         FhirSearchBuilder.batchSize = batchSize;
     }
 
-
     private CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
 
     public FhirSearchBuilder(CdsStructureDefinitionHandler cds) {
         this.cdsStructureDefinitionHandler = cds;
     }
 
-    public List<Map<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients) {
+    public List<MultiValueMap<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients) {
         return buildSearchBatches(crtdl, patients, batchSize);
     }
 
-    public List<Map<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients, int batchSize) {
-        return getSearchBatches(patients, batchSize, crtdl);
+    public List<MultiValueMap<String, String>> buildSearchBatches(Crtdl crtdl, ArrayList<String> patients, int batchSize) {
+        return getSearchBatches(crtdl, patients, batchSize);
     }
 
-    public List<String> getSearchBatchesAsUrls(Crtdl crtdl,ArrayList<String> patients, int size) {
-        List<Map<String, String>> searchBatches = getSearchBatches(patients, size,crtdl);
+    public List<String> getSearchBatchesAsUrls(Crtdl crtdl, ArrayList<String> patients, int size) {
+        List<MultiValueMap<String, String>> searchBatches = getSearchBatches(crtdl, patients, size);
 
         return searchBatches.stream()
                 .map(this::exportParametersAsString)
                 .collect(Collectors.toList());
     }
 
-    public List<Map<String, String>> getSearchBatches(ArrayList<String> patients, int size, Crtdl crtdl) {
+    public List<MultiValueMap<String, String>> getSearchBatches(Crtdl crtdl, ArrayList<String> patients, int size) {
         DataExtraction extraction = crtdl.getCohortDefinition().getDataExtraction();
         List<String> batches = splitListIntoBatches(patients, size);
         List<AttributeGroup> attributeGroups = extraction.getAttributeGroups();
-        List<Map<String, String>> searchBatches = new LinkedList<>();
+        List<MultiValueMap<String, String>> searchBatches = new LinkedList<>();
         for (String batch : batches) {
             for (AttributeGroup group : attributeGroups) {
                 String resourceType = cdsStructureDefinitionHandler.getDefinition(group.getGroupReference()).getType();
-                Map<String, String> parameters = new HashMap<>();
-                parameters.put("resourceType", resourceType);
-                parameters.put("patient", batch);
-                parameters.put("_profile", group.getGroupReference());
+                MultiValueMap<String, String> parameters = new LinkedMultiValueMap<>();
+                parameters.add("patient", batch);
+                //parameters.add("resourceType", resourceType);
+                //System.out.println("Reference"+group.getGroupReference());
+                //parameters.add("_profile", group.getGroupReference());
                 if (group.hasFilter()) {
-                    parameters.putAll(group.getFiltersAsMap());
+                    Map<String, String> filters = group.getFiltersAsMap();
+                    for (Map.Entry<String, String> entry : filters.entrySet()) {
+                        System.out.println(entry.getKey()+" Param " +entry.getValue());
+                        parameters.add(entry.getKey(), entry.getValue());
+                    }
                 }
                 searchBatches.add(parameters);
             }
@@ -67,15 +74,16 @@ public class FhirSearchBuilder {
         return searchBatches;
     }
 
-    public String exportParametersAsString(Map<String, String> parameters) {
+    public String exportParametersAsString(MultiValueMap<String, String> parameters) {
         return parameters.entrySet().stream()
-                .map(entry -> {
-                    try {
-                        return URLEncoder.encode(entry.getKey(),"UTF-8") + "=" + URLEncoder.encode(entry.getValue(),"UTF-8");
-                    } catch (UnsupportedEncodingException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
+                .flatMap(entry -> entry.getValue().stream()
+                        .map(value -> {
+                            try {
+                                return URLEncoder.encode(entry.getKey(), "UTF-8") + "=" + URLEncoder.encode(value, "UTF-8");
+                            } catch (UnsupportedEncodingException e) {
+                                throw new RuntimeException(e);
+                            }
+                        }))
                 .collect(Collectors.joining("&"));
     }
 }

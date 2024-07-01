@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-;
+
 
 import de.medizininformatikinitiative.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.Base;

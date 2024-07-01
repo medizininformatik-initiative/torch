@@ -10,12 +10,14 @@ import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.ArrayList;
 
@@ -66,13 +68,19 @@ public class ResourceTransformationTest extends BaseTest {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
             FhirSearchBuilder builder = new FhirSearchBuilder(cds);
-            List<Map<String, String>> searchStrings = builder.buildSearchBatches(CRTDL, Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)), 2);
-            Flux<Map<String, String>> searchStringFlux = Flux.fromIterable(searchStrings);
+            // Build search batches with MultiValueMap<String, String>
+            List<MultiValueMap<String, String>> searchStrings = builder.buildSearchBatches(
+                    CRTDL,
+                    Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(Collectors.toCollection(ArrayList::new)),
+                    2
+            );
 
-            /*Flux<Resource> allResources = searchStringFlux.flatMap(dataStore::getResources);
+            // Create a Flux from the List of MultiValueMap<String, String>
+            Flux<MultiValueMap<String, String>> searchStringFlux = Flux.fromIterable(searchStrings);
 
+            assertNotNull(searchStringFlux);
             // Subscribe to the Flux to see the results (for demonstration purposes)
-            allResources.subscribe(resource -> {
+            /*allResources.subscribe(resource -> {
                 // Process each resource
                 System.out.println(resource);
             });*/

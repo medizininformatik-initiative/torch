@@ -45,6 +45,6 @@ public class Crtdl {
     }
 
     public String getResourceType() {
-        return cohortDefinition.getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0).getAttributeRef().split(".")[0];
+        return cohortDefinition.getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0).getAttributeRef().split("\\.")[0];
     }
 }

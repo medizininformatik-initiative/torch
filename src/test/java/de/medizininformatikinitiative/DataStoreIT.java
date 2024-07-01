@@ -26,6 +26,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -43,6 +45,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toCollection;
@@ -92,8 +95,6 @@ public class DataStoreIT {
             .waitingFor(Wait.forHttp("/health").forStatusCode(200))
             .withLogConsumer(new Slf4jLogConsumer(logger))
             .withReuse(true); // Allow container reuse
-
-
     @BeforeAll
     static void startContainer() {
         blaze.start();
@@ -128,63 +129,46 @@ public class DataStoreIT {
 
     @Test
     public void testFhirSearch() throws IOException {
-        try(FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic.json")) {
+        System.out.println("Starting FHITR Search Test");
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic.json")) {
+
             ObjectMapper objectMapper = new ObjectMapper();
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            assertNotNull(crtdl);
             Attribute attribute1 = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
+            System.out.println("Attribute found");
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
-            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl, Stream.of("1").collect(toCollection(ArrayList::new)), 2);
+            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl, Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
+            batches.forEach(System.out::println);
+            List<MultiValueMap<String, String>> parameters = searchBuilder.getSearchBatches(crtdl, Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
+
+            BodyInserters.FormInserter<String> formInserter = BodyInserters.fromFormData(parameters.get(0));
 
             String response = webClient.post()
-                .uri("/Condition/_search")
-                .accept(APPLICATION_JSON)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-        // Parse the response using the FHIR parser
-        Bundle bundle = parser.parseResource(Bundle.class, response);
-
-        // Check that the bundle is not null and contains Condition resources
-        assertThat(bundle).isNotNull();
-        assertThat(bundle.getEntry()).isNotEmpty();
-        assertThat(bundle.getEntry().get(0).getResource()).isInstanceOf(Condition.class);
-        System.out.println("FHIR Search Response: {}"+response);
-        // Log the response for debugging
-
-       /* try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic.json")) {
-            ObjectMapper objectMapper = new ObjectMapper();
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            assertNotNull(crtdl);
-            Attribute attribute1 = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
-            assertEquals("Condition.code", attribute1.getAttributeRef());
-            FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
-            List<String> batches = searchBuilder.buildSearchBatches(crtdl, Stream.of("1").collect(toCollection(ArrayList::new)), 2);
-            System.out.println("Batches" + batches.size());
-            logger.error("Batches" + batches.get(0));
-            String response = webClient.get()
-                    .uri(batches.get(0))
+                    .uri("/"+crtdl.getResourceType()+"/_search")
+                    .body(formInserter)
                     .accept(APPLICATION_JSON)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
 
+            System.out.println("FHIR Search Response: {}" + response);
             // Parse the response using the FHIR parser
             Bundle bundle = parser.parseResource(Bundle.class, response);
 
             // Check that the bundle is not null and contains Condition resources
             assertThat(bundle).isNotNull();
             assertThat(bundle.getEntry()).isNotEmpty();
-            assertThat(bundle.getEntry().get(0).getResource()).isInstanceOf(Condition.class);
+            bundle.getEntry().forEach(x->assertEquals(x.getResource().fhirType(),"Condition"));
 
             // Log the response for debugging
-            logger.info("FHIR Search Response: {}", response);
-*/
+
+
         } catch (Exception e) {
+            System.out.println("Error in Handling Client "+e);
             logger.error("Data Store IT Error in CRTDL", e);
         }
-
+        System.out.println("Test finished ");
 
     }
 }

@@ -20,9 +20,8 @@
                   "name": "code",
                   "codes": [
                     {
-                      "code": "A01.0",
-                      "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
-                      "display": "Typhus abdominalis"
+                      "code": "I60.1",
+                      "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm"
                     },
                     {
                       "code": "91613004",
