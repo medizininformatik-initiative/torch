@@ -5,12 +5,16 @@ import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.util.Optional;
+
+import static org.springframework.http.MediaType.APPLICATION_JSON;
 
 @Component
 public class DataStore {
@@ -30,9 +34,13 @@ public class DataStore {
      * @param FHIRSearchQuery the fhir search query defining the patient resources to be fetched
      * @return the resources found with the {@param FHIRSearchQuery}
      */
-    public Flux<Resource> getResources(String FHIRSearchQuery) {
-        return client.get()
-                .uri(FHIRSearchQuery)
+    public Flux<Resource> getResources(String ResourceType, MultiValueMap<String, String> parameters) {
+        BodyInserters.FormInserter<String> formInserter = BodyInserters.fromFormData(parameters);
+
+        return client.post()
+                .uri("/"+ResourceType+"/_search")
+                .body(formInserter)
+                .accept(APPLICATION_JSON)
                 .retrieve()
                 .bodyToFlux(String.class)
                 .map(response -> parser.parseResource(Bundle.class, response))

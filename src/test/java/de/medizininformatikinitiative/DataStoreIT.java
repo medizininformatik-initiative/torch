@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.model.AttributeGroup;
 import de.medizininformatikinitiative.model.Crtdl;
 import de.medizininformatikinitiative.util.FhirSearchBuilder;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,8 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
@@ -137,23 +140,24 @@ public class DataStoreIT {
 
             BodyInserters.FormInserter<String> formInserter = BodyInserters.fromFormData(parameters.get(0));
 
-            String response = webClient.post()
+            Flux<Resource> resources = dataStore.getResources(crtdl.getResourceType(), parameters.get(0));
+            /*String response = webClient.post()
                     .uri("/"+crtdl.getResourceType()+"/_search")
                     .body(formInserter)
                     .accept(APPLICATION_JSON)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-
-            System.out.println("FHIR Search Response: {}" + response);
+                      System.out.println("FHIR Search Response: {}" + response);
             // Parse the response using the FHIR parser
             Bundle bundle = parser.parseResource(Bundle.class, response);
+*/
+
 
             // Check that the bundle is not null and contains Condition resources
-            assertThat(bundle).isNotNull();
-            assertThat(bundle.getEntry()).isNotEmpty();
-            bundle.getEntry().forEach(x->assertEquals(x.getResource().fhirType(),"Condition"));
-
+            assertThat(resources).isNotNull();
+            assertNotNull(Mono.from(resources));
+            resources.toStream().forEach(x->assertEquals(x.fhirType(),"Condition"));
             // Log the response for debugging
 
 

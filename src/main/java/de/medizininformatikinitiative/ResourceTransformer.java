@@ -9,6 +9,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import org.springframework.util.MultiValueMap;
 import reactor.core.publisher.Flux;
 
 import java.lang.reflect.InvocationTargetException;
@@ -31,12 +32,12 @@ public class ResourceTransformer {
     }
 
 
-    public Flux<Resource> transformResources(String FHIRSearchQuery, Crtdl crtdl) {
-        Flux<Resource> resources = dataStore.getResources(FHIRSearchQuery);
+    public Flux<Resource> transformResources(MultiValueMap<String, String> parameters, AttributeGroup group, String resourceType) {
+        Flux<Resource> resources = dataStore.getResources(resourceType, parameters);
         return resources.map(resource -> {
 
             try {
-                return transform((DomainResource) resource, crtdl);
+                return transform((DomainResource) resource, group);
             } catch (NoSuchMethodException e) {
                 throw new RuntimeException(e);
             } catch (InvocationTargetException e) {
@@ -51,10 +52,10 @@ public class ResourceTransformer {
     }
 
 
-    public Resource transform(DomainResource resourcesrc, Crtdl crtdl) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException {
+    public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-       crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().forEach(attribute -> {
+       group.getAttributes().forEach(attribute -> {
             try {
                 copier.copy( resourcesrc, tgt, attribute);
             } catch (de.medizininformatikinitiative.util.Exceptions.MustHaveViolatedException e) {

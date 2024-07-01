@@ -45,10 +45,10 @@ public class ResourceTransformationTest extends BaseTest {
         ElementCopier copier = new ElementCopier(cds);
         ResourceTransformer transformer = new ResourceTransformer(dataStore, copier, redaction, cds, ctx);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
-            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, CRTDL);
+            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0));
             assertNotNull(tgt);
             //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
             assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
