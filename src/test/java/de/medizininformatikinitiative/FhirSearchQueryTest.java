@@ -26,13 +26,18 @@ public class FhirSearchQueryTest extends BaseTest{
         try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_diagnosis_withoutCCDL.json"))) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
-            Attribute attribute1 = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0).getAttributes().get(0);
+            AttributeGroup group1 =crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0);
+            AttributeGroup group2 =crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0);
+            Attribute attribute1 = group1.getAttributes().get(0);
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
-            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
+            List<String> batches = searchBuilder.getSearchBatchesAsUrls(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
             System.out.println(batches.size());
             System.out.println(batches.get(0));
+            assertEquals(5, batches.size());
+            batches.addAll(searchBuilder.getSearchBatchesAsUrls(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2));
             assertEquals(10, batches.size());
+
         } catch (Exception e) {
             e.printStackTrace();
         }

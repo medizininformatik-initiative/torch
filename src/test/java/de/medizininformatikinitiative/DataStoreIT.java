@@ -1,18 +1,12 @@
 package de.medizininformatikinitiative;
 
 import ca.uhn.fhir.parser.IParser;
-import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.dockerjava.api.DockerClient;
-import com.github.dockerjava.api.command.ListContainersCmd;
-import com.github.dockerjava.core.DockerClientBuilder;
 import de.medizininformatikinitiative.model.Attribute;
+import de.medizininformatikinitiative.model.AttributeGroup;
 import de.medizininformatikinitiative.model.Crtdl;
 import de.medizininformatikinitiative.util.FhirSearchBuilder;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.Measure;
-import org.hl7.fhir.r4.model.MeasureReport;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,14 +32,12 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Stream;
 
 import static java.util.stream.Collectors.toCollection;
@@ -138,9 +130,10 @@ public class DataStoreIT {
             System.out.println("Attribute found");
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder(cds);
-            List<String> batches = searchBuilder.getSearchBatchesAsUrls(crtdl, Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
+            AttributeGroup group = crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().get(0);
+            List<String> batches = searchBuilder.getSearchBatchesAsUrls(group, Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
             batches.forEach(System.out::println);
-            List<MultiValueMap<String, String>> parameters = searchBuilder.getSearchBatches(crtdl, Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
+            List<MultiValueMap<String, String>> parameters = searchBuilder.getSearchBatches(group,Stream.of("7ca6f273-82f1-4fd5-9b0d-e9e4f957fe42").collect(toCollection(ArrayList::new)), 2);
 
             BodyInserters.FormInserter<String> formInserter = BodyInserters.fromFormData(parameters.get(0));
 

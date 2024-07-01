@@ -66,19 +66,24 @@ public class ResourceTransformationTest extends BaseTest {
         ElementCopier copier = new ElementCopier(cds);
         ResourceTransformer transformer = new ResourceTransformer(dataStore, copier, redaction, cds, ctx);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            Crtdl CRTDL = objectMapper.readValue(fis, Crtdl.class);
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             FhirSearchBuilder builder = new FhirSearchBuilder(cds);
             // Build search batches with MultiValueMap<String, String>
-            List<MultiValueMap<String, String>> searchStrings = builder.buildSearchBatches(
-                    CRTDL,
-                    Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(Collectors.toCollection(ArrayList::new)),
-                    2
+            crtdl.getCohortDefinition().getDataExtraction().getAttributeGroups().forEach(
+                    group->{
+                        List<MultiValueMap<String, String>> searchStrings = builder.buildSearchBatches(
+                                group,
+                                Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(Collectors.toCollection(ArrayList::new)),
+                                2
+                        );
+
+                        // Create a Flux from the List of MultiValueMap<String, String>
+                        Flux<MultiValueMap<String, String>> searchStringFlux = Flux.fromIterable(searchStrings);
+
+                        assertNotNull(searchStringFlux);
+                    }
             );
 
-            // Create a Flux from the List of MultiValueMap<String, String>
-            Flux<MultiValueMap<String, String>> searchStringFlux = Flux.fromIterable(searchStrings);
-
-            assertNotNull(searchStringFlux);
             // Subscribe to the Flux to see the results (for demonstration purposes)
             /*allResources.subscribe(resource -> {
                 // Process each resource
