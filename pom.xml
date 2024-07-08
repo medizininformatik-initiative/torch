@@ -141,6 +141,7 @@
             <version>1.19.7</version>
             <scope>test</scope>
         </dependency>
+
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
@@ -148,33 +149,37 @@
             <scope>test</scope>
         </dependency>
 
+        <dependency>
+            <groupId>org.jacoco</groupId>
+            <artifactId>jacoco-maven-plugin</artifactId>
+            <version>0.8.12</version>
+        </dependency>
+
     </dependencies>
 
 
     <build>
         <plugins>
-
-            <!--plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-            </plugin>
-
             <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-shade-plugin</artifactId>
-                <version>3.5.3</version>
-                <configuration>
-
-                </configuration>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.12</version>
                 <executions>
                     <execution>
-                        <phase>package</phase>
                         <goals>
-                            <goal>shade</goal>
+                            <goal>prepare-agent</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>test</phase>
+                        <goals>
+                            <goal>report</goal>
                         </goals>
                     </execution>
                 </executions>
-            </plugin-->
+            </plugin>
+
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
@@ -189,7 +194,7 @@
                     <archive>
                         <manifest>
                             <addClasspath>true</addClasspath>
-                            <mainClass>de.medizininformatikinitiative.CdsStructureDefinitionHandler</mainClass>
+                            <mainClass>de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
@@ -200,5 +205,22 @@
 
         </plugins>
     </build>
+
+        <reporting>
+            <plugins>
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <reportSets>
+                        <reportSet>
+                            <reports>
+                                <!-- select non-aggregate reports -->
+                                <report>report</report>
+                            </reports>
+                        </reportSet>
+                    </reportSets>
+                </plugin>
+            </plugins>
+        </reporting>
 
 </project>

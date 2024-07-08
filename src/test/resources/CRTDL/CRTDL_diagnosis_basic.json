@@ -1,40 +1,37 @@
 {
-    "version": "http://json-schema.org/to-be-done/schema#",
-    "display": "",
-    "cohortDefinition": {
-      "version": "http://to_be_decided.com/draft-1/schema#",
-      "display": "",
-        "dataExtraction": {
-          "attributeGroups": [
-            {
-              "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
-              "attributes": [
-                {
-                  "attributeRef": "Condition.code",
-                  "mustHave": false
-                }
-              ],
-              "filter": [
-                {
-                  "type": "token",
-                  "name": "code",
-                  "codes": [
-                    {
-                      "code": "789012",
-                      "system": "http://snomed.info/sct"
-                    }
-                  ]
-                },
-                {
-                  "type": "date",
-                  "name": "date",
-                  "start": "2021",
-                  "end": "2025"
-                }
-              ]
-            }
-          ]
-        }
-    }
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "display": "",
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+        "attributes": [
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "789012",
+                "system": "http://snomed.info/sct"
+              }
+            ]
+          },
+          {
+            "type": "date",
+            "name": "date",
+            "start": "2021",
+            "end": "2025"
+          }
+        ]
+      }
+    ]
+  }
 }
+
 

@@ -1,0 +1,136 @@
+{
+  "resourceType": "Encounter",
+  "id": "mii-exa-fall-kontakt-gesundheitseinrichtung-2",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung|2024.0.0"
+    ]
+  },
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://fhir.de/CodeSystem/Kontaktebene",
+          "code": "abteilungskontakt",
+          "display": "Abteilungskontakt"
+        }
+      ]
+    }
+  ],
+  "serviceType": {
+    "coding": [
+      {
+        "system": "http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel",
+        "code": "0100",
+        "display": "Innere Medizin"
+      }
+    ]
+  },
+  "location": [
+    {
+      "physicalType": {
+        "coding": [
+          {
+            "code": "ro",
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type"
+          }
+        ]
+      },
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Zimmernummern",
+          "value": "RHC-06-210b"
+        },
+        "display": "RHC-06-210b"
+      }
+    },
+    {
+      "physicalType": {
+        "coding": [
+          {
+            "code": "bd",
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type"
+          }
+        ]
+      },
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Bettennummern",
+          "value": "RHC-06-210b-02"
+        },
+        "display": "RHC-06-210b-02"
+      }
+    },
+    {
+      "physicalType": {
+        "coding": [
+          {
+            "code": "wa",
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type"
+          }
+        ]
+      },
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Stationsnummern",
+          "value": "RHC-06"
+        },
+        "display": "RHC-06"
+      }
+    }
+  ],
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "code": "VN",
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203"
+          }
+        ]
+      },
+      "system": "http://medizininformatik-initiative.de/fhir/NamingSystem/Aufnahmenummer/MusterKrankenhaus",
+      "value": "F_0000001"
+    }
+  ],
+  "status": "finished",
+  "class": {
+    "code": "IMP",
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+    "display": "inpatient encounter"
+  },
+  "subject": {
+    "reference": "Patient/P_0000000"
+  },
+  "period": {
+    "start": "2020-11-02T03:00:00+00:00",
+    "end": "2020-11-02T03:59:59+00:00"
+  },
+  "diagnosis": [
+    {
+      "condition": {
+        "reference": "Condition/D_0000001"
+      },
+      "use": {
+        "coding": [
+          {
+            "code": "treatment-diagnosis",
+            "system": "http://fhir.de/CodeSystem/KontaktDiagnoseProzedur",
+            "display": "Behandlungsrelevante Diagnosen"
+          },
+          {
+            "code": "department-main-diagnosis",
+            "system": "http://fhir.de/CodeSystem/KontaktDiagnoseProzedur",
+            "display": "Abteilung Hauptdiagnose"
+          }
+        ]
+      }
+    }
+  ],
+  "serviceProvider": {
+    "identifier": {
+      "system": "http://medizininformatik-initiative.de/fhir/NamingSystem/Abteilungsidentifikator/MusterKrankenhaus",
+      "value": "1500_ACHI"
+    }
+  }
+}

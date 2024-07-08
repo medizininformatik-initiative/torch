@@ -1,25 +1,21 @@
 {
   "version": "http://json-schema.org/to-be-done/schema#",
   "display": "",
-  "cohortDefinition": {
-    "version": "http://to_be_decided.com/draft-1/schema#",
-    "display": "",
-    "dataExtraction": {
-      "attributeGroups": [
-        {
-          "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
-          "attributes": [
-            {
-              "attributeRef": "Patient.identifier",
-              "mustHave": false
-            }
-          ],
-          "filter": [
-
-          ]
-        }
-      ]
-    }
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+          {
+            "attributeRef": "Patient.identifier",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+        ]
+      }
+    ]
   }
 }
+
 
