@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.flare.model.sq.StructuredQuery;
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import org.junit.jupiter.api.Test;
@@ -40,6 +41,9 @@ public class CrtdlTest {
         try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_observation.json"))) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
+            StructuredQuery sq = crtdl.getStructuredQuery();
+            assertNotNull(sq);
+            assertNotNull(sq.inclusionCriteria());
             Attribute attribute2 = crtdl.getDataExtraction().getAttributeGroups().get(0).getAttributes().get(1);
             assertEquals("Observation.value[x]",attribute2.getAttributeRef());
             assertEquals(true,attribute2.isMustHave());

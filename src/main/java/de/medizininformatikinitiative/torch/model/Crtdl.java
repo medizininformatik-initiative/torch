@@ -51,4 +51,8 @@ public class Crtdl {
     public String getResourceType() {
         return dataExtraction.getAttributeGroups().getFirst().getAttributes().getFirst().getAttributeRef().split("\\.")[0];
     }
+
+    public StructuredQuery getStructuredQuery() {
+        return sq;
+    }
 }
