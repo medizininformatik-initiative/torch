@@ -5,17 +5,21 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 
 public class ResourceUtils {
 
+    private static final Logger logger = LoggerFactory.getLogger(ResourceUtils.class);
+
+
 
     public static String getPatientId(DomainResource resource) throws PatientIdNotFoundException {
         // Check if the resource is an instance of Patient
-        if (resource instanceof Patient) {
-            Patient patient = (Patient) resource;
-            return "Patient/"+patient.getId();
+        if (resource instanceof Patient patient) {
+            return patient.getId();
         }
 
         try {
@@ -35,12 +39,20 @@ public class ResourceUtils {
                 if (hasReference) {
                     // Use reflection to get the 'getReference' method from 'subject'
                     Method getReferenceMethod = subject.getClass().getMethod("getReference");
-                    return (String) getReferenceMethod.invoke(subject);
+                    String reference = (String) getReferenceMethod.invoke(subject);
+                    if (reference != null && reference.startsWith("Patient/")) {
+                        return reference.substring("Patient/".length());
+                    }
+                    else{
+                        throw new PatientIdNotFoundException("Reference does not start with 'Patient/': " + reference);
+                    }
                 }
+
             }
+            throw new PatientIdNotFoundException("Patient Reference not found ");
         } catch (Exception e) {
             // Handle reflection exceptions
-            e.printStackTrace();
+            logger.error("Patient ID not Found ",e);
         }
 
         // Throw an error if no patient ID is found
