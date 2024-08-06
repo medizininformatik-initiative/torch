@@ -1,20 +1,21 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.model.*;
+import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
 
 public class CopyTest extends BaseTest{
-    private static final Logger logger = LoggerFactory.getLogger(CopyTest.class);
+
 
     @Test
     public void testDefinitionIsContained() {
@@ -42,7 +43,7 @@ public class CopyTest extends BaseTest{
 
                 assertEquals(parser.setPrettyPrint(true).encodeResourceToString(tgt), parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), resource + " Expected not equal to actual output");
             } catch (Exception e) {
-                e.printStackTrace();
+                logger.error("",e);
             }
 
         });
@@ -62,7 +63,7 @@ public class CopyTest extends BaseTest{
             assertNotNull(tgt);
            // System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("",e);
         }
 
 
@@ -80,7 +81,7 @@ public class CopyTest extends BaseTest{
             assertNotNull(tgt);
             //logger.debug(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("", e);
         }
 
 

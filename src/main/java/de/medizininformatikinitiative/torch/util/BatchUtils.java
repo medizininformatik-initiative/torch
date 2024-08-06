@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import java.util.ArrayList;
 import java.util.List;
 
-public class ListUtils {
+public class BatchUtils {
 
     public static List<String> splitListIntoBatches(List<String> originalList, int batchSize) {
         List<String> batches = new ArrayList<>();
@@ -14,4 +14,5 @@ public class ListUtils {
         }
         return batches;
     }
+
 }

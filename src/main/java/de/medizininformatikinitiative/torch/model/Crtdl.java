@@ -1,12 +1,9 @@
 package de.medizininformatikinitiative.torch.model;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.flare.model.sq.StructuredQuery;
-
-import java.util.List;
-
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Crtdl {
@@ -14,6 +11,7 @@ public class Crtdl {
     // No-argument constructor
     public Crtdl() {
     }
+
     @JsonProperty("version")
     private String version;
 
@@ -23,6 +21,8 @@ public class Crtdl {
     @JsonProperty("cohortDefinition")
     private StructuredQuery sq;
 
+    @JsonIgnore
+    private String sqString;
 
     @JsonProperty("dataExtraction")
     private DataExtraction dataExtraction;
@@ -54,5 +54,17 @@ public class Crtdl {
 
     public StructuredQuery getStructuredQuery() {
         return sq;
+    }
+
+    public void setStructuredQuery(StructuredQuery sq) {
+        this.sq = sq;
+    }
+
+    public String getSqString() {
+        return sqString;
+    }
+
+    public void setSqString(String sqString) {
+        this.sqString = sqString;
     }
 }
