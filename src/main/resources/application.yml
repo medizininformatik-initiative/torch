@@ -1,0 +1,12 @@
+# Server configuration
+server:
+  port: 8080
+
+
+fhirServer:
+  url: localhost:8082/fhir
+
+flare:
+  url: localhost:8084
+
+

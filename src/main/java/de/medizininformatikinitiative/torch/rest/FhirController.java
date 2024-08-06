@@ -108,7 +108,7 @@ public class FhirController {
                         return Mono.error(e);
                     }
                 })
-                .then(accepted().location(URI.create("/fhir/__status/" + jobId)).build())
+                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
                 .onErrorResume(MappingException.class, e -> {
                     logger.warn("Mapping error: {}", e.getMessage());
                     jobStatusMap.put(jobId, "Failed: " + e.getMessage());
@@ -152,7 +152,7 @@ public class FhirController {
                         return Mono.error(e);
                     }
                 })
-                .then(accepted().location(URI.create("/fhir/__status/" + jobId)).build())
+                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
                 .onErrorResume(MappingException.class, e -> {
                     logger.error("DEBUG Endpoint: Mapping error: {}", e.getMessage());
                     jobStatusMap.put(jobId, "Failed: " + e.getMessage());
@@ -261,7 +261,7 @@ public class FhirController {
                                     Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
                                     logger.info("Bundles Size {}", bundles.size());
                                     Bundle finalBundle = new Bundle();
-                                    finalBundle.setType(Bundle.BundleType.COLLECTION);
+                                    finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
                                     for (Bundle bundle : bundles.values()) {
                                         Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
                                         entryComponent.setResource(bundle);

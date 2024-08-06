@@ -74,7 +74,7 @@ public class FhirControllerIT extends AbstractIT {
     public void testDebugEndpoint() throws PatientIdNotFoundException, IOException {
 
         HttpHeaders headers = new HttpHeaders();
-        headers.add("content-type", "application/crtdl-json");
+        headers.add("content-type", "application/crtdl+json");
         List<String> expectedResourceFilePaths = List.of(
                 "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
         );
@@ -89,7 +89,7 @@ public class FhirControllerIT extends AbstractIT {
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
         HttpHeaders headers = new HttpHeaders();
 
-        headers.add("content-type", "application/fhir-json");
+        headers.add("content-type", "application/fhir+json");
         List<String> expectedResourceFilePaths = List.of(
                 "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
         );
@@ -134,7 +134,7 @@ public class FhirControllerIT extends AbstractIT {
                     Assertions.assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
 
                     // Polling the status endpoint
-                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port+ Objects.requireNonNull(response.getHeaders().get("location")).getFirst());
+                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port+ Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
                 } catch (HttpStatusCodeException e) {
                     logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                     Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());

@@ -32,7 +32,7 @@
     </root>
 
     <!-- Specific package log levels -->
-    <logger name="de.medizininformatikinitiative" level="DEBUG"/>
-    <logger name="org.testcontainers" level="DEBUG"/>
-    <logger name="com.github.dockerjava" level="DEBUG"/>
+    <logger name="de.medizininformatikinitiative" level="INFO"/>
+    <logger name="org.testcontainers" level="INFO"/>
+    <logger name="com.github.dockerjava" level="INFO"/>
 </configuration>
