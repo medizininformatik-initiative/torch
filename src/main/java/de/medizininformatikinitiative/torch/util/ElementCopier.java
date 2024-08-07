@@ -58,7 +58,6 @@ public class ElementCopier {
         List<String> legalExtensions = new LinkedList<>();
 
 
-
         ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(type.profile +'') ", StringType.class).forEach(stringType -> legalExtensions.add(stringType.getValue()));
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
 
@@ -66,52 +65,60 @@ public class ElementCopier {
         logger.debug("TGT set {}", tgt.getClass());
         logger.debug("Attribute FHIR PATH {}", attribute.getAttributeRef());
 
-        String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false));
+        String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
         logger.debug("FHIR PATH {}", fhirPath);
-        List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-        //TODO Check Extensions on Element Level
-        elements.forEach(element -> {
-            if (element instanceof Element) {
-                checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
+        System.out.println(fhirPath);
 
-            }
-        });
-        if (elements.isEmpty()) {
-            if (attribute.isMustHave()) {
-                throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
-            }
-        } else {
-            String shorthandFHIRPATH = handleSlicingForFhirPath(attribute.getAttributeRef(), true);
+        try {
+            List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
 
-            if (elements.size() == 1) {
+            //TODO Check Extensions on Element Level
+            elements.forEach(element -> {
+                if (element instanceof Element) {
+                    checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
 
-                if (shorthandFHIRPATH.endsWith("[x]")) {
-                    String type = capitalizeFirstLetter(elements.getFirst().fhirType());
-                    shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
                 }
-                TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, tgt, elements.getFirst());
+            });
+            if (elements.isEmpty()) {
+                if (attribute.isMustHave()) {
+                    throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
+                }
             } else {
-                //Assume branching before element
+                String shorthandFHIRPATH = handleSlicingForFhirPath(attribute.getAttributeRef(), true,factory);
 
-                int endIndex = attribute.getAttributeRef().lastIndexOf(".");
+                if (elements.size() == 1) {
 
-                if (endIndex != -1) {
-                    String ParentPath = attribute.getAttributeRef().substring(0, endIndex); // not forgot to put check if(endIndex != -1)
-                    logger.debug("ParentPath {}", ParentPath);
-                    logger.debug("Elemente {}", snapshot.getElementByPath(ParentPath));
-                    String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
-                    elements.forEach(element -> helper.setField(ParentPath, type, element));
+                    if (shorthandFHIRPATH.endsWith("[x]")) {
+                        String type = capitalizeFirstLetter(elements.getFirst().fhirType());
+                        shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
+                    }
+                    TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, tgt, elements.getFirst());
+                } else {
+                    //Assume branching before element
+
+                    int endIndex = attribute.getAttributeRef().lastIndexOf(".");
+
+                    if (endIndex != -1) {
+                        String ParentPath = attribute.getAttributeRef().substring(0, endIndex); // not forgot to put check if(endIndex != -1)
+                        logger.debug("ParentPath {}", ParentPath);
+                        logger.debug("Elemente {}", snapshot.getElementByPath(ParentPath));
+                        String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
+                        elements.forEach(element -> helper.setField(ParentPath, type, element));
+                    }
+
+
                 }
-
-
             }
+        } catch (NullPointerException e) {
+            logger.debug("No Result for FHIR SEARCH");
+            System.out.println("No Result for FHIR SEARCH");
         }
 
     }
 
 
     /**
-     * @param path Path of the Element to be checked
+     * @param path                Path of the Element to be checked
      * @param legalExtensions     all extensions that are allowed within the resource TODO: Make them elementspecific
      * @param element             Element to check for extensions
      * @param structureDefinition StructureDefinition of the resource TODO: Needed to get the allowed extensions on element level
@@ -156,12 +163,12 @@ public class ElementCopier {
      * TODO: Maybe needed for more involved copying
      *
      * @param attribute Attribute to be handled
-     * @param tgt tgt Resource
-     * @param elements Elements to be handled
-     * @param snapshot Structure Definition Snapshot
+     * @param tgt       tgt Resource
+     * @param elements  Elements to be handled
+     * @param snapshot  Structure Definition Snapshot
      * @return Resulting Resource
      * @throws InvocationTargetException Recursive Copy error
-     * @throws IllegalAccessException Recursive Copy error
+     * @throws IllegalAccessException    Recursive Copy error
      */
     public DomainResource copyInit(Attribute attribute, Resource tgt, List<Element> elements, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws InvocationTargetException, IllegalAccessException {
         String[] IDparts = attribute.getAttributeRef().split("\\.");
@@ -177,15 +184,15 @@ public class ElementCopier {
      * Copy elements from source to target resource recursively.
      * TODO: Maybe needed for more involved copying
      *
-     * @param path Element Path currently handled
-     * @param parent Parent Element
+     * @param path     Element Path currently handled
+     * @param parent   Parent Element
      * @param elements Elements to be copied
      * @param snapshot Structure Def snapshot
-     * @param IDparts Parts of ElementID
-     * @param index recursion index
+     * @param IDparts  Parts of ElementID
+     * @param index    recursion index
      * @return Resulting Base
      * @throws InvocationTargetException Recursive Copy error
-     * @throws IllegalAccessException Recursive Copy error
+     * @throws IllegalAccessException    Recursive Copy error
      */
     private Base recursiveCopy(String path, Base parent, List<Element> elements, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String[] IDparts, int index) throws InvocationTargetException, IllegalAccessException {
         String childname = IDparts[index];

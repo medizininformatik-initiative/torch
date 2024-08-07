@@ -28,7 +28,7 @@ public class FhirSearchBuilder {
         } else {
             parameters = "patient=" + batch;
         }
-        parameters += "&profile=" + group.getGroupReferenceURL() + filter;
+        parameters += "&_profile=" + group.getGroupReferenceURL() + filter;
         return parameters;
 
     }

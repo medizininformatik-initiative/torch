@@ -90,6 +90,7 @@ public class FhirController {
         logger.info("Handling CRTDL Bundle");
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
+                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler
                 .flatMap(body -> {
                     Bundle bundle = parser.parseResource(Bundle.class,body);
                     if (bundle.isEmpty() && !isValidBundle(bundle)) {
@@ -141,6 +142,7 @@ public class FhirController {
         logger.info("DEBUG Endpoint: Handling CRTDL");
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
+                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler
                 .flatMap(crtdlContent -> {
                     try {
                         logger.debug("Non Empty CRTDL");

@@ -40,8 +40,6 @@ public class AppConfig {
         return builder.build();
     }
 
-
-
     @Bean
     @Qualifier("flareClient")
     public WebClient flareWebClient(@Value("${flare.url:http://localhost:8085}") String baseUrl) {

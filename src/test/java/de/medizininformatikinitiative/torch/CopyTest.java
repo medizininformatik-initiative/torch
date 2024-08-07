@@ -17,6 +17,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 public class CopyTest extends BaseTest{
 
 
+
     @Test
     public void testDefinitionIsContained() {
         StructureDefinition definition = cds.getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
@@ -60,6 +61,7 @@ public class CopyTest extends BaseTest{
             copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
             copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
             copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
+            copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
             assertNotNull(tgt);
            // System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {

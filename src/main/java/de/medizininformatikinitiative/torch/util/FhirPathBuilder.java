@@ -1,13 +1,16 @@
 package de.medizininformatikinitiative.torch.util;
 
 
+import org.hl7.fhir.exceptions.FHIRException;
+import org.hl7.fhir.r4.model.Base;
+
 import static java.lang.String.format;
 
 public class FhirPathBuilder {
 
 
     //Handles Elementdefinition Slicing in a fhir PATH of the form e.g. onset[x]:onsetPeriod
-    public static String handleSlicingForFhirPath(String input, boolean Terser){
+    public static String handleSlicingForFhirPath(String input, boolean Terser, ElementFactory factory){
         if(input.contains(":")) {
 
             String[] elementIDParts = input.split("\\.");
@@ -21,8 +24,19 @@ public class FhirPathBuilder {
                         result.append(".").append(sliceParts[1]);
                     }else {
                         String sliceName = sliceParts[1].replace(path, "");
-                        String toLowerCase = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
-                        result.append(".").append(path).append(".as(").append(toLowerCase).append(")");
+                        Base element;
+                        try{
+                            element= factory.createElement(sliceName);
+                        }catch(FHIRException upperCaseException){
+                            try {
+                                sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
+                                element = factory.createElement(sliceName);
+                            }catch(FHIRException lowerCaseException){
+                                throw new FHIRException("Type of Slice no valid FHIRTYPE  "+sliceName);
+                            }
+                        }
+
+                        result.append(".").append(path).append(".as(").append(sliceName).append(")");
                     }
                 }else{
                     if(result.isEmpty()){

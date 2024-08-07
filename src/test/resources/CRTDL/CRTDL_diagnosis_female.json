@@ -45,12 +45,8 @@
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
           {
-            "attributeRef": "Observation.code",
+            "attributeRef": "Condition.code",
             "mustHave": false
-          },
-          {
-            "attributeRef":"Observation.value[x]",
-            "mustHave": true
           }
         ],
         "filter": [
