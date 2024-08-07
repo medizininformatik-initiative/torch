@@ -32,7 +32,8 @@ public class FhirPathBuilder {
                                 sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
                                 element = factory.createElement(sliceName);
                             }catch(FHIRException lowerCaseException){
-                                throw new FHIRException("Type of Slice no valid FHIRTYPE  "+sliceName);
+                                //Assuming concrete Slicing
+                                throw new FHIRException("Unsupported Slicing "+sliceName);
                             }
                         }
 

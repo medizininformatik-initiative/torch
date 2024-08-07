@@ -6,6 +6,7 @@ import ca.uhn.fhir.util.TerserUtilHelper;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.Attribute;
+import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,11 +66,12 @@ public class ElementCopier {
         logger.debug("TGT set {}", tgt.getClass());
         logger.debug("Attribute FHIR PATH {}", attribute.getAttributeRef());
 
-        String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
-        logger.debug("FHIR PATH {}", fhirPath);
-        System.out.println(fhirPath);
 
         try {
+            String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
+            logger.debug("FHIR PATH {}", fhirPath);
+            System.out.println(fhirPath);
+
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
 
             //TODO Check Extensions on Element Level
@@ -112,6 +114,9 @@ public class ElementCopier {
         } catch (NullPointerException e) {
             logger.debug("No Result for FHIR SEARCH");
             System.out.println("No Result for FHIR SEARCH");
+        }catch (FHIRException e) {
+            logger.debug("Unsupported Type",e);
+            System.out.println("Unsupported Slicing"+e);
         }
 
     }
