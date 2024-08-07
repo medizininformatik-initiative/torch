@@ -1,12 +1,19 @@
 # Server configuration
+
+torch:
+  fhir:
+    Server:
+      url:
+        'http://localhost:8082/fhir'
+
 server:
   port: 8080
 
 
 fhirServer:
-  url: localhost:8082/fhir
+  url: 'http://localhost:8082/fhir'
 
 flare:
-  url: localhost:8084
+  url: 'http://localhost:8084'
 
 

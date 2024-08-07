@@ -27,7 +27,7 @@ public class FhirSearchQueryTest extends BaseTest{
 
     @Test
     public void testCondition() {
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_date_code_filter.json")) {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_date.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
             AttributeGroup group1 = crtdl.getDataExtraction().getAttributeGroups().getFirst();
@@ -35,8 +35,6 @@ public class FhirSearchQueryTest extends BaseTest{
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
             List<String> batches = searchBuilder.getSearchBatches(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
-            System.out.println(batches.size());
-            System.out.println(batches.getFirst());
             assertEquals(5, batches.size());
             batches.addAll(searchBuilder.getSearchBatches(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2));
             assertEquals(10, batches.size());

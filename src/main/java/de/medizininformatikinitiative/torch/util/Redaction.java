@@ -50,17 +50,26 @@ public class Redaction {
         if (base instanceof DomainResource resource) {
             recursion = 1;
             if (resource.hasMeta()) {
+
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
+                logger.info("Profile Found {} ",profileurl.getValue());
                 structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
-                snapshot = structureDefinition.getSnapshot();
+
+                // Check if structureDefinition is not null
+                if (structureDefinition != null) {
+                    snapshot = structureDefinition.getSnapshot();
+                } else {
+                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
+                    // Handle the case where structureDefinition is null
+                    // This could be throwing an exception, setting a default value, or other error handling logic
+                }
             }
             elementID = String.valueOf(resource.getResourceType());
-
-
         }
 
 
         ElementDefinition definition = snapshot.getElementById(elementID);
+
 
         if (definition.hasSlicing()) {
               Slicing slicing = new Slicing(CDS);
@@ -78,31 +87,35 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
+            logger.info("Child to be handled {}",childID);
             String type = "";
+            int min=0;
             try {
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().getFirst().getWorkingCode();
+                min=childDefinition.getMin();
             } catch (NullPointerException e) {
+
                 try {
-                    childDefinition = child.getStructure().getSnapshot().getElementById(child.getName());
-                    childID = child.getName();
-                    type = childDefinition.getType().getFirst().getWorkingCode();
+                    type=child.getTypeCode();
+                    min=child.getMinCardinality();
+                    logger.info("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
                 } catch (NullPointerException ex) {
-                    //Not necessarily a real error, since the list contains all possible standard children initialized or not.
-                    logger.debug("", ex);
+
+                    logger.error(" Child  Type Unknown {}", childID,child.getName());
                 }
             }
-
-
             if (child.hasValues() && childDefinition != null) {
                 childrenEmpty.set(false);
-                ElementDefinition finalChildDefinition = childDefinition;
+
+
                 String finalChildID = childID;
                 String finalType = type;
                 //List Handling
+                int finalMin = min;
                 child.getValues().forEach(value -> {
 
-                    if (finalChildDefinition.getMin() > 0 && value.isEmpty()) {
+                    if (finalMin > 0 && value.isEmpty()) {
                         Element element = factory.create(finalType).addExtension(createAbsentReasonExtension("masked"));
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
@@ -113,7 +126,7 @@ public class Redaction {
 
 
             } else {
-                if (childDefinition != null && childDefinition.getMin() > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
+                if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
                     //TODO Backbone Element Handling and nested Extensions
                     Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);
