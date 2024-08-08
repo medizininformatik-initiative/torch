@@ -48,10 +48,6 @@ public class FlareIT extends AbstractIT {
 
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
         crtdl.setSqString(cohortDefinitionJson);
-        logger.info(crtdl.getStructuredQuery().toString());
-        // Log the URL and headers
-        logger.info("Request Headers: Content-Type=application/sq+json, Accept=application/json");
-        logger.info("Request Body: {}", crtdl.getSqString());
 
         // Use the serialized JSON string in the bodyValue method and capture the response
         String responseBody = flareClient.post()
@@ -66,9 +62,8 @@ public class FlareIT extends AbstractIT {
                 .bodyToMono(String.class)
                 .block();  // Blocking to get the response synchronously
 
-
         // Log the response body
-        logger.info("Response Body: {}", responseBody);
+        logger.debug("Response Body: {}", responseBody);
         // Parse the response body as a list of patient IDs
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
 
@@ -77,6 +72,5 @@ public class FlareIT extends AbstractIT {
         logger.info(String.valueOf(patientIds));
         Assertions.assertEquals(3, patientCount);
     }
-
 }
 

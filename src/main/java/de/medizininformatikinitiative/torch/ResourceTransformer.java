@@ -95,22 +95,21 @@ public class ResourceTransformer {
     }
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize)  {
-        logger.info("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
-        logger.info("Patients Received: {}", patients);
+        logger.debug("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
+        logger.debug("Patients Received: {}", patients);
         //Set of Pat Ids that survived so dar
         Set<String> safeSet = new HashSet<>(patients);
 
         // Mono.fromCallable is used to wrap the blocking code
 
         return Mono.fromCallable(() -> {
-                    logger.info("Creating group Monos from attribute groups");
                     // This part of the code involves blocking operations like creating lists
                     List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
                             .map(group -> {
                                 //Set of PatIds that survived the
                                 Set<String> safeGroup = new HashSet<>();
                                 List<String> batches = splitListIntoBatches(patients, batchSize);
-                                logger.info("FHIR search List size for group {}: {}", group, batches.size());
+                                logger.debug("FHIR search List size for group {}: {}", group, batches.size());
 
                                 return Flux.fromIterable(batches)
                                         .flatMap(batch -> transformResources(searchBuilder.getSearchBatch(group, batch), group))
@@ -127,21 +126,18 @@ public class ResourceTransformer {
 
                                         })
                                         .doOnNext(map -> {
-                                                    logger.info("Collected resources for group {}: {}", group.getGroupReference(), map);
+                                                    logger.debug("Collected resources for group {}", group.getGroupReference());
                                                     safeSet.retainAll(safeGroup); // Remove all elements in safeSet from safeGroup
-                                                    logger.info("SafeGroup after diff with SafeSet: {}", safeGroup);
+                                                    logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
                                                 }
                                         );
                             })
                             .collect(Collectors.toList());
-                    logger.info("Finished creating groupMonos");
 
-
-                    logger.info("Starting to concat and collect resources");
                     return Flux.concat(groupMonos)
                             .collectList()
                             .map(resourceLists -> {
-                                logger.info("Combining resource lists into a single map");
+                                logger.debug("Combining resource lists into a single map");
                                 return resourceLists.stream()
                                         .flatMap(map -> map.entrySet().stream())
                                         .filter(entry -> safeSet.contains(entry.getKey()))

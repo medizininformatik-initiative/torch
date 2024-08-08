@@ -101,8 +101,8 @@ public abstract class AbstractIT {
         String flareHost = environment.getServiceHost("flare", 8080);
         Integer flarePort = environment.getServicePort("flare", 8080);
         logger.info("Blaze  %s:%d Flare %s %d ".formatted(blazeHost,blazePort,flareHost,flarePort));
-        registry.add("fhirServer.url", () -> "http://%s:%d/fhir".formatted(blazeHost, blazePort));
-        registry.add("flare.url", () -> "http://%s:%d".formatted(flareHost,flarePort));
+        registry.add("torch.fhir.url", () -> "http://%s:%d/fhir".formatted(blazeHost, blazePort));
+        registry.add("torch.flare.url", () -> "http://%s:%d".formatted(flareHost,flarePort));
     }
 
 

@@ -148,7 +148,7 @@ public class DataStoreIT extends AbstractIT {
             Bundle bundle = entry.getValue();
             Bundle expectedBundle = expectedResources.get(patientId);
 
-            logger.info(parser.setPrettyPrint(true).encodeResourceToString(bundle));
+            logger.debug(parser.setPrettyPrint(true).encodeResourceToString(bundle));
             Assertions.assertNotNull(expectedBundle, "No expected bundle found for patientId " + patientId);
             Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(expectedBundle),parser.setPrettyPrint(true).encodeResourceToString(bundle),
 

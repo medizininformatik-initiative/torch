@@ -23,12 +23,12 @@ public class CapabilityStatementController {
         logger.info("Received request for /fhir/metadata");
         CapabilityStatement capabilityStatement = createCapabilityStatement();
         String capabilityStatementString = parser.setPrettyPrint(true).encodeResourceToString(capabilityStatement);
-        logger.info("Encoded CapabilityStatement to JSON");
+        logger.debug("Encoded CapabilityStatement to JSON");
         return capabilityStatementString;
     }
 
     private CapabilityStatement createCapabilityStatement() {
-        logger.info("Creating CapabilityStatement");
+        logger.debug("Creating CapabilityStatement");
 
         CapabilityStatement capabilityStatement = new CapabilityStatement();
 
@@ -39,12 +39,12 @@ public class CapabilityStatementController {
         capabilityStatement.setKind(CapabilityStatement.CapabilityStatementKind.INSTANCE);
         capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0");
         capabilityStatement.getImplementation().setDescription("Torch FHIR Server Implementation");
-        logger.info("Created basic metadata for CapabilityStatement");
+        logger.debug("Created basic metadata for CapabilityStatement");
 
         // Restful Capabilities
         CapabilityStatement.CapabilityStatementRestComponent rest = new CapabilityStatement.CapabilityStatementRestComponent();
         rest.setMode(CapabilityStatement.RestfulCapabilityMode.SERVER);
-        logger.info("Configured RESTful capabilities");
+        logger.debug("Configured RESTful capabilities");
 
         // Define supported resources and operations
         CapabilityStatement.CapabilityStatementRestResourceComponent resource = new CapabilityStatement.CapabilityStatementRestResourceComponent();
@@ -52,11 +52,11 @@ public class CapabilityStatementController {
         resource.getInteraction().add(new CapabilityStatement.ResourceInteractionComponent().setCode(CapabilityStatement.TypeRestfulInteraction.READ));
         resource.getInteraction().add(new CapabilityStatement.ResourceInteractionComponent().setCode(CapabilityStatement.TypeRestfulInteraction.SEARCHTYPE));
         rest.getResource().add(resource);
-        logger.info("Defined supported resources and operations");
+        logger.debug("Defined supported resources and operations");
 
         capabilityStatement.getRest().add(rest);
 
-        logger.info("CapabilityStatement creation completed");
+        logger.debug("CapabilityStatement creation completed");
         return capabilityStatement;
     }
 }

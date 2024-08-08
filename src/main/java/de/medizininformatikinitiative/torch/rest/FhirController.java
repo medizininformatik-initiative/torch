@@ -87,7 +87,7 @@ public class FhirController {
 
         logger.info("Create CRTDL with jobId: {}", jobId);
 
-        logger.info("Handling CRTDL Bundle");
+        logger.debug("Handling CRTDL Bundle");
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler
@@ -242,7 +242,6 @@ public class FhirController {
 
         // Convert the cohortDefinition object to a JSON string
         String cohortDefinitionJson = objectMapper.writeValueAsString(cohortDefinitionNode);
-        logger.info("SQ String {}",cohortDefinitionJson);
         Crtdl crtdl = objectMapper.readValue(content, Crtdl.class);
         crtdl.setSqString(cohortDefinitionJson);
         return crtdl;
@@ -259,9 +258,9 @@ public class FhirController {
                                 })
                                 .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
                                 .flatMap(resourceMap -> {
-                                    logger.info("Map {}", resourceMap.keySet());
+                                    logger.debug("Map {}", resourceMap.keySet());
                                     Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
-                                    logger.info("Bundles Size {}", bundles.size());
+                                    logger.debug("Bundles Size {}", bundles.size());
                                     Bundle finalBundle = new Bundle();
                                     finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
                                     for (Bundle bundle : bundles.values()) {
@@ -271,7 +270,7 @@ public class FhirController {
                                     }
                                     jobResultMap.put(jobId, finalBundle);
                                     jobStatusMap.put(jobId, "Completed");
-                                    logger.info("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
+                                    logger.debug("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
                                     return Mono.empty();
                                 })
                 ).doOnError(error -> {

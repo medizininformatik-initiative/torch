@@ -52,7 +52,7 @@ public class Redaction {
             if (resource.hasMeta()) {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
-                logger.info("Profile Found {} ",profileurl.getValue());
+                logger.debug("Profile Found {} ",profileurl.getValue());
                 structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
 
                 // Check if structureDefinition is not null
@@ -99,7 +99,7 @@ public class Redaction {
                 try {
                     type=child.getTypeCode();
                     min=child.getMinCardinality();
-                    logger.info("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+                    logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
                 } catch (NullPointerException ex) {
 
                     logger.error(" Child  Type Unknown {}", childID,child.getName());
