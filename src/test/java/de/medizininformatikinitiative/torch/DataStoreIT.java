@@ -73,7 +73,7 @@ public class DataStoreIT extends AbstractIT {
     public void testAllFields() throws IOException, PatientIdNotFoundException {
         executeTest(
                 List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"
                 ),
                 List.of(
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_all_fields.json"

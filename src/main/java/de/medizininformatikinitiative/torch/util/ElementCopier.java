@@ -70,7 +70,6 @@ public class ElementCopier {
         try {
             String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
             logger.debug("FHIR PATH {}", fhirPath);
-            System.out.println(fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
 
@@ -113,10 +112,10 @@ public class ElementCopier {
             }
         } catch (NullPointerException e) {
             logger.debug("No Result for FHIR SEARCH");
-            System.out.println("No Result for FHIR SEARCH");
+
         }catch (FHIRException e) {
             logger.debug("Unsupported Type",e);
-            System.out.println("Unsupported Slicing"+e);
+
         }
 
     }
@@ -138,7 +137,7 @@ public class ElementCopier {
                         String extensionURL = extension.getUrl();
                         if (!Objects.equals(extensionURL, "http://hl7.org/fhir/StructureDefinition/data-absent-reason")) {
                             if (!legalExtensions.contains(extensionURL)) {
-                                System.out.println("Illegal Extensions Found " + extension.getUrl());
+                                logger.warn("Illegal Extensions Found " + extension.getUrl());
                                 urlToBeRemoved.add(extension.getUrl());
                             }
                         }
