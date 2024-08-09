@@ -1,22 +1,7 @@
 # Server configuration
 
-torch:
-  fhir:
-    Server:
-      url:
-        'http://localhost:8082/fhir'
-
 server:
   port: 8080
-<<<<<<< Updated upstream
-
-
-fhirServer:
-  url: 'http://localhost:8082/fhir'
-
-flare:
-  url: 'http://localhost:8084'
-=======
 torch:
   profile:
     dir: src/test/resources/StructureDefinitions
@@ -26,13 +11,14 @@ torch:
     url: http://localhost:8084
   results:
     dir: bundles/
-    persistence: PT12H30M5S # Time Block in ISO 8601 format
+    persistence: P3YT90M # 90 minutes in ISO 8601 format
 
 logging:
   level:
     org.springframework: ${LOG_LEVEL:info}
+    de:
+      medizininformatikinitiative:
+        torch=DEBUG:
 
-
->>>>>>> Stashed changes
 
 

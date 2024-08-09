@@ -48,7 +48,7 @@ public class DataStore {
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .retrieve()
                 .bodyToFlux(String.class)
-                .doOnNext(response -> logger.debug("Response: {}", response))
+                //.doOnNext(response -> logger.debug("Response: {}", response))
                 .map(response -> parser.parseResource(Bundle.class, response))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(client, link.getUrl()))

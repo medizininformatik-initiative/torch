@@ -87,7 +87,7 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.info("Child to be handled {}",childID);
+            //logger.debug("Child to be handled {}",childID);
             String type = "";
             int min=0;
             try {
@@ -99,7 +99,11 @@ public class Redaction {
                 try {
                     type=child.getTypeCode();
                     min=child.getMinCardinality();
+<<<<<<< Updated upstream
                     logger.info("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+=======
+                    //logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+>>>>>>> Stashed changes
                 } catch (NullPointerException ex) {
 
                     logger.error(" Child  Type Unknown {}", childID,child.getName());

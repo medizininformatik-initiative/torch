@@ -9,15 +9,16 @@ import de.medizininformatikinitiative.flare.model.mapping.MappingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Attachment;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Measure;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,7 +44,6 @@ import static org.springframework.web.reactive.function.server.RequestPredicates
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
-
 @RestController
 public class FhirController {
 
@@ -51,6 +51,7 @@ public class FhirController {
     private static final MediaType MEDIA_TYPE_CRTDL_JSON = MediaType.valueOf("application/crtdl+json");
 
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
+
     private final ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<String, Bundle> jobResultMap = new ConcurrentHashMap<>();
 
@@ -59,6 +60,7 @@ public class FhirController {
     private final BundleCreator bundleCreator;
     private final ObjectMapper objectMapper;
     private final IParser parser;
+    private final ResultFileManager resultManager;
 
     @Autowired
     public FhirController(
@@ -66,19 +68,26 @@ public class FhirController {
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
             ObjectMapper objectMapper,
-            IParser parser) {
+            IParser parser, @Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration) {
+        logger.debug("This is a debug log from FhirController");
+        logger.info("This is an info log from FhirController");
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
         this.parser = parser;
+        this.resultManager = new ResultFileManager(resultsDir, duration , parser);
+        logger.info("Persistence Duration set {}",duration);
+        // Load existing results
+        resultManager.loadExistingResults(jobStatusMap, jobResultMap);
     }
 
     @Bean
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleCrtdlBundle)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(POST("debug/crtdl").and(accept(MEDIA_TYPE_CRTDL_JSON)), this::handleCrtdl);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus)
+                .andRoute(POST("debug/crtdl").and(accept(MEDIA_TYPE_CRTDL_JSON)), this::handleCrtdl);
     }
 
     public Mono<ServerResponse> handleCrtdlBundle(ServerRequest request) {
@@ -91,7 +100,7 @@ public class FhirController {
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(body -> {
-                    Bundle bundle = parser.parseResource(Bundle.class,body);
+                    Bundle bundle = parser.parseResource(Bundle.class, body);
                     if (bundle.isEmpty() && !isValidBundle(bundle)) {
                         logger.debug("Empty Bundle");
                         return Mono.error(new IllegalArgumentException("Empty bundle"));
@@ -99,7 +108,6 @@ public class FhirController {
                     try {
                         logger.info("Non Empty Bundle");
                         Library library = extractLibraryFromBundle(bundle);
-                        //Measure measure = extractMeasureFromBundle(bundle);
                         Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
                         logger.debug("Processing CRTDL");
                         return processCrtdl(crtdl, jobId);
@@ -130,7 +138,6 @@ public class FhirController {
                     return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 });
     }
-
 
     public Mono<ServerResponse> handleCrtdl(ServerRequest request) {
         var jobId = UUID.randomUUID().toString();
@@ -175,45 +182,33 @@ public class FhirController {
                 });
     }
 
-
     private boolean isValidBundle(Bundle bundle) {
         boolean hasLibrary = false;
         boolean hasMeasure = false;
 
-        for (BundleEntryComponent entry : bundle.getEntry()) {
+        for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             if (entry.getResource() instanceof Library) {
                 hasLibrary = true;
-
             } else if (entry.getResource() instanceof Measure) {
                 hasMeasure = true;
-
             }
-
-
         }
+
         if (hasLibrary && hasMeasure) {
             return true;
         }
-        logger.error("No library or measure");
+
+        logger.error("No library or measure found in the bundle");
         return false;
     }
 
     private Library extractLibraryFromBundle(Bundle bundle) {
-        for (BundleEntryComponent entry : bundle.getEntry()) {
+        for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             if (entry.getResource() instanceof Library) {
                 return (Library) entry.getResource();
             }
         }
         throw new IllegalArgumentException("No Library resource found in the Bundle");
-    }
-
-    private Measure extractMeasureFromBundle(Bundle bundle) {
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            if (entry.getResource() instanceof Measure) {
-                return (Measure) entry.getResource();
-            }
-        }
-        throw new IllegalArgumentException("No Measure resource found in the Bundle");
     }
 
     private byte[] decodeCrtdlContent(Library library) {
@@ -223,7 +218,7 @@ public class FhirController {
                 return attachment.getData();
             }
         }
-        throw new IllegalArgumentException("No base64 encoded CRDTL content found in Library resource");
+        throw new IllegalArgumentException("No base64 encoded CRTDL content found in Library resource");
     }
 
     private Crtdl parseCrtdlContent(byte[] content) throws IOException {
@@ -257,7 +252,10 @@ public class FhirController {
                                 })
                                 .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
                                 .flatMap(resourceMap -> {
+<<<<<<< Updated upstream
                                     logger.info("Map {}", resourceMap.keySet());
+=======
+>>>>>>> Stashed changes
                                     Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
                                     logger.info("Bundles Size {}", bundles.size());
                                     Bundle finalBundle = new Bundle();
@@ -267,9 +265,14 @@ public class FhirController {
                                         entryComponent.setResource(bundle);
                                         finalBundle.addEntry(entryComponent);
                                     }
+<<<<<<< Updated upstream
                                     jobResultMap.put(jobId, finalBundle);
                                     jobStatusMap.put(jobId, "Completed");
                                     logger.info("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
+=======
+                                    logger.info(" Writing to File {}", jobId);
+                                    saveBundleToFileSystem(jobId, finalBundle);
+>>>>>>> Stashed changes
                                     return Mono.empty();
                                 })
                 ).doOnError(error -> {
@@ -279,11 +282,8 @@ public class FhirController {
                 .then();  // This will return Mono<Void> indicating completion
     }
 
-
-
-
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        logger.info("Flare called for the following input {}",crtdl.getSqString());
+        logger.info("Flare called for the following input {}", crtdl.getSqString());
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -298,8 +298,7 @@ public class FhirController {
                 .flatMap(response -> {
                     logger.debug("Response Received: {}", response);
                     try {
-                        List<String> list = objectMapper.readValue(response, new TypeReference<>() {
-                        });
+                        List<String> list = objectMapper.readValue(response, new TypeReference<>() {});
                         logger.debug("Parsed List: {}", list);
                         return Mono.just(list);
                     } catch (JsonProcessingException e) {
@@ -310,7 +309,6 @@ public class FhirController {
                 .doOnSubscribe(subscription -> logger.info("Fetching patient list from Flare"))
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
-
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
         var jobId = request.pathVariable("jobId");
@@ -325,11 +323,23 @@ public class FhirController {
         }
 
         if ("Completed".equals(status)) {
-            Bundle resultBundle = jobResultMap.get(jobId);
-            return ok().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(parser.setPrettyPrint(true).encodeResourceToString(resultBundle));
+            return serveBundleFromFileSystem(jobId);
         } else {
             return accepted().build();
         }
     }
 
+    private Mono<ServerResponse> serveBundleFromFileSystem(String jobId) {
+        return Mono.fromCallable(() -> resultManager.loadBundleFromFileSystem(jobId))
+                .flatMap(bundleJson -> {
+                    if (bundleJson == null) {
+                        return notFound().build();
+                    }
+                    return ok().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(bundleJson);
+                });
+    }
+
+    private void saveBundleToFileSystem(String jobId, Bundle finalBundle) {
+        resultManager.saveBundleToFileSystem(jobId, finalBundle, jobStatusMap);
+    }
 }
