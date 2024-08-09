@@ -10,28 +10,26 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.*;
 
 
-
 public class RedactTest extends BaseTest {
 
     @Test
     public void testDiagnosis() {
 
 
+        String[] resources = {"Diagnosis1.json", "Diagnosis2.json"};
 
-            String [] resources =  {"Diagnosis1.json","Diagnosis2.json"};
+        Arrays.stream(resources).forEach(resource -> {
+            try {
 
-            Arrays.stream(resources).forEach(resource ->{
-                try {
-
-                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/"+resource);
-                DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
-                resourceSrc =(DomainResource) redaction.redact(resourceSrc,"",1);
-                assertTrue(resourceSrc.equalsDeep(resourceExpected),resource+" Expected not equal to actual output");
+                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/" + resource);
+                DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+                resourceSrc = (DomainResource) redaction.redact(resourceSrc, "", 1);
+                Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
             } catch (Exception e) {
-                    logger.error(" ",e);
+                logger.error(" ", e);
             }
 
-            });
+        });
 
 
     }
@@ -41,27 +39,24 @@ public class RedactTest extends BaseTest {
     public void testObservation() {
 
 
+        String[] resources = {"Observation_lab_missing_Elements.json"};
 
-        String [] resources =  {"Observation_lab_missing_Elements.json"};
-
-        Arrays.stream(resources).forEach(resource ->{
+        Arrays.stream(resources).forEach(resource -> {
             try {
 
-                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/"+resource);
-                DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/"+resource);
-                resourceSrc =(DomainResource) redaction.redact(resourceSrc,"",1);
-                Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected),parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
+                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/" + resource);
+                DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+                resourceSrc = (DomainResource) redaction.redact(resourceSrc, "", 1);
+                Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
 
             } catch (Exception e) {
-                logger.error(" ",e);
+                logger.error(" ", e);
             }
 
         });
 
 
-
     }
-
 
 
 }

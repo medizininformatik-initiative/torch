@@ -5,6 +5,7 @@ import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,18 +51,26 @@ public class Redaction {
         if (base instanceof DomainResource resource) {
             recursion = 1;
             if (resource.hasMeta()) {
+                List<CanonicalType> profiles = resource.getMeta().getProfile();
+                CanonicalType matchingProfileUrl = null;
 
-                CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
-                logger.info("Profile Found {} ",profileurl.getValue());
-                structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
+                // Loop through profiles to find the first matching one
+                for (CanonicalType profileUrl : profiles) {
+                    structureDefinition = CDS.getDefinition(profileUrl.getValue());
 
-                // Check if structureDefinition is not null
-                if (structureDefinition != null) {
+                    // Check if structureDefinition is not null
+                    if (structureDefinition != null) {
+                        matchingProfileUrl = profileUrl;
+                        break;  // Stop at the first matching profile
+                    }
+                }
+
+                if (matchingProfileUrl != null) {
                     snapshot = structureDefinition.getSnapshot();
+                    logger.info("Profile Found {} ", matchingProfileUrl.getValue());
                 } else {
-                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
-                    // Handle the case where structureDefinition is null
-                    // This could be throwing an exception, setting a default value, or other error handling logic
+                    logger.error("No matching StructureDefinition found for any profile URLs.");
+                    // Handle the case where no matching profile is found
                 }
             }
             elementID = String.valueOf(resource.getResourceType());

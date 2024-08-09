@@ -15,7 +15,7 @@ public class CrtdlTest extends BaseTest{
 
     @Test
     public void testCondition() {
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_date_code_filter.json")) {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_code.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
             Attribute attribute1 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().getFirst();

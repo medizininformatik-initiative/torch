@@ -11,14 +11,14 @@ torch:
     url: http://localhost:8084
   results:
     dir: bundles/
-    persistence: P3YT90M # 90 minutes in ISO 8601 format
+    persistence: PT90M # 90 minutes in ISO 8601 format
 
 logging:
   level:
-    org.springframework: ${LOG_LEVEL:info}
+    org.springframework: ${LOG_LEVEL:warn}
     de:
       medizininformatikinitiative:
-        torch=DEBUG:
+        torch=info:
 
 
 

@@ -52,8 +52,21 @@ public class ElementCopier {
      * @throws MustHaveViolatedException if mandatory element is missing
      */
     public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException {
-        CanonicalType profileurl = src.getMeta().getProfile().getFirst();
-        StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
+        List<CanonicalType> profiles = src.getMeta().getProfile();
+        StructureDefinition structureDefinition = null;
+
+// Loop through profiles to find the first matching one
+        for (CanonicalType profileUrl : profiles) {
+            structureDefinition = handler.getDefinition(profileUrl.getValue());
+
+            // Check if structureDefinition is not empty
+            if (structureDefinition != null && !structureDefinition.isEmpty()) {
+                break;  // Stop at the first matching profile
+            }
+        }
+
+
+
         logger.debug("Empty Structuredefinition? {}", structureDefinition.isEmpty());
         List<String> legalExtensions = new LinkedList<>();
 
@@ -70,9 +83,10 @@ public class ElementCopier {
         logger.debug("FHIR PATH {}", fhirPath);
         List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
         //TODO Check Extensions on Element Level
+        StructureDefinition finalStructureDefinition = structureDefinition;
         elements.forEach(element -> {
             if (element instanceof Element) {
-                checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
+                checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, finalStructureDefinition);
 
             }
         });
