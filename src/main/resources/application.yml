@@ -1,22 +1,7 @@
 # Server configuration
 
-torch:
-  fhir:
-    Server:
-      url:
-        'http://localhost:8082/fhir'
-
 server:
   port: 8080
-<<<<<<< Updated upstream
-
-
-fhirServer:
-  url: 'http://localhost:8082/fhir'
-
-flare:
-  url: 'http://localhost:8084'
-=======
 torch:
   profile:
     dir: src/test/resources/StructureDefinitions
@@ -32,7 +17,5 @@ logging:
   level:
     org.springframework: ${LOG_LEVEL:info}
 
-
->>>>>>> Stashed changes
 
 

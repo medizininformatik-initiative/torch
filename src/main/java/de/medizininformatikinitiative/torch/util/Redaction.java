@@ -99,11 +99,8 @@ public class Redaction {
                 try {
                     type=child.getTypeCode();
                     min=child.getMinCardinality();
-<<<<<<< Updated upstream
-                    logger.info("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
-=======
+
                     //logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
->>>>>>> Stashed changes
                 } catch (NullPointerException ex) {
 
                     logger.error(" Child  Type Unknown {}", childID,child.getName());

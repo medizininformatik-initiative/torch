@@ -252,10 +252,7 @@ public class FhirController {
                                 })
                                 .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
                                 .flatMap(resourceMap -> {
-<<<<<<< Updated upstream
-                                    logger.info("Map {}", resourceMap.keySet());
-=======
->>>>>>> Stashed changes
+
                                     Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
                                     logger.info("Bundles Size {}", bundles.size());
                                     Bundle finalBundle = new Bundle();
@@ -265,14 +262,8 @@ public class FhirController {
                                         entryComponent.setResource(bundle);
                                         finalBundle.addEntry(entryComponent);
                                     }
-<<<<<<< Updated upstream
-                                    jobResultMap.put(jobId, finalBundle);
-                                    jobStatusMap.put(jobId, "Completed");
-                                    logger.info("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
-=======
-                                    logger.info(" Writing to File {}", jobId);
+                         logger.info(" Writing to File {}", jobId);
                                     saveBundleToFileSystem(jobId, finalBundle);
->>>>>>> Stashed changes
                                     return Mono.empty();
                                 })
                 ).doOnError(error -> {
