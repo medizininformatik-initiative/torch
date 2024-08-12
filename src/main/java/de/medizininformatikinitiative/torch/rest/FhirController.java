@@ -105,18 +105,32 @@ public class FhirController {
                         logger.debug("Empty Bundle");
                         return Mono.error(new IllegalArgumentException("Empty bundle"));
                     }
+                    Library library = extractLibraryFromBundle(bundle);
+                    Crtdl crtdl = null;
                     try {
-                        logger.info("Non Empty Bundle");
-                        Library library = extractLibraryFromBundle(bundle);
-                        Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
-                        logger.debug("Processing CRTDL");
-                        return processCrtdl(crtdl, jobId);
-                    } catch (Exception e) {
-                        logger.debug("Exception handling");
-                        return Mono.error(e);
+                        crtdl = parseCrtdlContent(decodeCrtdlContent(library));
+                    } catch (IOException e) {
+                        throw new RuntimeException(e);
                     }
+
+                    // Returning the accepted response without waiting for the processing to complete
+                    Mono<ServerResponse> responseMono = accepted()
+                            .header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId)))
+                            .build();
+
+                    // Deferring the processing to happen asynchronously after response is sent
+                    Crtdl finalCrtdl = crtdl;
+                    return responseMono.doAfterTerminate(() ->
+                            processCrtdl(finalCrtdl, jobId)
+                                    .subscribe(
+                                            success -> logger.info("Processing completed successfully for jobId: {}", jobId),
+                                            error -> {
+                                                logger.error("Processing failed for jobId: {}", jobId, error);
+                                                jobStatusMap.put(jobId, "Failed: " + error.getMessage());
+                                            }
+                                    )
+                    );
                 })
-                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
                 .onErrorResume(MappingException.class, e -> {
                     logger.warn("Mapping error: {}", e.getMessage());
                     jobStatusMap.put(jobId, "Failed: " + e.getMessage());

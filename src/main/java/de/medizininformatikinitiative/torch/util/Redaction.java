@@ -88,6 +88,9 @@ public class Redaction {
 
             }
         }
+        //TODO: Extension handling
+
+
 
         int finalRecursion = recursion;
         String finalElementID = elementID;
