@@ -46,7 +46,7 @@
       }
     },
     "request": {
-      "method": "POST",
+      "method": "PUT",
       "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
     }
   }, {
@@ -55,7 +55,7 @@
       "id": "3"
     },
     "request": {
-      "method": "POST",
+      "method": "PUT",
       "url": "Patient/3"
     }
   } ]

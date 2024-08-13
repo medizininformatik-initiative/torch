@@ -6,6 +6,8 @@ torch:
   profile:
     dir: src/test/resources/StructureDefinitions
   fhir:
+    testPopulation:
+        path: src/test/resources/BlazeBundle.json
     url: http://localhost:8082/fhir
   flare:
     url: http://localhost:8084

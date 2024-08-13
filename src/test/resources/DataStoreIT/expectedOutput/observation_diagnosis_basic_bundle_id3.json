@@ -27,7 +27,7 @@
       }
     },
     "request": {
-      "method": "POST",
+      "method": "PUT",
       "url": "Condition/4"
     }
   }, {
@@ -83,7 +83,7 @@
       "id": "3"
     },
     "request": {
-      "method": "POST",
+      "method": "PUT",
       "url": "Patient/3"
     }
   } ]

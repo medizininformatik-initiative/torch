@@ -79,7 +79,7 @@ public class BundleCreator {
                             entryComponent.setResource(resource);
                             Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
                             request.setUrl(resource.getResourceType() + "/" + resource.getId());
-                            request.setMethod(Bundle.HTTPVerb.POST);
+                            request.setMethod(Bundle.HTTPVerb.PUT);
                             entryComponent.setRequest(request);
 
                             bundle.addEntry(entryComponent);
