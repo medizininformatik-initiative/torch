@@ -16,9 +16,7 @@ torch:
 logging:
   level:
     org.springframework: ${LOG_LEVEL:warn}
-    de:
-      medizininformatikinitiative:
-        torch=info:
+
 
 
 

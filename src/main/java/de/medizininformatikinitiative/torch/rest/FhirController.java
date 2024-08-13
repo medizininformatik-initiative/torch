@@ -86,8 +86,7 @@ public class FhirController {
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleCrtdlBundle)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus)
-                .andRoute(POST("debug/crtdl").and(accept(MEDIA_TYPE_CRTDL_JSON)), this::handleCrtdl);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
     }
 
     public Mono<ServerResponse> handleCrtdlBundle(ServerRequest request) {
@@ -148,49 +147,6 @@ public class FhirController {
                 })
                 .onErrorResume(Exception.class, e -> {
                     logger.error("Unexpected error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                });
-    }
-
-    public Mono<ServerResponse> handleCrtdl(ServerRequest request) {
-        var jobId = UUID.randomUUID().toString();
-        jobStatusMap.put(jobId, "Processing");
-
-        logger.info("DEBUG Endpoint: Create CRTDL with jobId: {}", jobId);
-
-        logger.info("DEBUG Endpoint: Handling CRTDL");
-        return request.bodyToMono(String.class)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
-                .flatMap(crtdlContent -> {
-                    try {
-                        logger.debug("Non Empty CRTDL");
-                        Crtdl crtdl = parseCrtdlContent(crtdlContent.getBytes());
-                        logger.debug("DEBUG Endpoint: Processing CRTDL");
-                        return processCrtdl(crtdl, jobId);
-                    } catch (Exception e) {
-                        logger.debug("DEBUG Endpoint: Exception handling");
-                        return Mono.error(e);
-                    }
-                })
-                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
-                .onErrorResume(MappingException.class, e -> {
-                    logger.error("DEBUG Endpoint: Mapping error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(WebClientRequestException.class, e -> {
-                    logger.error("DEBUG Endpoint: Service not available because of downstream web client errors: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return status(503).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(IllegalArgumentException.class, e -> {
-                    logger.error("DEBUG Endpoint: Bad request: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(Exception.class, e -> {
-                    logger.error("DEBUG Endpoint: Unexpected error: {}", e.getMessage());
                     jobStatusMap.put(jobId, "Failed: " + e.getMessage());
                     return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 });

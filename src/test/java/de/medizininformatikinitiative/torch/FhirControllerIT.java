@@ -70,20 +70,6 @@ public class FhirControllerIT extends AbstractIT {
         Assertions.assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
     }
 
-    @Test
-    public void testDebugEndpoint() throws PatientIdNotFoundException, IOException {
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.add("content-type", "application/crtdl+json");
-        List<String> expectedResourceFilePaths = List.of(
-                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-        );
-
-        List<String> filePaths = List.of(
-                "src/test/resources/CRTDL/CRTDL_diagnosis_female.json");
-        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/debug/crtdl", headers);
-    }
-
 
     @Test
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
