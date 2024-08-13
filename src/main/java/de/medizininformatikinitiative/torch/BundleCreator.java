@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch;
 
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.UriType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -27,13 +28,18 @@ public class BundleCreator {
                     Collection<Resource> patientResources = entry.getValue();
 
                     Bundle bundle = new Bundle();
-                    bundle.setType(Bundle.BundleType.COLLECTION);
+                    bundle.setType(Bundle.BundleType.TRANSACTION);
                     bundle.setId(patientId );
 
                     patientResources.forEach(resource -> {
                         try {
                             Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
                             entryComponent.setResource(resource);
+                            Bundle.BundleEntryRequestComponent request= new Bundle.BundleEntryRequestComponent();
+                            request.setUrl(resource.getResourceType()+"/"+resource.getId());
+                            request.setMethod(Bundle.HTTPVerb.POST);
+                            entryComponent.setRequest(request);
+
                             bundle.addEntry(entryComponent);
                         } catch (Exception e) {
                             throw new RuntimeException(e);
