@@ -77,5 +77,14 @@
       "method": "POST",
       "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
     }
+  }, {
+    "resource": {
+      "resourceType": "Patient",
+      "id": "3"
+    },
+    "request": {
+      "method": "POST",
+      "url": "Patient/3"
+    }
   } ]
 }
