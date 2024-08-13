@@ -1,7 +1,7 @@
 {
   "resourceType": "Bundle",
   "id": "3",
-  "type": "collection",
+  "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Condition",
@@ -25,6 +25,10 @@
           "valueCode": "masked"
         } ]
       }
+    },
+    "request": {
+      "method": "POST",
+      "url": "Condition/4"
     }
   } ]
 }

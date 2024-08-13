@@ -1,7 +1,7 @@
 {
   "resourceType": "Bundle",
   "id": "3",
-  "type": "collection",
+  "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Observation",
@@ -44,6 +44,10 @@
         "system": "http://unitsofmeasure.org",
         "code": "mmol/L"
       }
+    },
+    "request": {
+      "method": "POST",
+      "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
     }
   } ]
 }
