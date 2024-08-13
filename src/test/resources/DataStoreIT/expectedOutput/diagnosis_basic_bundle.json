@@ -33,7 +33,10 @@
   }, {
     "resource": {
       "resourceType": "Patient",
-      "id": "3"
+      "id": "3",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
     },
     "request": {
       "method": "PUT",

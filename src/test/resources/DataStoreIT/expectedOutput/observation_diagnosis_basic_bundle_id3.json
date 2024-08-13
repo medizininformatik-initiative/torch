@@ -74,13 +74,16 @@
       }
     },
     "request": {
-      "method": "POST",
+      "method": "PUT",
       "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
     }
   }, {
     "resource": {
       "resourceType": "Patient",
-      "id": "3"
+      "id": "3",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
     },
     "request": {
       "method": "PUT",

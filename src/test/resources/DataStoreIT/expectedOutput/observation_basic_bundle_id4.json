@@ -1,11 +1,11 @@
 {
   "resourceType": "Bundle",
-  "id": "3",
+  "id": "4",
   "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Observation",
-      "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
+      "id": "d75e9g46-f487-4d88-cd8b-gg6c6c95387f",
       "meta": {
         "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab" ]
       },
@@ -25,12 +25,12 @@
       "code": {
         "coding": [ {
           "system": "http://loinc.org",
-          "code": "9101-2",
-          "display": "Example lab test 3"
+          "code": "3456-7",
+          "display": "Example lab test 4"
         } ]
       },
       "subject": {
-        "reference": "Patient/3"
+        "reference": "Patient/4"
       },
       "_effectiveDateTime": {
         "extension": [ {
@@ -39,7 +39,7 @@
         } ]
       },
       "valueQuantity": {
-        "value": 8.4,
+        "value": 6.7,
         "unit": "mmol/L",
         "system": "http://unitsofmeasure.org",
         "code": "mmol/L"
@@ -47,16 +47,19 @@
     },
     "request": {
       "method": "PUT",
-      "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
+      "url": "Observation/d75e9g46-f487-4d88-cd8b-gg6c6c95387f"
     }
   }, {
     "resource": {
       "resourceType": "Patient",
-      "id": "3"
+      "id": "4",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
     },
     "request": {
       "method": "PUT",
-      "url": "Patient/3"
+      "url": "Patient/4"
     }
   } ]
 }

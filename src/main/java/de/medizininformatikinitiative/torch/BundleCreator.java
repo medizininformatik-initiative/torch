@@ -23,6 +23,8 @@ public class BundleCreator {
     @Autowired
     FhirContext context;
 
+    org.hl7.fhir.r4.model.Bundle.HTTPVerb method=Bundle.HTTPVerb.PUT;
+
     public BundleCreator() {
 
     }
@@ -79,7 +81,7 @@ public class BundleCreator {
                             entryComponent.setResource(resource);
                             Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
                             request.setUrl(resource.getResourceType() + "/" + resource.getId());
-                            request.setMethod(Bundle.HTTPVerb.PUT);
+                            request.setMethod(method);
                             entryComponent.setRequest(request);
 
                             bundle.addEntry(entryComponent);
@@ -96,12 +98,15 @@ public class BundleCreator {
                     // Add dummy patient resource if the main patient resource wasn't included
                     if (!patientAdded) {
                         Patient dummyPatient = new Patient();
+                        Meta meta = new Meta();
+                        meta.addProfile("https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient");
+                        dummyPatient.setMeta(meta);
                         dummyPatient.setId(patientId);
                         Bundle.BundleEntryComponent patientEntry = new Bundle.BundleEntryComponent();
                         patientEntry.setResource(dummyPatient);
                         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
                         request.setUrl("Patient/" + patientId);
-                        request.setMethod(Bundle.HTTPVerb.POST);
+                        request.setMethod(method);
                         patientEntry.setRequest(request);
                         bundle.addEntry(patientEntry);
                     }
@@ -114,7 +119,7 @@ public class BundleCreator {
                         encounterEntry.setResource(dummyEncounter);
                         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
                         request.setUrl("Encounter/" + dummyEncounter.getId());
-                        request.setMethod(Bundle.HTTPVerb.POST);
+                        request.setMethod(method);
                         encounterEntry.setRequest(request);
                         bundle.addEntry(encounterEntry);
                     }
