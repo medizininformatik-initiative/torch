@@ -42,7 +42,7 @@ public class CopyTest extends BaseTest{
 
                 assertNotNull(tgt);
 
-                assertEquals(parser.setPrettyPrint(true).encodeResourceToString(tgt), parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), resource + " Expected not equal to actual output");
+                assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), resource + " Expected not equal to actual output");
             } catch (Exception e) {
                 logger.error("",e);
             }
@@ -63,7 +63,7 @@ public class CopyTest extends BaseTest{
             copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
             copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
             assertNotNull(tgt);
-           // System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+
         } catch (Exception e) {
             logger.error("",e);
         }
@@ -81,7 +81,6 @@ public class CopyTest extends BaseTest{
 
             copier.copy(resourcesrc, tgt, new Attribute("Encounter.diagnosis.use", false));
             assertNotNull(tgt);
-            //logger.debug(parser.setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
             logger.error("", e);
         }

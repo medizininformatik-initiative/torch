@@ -14,6 +14,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -57,6 +58,10 @@ public abstract class AbstractIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(AbstractIT.class);
     protected static boolean dataImported = false;
+
+    @Value("${torch.fhir.testPopulation.path}")
+    private String testPopulationPath;
+
 
     @Autowired
     public AbstractIT(
@@ -111,7 +116,7 @@ public abstract class AbstractIT {
 
         if (!dataImported) {
             webClient.post()
-                    .bodyValue(Files.readString(Path.of("src/test/resources/BlazeBundle.json")))
+                    .bodyValue(Files.readString(Path.of(testPopulationPath)))
                     .header("Content-Type", "application/fhir+json")
                     .retrieve()
                     .toBodilessEntity()

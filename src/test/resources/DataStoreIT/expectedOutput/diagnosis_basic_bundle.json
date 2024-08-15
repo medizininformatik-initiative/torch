@@ -1,7 +1,7 @@
 {
   "resourceType": "Bundle",
   "id": "3",
-  "type": "collection",
+  "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Condition",
@@ -25,6 +25,22 @@
           "valueCode": "masked"
         } ]
       }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Condition/4"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Patient",
+      "id": "3",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Patient/3"
     }
   } ]
 }

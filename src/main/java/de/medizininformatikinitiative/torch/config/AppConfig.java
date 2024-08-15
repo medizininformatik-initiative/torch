@@ -89,8 +89,8 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext) {
-        return new CdsStructureDefinitionHandler(fhirContext, "src/test/resources/StructureDefinitions/");
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir){
+        return new CdsStructureDefinitionHandler(fhirContext, dir);
     }
 
     @Bean

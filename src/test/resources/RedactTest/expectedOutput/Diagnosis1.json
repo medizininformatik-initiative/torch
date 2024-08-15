@@ -2,34 +2,45 @@
   "resourceType": "Condition",
   "id": "Diagnose1",
   "meta": {
-    "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+    "profile": [
+      "http://www.dummyprofile.test",
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+    ]
   },
   "code": {
-    "coding": [ {
-      "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
-      "_version": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      },
-      "_code": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      },
-      "display": "Prellung des Ellenbogens"
-    } ]
+    "coding": [
+      {
+        "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "_version": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "_code": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "display": "Prellung des Ellenbogens"
+      }
+    ]
   },
   "subject": {
     "reference": "Patient/123"
   },
   "onsetDateTime": "2024-10",
   "_recordedDate": {
-    "extension": [ {
-      "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-      "valueCode": "masked"
-    } ]
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+        "valueCode": "masked"
+      }
+    ]
   }
 }
