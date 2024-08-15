@@ -26,7 +26,7 @@ public class AppConfig {
 
     @Bean
     @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${fhirServer.url:http://localhost:8081/fhir}") String baseUrl) {
+    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl) {
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
@@ -44,7 +44,7 @@ public class AppConfig {
 
     @Bean
     @Qualifier("flareClient")
-    public WebClient flareWebClient(@Value("${flare.url:http://localhost:8085}") String baseUrl) {
+    public WebClient flareWebClient(@Value("${torch.flare.url}") String baseUrl) {
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
@@ -91,8 +91,8 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext) {
-        return new CdsStructureDefinitionHandler(fhirContext, "src/test/resources/StructureDefinitions/");
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir){
+        return new CdsStructureDefinitionHandler(fhirContext, dir);
     }
 
     @Bean
