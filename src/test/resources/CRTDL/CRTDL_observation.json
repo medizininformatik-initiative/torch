@@ -88,6 +88,10 @@
             "mustHave": false
           },
           {
+            "attributeRef": "Observation.encounter",
+            "mustHave": false
+          },
+          {
             "attributeRef": "Observation.value[x]",
             "mustHave": true
           }

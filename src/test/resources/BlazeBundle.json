@@ -298,6 +298,9 @@
         "subject": {
           "reference": "Patient/3"
         },
+        "encounter": {
+          "reference": "Encounter/5"
+        },
         "effectiveDateTime": "2023-07-03T00:00:00Z",
         "valueQuantity": {
           "value": 8.4,
@@ -309,6 +312,17 @@
       "request": {
         "method": "PUT",
         "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "5",
+        "status" : "unknown"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/5"
       }
     },
     {
@@ -430,6 +444,9 @@
         "subject": {
           "reference": "Patient/4"
         },
+        "encounter": {
+          "reference": "Encounter/10"
+        },
         "effectiveDateTime": "2023-07-04T00:00:00Z",
         "valueQuantity": {
           "value": 6.7,
@@ -443,6 +460,18 @@
         "url": "Observation/d75e9g46-f487-4d88-cd8b-gg6c6c95387f"
       }
     },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "10",
+        "status" : "unknown"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/10"
+      }
+    }
+  ,
     {
       "resource": {
         "resourceType": "Patient",

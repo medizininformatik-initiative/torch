@@ -32,6 +32,9 @@
       "subject": {
         "reference": "Patient/3"
       },
+      "encounter": {
+        "reference": "Encounter/5"
+      },
       "_effectiveDateTime": {
         "extension": [ {
           "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -60,6 +63,16 @@
     "request": {
       "method": "PUT",
       "url": "Patient/3"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Encounter",
+      "id": "5",
+      "status": "unknown"
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Encounter/5"
     }
   } ]
 }

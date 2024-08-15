@@ -114,6 +114,7 @@ public class BundleCreator {
                     // Add dummy encounter resources based on extracted references
                     for (String encounterRef : encounterReferences) {
                         Encounter dummyEncounter = new Encounter();
+                        dummyEncounter.setStatus(Encounter.EncounterStatus.UNKNOWN);
                         dummyEncounter.setId(encounterRef.split("/")[1]); // Set only the ID part
                         Bundle.BundleEntryComponent encounterEntry = new Bundle.BundleEntryComponent();
                         encounterEntry.setResource(dummyEncounter);
