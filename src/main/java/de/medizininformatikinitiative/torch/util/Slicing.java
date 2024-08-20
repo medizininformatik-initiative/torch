@@ -60,6 +60,33 @@ public class Slicing {
     return returnElement.get();
     }
 
+    /**
+     *
+     * @param elementID ElementID that needs to be resolved
+     * @param structureDefinition
+     * @return
+     */
+    public String generateFhirPath(String elementID, StructureDefinition structureDefinition){
+        //In ElementIDs you can find slicing by resolving the : operator.
+        //Case 1: Type discriminator marked by [x]
+        //Case 2: All other operators found in discriminator information.
+        if(elementID.contains(":")) {
+            StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+
+
+        }
+        else{
+        if(elementID.contains("[x]")){
+            return elementID.replace("[x]","");
+        }
+
+        }
+
+
+        return elementID;
+
+    }
+
 
     /**
      * Checks the condition for the given sliced element

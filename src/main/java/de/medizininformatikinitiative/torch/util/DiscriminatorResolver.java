@@ -32,6 +32,11 @@ public class DiscriminatorResolver {
 
     }
 
+    private static Boolean resolveExists(Base base, ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot){
+
+
+    }
+
     /**
      * Resolves the Pattern for a given slice
      *
@@ -47,6 +52,8 @@ public class DiscriminatorResolver {
             //System.out.println("Slice Name " + slice.getName() + " Slicename " + slice.getSliceName());
 
             Property patternChild = slice.getChildByName("pattern[x]");
+            Property fixedChild = slice.getChildByName("fixed[x]");
+
             for (Property child : patternChild.getValues().get(0).children()) {
                 if (child.hasValues()) {
 
@@ -95,5 +102,19 @@ public class DiscriminatorResolver {
         }
         return false;
     }
+
+    private static ElementDefinition wanderSlice(ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot){
+
+        if(path.equalsIgnoreCase("$this")){
+            return slice;
+        }
+        else{
+
+            //TODO wander
+
+        }
+
+    }
+
 
 }
