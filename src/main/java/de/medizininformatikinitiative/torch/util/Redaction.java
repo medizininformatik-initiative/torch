@@ -71,10 +71,12 @@ public class Redaction {
         ElementDefinition definition = snapshot.getElementById(elementID);
 
 
-        if (definition.hasSlicing()) {
-              Slicing slicing = new Slicing(CDS);
-            ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+      if (definition.hasSlicing()) {
+
+          Slicing slicing = new Slicing(CDS);
+          ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if(slicedElement.hasId()){
+                logger.info("Found Sliced Element {}", slicedElement.getIdElement().toString());
                 elementID=slicedElement.getIdElement().toString();
 
             }

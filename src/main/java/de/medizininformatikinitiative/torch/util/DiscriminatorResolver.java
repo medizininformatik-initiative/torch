@@ -1,11 +1,15 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.r4.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.List;
+import java.util.Objects;
 
 public class DiscriminatorResolver {
 
+    private static final Logger logger = LoggerFactory.getLogger(DiscriminatorResolver.class);
 
     /**
      * Resolves the discriminator for a given slice
@@ -13,70 +17,160 @@ public class DiscriminatorResolver {
      * @param base          Element to be sliced
      * @param slice         ElementDefinition of the slice
      * @param discriminator Discriminator to be resolved
-     * @param path          path to the element
+     * @param elementID     path to the element
      * @param snapshot      Snapshot of the StructureDefinition
      * @return
      */
-    public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, String discriminator, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+    public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         //System.out.println("Discriminator "+discriminator);
-        return switch (discriminator) {
+        return switch (discriminator.getType().toCode()) {
             case "exists" -> false;
-            case "null" -> false;
-            case "pattern" -> resolvePattern(base, slice, path, snapshot);
-            case "profile" -> false;
-            case "type" -> resolveType(base, slice, path, snapshot);
-            case "value" -> false;
+            case "pattern", "value" ->
+                    resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
+            case "profile" -> false;  //
+            case "type" -> resolveType(base, slice, discriminator, snapshot);
             default -> false;
         };
 
 
     }
 
-    private static Boolean resolveExists(Base base, ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot){
 
-
+    /**
+     * Resolves the Path for a given slice
+     *
+     * @param slice ElementDefinition of the slice
+     * @return String path that has to be wandered
+     */
+    private static ElementDefinition resolveSlicePath(ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        String path = discriminator.getPath();
+        if (Objects.equals(path, "$this")) {
+            return slice;
+        }
+        return snapshot.getElementByPath(slice.getId() + "." + slice.getPath());
     }
 
     /**
-     * Resolves the Pattern for a given slice
+     * Resolves the Pattern for a given slice.
      *
-     * @param base     Element to be sliced
-     * @param slice    ElementDefinition of the slice
-     * @param snapshot Snapshot of the StructureDefinition
-     * @return
+     * @param base          The base element to be sliced.
+     * @param slice         The ElementDefinition of the slice.
+     * @param discriminator The discriminator that defines how to slice the base element.
+     * @param snapshot      The snapshot of the StructureDefinition.
+     * @return True if the pattern is resolved successfully; false otherwise.
      */
-    private static Boolean resolvePattern(Base base, ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        //System.out.println("Resolving Pattern " + path);
-        if (path.equalsIgnoreCase("$this")) {
-            //no wandering needed
-            //System.out.println("Slice Name " + slice.getName() + " Slicename " + slice.getSliceName());
+    private static Boolean resolvePattern(Base base, ElementDefinition slice,
+                                          ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
+                                          StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        // Resolve the element containing the fixed or pattern information.
+        logger.info("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
+        ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
-            Property patternChild = slice.getChildByName("pattern[x]");
-            Property fixedChild = slice.getChildByName("fixed[x]");
+        // Resolve the base element along the path specified by the discriminator.
+        Base resolvedBase = resolveElementPath(base, discriminator);
 
-            for (Property child : patternChild.getValues().get(0).children()) {
-                if (child.hasValues()) {
+        // If the resolved base element is null, the pattern cannot be resolved.
+        if (resolvedBase == null) {
+            return false;
+        }
+        // If the resolved base element is null, the pattern cannot be resolved.
+        if (elementContainingInfo == null) {
+            return false;
+        }
 
-                    String BasePatternString = String.valueOf(base.getChildByName(child.getName()).getValues().get(0));
-                    String childPAtternString = String.valueOf(child.getValues().get(0));
-                    if (childPAtternString.equalsIgnoreCase(BasePatternString)) {
-                        //System.out.println("Pattern Matched");
+        // Check if the element containing the info has a fixed value or pattern.
+        if (elementContainingInfo.hasFixedOrPattern()) {
 
-                    } else {
-                        return false;
-                    }
-                }
-            }
-            return true;
-
-
-        } else {
-            //TODO resolving subpath
+            // Get the fixed value or pattern from the element definition.
+            Base fixedOrPatternValue = elementContainingInfo.getFixedOrPattern();
+            return compareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
 
         }
+
+        // Return false if no fixed or pattern value is found.
         return false;
+    }
+
+    // Custom comparison method
+    private static boolean compareBaseToFixedOrPattern(Base resolvedBase, Base fixedOrPatternValue) {
+        // Implement the logic to compare resolvedBase to fixedOrPatternValue
+        // You may need to recursively compare the elements that are defined in fixedOrPatternValue
+        // Example: if fixedOrPatternValue is a complex type, iterate over its children
+        if (!Objects.equals(resolvedBase.fhirType(), fixedOrPatternValue.fhirType())) {
+            logger.warn("Incompatible Data types when comparing ");
+            return false;
+        }
+
+        if (fixedOrPatternValue.isPrimitive()) {
+            logger.info("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
+            return resolvedBase.equalsDeep(fixedOrPatternValue);
+        } else {
+            logger.info("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
+            // Iterate over the children of fixedOrPatternValue and compare them to the corresponding children in resolvedBase
+            for (Property child : fixedOrPatternValue.children()) {
+                if (child.hasValues()) {
+
+                    String childName = child.getName();
+                    Property resolvedChild = resolvedBase.getChildByName(childName);
+
+                    logger.info("Handling Child {} {}", childName, resolvedChild);
+
+                    // If the resolved base doesn't have this child, return false
+                    if (resolvedChild == null) {
+                        return false;
+                    } else {
+                        return compareBaseToFixedOrPattern(resolvedChild.getValues().get(0), child.getValues().get(0));
+                    }
+                }
+
+            }
+        }
+        return true;
+
+    }
 
 
+    /**
+     * Resolves the element based on the given path from a discriminator
+     *
+     * @param base          The base element from which the path starts
+     * @param discriminator The discriminator that contains the path
+     * @return The resolved element if the path is valid, null otherwise
+     */
+    private static Base resolveElementPath(Base base, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator) {
+        // Extract the path from the discriminator
+
+        String path = discriminator.getPath();
+
+        if (path.equalsIgnoreCase("$this")) {
+            return base;
+        }
+        // Split the path by the dot to handle subpaths
+        String[] parts = path.split("\\.");
+
+        // Start with the base element
+        Base currentElement = base;
+
+        // Iterate through each part of the path
+        for (String part : parts) {
+            if (currentElement == null) {
+                return null;
+            }
+
+            // Resolve the next element based on the current part of the path
+            List<Base> nextElements = currentElement.listChildrenByName(part);
+
+            // If there are no elements matching this part of the path, return null
+            if (nextElements == null || nextElements.isEmpty()) {
+                return null;
+            }
+
+            // Move to the next element in the path
+            currentElement = nextElements.get(0);
+        }
+
+        // Return the resolved element
+        return currentElement;
     }
 
 
@@ -88,32 +182,10 @@ public class DiscriminatorResolver {
      * @param snapshot Snapshot of the StructureDefinition
      * @return
      */
-    private static Boolean resolveType(Base base, ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        //System.out.println("Resolving Type"+path);
-        if (path.equalsIgnoreCase("$this")) {
-            //no wandering needed
-              if (base.fhirType().equalsIgnoreCase(slice.getType().get(0).getWorkingCode())) {
-                return true;
-            }
-
-
-        } else {
-            //TODO resolving subpath
-        }
-        return false;
-    }
-
-    private static ElementDefinition wanderSlice(ElementDefinition slice, String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot){
-
-        if(path.equalsIgnoreCase("$this")){
-            return slice;
-        }
-        else{
-
-            //TODO wander
-
-        }
-
+    private static Boolean resolveType(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent
+            discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
+        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().get(0).getWorkingCode());
     }
 
 
