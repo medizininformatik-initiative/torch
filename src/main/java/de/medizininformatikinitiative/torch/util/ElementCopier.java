@@ -53,9 +53,9 @@ public class ElementCopier {
      * @throws MustHaveViolatedException if mandatory element is missing
      */
     public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException {
-        CanonicalType profileurl = src.getMeta().getProfile().getFirst();
-        StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
-        logger.debug("Empty Structuredefinition? {}", structureDefinition.isEmpty());
+        List<CanonicalType> profileurl = src.getMeta().getProfile();
+        StructureDefinition structureDefinition = handler.getDefinition(profileurl);
+        logger.debug("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(),profileurl.getFirst().getValue());
         List<String> legalExtensions = new LinkedList<>();
 
 
@@ -96,11 +96,12 @@ public class ElementCopier {
                     TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, tgt, elements.getFirst());
                 } else {
                     //Assume branching before element
+                    //TODO Go back in branching
 
                     int endIndex = attribute.getAttributeRef().lastIndexOf(".");
 
                     if (endIndex != -1) {
-                        String ParentPath = attribute.getAttributeRef().substring(0, endIndex); // not forgot to put check if(endIndex != -1)
+                        String ParentPath = attribute.getAttributeRef().substring(0, endIndex);
                         logger.debug("ParentPath {}", ParentPath);
                         logger.debug("Elemente {}", snapshot.getElementByPath(ParentPath));
                         String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();

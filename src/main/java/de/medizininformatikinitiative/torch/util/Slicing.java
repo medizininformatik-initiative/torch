@@ -62,18 +62,17 @@ public class Slicing {
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 //iterate over every discriminator and test if base holds for it
-                for(ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator){
-                    if(!resolveDiscriminator(base, element, discriminator, snapshot)){
-                        logger.info("Check failed {}",element.getIdElement());
+                for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
+                    if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
+                        logger.info("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
                 }
                 if (foundSlice) {
-                    logger.info("Check passed {}",element.getIdElement());
+                    logger.info("Check passed {}", element.getIdElement());
                     returnElement.set(element);
                 }
-
 
             }
         });
@@ -96,7 +95,7 @@ public class Slicing {
             String slicingParent = elementID.split(":")[0];
             //TODO Get conditions by resolving the discriminators and wandering to the subelements defining them
             // Find the element that matches the slicingParent in the snapshot
-            ElementDefinition parentElement=null;
+            ElementDefinition parentElement = null;
             for (ElementDefinition element : snapshot.getElement()) {
                 if (element.getPath().equals(slicingParent)) {
                     parentElement = element;
@@ -105,20 +104,19 @@ public class Slicing {
             }
             if (parentElement != null && parentElement.hasSlicing()) {
                 ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.getSlicing();
-                if(slicing.hasDiscriminator()){
+                if (slicing.hasDiscriminator()) {
                     //Find all  conditions and add to FHIR Path
 
                 }
-                if(slicing.hasOrdered()){
+                if (slicing.hasOrdered()) {
 
                     //Find all  conditions and add to FHIR Path
                 }
-                if(slicing.hasRules()){
+                if (slicing.hasRules()) {
 
                     //Find all  conditions and add to FHIR Path
                 }
             }
-
 
 
         } else {
@@ -133,8 +131,6 @@ public class Slicing {
         return elementID;
 
     }
-
-
 
 
 }

@@ -9,6 +9,24 @@ import static java.lang.String.format;
 public class FhirPathBuilder {
 
 
+
+    /**
+     *
+     *
+     * @param input
+     * @param Terser
+     * @param factory
+     * @return
+     *
+     * Type slicing is always coded with choice element e.g. value[x].
+     */
+    public static String handleChoiceElements(String input, boolean Terser, ElementFactory factory){
+
+
+        return "Test";
+    }
+
+
     //Handles Elementdefinition Slicing in a fhir PATH of the form e.g. onset[x]:onsetPeriod
     public static String handleSlicingForFhirPath(String input, boolean Terser, ElementFactory factory){
         if(input.contains(":")) {

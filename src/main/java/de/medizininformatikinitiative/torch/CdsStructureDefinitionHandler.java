@@ -10,6 +10,7 @@ import ca.uhn.fhir.parser.IParser;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 
 @Component
 
@@ -60,17 +61,33 @@ public class CdsStructureDefinitionHandler {
     }
 
     /**
-     * Returns the StructureDefinition with the given URL
-     * TODO Advanced Version handling?
+     * Returns the StructureDefinition with the given URL.
+     * Handles versioned URLs by splitting on the '|' character.
      *
-     * @param url
-     * @return StructureDefinition
+     * @param url The URL of the StructureDefinition, possibly including a version.
+     * @return The StructureDefinition corresponding to the base URL (ignores version).
      */
     public StructureDefinition getDefinition(String url) {
-        String[] versionsplit = url.split("\\|");
-        return definitionsMap.get(versionsplit[0]);
+        String[] versionSplit = url.split("\\|");
+        return definitionsMap.get(versionSplit[0]);
     }
 
+    /**
+     * Returns the first non-null StructureDefinition from a list of URLs.
+     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     *
+     * @param urls A list of URLs for which to find the corresponding StructureDefinition.
+     * @return The first non-null StructureDefinition found, or null if none are found.
+     */
+    public StructureDefinition getDefinition(List<CanonicalType> urls) {
+        for (CanonicalType url : urls) {
+            StructureDefinition definition = getDefinition(url.getValue());
+            if (definition != null) {
+                return definition;
+            }
+        }
+        return null;
+    }
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         return (definitionsMap.get(url)).getSnapshot();
 

@@ -53,7 +53,7 @@ public class Redaction {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 logger.debug("Profile Found {} ",profileurl.getValue());
-                structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
+                structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
 
                 // Check if structureDefinition is not null
                 if (structureDefinition != null) {

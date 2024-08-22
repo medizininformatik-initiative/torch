@@ -43,6 +43,7 @@ public class CopyTest extends BaseTest{
                 assertNotNull(tgt);
 
                 assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), resource + " Expected not equal to actual output");
+
             } catch (Exception e) {
                 logger.error("",e);
             }
