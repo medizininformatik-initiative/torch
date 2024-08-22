@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.DataStore;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;

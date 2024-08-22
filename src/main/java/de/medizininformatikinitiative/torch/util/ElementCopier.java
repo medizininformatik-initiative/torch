@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.torch.util.CopyUtils.*;
-import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.*;
 
 public class ElementCopier {
     private static final Logger logger = LoggerFactory.getLogger(ElementCopier.class);
@@ -29,7 +28,7 @@ public class ElementCopier {
 
     CdsStructureDefinitionHandler handler;
 
-    Slicing slicing;
+    FhirPathBuilder pathBuilder;
 
 
     /**
@@ -40,7 +39,7 @@ public class ElementCopier {
     public ElementCopier(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
-        this.slicing = new Slicing(handler);
+        this.pathBuilder=new FhirPathBuilder(handler);
 
     }
 
@@ -67,32 +66,31 @@ public class ElementCopier {
 
 
         try {
-            String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
-            logger.debug("FHIR PATH {}", fhirPath);
+            logger.info("Attribute Path {}", attribute.getAttributeRef());
+
+            String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.getAttributeRef(), factory, snapshot);
+            logger.info("FHIR PATH {}", fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-
-            //TODO Check Extensions on Element Level
-            elements.forEach(element -> {
-                if (element instanceof Element) {
-                    checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
-
-                }
-            });
+            logger.info("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.isMustHave()) {
                     throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
                 }
             } else {
-                String shorthandFHIRPATH =     handleSlicingForTerser(attribute.getAttributeRef());
+                String terserFHIRPATH =     pathBuilder.handleSlicingForTerser(attribute.getAttributeRef());
 
                 if (elements.size() == 1) {
 
-                    if (shorthandFHIRPATH.endsWith("[x]")) {
+                    if (terserFHIRPATH.endsWith("[x]")) {
+                        logger.info("Tersertobehandled {}",terserFHIRPATH);
                         String type = capitalizeFirstLetter(elements.getFirst().fhirType());
-                        shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
+                        terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
                     }
-                    TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, tgt, elements.getFirst());
+                    logger.info("Setting {} {}",terserFHIRPATH,elements.getFirst().fhirType());
+                    TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
+
+
                 } else {
                     //Assume branching before element
                     //TODO Go back in branching
@@ -111,10 +109,9 @@ public class ElementCopier {
                 }
             }
         } catch (NullPointerException e) {
-            logger.debug("No Result for FHIR SEARCH");
-
+            //FHIR Search Returns Null, if not result found
         }catch (FHIRException e) {
-            logger.debug("Unsupported Type",e);
+            logger.error("Unsupported Type",e);
 
         }
 

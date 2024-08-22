@@ -5,12 +5,12 @@ import ca.uhn.fhir.parser.IParser;
 
 
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -21,6 +21,7 @@ public class Slicing {
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
     private FhirContext ctx;
     private IParser parser;
+
 
     CdsStructureDefinitionHandler handler;
 
@@ -33,6 +34,7 @@ public class Slicing {
         this.handler = handler;
         this.ctx = handler.ctx;
         parser = ctx.newJsonParser().setPrettyPrint(true);
+
     }
 
     /**
@@ -46,7 +48,7 @@ public class Slicing {
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
 
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        String fhirPath = FhirPathBuilder.build("StructureDefinition.snapshot.element", "path = '" + elementID + "'");
+        String fhirPath = "StructureDefinition.snapshot.element.where(path = '" + elementID + "')";
         ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
 
@@ -80,55 +82,120 @@ public class Slicing {
         return returnElement.get();
     }
 
+
     /**
-     * @param elementID           ElementID that needs to be resolved
-     * @param structureDefinition
-     * @return
+     * Generates FHIR Path conditions based on the element ID and the snapshot of the StructureDefinition.
+     *
+     * @param elementID ElementID that needs to be resolved
+     * @param snapshot  StructureDefinitionSnapshotComponent containing the structure definition
+     * @return List of FHIR Path conditions as strings
      */
-    public String generateFhirPath(String elementID, StructureDefinition structureDefinition) {
-        //In ElementIDs you can find slicing by resolving the : operator.
-        //Case 1: Type discriminator marked by [x]
-        //Case 2: All other operators found in discriminator information.
-        if (elementID.contains(":")) {
-            StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-            //TODO Find Slicing Parent
-            String slicingParent = elementID.split(":")[0];
-            //TODO Get conditions by resolving the discriminators and wandering to the subelements defining them
-            // Find the element that matches the slicingParent in the snapshot
-            ElementDefinition parentElement = null;
-            for (ElementDefinition element : snapshot.getElement()) {
-                if (element.getPath().equals(slicingParent)) {
-                    parentElement = element;
-                    break;
+    public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        List<String> conditions = new ArrayList<>();
+
+        // Find the sliced element using the element ID
+        ElementDefinition slicedElement = snapshot.getElementById(elementID);
+        if (slicedElement == null) {
+            throw new IllegalArgumentException("Element with ID " + elementID + " not found in snapshot.");
+        }
+
+        // Find the parent element using the path of the sliced element
+        ElementDefinition parentElement = snapshot.getElementById(slicedElement.getPath());
+        if (parentElement != null && parentElement.hasSlicing()) {
+            ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.getSlicing();
+
+            if (slicing.hasDiscriminator()) {
+                // Iterate over discriminators to generate conditions
+                for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicing.getDiscriminator()) {
+                    String path = discriminator.getPath();
+
+                    // Generate FHIR Path condition based on the discriminator type and path
+                    switch (discriminator.getType()) {
+                        case VALUE, PATTERN:
+                            conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
+                            break;
+                        case EXISTS:
+                            conditions.add(slicedElement.getPath() + "." + path + ".exists()");
+                            break;
+                        case TYPE:
+                            conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
+                            break;
+                        case PROFILE:
+                            conditions.add(slicedElement.getPath() + "." + path + ".conformsTo({profile})");
+                            break;
+                        default:
+                            throw new UnsupportedOperationException("Unsupported discriminator type: " + discriminator.getType());
+                    }
                 }
             }
-            if (parentElement != null && parentElement.hasSlicing()) {
-                ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.getSlicing();
-                if (slicing.hasDiscriminator()) {
-                    //Find all  conditions and add to FHIR Path
 
-                }
-                if (slicing.hasOrdered()) {
-
-                    //Find all  conditions and add to FHIR Path
-                }
-                if (slicing.hasRules()) {
-
-                    //Find all  conditions and add to FHIR Path
-                }
+            // Future handling for ordered and rules if needed
+            /*
+            if (slicing.hasOrdered()) {
+                // Add conditions related to ordered slicing
             }
-
-
-        } else {
-            //Case elementid is not sliced specifically but applies to all type sliced elements e.g. Observation.effective[x].value
-            if (elementID.contains("[x]")) {
-                return elementID.replace("[x]", "");
+            if (slicing.hasRules()) {
+                // Add conditions related to slicing rules
             }
+            */
+        }
+
+        return conditions;
+    }
+
+
+    private List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
+        List<String> conditions=new ArrayList<>();
+        if(path!="$this"){
+            elementId+="."+path;
+        }
+        logger.info("Getting Conditions {}",elementId);
+        ElementDefinition elementDefinition= snapshot.getElementById(elementId);
+        if(elementDefinition==null){
+            logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
+            return conditions;
+        }
+        if(elementDefinition.hasFixedOrPattern()){
+            //While deprecated the term pattern describes it better unlike value.
+            Element pattern = elementDefinition.getFixedOrPattern();
+
+
+        }else{
+            logger.info("No Pattern found {}",elementId);
+
+        }
+
+        return conditions;
+    }
+
+    private List<String> traverseValueRec(String basePath, Element pattern){
+
+        List<String> conditions=new ArrayList<>();
+        if(pattern.isPrimitive()){
+            conditions.add(basePath+"="+pattern.primitiveValue());
+        }else{
+        pattern.children().forEach(
+                child ->{
+                    if(child.hasValues()){
+                        child.getValues().forEach(
+                                value->{
+                                    conditions.addAll(traverseValueRec(basePath+"."+child.getName(), (Element) value));
+                                }
+                        );
+
+                    }
+
+                }
+
+
+        );
 
         }
 
 
-        return elementID;
+
+        return conditions;
+
 
     }
 
