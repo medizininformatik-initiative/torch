@@ -18,8 +18,7 @@ import java.util.List;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.torch.util.CopyUtils.*;
-import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.cleanFhirPath;
-import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.handleSlicingForFhirPath;
+import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.*;
 
 public class ElementCopier {
     private static final Logger logger = LoggerFactory.getLogger(ElementCopier.class);
@@ -85,7 +84,7 @@ public class ElementCopier {
                     throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
                 }
             } else {
-                String shorthandFHIRPATH = handleSlicingForFhirPath(attribute.getAttributeRef(), true,factory);
+                String shorthandFHIRPATH =     handleSlicingForTerser(attribute.getAttributeRef());
 
                 if (elements.size() == 1) {
 

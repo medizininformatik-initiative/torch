@@ -26,6 +26,23 @@ public class FhirPathBuilder {
         return "Test";
     }
 
+    /**
+     * For Terser, the base path is the primary concern. For example, with a choice operator,
+     * we need to remove `[x]` and any slicing.
+     * For instance, `condition.onset[x]` becomes `condition.onset`, and
+     * `Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2` becomes
+     * `Observation.identifier.type.coding`.
+     *
+     * @param input the input string representing the path with potential slicing
+     * @param factory an instance of ElementFactory (not currently used in the method)
+     * @return a string with slicing removed according to the Terser base path rules
+     */
+    public static String handleSlicingForTerser(String input) {
+        // Remove anything in square brackets, such as [x], and remove any slicing with colons
+        String output = input.replaceAll(":[^\\.]*", "");
+        return output;
+    }
+
 
     //Handles Elementdefinition Slicing in a fhir PATH of the form e.g. onset[x]:onsetPeriod
     public static String handleSlicingForFhirPath(String input, boolean Terser, ElementFactory factory){
