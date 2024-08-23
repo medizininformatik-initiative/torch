@@ -11,6 +11,9 @@ torch:
         path: src/test/resources/BlazeBundle.json
   flare:
     url: http://localhost:8084
+  results:
+    dir: bundles/
+    persistence: PT12H30M5S # Time Block in ISO 8601 format
 
 logging:
   level:

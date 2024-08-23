@@ -5,8 +5,10 @@ package de.medizininformatikinitiative.torch.util;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import ca.uhn.fhir.parser.IParser;
+import org.springframework.stereotype.Component;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -26,7 +28,8 @@ public class ResultFileManager {
     private final IParser parser;
     private Duration duration;
 
-    public ResultFileManager(@Value("${torch.results.dir}") String resultsDir,String duration, IParser parser) {
+
+    public ResultFileManager(String resultsDir, String duration, IParser parser) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.parser = parser;
 

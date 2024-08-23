@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -64,6 +65,7 @@ public class AppConfig {
         return new DataStore(client, context);  // Or use your specific configuration to instantiate
     }
 
+
     @Bean
     public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
         return new ElementCopier(cds);  // Or use your specific configuration to instantiate
@@ -98,6 +100,12 @@ public class AppConfig {
     public IParser parser(FhirContext fhirContext) {
         return fhirContext.newJsonParser();
     }
+
+    @Bean
+    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser){
+        return new ResultFileManager(resultsDir,duration, parser);
+    }
+
 
     @Bean
     public CapabilityStatementController capabilityStatementController() {

@@ -9,6 +9,9 @@ torch:
     url: http://localhost:8082/fhir
   flare:
     url: http://localhost:8084
+  results:
+    dir: bundles/
+    persistence: PT12H30M5S # Time Block in ISO 8601 format
 
 logging:
   level:

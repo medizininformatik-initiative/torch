@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.flare.model.mapping.MappingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Attachment;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
@@ -59,10 +60,13 @@ public class FhirController {
     private final BundleCreator bundleCreator;
     private final ObjectMapper objectMapper;
     private final IParser parser;
+    private final ResultFileManager resultFileManager;
+
 
     @Autowired
     public FhirController(
             @Qualifier("flareClient") WebClient webClient,
+            ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
             ObjectMapper objectMapper,
@@ -72,6 +76,7 @@ public class FhirController {
         this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
         this.parser = parser;
+        this.resultFileManager=resultFileManager;
     }
 
     @Bean
@@ -268,8 +273,7 @@ public class FhirController {
                                         entryComponent.setResource(bundle);
                                         finalBundle.addEntry(entryComponent);
                                     }
-                                    jobResultMap.put(jobId, finalBundle);
-                                    jobStatusMap.put(jobId, "Completed");
+                                    resultFileManager.saveBundleToFileSystem(jobId, finalBundle,jobStatusMap);
                                     logger.debug("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
                                     return Mono.empty();
                                 })
@@ -326,11 +330,22 @@ public class FhirController {
         }
 
         if ("Completed".equals(status)) {
-            Bundle resultBundle = jobResultMap.get(jobId);
-            return ok().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(parser.setPrettyPrint(true).encodeResourceToString(resultBundle));
+            return serveBundleFromFileSystem(jobId);
         } else {
             return accepted().build();
         }
     }
+
+    private Mono<ServerResponse> serveBundleFromFileSystem(String jobId) {
+        return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId))
+                .flatMap(bundleJson -> {
+                    if (bundleJson == null) {
+                        return notFound().build();
+                    }
+                    return ok().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(bundleJson);
+                });
+    }
+
+
 
 }
