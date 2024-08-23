@@ -10,7 +10,7 @@ services:
     volumes:
     - "data-store-data:/app/data"
   torch-flare:
-    image: ghcr.io/medizininformatik-initiative/flare:2.3.0
+    image: ghcr.io/medizininformatik-initiative/flare:pr-179
     ports:
       - ${FEASIBILITY_FLARE_PORT:-127.0.0.1:8084}:8080
     environment:
@@ -49,6 +49,7 @@ services:
       LOG_LEVEL: debug
     volumes:
       - "torch-data-store:/app/output"
+      - ./structureDefinitions:/app/StructureDefinitions
 
 volumes:
   data-store-data:
