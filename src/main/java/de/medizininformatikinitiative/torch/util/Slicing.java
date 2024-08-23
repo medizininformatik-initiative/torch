@@ -107,17 +107,20 @@ public class Slicing {
             if (slicing.hasDiscriminator()) {
                 // Iterate over discriminators to generate conditions
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicing.getDiscriminator()) {
-                    String path = discriminator.getPath();
 
+                    String path = discriminator.getPath();
+                    logger.info("Slicing Discriminator {} {}",discriminator.getType(),path);
                     // Generate FHIR Path condition based on the discriminator type and path
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
+                            logger.info("Pattern discriminator found");
                             conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
                             conditions.add(slicedElement.getPath() + "." + path + ".exists()");
                             break;
                         case TYPE:
+                            logger.info("Type discriminator found");
                             conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
                             break;
                         case PROFILE:
@@ -158,8 +161,8 @@ public class Slicing {
         if(elementDefinition.hasFixedOrPattern()){
             //While deprecated the term pattern describes it better unlike value.
             Element pattern = elementDefinition.getFixedOrPattern();
-
-
+            logger.info("Got Pattern ");
+            conditions.addAll(traverseValueRec(elementDefinition.getPath(),pattern));
         }else{
             logger.info("No Pattern found {}",elementId);
 
@@ -172,7 +175,7 @@ public class Slicing {
 
         List<String> conditions=new ArrayList<>();
         if(pattern.isPrimitive()){
-            conditions.add(basePath+"="+pattern.primitiveValue());
+            conditions.add(basePath+"='"+pattern.primitiveValue()+"'");
         }else{
         pattern.children().forEach(
                 child ->{

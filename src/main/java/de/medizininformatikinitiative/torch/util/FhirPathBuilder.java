@@ -92,12 +92,12 @@ public class FhirPathBuilder {
                     } else {
                         result.append(path);
                     }
-
                 } else {
                     if (e.contains(":")) {
                         result.append(e.split(":")[0]);
-
+                        logger.info("Adding Conditions");
                         conditions.addAll(slicing.generateConditionsForFHIRPath(elementIDSoFar.toString(), snapshot));
+                        logger.info("Conditions Generated {}",conditions);
                     } else {
                         result.append(e);
                     }
