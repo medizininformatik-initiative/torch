@@ -1,0 +1,23 @@
+FROM eclipse-temurin:21.0.3_9-jre
+
+RUN apt-get update && apt-get upgrade -y && \
+    apt-get purge wget libbinutils libctf0 libctf-nobfd0 libncurses6 -y && \
+    apt-get autoremove -y && apt-get clean && \
+    rm -rf /var/lib/apt/lists/
+
+ENV JAVA_TOOL_OPTIONS="-Xmx4g"
+ENV CERTIFICATE_PATH=/app/certs
+ENV TRUSTSTORE_PATH=/app/truststore
+ENV TRUSTSTORE_FILE=self-signed-truststore.jks
+
+COPY target/torch.jar /app/
+COPY structureDefinitions  app/structureDefinitions
+RUN mkdir /app/output
+RUN chown -R 1001:1001 /app
+
+
+WORKDIR /app
+USER 1001
+
+COPY docker-entrypoint.sh /
+ENTRYPOINT ["/bin/bash", "/docker-entrypoint.sh"]
