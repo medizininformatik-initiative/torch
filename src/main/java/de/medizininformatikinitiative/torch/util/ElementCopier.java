@@ -68,13 +68,13 @@ public class ElementCopier {
 
 
         try {
-            logger.info("Attribute Path {}", attribute.getAttributeRef());
+            //logger.debug("Attribute Path {}", attribute.getAttributeRef());
 
             String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.getAttributeRef(), factory, snapshot);
-            logger.info("FHIR PATH {}", fhirPath);
+            logger.debug("FHIR PATH {}", fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-            logger.info("Elements received {}", fhirPath);
+            //logger.debug("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.isMustHave()) {
                     throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
@@ -85,28 +85,28 @@ public class ElementCopier {
                 if (elements.size() == 1) {
 
                     if (terserFHIRPATH.endsWith("[x]")) {
-                        logger.info("Tersertobehandled {}",terserFHIRPATH);
+                        //logger.debug("Tersertobehandled {}",terserFHIRPATH);
                         String type = capitalizeFirstLetter(elements.getFirst().fhirType());
                         terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
                     }
-                    logger.info("Setting {} {}",terserFHIRPATH,elements.getFirst().fhirType());
+                    //logger.debug("Setting {} {}",terserFHIRPATH,elements.getFirst().fhirType());
                     try {
                         TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
                     }catch(Exception e){
                         if(elementDefinition.hasType()) {
                             elementDefinition.getType().getFirst().getWorkingCode();
                             //TODO
-                            logger.info("Element not recognized {} {}",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
+                            //logger.debug("Element not recognized {} {}",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
                             try {
                                 Base casted = factory.stringtoPrimitive(elements.getFirst().toString(),elementDefinition.getType().getFirst().getWorkingCode());
-                                logger.info("Casted {}",casted.fhirType());
+                                //logger.debug("Casted {}",casted.fhirType());
                                 TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
                             }catch (Exception casterException){
                                 logger.warn("Element not recognized and cast unsupported currently  {} {} ",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
                                 logger.warn("{} ",casterException);
                             }
                         }else{
-                            logger.info("Element has no known type ",terserFHIRPATH);
+                            logger.warn("Element has no known type ",terserFHIRPATH);
                         }
 
 

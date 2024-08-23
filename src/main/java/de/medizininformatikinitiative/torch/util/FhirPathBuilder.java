@@ -51,7 +51,7 @@ public class FhirPathBuilder {
         if (input.contains(":") || input.contains("[x]")) {
             String[] elementIDParts = input.split("\\.");
 
-            logger.info("Slicing Found {} size", elementIDParts.length);
+           // logger.debug("Slicing Found {} size", elementIDParts.length);
             StringBuilder result = new StringBuilder();
             StringBuilder elementIDSoFar = new StringBuilder();
             List<String> conditions = new ArrayList<>();
@@ -68,7 +68,7 @@ public class FhirPathBuilder {
                 }
 
                 elementIDSoFar.append(e);
-                logger.info("Processing {}", elementIDSoFar);
+                logger.debug("Processing {}", elementIDSoFar);
 
                 // Choice Element handling
                 if (e.contains("[x]")) {
@@ -95,19 +95,19 @@ public class FhirPathBuilder {
                 } else {
                     if (e.contains(":")) {
                         result.append(e.split(":")[0]);
-                        logger.info("Adding Conditions");
+                        //logger.debug("Adding Conditions");
                         conditions.addAll(slicing.generateConditionsForFHIRPath(elementIDSoFar.toString(), snapshot));
-                        logger.info("Conditions Generated {}",conditions);
+                        logger.debug("Conditions Generated {}",conditions);
                     } else {
                         result.append(e);
                     }
                 }
             }
 
-            logger.info("Result  {}", result);
+            //logger.debug("Result  {}", result);
             return buildConditions(result.toString(), conditions);
         }
-        logger.info("Result  {}", input);
+        //logger.debug("Result  {}", input);
         return input;
     }
 

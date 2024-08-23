@@ -53,7 +53,7 @@ public class Slicing {
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
 
         if (slicedElement == null || !slicedElement.hasSlicing()) {
-            logger.info("Element not sliced");
+            logger.warn("Element not sliced {}",elementID);
             return null; // Return null if the sliced element is not found or has no slicing
         }
 
@@ -66,13 +66,13 @@ public class Slicing {
                 //iterate over every discriminator and test if base holds for it
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
                     if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
-                        logger.info("Check failed {}", element.getIdElement());
+                        logger.debug("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
                 }
                 if (foundSlice) {
-                    logger.info("Check passed {}", element.getIdElement());
+                    logger.debug("Check passed {}", element.getIdElement());
                     returnElement.set(element);
                 }
 
@@ -161,10 +161,10 @@ public class Slicing {
         if(elementDefinition.hasFixedOrPattern()){
             //While deprecated the term pattern describes it better unlike value.
             Element pattern = elementDefinition.getFixedOrPattern();
-            logger.info("Got Pattern ");
+            logger.debug("Got Pattern ");
             conditions.addAll(traverseValueRec(elementDefinition.getPath(),pattern));
         }else{
-            logger.info("No Pattern found {}",elementId);
+            logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
 
         }
 

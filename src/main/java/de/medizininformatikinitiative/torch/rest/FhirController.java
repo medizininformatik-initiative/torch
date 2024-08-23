@@ -288,7 +288,7 @@ public class FhirController {
 
 
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        logger.info("Flare called for the following input {}",crtdl.getSqString());
+        logger.debug("Flare called for the following input {}",crtdl.getSqString());
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -312,7 +312,7 @@ public class FhirController {
                         return Mono.error(new RuntimeException("Error parsing response", e));
                     }
                 })
-                .doOnSubscribe(subscription -> logger.info("Fetching patient list from Flare"))
+                .doOnSubscribe(subscription -> logger.debug("Fetching patient list from Flare"))
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
