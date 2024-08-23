@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.RuntimeResourceDefinition;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import org.springframework.stereotype.Component;
@@ -72,6 +73,11 @@ public class CdsStructureDefinitionHandler {
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         return (definitionsMap.get(url)).getSnapshot();
+
+    }
+
+    public RuntimeResourceDefinition getStandardDefinition(String url) {
+        return ctx.getResourceDefinition(String.valueOf(definitionsMap.get(url).getResourceType()));
 
     }
 

@@ -1,0 +1,17 @@
+# Server configuration
+
+server:
+  port: 8080
+torch:
+  profile:
+    dir: src/test/resources/StructureDefinitions
+  fhir:
+    url: http://localhost:8082/fhir
+  flare:
+    url: http://localhost:8084
+
+logging:
+  level:
+    org.springframework: ${LOG_LEVEL:warn}
+
+

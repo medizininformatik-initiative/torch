@@ -5,10 +5,8 @@ import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
-import de.medizininformatikinitiative.torch.model.*;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.FileInputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,23 +27,20 @@ public class FhirSearchQueryTest extends BaseTest{
 
     @Test
     public void testCondition() {
-        try (FileInputStream fis = new FileInputStream(new File("src/test/resources/CRTDL/CRTDL_diagnosis_withoutCCDL.json"))) {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_date.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
-            AttributeGroup group1 =crtdl.getDataExtraction().getAttributeGroups().get(0);
-            AttributeGroup group2 =crtdl.getDataExtraction().getAttributeGroups().get(0);
-            Attribute attribute1 = group1.getAttributes().get(0);
+            AttributeGroup group1 = crtdl.getDataExtraction().getAttributeGroups().getFirst();
+            Attribute attribute1 = group1.getAttributes().getFirst();
             assertEquals("Condition.code", attribute1.getAttributeRef());
             FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
             List<String> batches = searchBuilder.getSearchBatches(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2);
-            System.out.println(batches.size());
-            System.out.println(batches.get(0));
             assertEquals(5, batches.size());
             batches.addAll(searchBuilder.getSearchBatches(group1,Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(toCollection(ArrayList::new)),2));
             assertEquals(10, batches.size());
 
         } catch (Exception e) {
-            e.printStackTrace();
+           logger.error("",e);
         }
 
 

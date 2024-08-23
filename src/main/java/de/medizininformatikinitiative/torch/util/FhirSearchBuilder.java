@@ -1,13 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.model.*;
+import de.medizininformatikinitiative.torch.model.AttributeGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
-import de.medizininformatikinitiative.torch.model.AttributeGroup;
-
-import static de.medizininformatikinitiative.torch.util.ListUtils.splitListIntoBatches;
+import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
 
 public class FhirSearchBuilder {
 
@@ -19,21 +17,33 @@ public class FhirSearchBuilder {
     }
 
 
+    public String getSearchBatch(AttributeGroup group, String batch) {
+        String filter = "";
+        if (group.hasFilter()) {
+            filter = "&" + group.getFilterString();
+        }
+        String parameters;
+        if (group.getGroupReferenceURL().contains("patient")) {
+            parameters = "identifier=" + batch;
+        } else {
+            parameters = "patient=" + batch;
+        }
+        parameters += "&_profile=" + group.getGroupReferenceURL() + filter;
+        return parameters;
+
+    }
+
 
     public List<String> getSearchBatches(AttributeGroup group, List<String> patients, int size) {
         List<String> batches = splitListIntoBatches(patients, size);
         List<String> searchBatches = new ArrayList<>();
-        String filter="";
-        if (group.hasFilter()) {
-            filter="&" + group.getFilterString();
-        }
-
         for (String batch : batches) {
-            String parameters = "patient=" + batch+"&profile"+group.getGroupReferenceURL()+filter;
+            String parameters = getSearchBatch(group, batch);
             searchBatches.add(parameters);
-            }
+        }
 
         return searchBatches;
     }
+
 
 }

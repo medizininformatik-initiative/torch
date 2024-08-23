@@ -1,7 +1,7 @@
 {
   "resourceType": "Bundle",
   "id": "4",
-  "type": "collection",
+  "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Observation",
@@ -32,6 +32,9 @@
       "subject": {
         "reference": "Patient/4"
       },
+      "encounter": {
+        "reference": "Encounter/10"
+      },
       "_effectiveDateTime": {
         "extension": [ {
           "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
@@ -44,6 +47,32 @@
         "system": "http://unitsofmeasure.org",
         "code": "mmol/L"
       }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Observation/d75e9g46-f487-4d88-cd8b-gg6c6c95387f"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Patient",
+      "id": "4",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Patient/4"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Encounter",
+      "id": "10",
+      "status": "unknown"
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Encounter/10"
     }
   } ]
 }

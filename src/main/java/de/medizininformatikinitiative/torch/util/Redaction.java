@@ -1,29 +1,25 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
-import org.hl7.fhir.r4.model.Factory;
-import org.hl7.fhir.r4.model.ElementDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.medizininformatikinitiative.torch.util.FhirExtensionsUtil.createAbsentReasonExtension;
 
 public class Redaction {
+
+
+    private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
+
     private org.hl7.fhir.r4.model.StructureDefinition.StructureDefinitionSnapshotComponent snapshot;
 
     private StructureDefinition structureDefinition;
-    private Factory factory;
-
-
-    private FhirContext ctx;
-    private IParser parser;
-
-    private String url;
-
-    private CdsStructureDefinitionHandler CDS;
+    private final Factory factory;
+    private final CdsStructureDefinitionHandler CDS;
 
 
     /**
@@ -33,45 +29,48 @@ public class Redaction {
      */
     public Redaction(CdsStructureDefinitionHandler CDS) {
         this.CDS = CDS;
-        ctx=CDS.ctx;
-        parser=ctx.newJsonParser();
         factory = new Factory();
     }
 
 
     /**
      * Executes redaction operation on the given base element recursively.
-     * @param base
-     * @param elementID
-     * @param recursion
-     * @return
+     * @param base Base to be redacted (e.g. a Ressource or an Element)
+     * @param elementID "Element ID of parent currently handled initially empty String"
+     * @param recursion "Resurcion depth (for debug purposes)
+     * @return redacted Base
      */
     public Base redact(Base base, String elementID, int recursion) {
         AtomicBoolean childrenEmpty = new AtomicBoolean(true);
         recursion++;
 
-        /**
+        /*
          * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
          */
-        if (base instanceof DomainResource) {
+        if (base instanceof DomainResource resource) {
             recursion = 1;
-            DomainResource resource = (DomainResource) base;
             if (resource.hasMeta()) {
-                CanonicalType profileurl = resource.getMeta().getProfile().get(0);
+
+                CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
+                logger.debug("Profile Found {} ",profileurl.getValue());
                 structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
-                snapshot = structureDefinition.getSnapshot();
-                url=String.valueOf(profileurl.getValue());
+
+                // Check if structureDefinition is not null
+                if (structureDefinition != null) {
+                    snapshot = structureDefinition.getSnapshot();
+                } else {
+                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
+                    // Handle the case where structureDefinition is null
+                    // This could be throwing an exception, setting a default value, or other error handling logic
+                }
             }
             elementID = String.valueOf(resource.getResourceType());
-
-
         }
 
 
         ElementDefinition definition = snapshot.getElementById(elementID);
 
 
-        //TODO: Handle Slicing
         if (definition.hasSlicing()) {
               Slicing slicing = new Slicing(CDS);
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
@@ -88,29 +87,35 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
+            logger.info("Child to be handled {}",childID);
             String type = "";
+            int min=0;
             try {
                 childDefinition = snapshot.getElementById(childID);
-                type = childDefinition.getType().get(0).getWorkingCode();
+                type = childDefinition.getType().getFirst().getWorkingCode();
+                min=childDefinition.getMin();
             } catch (NullPointerException e) {
+
                 try {
-                    childDefinition = child.getStructure().getSnapshot().getElementById(child.getName());
-                    childID = child.getName();
-                    type = childDefinition.getType().get(0).getWorkingCode();
+                    type=child.getTypeCode();
+                    min=child.getMinCardinality();
+                    logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
                 } catch (NullPointerException ex) {
+
+                    logger.error(" Child  Type Unknown {}", childID,child.getName());
                 }
             }
-
-
             if (child.hasValues() && childDefinition != null) {
                 childrenEmpty.set(false);
-                ElementDefinition finalChildDefinition = childDefinition;
+
+
                 String finalChildID = childID;
                 String finalType = type;
                 //List Handling
+                int finalMin = min;
                 child.getValues().forEach(value -> {
 
-                    if (finalChildDefinition.getMin() > 0 && value.isEmpty()) {
+                    if (finalMin > 0 && value.isEmpty()) {
                         Element element = factory.create(finalType).addExtension(createAbsentReasonExtension("masked"));
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
@@ -121,7 +126,7 @@ public class Redaction {
 
 
             } else {
-                if (childDefinition != null && childDefinition.getMin() > 0 && child.getTypeCode() != "Extension") {
+                if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
                     //TODO Backbone Element Handling and nested Extensions
                     Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);

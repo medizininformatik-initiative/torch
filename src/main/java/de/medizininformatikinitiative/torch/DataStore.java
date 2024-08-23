@@ -6,6 +6,8 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -14,7 +16,7 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.util.Optional;
 
-import static org.springframework.http.MediaType.APPLICATION_JSON;
+
 
 @Component
 public class DataStore {
@@ -23,7 +25,8 @@ public class DataStore {
     private final WebClient client;
     private final IParser parser;
 
-    public DataStore(WebClient client, FhirContext context) {
+    @Autowired
+    public DataStore( @Qualifier("fhirClient") WebClient client, FhirContext context) {
         this.client = client;
         this.parser = context.newJsonParser();
     }
@@ -32,20 +35,20 @@ public class DataStore {
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
-     * @param FHIRSearchQuery the fhir search query defining the patient resources to be fetched
+     * @param parameters the fhir search query parameters defining the patient resources to be fetched
      * @return the resources found with the {@param FHIRSearchQuery}
      */
     public Flux<Resource> getResources(String resourceType,String parameters) {
-
+        logger.debug("Search Parameters{}", parameters);
 
 
         return client.post()
                 .uri("/"+resourceType+"/_search")
                 .bodyValue(parameters)
-                .accept(APPLICATION_JSON)
+                .header("Content-Type", "application/x-www-form-urlencoded")
                 .retrieve()
                 .bodyToFlux(String.class)
-                .doOnNext(response -> logger.debug("Response: {}", response))
+                //.doOnNext(response -> logger.debug("Response: {}", response))
                 .map(response -> parser.parseResource(Bundle.class, response))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(client, link.getUrl()))
@@ -54,6 +57,7 @@ public class DataStore {
     }
 
     private Mono<Bundle> fetchPage(WebClient client, String url) {
+        logger.debug("Fetch Page {}", url);
         return client.get()
                 .uri(URI.create(url))
                 .retrieve()

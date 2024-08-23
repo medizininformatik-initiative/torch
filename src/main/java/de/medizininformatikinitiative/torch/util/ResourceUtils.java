@@ -1,21 +1,54 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.BaseRuntimeChildDefinition;
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.context.RuntimeResourceDefinition;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.instance.model.api.IBase;
+import org.hl7.fhir.r4.model.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Set;
 
 public class ResourceUtils {
+
+    private static final Logger logger = LoggerFactory.getLogger(ResourceUtils.class);
+
+
+
+    private static void extractReferences(DomainResource resource, Set<String> patientReferences, Set<String> encounterReferences, FhirContext context) {
+        RuntimeResourceDefinition def = context.getResourceDefinition(resource);
+
+        // Iterate over all child elements
+        for (BaseRuntimeChildDefinition childDef : def.getChildren()) {
+            List<IBase> values = childDef.getAccessor().getValues(resource);
+            for (IBase value : values) {
+                if (value instanceof Reference) {
+                    String refString = ((Reference) value).getReference();
+                    if (refString != null) {
+                        if (refString.startsWith("Patient/")) {
+                            patientReferences.add(refString);
+                        } else if (refString.startsWith("Encounter/")) {
+                            encounterReferences.add(refString);
+                        }
+                    }
+                } else if (value instanceof DomainResource) {
+                    // Recursively extract references from contained resources
+                    extractReferences((DomainResource) value, patientReferences, encounterReferences,context);
+                }
+            }
+        }
+    }
+
 
 
     public static String getPatientId(DomainResource resource) throws PatientIdNotFoundException {
         // Check if the resource is an instance of Patient
-        if (resource instanceof Patient) {
-            Patient patient = (Patient) resource;
-            return "Patient/"+patient.getId();
+        if (resource instanceof Patient patient) {
+            return patient.getId();
         }
 
         try {
@@ -35,12 +68,20 @@ public class ResourceUtils {
                 if (hasReference) {
                     // Use reflection to get the 'getReference' method from 'subject'
                     Method getReferenceMethod = subject.getClass().getMethod("getReference");
-                    return (String) getReferenceMethod.invoke(subject);
+                    String reference = (String) getReferenceMethod.invoke(subject);
+                    if (reference != null && reference.startsWith("Patient/")) {
+                        return reference.substring("Patient/".length());
+                    }
+                    else{
+                        throw new PatientIdNotFoundException("Reference does not start with 'Patient/': " + reference);
+                    }
                 }
+
             }
+            throw new PatientIdNotFoundException("Patient Reference not found ");
         } catch (Exception e) {
             // Handle reflection exceptions
-            e.printStackTrace();
+            logger.error("Patient ID not Found ",e);
         }
 
         // Throw an error if no patient ID is found

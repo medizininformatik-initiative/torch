@@ -44,7 +44,7 @@ public class FhirNavigator {
     }
 
     private Base getChildElement(Base element, String childName) {
-        System.out.println(element.children());
+
         List<Base> children = element.listChildrenByName(childName);
         if (children.isEmpty()) {
             return null; // No matching child found

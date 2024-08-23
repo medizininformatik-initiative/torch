@@ -2,19 +2,19 @@ package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class AttributeGroup {
 
-
-    // No-argument constructor
-    public AttributeGroup() {
-    }
+    private static final Logger logger = LoggerFactory.getLogger(AttributeGroup.class);
 
     @JsonProperty("groupReference")
     private String groupReference;
@@ -24,6 +24,15 @@ public class AttributeGroup {
 
     @JsonProperty("filter")
     private List<Filter> filter;
+
+    public UUID uuid;
+
+
+
+    // No-argument constructor
+    public AttributeGroup(){
+        uuid = UUID.randomUUID();
+    }
 
     // Getters and Setters
     public String getGroupReference() {
@@ -87,16 +96,20 @@ public class AttributeGroup {
     }
 
     public String getResourceType() {
-        return attributes.get(0).getAttributeRef().split("\\.")[0];
+        return attributes.getFirst().getAttributeRef().split("\\.")[0];
     }
 
     public String getGroupReferenceURL() {
         String encodedString = "";
         try {
-            encodedString = URLEncoder.encode(groupReference, StandardCharsets.UTF_8.toString());
+            encodedString = URLEncoder.encode(groupReference, StandardCharsets.UTF_8);
         } catch (Exception e) {
-            e.printStackTrace();
+           logger.error("Group Reference Error",e);
         }
         return encodedString;
+    }
+
+    public boolean hasMustHave() {
+        return attributes.stream().anyMatch(Attribute::isMustHave);
     }
 }

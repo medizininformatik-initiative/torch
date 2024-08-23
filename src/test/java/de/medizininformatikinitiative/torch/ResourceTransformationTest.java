@@ -1,29 +1,20 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
-import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.DomainResource;
-
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.FileInputStream;
-import java.util.List;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import java.util.ArrayList;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
 public class ResourceTransformationTest extends BaseTest {
-
     @Autowired
     private WebClient webClient;
 
@@ -36,58 +27,21 @@ public class ResourceTransformationTest extends BaseTest {
     @Test
     public void testObservation() {
 
-        Redaction redaction = new Redaction(cds);
-        ElementCopier copier = new ElementCopier(cds);
+
         ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) ResourceReader.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
-            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getDataExtraction().getAttributeGroups().get(0));
+            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getDataExtraction().getAttributeGroups().getFirst());
             assertNotNull(tgt);
-            //System.out.println(parser.setPrettyPrint(true).encodeResourceToString(tgt));
             assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
 
         } catch (Exception e) {
-            e.printStackTrace();
+            logger.error("",e);
         }
 
     }
-
-    @Test
-    public void testDataStore() {
-        DataStore dataStore = new DataStore(webClient, ctx);
-        Redaction redaction = new Redaction(cds);
-        ElementCopier copier = new ElementCopier(cds);
-        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            FhirSearchBuilder builder = new FhirSearchBuilder();
-            // Build search batches with MultiValueMap<String, String>
-            crtdl.getDataExtraction().getAttributeGroups().forEach(
-                    group->{
-                       List<String> searchStrings = builder.getSearchBatches(
-                                group,
-                                Stream.of("1", "2", "3", "4", "5", "7", "8", "9", "10").collect(Collectors.toCollection(ArrayList::new)),
-                                2
-                        );
-                        assertNotNull(searchStrings);
-                    }
-            );
-
-            // Subscribe to the Flux to see the results (for demonstration purposes)
-            /*allResources.subscribe(resource -> {
-                // Process each resource
-                System.out.println(resource);
-            });*/
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-
-    }
-
 
 }
 
