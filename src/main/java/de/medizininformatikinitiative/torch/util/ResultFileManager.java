@@ -5,10 +5,9 @@ package de.medizininformatikinitiative.torch.util;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import ca.uhn.fhir.parser.IParser;
-import org.springframework.stereotype.Component;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -16,9 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.time.Period;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Pattern;
 
 public class ResultFileManager {
 
@@ -75,21 +72,25 @@ public class ResultFileManager {
         }
     }
 
-    public void saveBundleToFileSystem(String jobId, Bundle finalBundle, ConcurrentHashMap<String, String> jobStatusMap) {
-        logger.info("Started Saving {} ", jobId);
-        try {
-            Path jobDir = resultsDirPath.resolve(jobId);
-            Files.createDirectories(jobDir);
+    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle finalBundle, ConcurrentHashMap<String, String> jobStatusMap) {
+        return Mono.fromRunnable(() -> {
+                    logger.info("Started Saving {} ", jobId);
+                    try {
+                        Path jobDir = resultsDirPath.resolve(jobId);
+                        Files.createDirectories(jobDir);
 
-            String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(finalBundle);
-            Path bundleFile = jobDir.resolve("bundle.json");
+                        String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(finalBundle);
+                        Path bundleFile = jobDir.resolve("bundle.json");
 
-            Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-            jobStatusMap.put(jobId, "Completed");
-        } catch (IOException e) {
-            logger.error("Failed to save bundle for jobId {}: {}", jobId, e.getMessage());
-            throw new RuntimeException("Failed to save bundle", e);
-        }
+                        Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+                    } catch (IOException e) {
+                        logger.error("Failed to save bundle for jobId {}: {}", jobId, e.getMessage());
+                        throw new RuntimeException("Failed to save bundle", e);
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic())  // Run this on the boundedElastic scheduler
+                .doOnSuccess(unused -> jobStatusMap.put(jobId, "Completed"))
+                .then();  // Ensures Mono<Void> is returned
     }
 
     public String loadBundleFromFileSystem(String jobId) {

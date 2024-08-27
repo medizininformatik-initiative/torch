@@ -38,7 +38,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Future;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
@@ -61,7 +64,7 @@ public class FhirController {
     private final ObjectMapper objectMapper;
     private final IParser parser;
     private final ResultFileManager resultFileManager;
-
+    private final ExecutorService executorService;
 
     @Autowired
     public FhirController(
@@ -70,13 +73,14 @@ public class FhirController {
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
             ObjectMapper objectMapper,
-            IParser parser) {
+            IParser parser, ExecutorService executorService) {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
         this.parser = parser;
         this.resultFileManager=resultFileManager;
+        this.executorService=executorService;
     }
 
     @Bean
@@ -95,24 +99,34 @@ public class FhirController {
         logger.debug("Handling CRTDL Bundle");
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
-                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler
+                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler for non-blocking tasks
                 .flatMap(body -> {
-                    Bundle bundle = parser.parseResource(Bundle.class,body);
-                    if (bundle.isEmpty() && !isValidBundle(bundle)) {
-                        logger.debug("Empty Bundle");
-                        return Mono.error(new IllegalArgumentException("Empty bundle"));
-                    }
-                    try {
-                        logger.info("Non Empty Bundle");
-                        Library library = extractLibraryFromBundle(bundle);
-                        //Measure measure = extractMeasureFromBundle(bundle);
-                        Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
-                        logger.debug("Processing CRTDL");
-                        return processCrtdl(crtdl, jobId);
-                    } catch (Exception e) {
-                        logger.debug("Exception handling");
-                        return Mono.error(e);
-                    }
+                    return Mono.fromCallable(() -> {
+                                Bundle bundle = parser.parseResource(Bundle.class, body);
+                                if (bundle.isEmpty() && !isValidBundle(bundle)) {
+                                    logger.debug("Empty Bundle");
+                                    throw new IllegalArgumentException("Empty bundle");
+                                }
+                                Library library = extractLibraryFromBundle(bundle);
+                                Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
+                                return crtdl;
+                            })
+                            .subscribeOn(Schedulers.boundedElastic()); // Ensure parsing and decoding are non-blocking
+                })
+                .flatMap(crtdl -> {
+                    // Submit the task to the executor service and convert it to a CompletableFuture
+                    Future<Void> future = executorService.submit(() -> {
+                        logger.debug("Processing CRTDL in ExecutorService");
+                        return processCrtdl(crtdl, jobId).block();
+                    });
+                    CompletableFuture<Void> completableFuture = CompletableFuture.supplyAsync(() -> {
+                        try {
+                            return future.get();
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+                    return Mono.fromFuture(completableFuture);
                 })
                 .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
                 .onErrorResume(MappingException.class, e -> {
@@ -136,6 +150,7 @@ public class FhirController {
                     return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 });
     }
+
 
 
     public Mono<ServerResponse> handleCrtdl(ServerRequest request) {
@@ -273,11 +288,15 @@ public class FhirController {
                                         entryComponent.setResource(bundle);
                                         finalBundle.addEntry(entryComponent);
                                     }
-                                    resultFileManager.saveBundleToFileSystem(jobId, finalBundle,jobStatusMap);
-                                    logger.debug("Bundle {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
-                                    return Mono.empty();
+
+                                    // Save the bundle to the file system and ensure the Mono completes properly
+                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle, jobStatusMap)
+                                            .doOnSuccess(unused -> {
+                                                logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
+                                            });
                                 })
-                ).doOnError(error -> {
+                )
+                .doOnError(error -> {
                     jobStatusMap.put(jobId, "Failed: " + error.getMessage());
                     logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
                 })

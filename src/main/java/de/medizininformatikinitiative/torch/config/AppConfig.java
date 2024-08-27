@@ -22,6 +22,9 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.http.client.HttpClient;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Configuration
 public class AppConfig {
     public int batchSize = 10;
@@ -120,5 +123,10 @@ public class AppConfig {
     @Bean
     public ObjectMapper objectMapper(){
         return new ObjectMapper();
+    }
+
+    @Bean
+    ExecutorService executorService(){
+        return Executors.newCachedThreadPool();
     }
 }
