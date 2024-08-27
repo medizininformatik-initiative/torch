@@ -20,11 +20,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
 
       - name: Cache Local Maven Repo
         uses: actions/cache@v4
@@ -111,11 +111,11 @@ jobs:
       - name: Check out Git repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17 for Maven Build
+      - name: Set up JDK 21 for Maven Build
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: 17
+          java-version: 21
 
       - name: Maven Build for Ontology Download
         run: mvn process-resources
