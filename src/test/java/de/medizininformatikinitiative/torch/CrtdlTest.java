@@ -38,8 +38,8 @@ public class CrtdlTest extends BaseTest{
             assertNotNull(sq);
             assertNotNull(sq.inclusionCriteria());
             Attribute attribute2 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().get(1);
-            assertEquals("Observation.value[x]",attribute2.getAttributeRef());
-            assertTrue(attribute2.isMustHave());
+            assertEquals("Observation.encounter",attribute2.getAttributeRef());
+
 
         } catch (Exception e) {
             logger.error(" ",e);

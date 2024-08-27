@@ -27,6 +27,9 @@
   "subject": {
     "reference": "Patient/VHF-MIXED-TEST-CASE-0001-a"
   },
+  "encounter": {
+    "reference": "Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1"
+  },
   "_effectiveDateTime": {
     "extension": [ {
       "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
