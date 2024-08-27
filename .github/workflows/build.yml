@@ -61,7 +61,7 @@ jobs:
         with:
           context: .
           tags: torch:latest
-          outputs: type=docker,dest=/tmp/flare.tar
+          outputs: type=docker,dest=/tmp/torch.tar
 
       - name: Upload torch Image
         uses: actions/upload-artifact@v4
@@ -133,7 +133,7 @@ jobs:
           path: /tmp
 
       - name: Load torch Image
-        run: docker load --input /tmp/flare.tar
+        run: docker load --input /tmp/torch.tar
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
