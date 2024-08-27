@@ -1,0 +1,56 @@
+services:
+  torch-data-store:
+    image: "samply/blaze:0.28"
+    environment:
+      BASE_URL: "http://torch-data-store:8080"
+      JAVA_TOOL_OPTIONS: "-Xmx1g"
+      LOG_LEVEL: "debug"
+    ports:
+    - "8082:8080"
+    volumes:
+    - "data-store-data:/app/data"
+  torch-flare:
+    image: ghcr.io/medizininformatik-initiative/flare:pr-179
+    ports:
+      - ${FEASIBILITY_FLARE_PORT:-127.0.0.1:8084}:8080
+    environment:
+      FLARE_FHIR_SERVER: ${FLARE_FHIR_SERVER_URL:-http://torch-data-store:8080/fhir/}
+      FLARE_FHIR_MAX_CONNECTIONS: ${FLARE_FHIR_MAX_CONNECTIONS:-32}
+      FLARE_FHIR_PAGE_COUNT: ${FLARE_FHIR_PAGE_COUNT:-500}
+      FLARE_CACHE_MEM_SIZE_MB: ${FLARE_CACHE_MEM_SIZE_MB:-1024}
+      FLARE_CACHE_MEM_EXPIRE: ${FLARE_CACHE_MEM_EXPIRE:-PT48H}
+      FLARE_CACHE_MEM_REFRESH: ${FLARE_CACHE_MEM_REFRESH:-PT24H}
+      FLARE_CACHE_DISK_PATH: ${FLARE_CACHE_DISK_PATH:-cache}
+      FLARE_CACHE_DISK_THREADS: ${FLARE_CACHE_DISK_THREADS:-4}
+      FLARE_CACHE_DISK_EXPIRE: ${FLARE_CACHE_DISK_EXPIRE:-P7D}
+      JAVA_TOOL_OPTIONS: ${FLARE_JAVA_TOOL_OPTIONS:--Xmx4g}
+      LOG_LEVEL: ${FLARE_LOG_LEVEL:-info}
+    restart: unless-stopped
+  torch-nginx:
+    restart: unless-stopped
+    image: nginxinc/nginx-unprivileged:1.25.5-alpine
+    ports:
+      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+      - "torch-data-store:/app/output"
+  torch:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${PORT_TORCH:-127.0.0.1:8086}:8080
+    environment:
+      SERVER_PORT: 8080
+      TORCH_PROFILE_DIR: /app/StructureDefinitions
+      TORCH_FHIR_URL: http://torch-data-store:8080/fhir
+      TORCH_FLARE_URL: http://torch-flare:8080
+      LOG_LEVEL: debug
+    volumes:
+      - "torch-data-store:/app/output"
+      - ./structureDefinitions:/app/StructureDefinitions
+
+volumes:
+  data-store-data:
+  torch-data-store:

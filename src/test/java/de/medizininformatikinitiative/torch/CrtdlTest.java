@@ -34,9 +34,9 @@ public class CrtdlTest extends BaseTest{
             byte[] bytes = fis.readAllBytes();
             Crtdl crtdl = objectMapper.readValue(bytes, Crtdl.class);
             assertNotNull(crtdl);
-            //StructuredQuery sq = crtdl.getStructuredQuery();
-            //assertNotNull(sq);
-            //assertNotNull(sq.inclusionCriteria());
+            StructuredQuery sq = crtdl.getStructuredQuery();
+            assertNotNull(sq);
+            assertNotNull(sq.inclusionCriteria());
             Attribute attribute2 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().get(1);
             assertEquals("Observation.encounter",attribute2.getAttributeRef());
             assertTrue(!attribute2.isMustHave());
