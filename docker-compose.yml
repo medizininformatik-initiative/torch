@@ -46,11 +46,16 @@ services:
       TORCH_PROFILE_DIR: /app/StructureDefinitions
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
+      TORCH_RESULTS_DIR: /app/bundles
+      TORCH_RESULTS_PERSISTENCE: PT12H30M5S
       LOG_LEVEL: debug
     volumes:
       - "torch-data-store:/app/output"
       - ./structureDefinitions:/app/StructureDefinitions
+      - ./bundles:/app/bundles
+    user: 1000:1000
 
 volumes:
   data-store-data:
   torch-data-store:
+

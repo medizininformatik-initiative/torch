@@ -24,6 +24,7 @@ public class ResultFileManager {
     private final Path resultsDirPath;
     private final IParser parser;
     private Duration duration;
+    public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
 
     public ResultFileManager(String resultsDir, String duration, IParser parser) {
@@ -43,9 +44,10 @@ public class ResultFileManager {
                 logger.error("Could not create results directory: {}", e.getMessage());
             }
         }
+        loadExistingResults();
     }
 
-    public void loadExistingResults(ConcurrentHashMap<String, String> jobStatusMap, ConcurrentHashMap<String, Bundle> jobResultMap) {
+    public void loadExistingResults() {
         try {
             Files.list(resultsDirPath)
                     .filter(Files::isDirectory)
@@ -54,15 +56,12 @@ public class ResultFileManager {
                         Path bundleFilePath = jobDir.resolve("bundle.json");
 
                         if (Files.exists(bundleFilePath)) {
-                            try {
-                                String bundleJson = Files.readString(bundleFilePath);
-                                Bundle bundle = parser.parseResource(Bundle.class, bundleJson);
-                                jobStatusMap.put(jobId, "Completed");
-                                jobResultMap.put(jobId, bundle);
+
                                 logger.info("Loaded existing job with jobId: {}", jobId);
-                            } catch (IOException e) {
-                                logger.error("Failed to load bundle for jobId {}: {}", jobId, e.getMessage());
-                            }
+                                jobStatusMap.put(jobId, "Completed");
+
+                                logger.info("Status set {}",jobStatusMap.get(jobId));
+
                         } else {
                             logger.warn("No bundle.json found for jobId: {}", jobId);
                         }
@@ -70,9 +69,10 @@ public class ResultFileManager {
         } catch (IOException e) {
             logger.error("Error loading existing results from {}: {}", resultsDirPath, e.getMessage());
         }
+        logger.info("Status Map Size {}",getSize());
     }
 
-    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle finalBundle, ConcurrentHashMap<String, String> jobStatusMap) {
+    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle finalBundle) {
         return Mono.fromRunnable(() -> {
                     logger.info("Started Saving {} ", jobId);
                     try {
@@ -92,6 +92,21 @@ public class ResultFileManager {
                 .doOnSuccess(unused -> jobStatusMap.put(jobId, "Completed"))
                 .then();  // Ensures Mono<Void> is returned
     }
+
+    public void setStatus(String jobId, String status){
+        jobStatusMap.put(jobId, status);
+    }
+
+    public String getStatus(String jobId){
+        return jobStatusMap.get(jobId);
+    }
+
+    public int getSize(){
+        return jobStatusMap.size();
+    }
+
+
+
 
     public String loadBundleFromFileSystem(String jobId) {
         try {

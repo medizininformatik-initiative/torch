@@ -55,8 +55,7 @@ public class FhirController {
     private static final MediaType MEDIA_TYPE_CRTDL_JSON = MediaType.valueOf("application/crtdl+json");
 
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
-    private final ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Bundle> jobResultMap = new ConcurrentHashMap<>();
+
 
     private final WebClient webClient;
     private final ResourceTransformer transformer;
@@ -81,6 +80,7 @@ public class FhirController {
         this.parser = parser;
         this.resultFileManager=resultFileManager;
         this.executorService=executorService;
+
     }
 
     @Bean
@@ -91,62 +91,49 @@ public class FhirController {
     }
 
     public Mono<ServerResponse> handleCrtdlBundle(ServerRequest request) {
-        var jobId = UUID.randomUUID().toString();
-        jobStatusMap.put(jobId, "Processing");
+        var jobId = String.valueOf(request.hashCode());
+        resultFileManager.setStatus(jobId,"Processing");
 
         logger.info("Create CRTDL with jobId: {}", jobId);
 
-        logger.debug("Handling CRTDL Bundle");
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
-                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler for non-blocking tasks
-                .flatMap(body -> {
-                    return Mono.fromCallable(() -> {
-                                Bundle bundle = parser.parseResource(Bundle.class, body);
-                                if (bundle.isEmpty() && !isValidBundle(bundle)) {
-                                    logger.debug("Empty Bundle");
-                                    throw new IllegalArgumentException("Empty bundle");
-                                }
-                                Library library = extractLibraryFromBundle(bundle);
-                                Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
-                                return crtdl;
-                            })
-                            .subscribeOn(Schedulers.boundedElastic()); // Ensure parsing and decoding are non-blocking
-                })
-                .flatMap(crtdl -> {
-                    // Submit the task to the executor service and convert it to a CompletableFuture
-                    Future<Void> future = executorService.submit(() -> {
-                        logger.debug("Processing CRTDL in ExecutorService");
-                        return processCrtdl(crtdl, jobId).block();
-                    });
-                    CompletableFuture<Void> completableFuture = CompletableFuture.supplyAsync(() -> {
+                .flatMap(body -> Mono.fromCallable(() -> {
+                    Bundle bundle = parser.parseResource(Bundle.class, body);
+                    if (bundle.isEmpty() && !isValidBundle(bundle)) {
+                        logger.debug("Empty Bundle");
+                        throw new IllegalArgumentException("Empty bundle");
+                    }
+                    Library library = extractLibraryFromBundle(bundle);
+                    Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
+                    logger.debug("Parsed CRTDL", crtdl.getSqString());
+                    return crtdl;
+                }).subscribeOn(Schedulers.boundedElastic())) // Ensure parsing and decoding are non-blocking
+                .doOnNext(crtdl -> {
+                    // Submit the task to the executor service for background processing
+                    executorService.submit(() -> {
                         try {
-                            return future.get();
+                            logger.debug("Processing CRTDL in ExecutorService for jobId: {}", jobId);
+                            processCrtdl(crtdl, jobId).block(); // Blocking call within the background task
+                            resultFileManager.setStatus(jobId, "Completed");
                         } catch (Exception e) {
-                            throw new RuntimeException(e);
+                            logger.error("Error processing CRTDL for jobId: {}", jobId, e);
+                            resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                         }
                     });
-                    return Mono.fromFuture(completableFuture);
                 })
-                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
-                .onErrorResume(MappingException.class, e -> {
-                    logger.warn("Mapping error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(WebClientRequestException.class, e -> {
-                    logger.error("Service not available because of downstream web client errors: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
-                    return status(503).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
+                .then(
+                        accepted()
+                        .header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId)))
+                        .build())
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(Exception.class, e -> {
                     logger.error("Unexpected error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 });
     }
@@ -155,7 +142,7 @@ public class FhirController {
 
     public Mono<ServerResponse> handleCrtdl(ServerRequest request) {
         var jobId = UUID.randomUUID().toString();
-        jobStatusMap.put(jobId, "Processing");
+        resultFileManager.setStatus(jobId, "Processing");
 
         logger.info("DEBUG Endpoint: Create CRTDL with jobId: {}", jobId);
 
@@ -177,22 +164,22 @@ public class FhirController {
                 .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
                 .onErrorResume(MappingException.class, e -> {
                     logger.error("DEBUG Endpoint: Mapping error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(WebClientRequestException.class, e -> {
                     logger.error("DEBUG Endpoint: Service not available because of downstream web client errors: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return status(503).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.error("DEBUG Endpoint: Bad request: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(Exception.class, e -> {
                     logger.error("DEBUG Endpoint: Unexpected error: {}", e.getMessage());
-                    jobStatusMap.put(jobId, "Failed: " + e.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
                     return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
                 });
     }
@@ -272,7 +259,7 @@ public class FhirController {
                 .flatMap(patientList ->
                         transformer.collectResourcesByPatientReference(crtdl, patientList, 1)
                                 .onErrorResume(e -> {
-                                    jobStatusMap.put(jobId, "Failed at collectResources: " + e.getMessage());
+                                    resultFileManager.setStatus(jobId, "Failed at collectResources: " + e.getMessage());
                                     logger.error("Error in collectResourcesByPatientReference: {}", e.getMessage());
                                     return Mono.empty();
                                 })
@@ -290,14 +277,14 @@ public class FhirController {
                                     }
 
                                     // Save the bundle to the file system and ensure the Mono completes properly
-                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle, jobStatusMap)
+                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle)
                                             .doOnSuccess(unused -> {
                                                 logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
                                             });
                                 })
                 )
                 .doOnError(error -> {
-                    jobStatusMap.put(jobId, "Failed: " + error.getMessage());
+                    resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
                     logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
                 })
                 .then();  // This will return Mono<Void> indicating completion
@@ -337,21 +324,26 @@ public class FhirController {
 
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
-        var jobId = request.pathVariable("jobId");
-        var status = jobStatusMap.getOrDefault(jobId, "Unknown Job ID");
 
-        if ("Unknown Job ID".equals(status)) {
+        var jobId = request.pathVariable("jobId");
+        logger.info("Size of Map {} {}",resultFileManager.getSize(),resultFileManager.jobStatusMap.entrySet());
+
+
+        String status = resultFileManager.getStatus(jobId);
+        logger.info("Status of jobID {} var {}",jobId,resultFileManager.jobStatusMap.get(jobId));
+
+        if(status==null){
             return notFound().build();
         }
-
-        if (status.contains("Failed")) {
-            return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue(status);
-        }
-
         if ("Completed".equals(status)) {
             return serveBundleFromFileSystem(jobId);
-        } else {
+        }if (status.contains("Failed")) {
+            return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue(status);
+        }if(status.contains("Procssing")){
             return accepted().build();
+        }
+        else {
+            return notFound().build();
         }
     }
 
