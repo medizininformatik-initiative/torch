@@ -4,7 +4,7 @@ services:
   blaze:
     image: samply/blaze:0.25
     environment:
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
     ports:
       - "8080"
     healthcheck:
@@ -17,7 +17,7 @@ services:
   flare:
     image: ghcr.io/medizininformatik-initiative/flare:pr-179
     environment:
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - FLARE_FHIR_SERVER=http://blaze:8080/fhir
     ports:
       - "8081:8080"

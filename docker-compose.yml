@@ -4,7 +4,7 @@ services:
     environment:
       BASE_URL: "http://torch-data-store:8080"
       JAVA_TOOL_OPTIONS: "-Xmx1g"
-      LOG_LEVEL: "debug"
+      LOG_LEVEL: "info"
     ports:
     - "8082:8080"
     volumes:
