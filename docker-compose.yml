@@ -48,7 +48,7 @@ services:
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/bundles
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
     volumes:
       - "torch-data-store:/app/output"
       - ./structureDefinitions:/app/StructureDefinitions
