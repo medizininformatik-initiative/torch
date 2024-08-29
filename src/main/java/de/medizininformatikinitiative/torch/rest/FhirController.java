@@ -5,16 +5,16 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import de.medizininformatikinitiative.flare.model.mapping.MappingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.hl7.fhir.r4.model.Attachment;
-import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.exceptions.FHIRException;
+import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.Bundle.BundleEntryComponent;
-import org.hl7.fhir.r4.model.Library;
-import org.hl7.fhir.r4.model.Measure;
+import org.hl7.fhir.r4b.model.TypeConvertor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -99,13 +99,13 @@ public class FhirController {
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(body -> Mono.fromCallable(() -> {
-                    Bundle bundle = parser.parseResource(Bundle.class, body);
-                    if (bundle.isEmpty() && !isValidBundle(bundle)) {
-                        logger.debug("Empty Bundle");
-                        throw new IllegalArgumentException("Empty bundle");
+                    Parameters parameters = parser.parseResource(Parameters.class, body);
+                    if (parameters.isEmpty()) {
+                        logger.debug("Empty Parameters");
+                        throw new IllegalArgumentException("Empty Parameters");
                     }
-                    Library library = extractLibraryFromBundle(bundle);
-                    Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(library));
+                    Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(parameters));
+
                     logger.debug("Parsed CRTDL", crtdl.getSqString());
                     return crtdl;
                 }).subscribeOn(Schedulers.boundedElastic())) // Ensure parsing and decoding are non-blocking
@@ -185,51 +185,31 @@ public class FhirController {
     }
 
 
-    private boolean isValidBundle(Bundle bundle) {
-        boolean hasLibrary = false;
-        boolean hasMeasure = false;
-
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            if (entry.getResource() instanceof Library) {
-                hasLibrary = true;
-
-            } else if (entry.getResource() instanceof Measure) {
-                hasMeasure = true;
-
-            }
-
-
-        }
-        if (hasLibrary && hasMeasure) {
-            return true;
-        }
-        logger.error("No library or measure");
-        return false;
-    }
-
-    private Library extractLibraryFromBundle(Bundle bundle) {
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            if (entry.getResource() instanceof Library) {
-                return (Library) entry.getResource();
-            }
-        }
-        throw new IllegalArgumentException("No Library resource found in the Bundle");
-    }
-
-    private Measure extractMeasureFromBundle(Bundle bundle) {
-        for (BundleEntryComponent entry : bundle.getEntry()) {
-            if (entry.getResource() instanceof Measure) {
-                return (Measure) entry.getResource();
-            }
-        }
-        throw new IllegalArgumentException("No Measure resource found in the Bundle");
-    }
-
     private byte[] decodeCrtdlContent(Library library) {
         for (Attachment attachment : library.getContent()) {
             if ("application/crtdl+json".equals(attachment.getContentType())) {
                 logger.debug(Arrays.toString(attachment.getData()));
                 return attachment.getData();
+            }
+        }
+        throw new IllegalArgumentException("No base64 encoded CRDTL content found in Library resource");
+    }
+
+    private byte[] decodeCrtdlContent(Parameters parameters) {
+        for (Parameters.ParametersParameterComponent parameter : parameters.getParameter()) {
+            if ("crtdl".equals(parameter.getName())) {
+                logger.info("Found crtdl");
+                parameter.children().forEach(x-> {
+                    logger.info(" Childname {} {}", x, x.getTypeCode());
+                }
+                );
+                Property valueElement = parameter.getChildByName("value[x]");
+
+                if (valueElement.hasValues()) {
+                    Base64BinaryType value = (Base64BinaryType) valueElement.getValues().getFirst();
+                    logger.info(" valueElement has values {}",value);
+                    return value.getValue();
+                }
             }
         }
         throw new IllegalArgumentException("No base64 encoded CRDTL content found in Library resource");

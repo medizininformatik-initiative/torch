@@ -15,9 +15,9 @@ torch:
 
 logging:
   level:
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:warn}
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:warn}
-    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:warn}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:info}
     org.springframework: ${LOG_LEVEL:info}
 
 
