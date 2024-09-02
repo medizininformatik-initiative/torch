@@ -36,12 +36,16 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
-@Testcontainers
+/*@Testcontainers
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = AppConfig.class)
 @SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ActiveProfiles("test")
+*/
+
+@SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class FhirControllerIT extends AbstractIT {
+
 
     @LocalServerPort
     private int port;

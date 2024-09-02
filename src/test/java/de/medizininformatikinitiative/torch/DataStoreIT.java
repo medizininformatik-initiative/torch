@@ -147,12 +147,29 @@ public class DataStoreIT extends AbstractIT {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
             Bundle expectedBundle = expectedResources.get(patientId);
+            // Remove the meta.lastUpdated field from both bundles
+            // You can calculate milliseconds using a tool or method or directly input the correct value.
 
-            logger.debug(parser.setPrettyPrint(true).encodeResourceToString(bundle));
+
+            // Remove meta.lastUpdated from all contained resources in the bundle
+            removeMetaLastUpdated(bundle);
+            removeMetaLastUpdated(expectedBundle);
+
+            //logger.debug(parser.setPrettyPrint(true).encodeResourceToString(bundle));
             Assertions.assertNotNull(expectedBundle, "No expected bundle found for patientId " + patientId);
             Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(expectedBundle),parser.setPrettyPrint(true).encodeResourceToString(bundle),
 
                     bundle + " Expected not equal to actual output");
+        }
+    }
+
+    private void removeMetaLastUpdated(Bundle bundle) {
+        for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+            Resource resource = entry.getResource();
+            if (resource != null && resource.hasMeta() && resource.getMeta().hasLastUpdated()) {
+                logger.info("Removed lastUpdated ");
+                resource.getMeta().setLastUpdated(null);
+            }
         }
     }
 }
