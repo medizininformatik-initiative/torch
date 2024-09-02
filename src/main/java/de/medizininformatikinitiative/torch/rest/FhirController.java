@@ -87,7 +87,7 @@ public class FhirController {
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleCrtdlBundle)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(POST("debug/crtdl").and(accept(MEDIA_TYPE_CRTDL_JSON)), this::handleCrtdl);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
     }
 
     public Mono<ServerResponse> handleCrtdlBundle(ServerRequest request) {
@@ -140,51 +140,6 @@ public class FhirController {
 
 
 
-    public Mono<ServerResponse> handleCrtdl(ServerRequest request) {
-        var jobId = UUID.randomUUID().toString();
-        resultFileManager.setStatus(jobId, "Processing");
-
-        logger.info("DEBUG Endpoint: Create CRTDL with jobId: {}", jobId);
-
-        logger.info("DEBUG Endpoint: Handling CRTDL");
-        return request.bodyToMono(String.class)
-                .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
-                .publishOn(Schedulers.boundedElastic()) // Use boundedElastic scheduler
-                .flatMap(crtdlContent -> {
-                    try {
-                        logger.debug("Non Empty CRTDL");
-                        Crtdl crtdl = parseCrtdlContent(crtdlContent.getBytes());
-                        logger.debug("DEBUG Endpoint: Processing CRTDL");
-                        return processCrtdl(crtdl, jobId);
-                    } catch (Exception e) {
-                        logger.debug("DEBUG Endpoint: Exception handling");
-                        return Mono.error(e);
-                    }
-                })
-                .then(accepted().header("Content-Location", String.valueOf(URI.create("/fhir/__status/" + jobId))).build())
-                .onErrorResume(MappingException.class, e -> {
-                    logger.error("DEBUG Endpoint: Mapping error: {}", e.getMessage());
-                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                    return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(WebClientRequestException.class, e -> {
-                    logger.error("DEBUG Endpoint: Service not available because of downstream web client errors: {}", e.getMessage());
-                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                    return status(503).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(IllegalArgumentException.class, e -> {
-                    logger.error("DEBUG Endpoint: Bad request: {}", e.getMessage());
-                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                    return badRequest().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                })
-                .onErrorResume(Exception.class, e -> {
-                    logger.error("DEBUG Endpoint: Unexpected error: {}", e.getMessage());
-                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                    return status(500).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(new Error(e.getMessage()));
-                });
-    }
-
-
     private byte[] decodeCrtdlContent(Parameters parameters) {
         for (Parameters.ParametersParameterComponent parameter : parameters.getParameter()) {
             if ("crtdl".equals(parameter.getName())) {
@@ -229,24 +184,11 @@ public class FhirController {
                                     logger.error("Error in collectResourcesByPatientReference: {}", e.getMessage());
                                     return Mono.empty();
                                 })
-                                .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
-                                .flatMap(resourceMap -> {
-                                    logger.debug("Map {}", resourceMap.keySet());
-                                    Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
-                                    logger.debug("Bundles Size {}", bundles.size());
-                                    Bundle finalBundle = new Bundle();
-                                    finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
-                                    for (Bundle bundle : bundles.values()) {
-                                        Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
-                                        entryComponent.setResource(bundle);
-                                        finalBundle.addEntry(entryComponent);
-                                    }
-
-                                    // Save the bundle to the file system and ensure the Mono completes properly
-                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle)
-                                            .doOnSuccess(unused -> {
-                                                logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
-                                            });
+                                .filter(resourceFiles -> resourceFiles != null && !resourceFiles.isEmpty()) // Filter out null or empty lists
+                                .doOnSuccess(resourceFiles -> {
+                                    // Set status to "Completed" after the resources have been collected
+                                    logger.debug("Resources collected, total files: {}", resourceFiles.size());
+                                    resultFileManager.setStatus(jobId, "Completed");
                                 })
                 )
                 .doOnError(error -> {
@@ -255,6 +197,7 @@ public class FhirController {
                 })
                 .then();  // This will return Mono<Void> indicating completion
     }
+
 
 
 
@@ -316,11 +259,13 @@ public class FhirController {
 
     private Mono<ServerResponse> serveBundleFromFileSystem(String jobId) {
         return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId))
-                .flatMap(bundleJson -> {
-                    if (bundleJson == null) {
-                        return notFound().build();
+                .flatMap(bundleMap -> {
+                    if (bundleMap == null) {
+                        return ServerResponse.notFound().build();
                     }
-                    return ok().contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(bundleJson);
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(bundleMap);
                 });
     }
 

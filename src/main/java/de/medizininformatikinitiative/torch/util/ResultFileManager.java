@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ResultFileManager {
@@ -72,14 +73,14 @@ public class ResultFileManager {
         logger.info("Status Map Size {}",getSize());
     }
 
-    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle finalBundle) {
+    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle bundle) {
         return Mono.fromRunnable(() -> {
                     logger.info("Started Saving {} ", jobId);
                     try {
                         Path jobDir = resultsDirPath.resolve(jobId);
                         Files.createDirectories(jobDir);
 
-                        String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(finalBundle);
+                        String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(bundle);
                         Path bundleFile = jobDir.resolve("bundle.json");
 
                         Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
@@ -108,18 +109,49 @@ public class ResultFileManager {
 
 
 
-    public String loadBundleFromFileSystem(String jobId) {
+    public Map<String, Object> loadBundleFromFileSystem(String jobId) {
+        Map<String, Object> response = new HashMap<>();
         try {
-            Path bundleFile = resultsDirPath.resolve(jobId).resolve("bundle.json");
-            if (Files.exists(bundleFile)) {
-                return Files.readString(bundleFile);
+            Path jobDir = resultsDirPath.resolve(jobId);
+            if (Files.exists(jobDir) && Files.isDirectory(jobDir)) {
+                List<Map<String, String>> outputFiles = new ArrayList<>();
+                List<Map<String, String>> deletedFiles = new ArrayList<>();
+                List<Map<String, String>> errorFiles = new ArrayList<>();
+
+                Files.list(jobDir).forEach(file -> {
+                    if (file.toString().endsWith(".json")) {
+                        String type = "Bundle"; // All files are bundles
+                        String url = "https://example.com/output/" + file.getFileName().toString();
+
+                        Map<String, String> fileEntry = new HashMap<>();
+                        fileEntry.put("type", type);
+                        fileEntry.put("url", url);
+
+                        if (file.getFileName().toString().contains("err")) {
+                            errorFiles.add(fileEntry);
+                        } else if (file.getFileName().toString().contains("del")) {
+                            deletedFiles.add(fileEntry);
+                        } else {
+                            outputFiles.add(fileEntry);
+                        }
+                    }
+                });
+
+                response.put("transactionTime", "2021-01-01T00:00:00Z");
+                response.put("request", "https://example.com/fhir/Patient/$export?_type=Patient,Observation");
+                response.put("requiresAccessToken", true);
+                response.put("output", outputFiles);
+                response.put("deleted", deletedFiles);
+                response.put("error", errorFiles);
+                response.put("extension", Collections.singletonMap("https://example.com/extra-property", true));
             } else {
-                logger.warn("Bundle file does not exist for jobId: {}", jobId);
+                logger.warn("Job directory does not exist or is not a directory for jobId: {}", jobId);
             }
         } catch (IOException e) {
-            logger.error("Failed to load bundle for jobId {}: {}", jobId, e.getMessage());
+            logger.error("Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
         }
-        return null;
+
+        return response.isEmpty() ? null : response;
     }
 }
 

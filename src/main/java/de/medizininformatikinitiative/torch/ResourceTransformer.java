@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Attribute;
@@ -18,7 +19,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -94,67 +98,73 @@ public class ResourceTransformer {
         return tgt;
     }
 
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize)  {
+    public Mono<List<String>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize) {
         logger.debug("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
         logger.debug("Patients Received: {}", patients);
-        //Set of Pat Ids that survived so dar
+
         Set<String> safeSet = new HashSet<>(patients);
 
-        // Mono.fromCallable is used to wrap the blocking code
-
         return Mono.fromCallable(() -> {
-                    // This part of the code involves blocking operations like creating lists
-                    List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
-                            .map(group -> {
-                                //Set of PatIds that survived the
+                    List<Mono<String>> batchMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
+                            .flatMap(group -> {
                                 Set<String> safeGroup = new HashSet<>();
                                 List<String> batches = splitListIntoBatches(patients, batchSize);
                                 logger.debug("FHIR search List size for group {}: {}", group, batches.size());
 
-                                return Flux.fromIterable(batches)
-                                        .flatMap(batch -> transformResources(searchBuilder.getSearchBatch(group, batch), group))
-                                        .filter(resource -> !resource.isEmpty())
-                                        .collectMultimap(resource -> {
-                                            try {
-                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                                safeGroup.add(id);
-                                                return id;
-                                            } catch (PatientIdNotFoundException e) {
-                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                                throw new RuntimeException(e);
-                                            }
-
-                                        })
-                                        .doOnNext(map -> {
-                                                    logger.debug("Collected resources for group {}", group.getGroupReference());
-                                                    safeSet.retainAll(safeGroup); // Remove all elements in safeSet from safeGroup
-                                                    logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
+                                return batches.stream().map(batch -> {
+                                    String batchName = "batch_" + batches.indexOf(batch); // Generate a batch name based on its index
+                                    return transformResources(searchBuilder.getSearchBatch(group, batch), group)
+                                            .filter(resource -> !resource.isEmpty())
+                                            .collectMultimap(resource -> {
+                                                try {
+                                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                                    safeGroup.add(id);
+                                                    return id;
+                                                } catch (PatientIdNotFoundException e) {
+                                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                                    throw new RuntimeException(e);
                                                 }
-                                        );
+                                            })
+                                            .flatMap(map -> {
+                                                logger.debug("Collected resources for group {}", group.getGroupReference());
+
+                                                safeSet.retainAll(safeGroup);
+                                                logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
+
+                                                List<Resource> resources = map.values().stream()
+                                                        .flatMap(Collection::stream)
+                                                        .collect(Collectors.toList());
+
+                                                return saveResourcesToFileAsync(resources, group.getGroupReference(), batchName);
+                                            });
+                                });
                             })
                             .collect(Collectors.toList());
 
-                    return Flux.concat(groupMonos)
-                            .collectList()
-                            .map(resourceLists -> {
-                                logger.debug("Combining resource lists into a single map");
-                                return resourceLists.stream()
-                                        .flatMap(map -> map.entrySet().stream())
-                                        .filter(entry -> safeSet.contains(entry.getKey()))
-                                        .collect(Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                Map.Entry::getValue,
-                                                (existing, replacement) -> {
-                                                    existing.addAll(replacement);
-                                                    return existing;
-                                                }
-                                        ));
-                            })
-                            .block(); // Blocking call within a Callable to get the final result
+                    return Flux.concat(batchMonos).collectList().block(); // Blocking call within a Callable to get the final result
                 })
-                .doOnSuccess(result -> logger.info("Successfully collected resources"))
+                .doOnSuccess(result -> logger.info("Successfully collected resources and saved to files"))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
+
+    // Helper method to save resources to a file asynchronously with batch name
+    private Mono<String> saveResourcesToFileAsync(List<Resource> resources, String groupReference, String batchName) {
+        return Mono.fromCallable(() -> {
+            String filename = "resources_" + groupReference + "_" + batchName + "_" + System.currentTimeMillis() + ".json";
+            try {
+                ObjectMapper mapper = new ObjectMapper();
+                mapper.writeValue(new File(filename), resources);
+            } catch (IOException e) {
+                logger.error("Error writing resources to file: {}", e.getMessage());
+                throw new RuntimeException(e);
+            }
+            return filename;
+        }).subscribeOn(Schedulers.boundedElastic());
+    }
+
+
+
+
 
 
 }
