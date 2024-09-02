@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.config.AppConfig;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 
@@ -18,10 +19,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
@@ -31,6 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -81,8 +80,50 @@ public class FhirControllerIT extends AbstractIT {
         );
 
         List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Library/Bundle_Diagnosis_Female.json");
+                "src/test/resources/CRTDL_Library/Parameters_all_fields.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+    }
+
+    @Test
+    public void testFlare() throws IOException {
+        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_female.json");
+        String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
+
+        // Read the JSON file into a JsonNode
+
+        JsonNode rootNode = objectMapper.readTree(jsonString);
+
+        // Extract the cohortDefinition object
+        JsonNode cohortDefinitionNode = rootNode.path("cohortDefinition");
+
+        // Convert the cohortDefinition object to a JSON string
+        String cohortDefinitionJson = objectMapper.writeValueAsString(cohortDefinitionNode);
+
+        Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
+        crtdl.setSqString(cohortDefinitionJson);
+
+        // Use the serialized JSON string in the bodyValue method and capture the response
+        String responseBody = flareClient.post()
+                .uri("/query/execute-cohort")
+                .contentType(MediaType.parseMediaType("application/sq+json"))
+                .bodyValue(crtdl.getSqString())
+                .retrieve()
+                .onStatus(status -> status.value() == 404, clientResponse -> {
+                    logger.error("Received 404 Not Found");
+                    return clientResponse.createException();
+                })
+                .bodyToMono(String.class)
+                .block();  // Blocking to get the response synchronously
+
+        // Log the response body
+        logger.debug("Response Body: {}", responseBody);
+        // Parse the response body as a list of patient IDs
+        List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
+
+        // Count the number of patient IDs
+        int patientCount = patientIds.size();
+        logger.info(String.valueOf(patientIds));
+        Assertions.assertEquals(3, patientCount);
     }
 
 

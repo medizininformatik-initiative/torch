@@ -185,24 +185,10 @@ public class FhirController {
     }
 
 
-    private byte[] decodeCrtdlContent(Library library) {
-        for (Attachment attachment : library.getContent()) {
-            if ("application/crtdl+json".equals(attachment.getContentType())) {
-                logger.debug(Arrays.toString(attachment.getData()));
-                return attachment.getData();
-            }
-        }
-        throw new IllegalArgumentException("No base64 encoded CRDTL content found in Library resource");
-    }
-
     private byte[] decodeCrtdlContent(Parameters parameters) {
         for (Parameters.ParametersParameterComponent parameter : parameters.getParameter()) {
             if ("crtdl".equals(parameter.getName())) {
-                logger.info("Found crtdl");
-                parameter.children().forEach(x-> {
-                    logger.info(" Childname {} {}", x, x.getTypeCode());
-                }
-                );
+
                 Property valueElement = parameter.getChildByName("value[x]");
 
                 if (valueElement.hasValues()) {
@@ -306,11 +292,12 @@ public class FhirController {
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
 
         var jobId = request.pathVariable("jobId");
-        logger.info("Size of Map {} {}",resultFileManager.getSize(),resultFileManager.jobStatusMap.entrySet());
+        logger.debug("Job Requested {}",jobId);
+        logger.debug("Size of Map {} {}",resultFileManager.getSize(),resultFileManager.jobStatusMap.entrySet());
 
 
         String status = resultFileManager.getStatus(jobId);
-        logger.info("Status of jobID {} var {}",jobId,resultFileManager.jobStatusMap.get(jobId));
+        logger.debug("Status of jobID {} var {}",jobId,resultFileManager.jobStatusMap.get(jobId));
 
         if(status==null){
             return notFound().build();
@@ -319,7 +306,7 @@ public class FhirController {
             return serveBundleFromFileSystem(jobId);
         }if (status.contains("Failed")) {
             return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR).bodyValue(status);
-        }if(status.contains("Procssing")){
+        }if(status.contains("Processing")){
             return accepted().build();
         }
         else {
