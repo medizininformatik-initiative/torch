@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.rest.FhirController;
 import org.hl7.fhir.r4.model.Bundle;
 
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,6 +29,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import reactor.core.publisher.Mono;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -46,6 +48,7 @@ import java.util.*;
 @SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class FhirControllerIT extends AbstractIT {
 
+    private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
 
     @LocalServerPort
     private int port;
@@ -90,7 +93,7 @@ public class FhirControllerIT extends AbstractIT {
 
     @Test
     public void testFlare() throws IOException {
-        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_female.json");
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX+"CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
 
         // Read the JSON file into a JsonNode
@@ -128,6 +131,103 @@ public class FhirControllerIT extends AbstractIT {
         int patientCount = patientIds.size();
         logger.info(String.valueOf(patientIds));
         Assertions.assertEquals(3, patientCount);
+    }
+
+
+    @Test
+    public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException {
+        executeTest(
+                List.of(
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
+                ),
+                List.of(
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json",
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json",
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"
+                ),
+                1
+        );
+    }
+
+    @Test
+    public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException {
+        executeTest(
+                List.of(
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"
+                ),
+                List.of(
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
+                ),
+                1
+        );
+    }
+
+    @Test
+    public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException {
+        executeTest(
+                List.of(
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"
+                ),
+                List.of(
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"
+                ),
+                1
+        );
+    }
+
+    @Test
+    public void testAllFields() throws IOException, PatientIdNotFoundException {
+        executeTest(
+                List.of(
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"
+                ),
+                List.of(
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_all_fields.json"
+                ),
+                1
+        );
+    }
+
+
+
+    @Test
+    public void testFhirSearchBatch() throws IOException, PatientIdNotFoundException {
+        executeTest(
+                List.of(
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json",
+                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id4.json"
+                ),
+                List.of(
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
+                ),
+                2
+        );
+    }
+
+    @Test
+    public void testMustHave() throws IOException {
+
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX+"CRTDL/CRTDL_observation_must_have.json");
+        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+        logger.info("ResourceType {}", crtdl.getResourceType());
+        List<String> patients = new ArrayList<>();
+        patients.add("3");
+        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients, 1);
+        Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
+        assert result != null;
+        Assertions.assertTrue(result.isEmpty());
+
+    }
+
+
+    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths, int batchSize) throws IOException, PatientIdNotFoundException {
+        Map<String, Bundle> expectedResources = loadExpectedResources(expectedResourceFilePaths);
+        expectedResources.values().forEach(Assertions::assertNotNull);
+        List<String> patients = new ArrayList<>(expectedResources.keySet());
+
+        for (String filePath : filePaths) {
+            processFile(filePath, patients, expectedResources, batchSize);
+        }
     }
 
 
