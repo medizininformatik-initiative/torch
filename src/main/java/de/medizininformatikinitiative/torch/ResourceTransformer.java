@@ -59,24 +59,35 @@ public class ResourceTransformer {
     }
 
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
+    public Flux<TransformedResource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
         Flux<Resource> resources = dataStore.getResources(resourceType, parameters);
+
         return resources.map(resource -> {
+            String id = null;
             try {
-                return transform((DomainResource) resource, group);
+                id = ResourceUtils.getPatientId((DomainResource) resource);
+                Resource transformedResource = transform((DomainResource) resource, group);
+                return new TransformedResource(id, transformedResource, false);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                      InstantiationException e) {
                 logger.error("Transform error ", e);
                 throw new RuntimeException(e);
             } catch (MustHaveViolatedException e) {
-                Patient empty = new Patient();
-                logger.error("Empty Transformation {}", empty.isEmpty());
-                return empty;
+                if (id == null) {
+                    try {
+                        id = ResourceUtils.getPatientId((DomainResource) resource);
+                    } catch (PatientIdNotFoundException ex) {
+                        logger.error("PatientIdNotFoundException: {}", ex.getMessage());
+                    }
+                }
+                logger.warn("MustHave violated for resource with ID: {}", id);
+                return new TransformedResource(id, resource, true);
+            } catch (PatientIdNotFoundException e) {
+                logger.error("PatientIdNotFoundException during transform: {}", e.getMessage());
+                return new TransformedResource(null, resource, true); // Handle case where ID couldn't be determined
             }
-
         });
-
     }
 
 
@@ -102,93 +113,51 @@ public class ResourceTransformer {
 
 
 
+
+
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize) {
         logger.debug("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
         logger.debug("Patients Received: {}", patients);
 
-        Set<String> safeSet = new HashSet<>(patients);
+        Set<String> toBeDeleted = new HashSet<>();
         List<List<String>> batches = splitListIntoBatches(patients, batchSize);
 
         return Mono.fromCallable(() -> {
             return Flux.fromIterable(batches)
-                    .flatMap(batch -> {
-                        Set<String> safeGroup = new HashSet<>();
+                    .flatMap(batch -> Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                            .flatMap(group -> {
+                                Flux<TransformedResource> resources = transformResources(searchBuilder.getSearchBatch(group, batch), group);
 
-                        return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
-                                .flatMap(group -> {
-                                    Flux<Resource> resources = transformResources(searchBuilder.getSearchBatch(group, batch), group);
-
-                                    if (group.hasMustHave()) {
-                                        return resources.filter(resource -> {
-                                            boolean isNotEmpty = !resource.isEmpty();
-                                            if (isNotEmpty) {
-                                                try {
-                                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                                    safeGroup.add(id);
-                                                    logger.info("Resource is non-empty and has MustHave, adding id {} to safeGroup", id);
-                                                } catch (PatientIdNotFoundException e) {
-                                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                                }
-                                            }
-                                            return isNotEmpty;
-                                        });
-                                    } else {
-                                        // If no MustHave, add the whole batch to safeGroup
-                                        safeGroup.addAll(batch);
-                                        return resources;
-                                    }
-                                }).filter(resource -> !resource.isEmpty())
-                                .collectMultimap(resource -> {
-                                    try {
-                                        return ResourceUtils.getPatientId((DomainResource) resource);
-                                    } catch (PatientIdNotFoundException e) {
-                                        logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                        throw new RuntimeException(e);
-                                    }
-                                })
-                                .doOnNext(map -> {
-                                    safeSet.retainAll(safeGroup);
-                                    logger.info("SafeGroup after diff with SafeSet: {}", safeGroup);
-                                });
-                    })
+                                if (group.hasMustHave()) {
+                                    return resources.filter(resource -> {
+                                        if (resource.isMustHaveViolated()) {
+                                            toBeDeleted.add(resource.getId());
+                                            return false;
+                                        }
+                                        return !resource.isMustHaveViolated();
+                                    });
+                                } else {
+                                    return resources;
+                                }
+                            })
+                    )
                     .collectList()
-                    .map(resourceLists -> {
-                        logger.info("Combining resource lists into a single map. Number of maps: {}", resourceLists.size());
+                    .map(transformedResources -> {
+                        logger.info("Combining transformed resources into a multimap. Number of resources: {}", transformedResources.size());
 
-                        // Ensure the safeSet is not empty
-                        if (safeSet.isEmpty()) {
-                            logger.warn("SafeSet is empty, returning an empty map.");
-                            return Collections.<String, Collection<Resource>>emptyMap();
-                        }
-
-                        return resourceLists.stream()
-                                .flatMap(map -> {
-                                    if (map == null) {
-                                        logger.warn("Encountered a null map in resourceLists.");
-                                        return Stream.<Map.Entry<String, Collection<Resource>>>empty();
-                                    }
-                                    return map.entrySet().stream();
-                                })
-                                .filter(entry -> {
-                                    if (entry == null || entry.getKey() == null) {
-                                        logger.warn("Encountered a null entry or key in map.");
-                                        return false;
-                                    }
-                                    return safeSet.contains(entry.getKey());
-
-                                })
+                        // Create a multimap where the key is the resource ID and the value is a collection of resources.
+                        return transformedResources.stream()
+                                .filter(resource -> resource != null && resource.getId() != null && !toBeDeleted.contains(resource.getId()))
                                 .collect(Collectors.toMap(
-                                        Map.Entry::getKey,
-                                        Map.Entry::getValue,
+                                        TransformedResource::getId, // Key: getID from TransformedResource
+                                        resource -> {
+                                            // Value: Collection of Resources (initially a singleton list)
+                                            Collection<Resource> resources = new ArrayList<>();
+                                            resources.add(resource.getResource());
+                                            return resources;
+                                        },
                                         (existing, replacement) -> {
-                                            if (existing == null) {
-                                                logger.warn("Existing collection is null, using replacement.");
-                                                return replacement;
-                                            }
-                                            if (replacement == null) {
-                                                logger.warn("Replacement collection is null, using existing.");
-                                                return existing;
-                                            }
+                                            // Merge function to handle duplicate keys
                                             existing.addAll(replacement);
                                             return existing;
                                         }
@@ -198,7 +167,6 @@ public class ResourceTransformer {
                         if (result == null || result.isEmpty()) {
                             logger.warn("Resulting map is empty or null after combining resources.");
                         } else {
-
                             logger.info("Successfully combined resources into map. Map size: {}", result.size());
                         }
                     })
