@@ -27,7 +27,6 @@ import java.util.concurrent.Executors;
 
 @Configuration
 public class AppConfig {
-    public int batchSize = 10;
 
     @Bean
     @Qualifier("fhirClient")
@@ -129,5 +128,6 @@ public class AppConfig {
     ExecutorService executorService(){
         return Executors.newCachedThreadPool();
     }
+
 
 }

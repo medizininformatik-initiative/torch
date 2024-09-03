@@ -54,8 +54,7 @@ public class ResultFileManager {
                     .filter(Files::isDirectory)
                     .forEach(jobDir -> {
                         String jobId = jobDir.getFileName().toString();
-                        Path bundleFilePath = jobDir.resolve("bundle.json");
-
+                        Path bundleFilePath = jobDir.resolve(".json");
                         if (Files.exists(bundleFilePath)) {
 
                                 logger.info("Loaded existing job with jobId: {}", jobId);
@@ -73,24 +72,24 @@ public class ResultFileManager {
         logger.info("Status Map Size {}",getSize());
     }
 
-    public Mono<Void> saveBundleToFileSystem(String fileName, Bundle bundle) {
+    public Mono<Void> saveBundleToFileSystem(String JobID,String fileName, Bundle bundle) {
         return Mono.fromRunnable(() -> {
-                    logger.info("Started Saving {} ", fileName);
+                    logger.info("Started Saving {} ", JobID);
                     try {
-                        Path jobDir = resultsDirPath.resolve(fileName);
+                        Path jobDir = resultsDirPath.resolve(JobID);
                         Files.createDirectories(jobDir);
 
                         String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(bundle);
-                        Path bundleFile = jobDir.resolve("bundle.json");
+                        Path bundleFile = jobDir.resolve(fileName+".json");
 
                         Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                     } catch (IOException e) {
-                        logger.error("Failed to save bundle for jobId {}: {}", fileName, e.getMessage());
+                        logger.error("Failed to save bundle for jobId {}: {}", JobID, e.getMessage());
                         throw new RuntimeException("Failed to save bundle", e);
                     }
                 })
                 .subscribeOn(Schedulers.boundedElastic())  // Run this on the boundedElastic scheduler
-                .doOnSuccess(unused -> jobStatusMap.put(fileName, "Completed"))
+                .doOnSuccess(unused -> jobStatusMap.put(JobID, "Completed"))
                 .then();  // Ensures Mono<Void> is returned
     }
 

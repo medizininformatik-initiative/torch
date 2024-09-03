@@ -19,6 +19,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -28,6 +29,7 @@ import org.springframework.web.reactive.function.client.WebClientRequestExceptio
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -43,6 +45,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 
+import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.*;
@@ -64,6 +67,7 @@ public class FhirController {
     private final IParser parser;
     private final ResultFileManager resultFileManager;
     private final ExecutorService executorService;
+    private final int batchsize;
 
     @Autowired
     public FhirController(
@@ -72,7 +76,7 @@ public class FhirController {
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
             ObjectMapper objectMapper,
-            IParser parser, ExecutorService executorService) {
+            IParser parser, ExecutorService executorService, @Value("${torch.batchsize:10}") int batchsize) {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
@@ -80,6 +84,7 @@ public class FhirController {
         this.parser = parser;
         this.resultFileManager=resultFileManager;
         this.executorService=executorService;
+        this.batchsize=batchsize;
 
     }
 
@@ -177,33 +182,41 @@ public class FhirController {
 
     private Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
         return fetchPatientListFromFlare(crtdl)
-                .flatMap(patientList ->
-                        transformer.collectResourcesByPatientReference(crtdl, patientList, 5)
-                                .onErrorResume(e -> {
-                                    resultFileManager.setStatus(jobId, "Failed at collectResources: " + e.getMessage());
-                                    logger.error("Error in collectResourcesByPatientReference: {}", e.getMessage());
-                                    return Mono.empty();
-                                })
-                                .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
-                                .flatMap(resourceMap -> {
-                                    logger.debug("Map {}", resourceMap.keySet());
-                                    Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
-                                    logger.debug("Bundles Size {}", bundles.size());
-                                    Bundle finalBundle = new Bundle();
-                                    finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
-                                    for (Bundle bundle : bundles.values()) {
-                                        Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
-                                        entryComponent.setResource(bundle);
-                                        finalBundle.addEntry(entryComponent);
-                                    }
+                .flatMapMany(patientList -> {
+                    // Split the patient list into batches
+                    List<List<String>> batches = splitListIntoBatches(patientList, batchsize);
+                    return Flux.fromIterable(batches);
+                })
+                .flatMap(batch -> {
+                    // Log the batch being processed
+                    logger.debug("Handling batch {}", String.join(",", batch));
 
-                                    // Save the bundle to the file system and ensure the Mono completes properly
-                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle)
-                                            .doOnSuccess(unused -> {
-                                                logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
-                                            });
-                                })
-                )
+                    return transformer.collectResourcesByPatientReference(crtdl, batch)
+                            .onErrorResume(e -> {
+                                resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + e.getMessage());
+                                logger.error("Error in collectResourcesByPatientReference for batch: {}", e.getMessage());
+                                return Mono.empty();
+                            })
+                            .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
+                            .flatMap(resourceMap -> {
+                                logger.debug("Map {}", resourceMap.keySet());
+                                Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
+                                logger.debug("Bundles Size {}", bundles.size());
+                                Bundle finalBundle = new Bundle();
+                                finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
+                                for (Bundle bundle : bundles.values()) {
+                                    Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
+                                    entryComponent.setResource(bundle);
+                                    finalBundle.addEntry(entryComponent);
+                                }
+
+                                // Save the bundle to the file system and ensure the Mono completes properly
+                                return resultFileManager.saveBundleToFileSystem(jobId, String.valueOf(batch.hashCode()), finalBundle)
+                                        .doOnSuccess(unused -> {
+                                            logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
+                                        });
+                            });
+                })
                 .doOnError(error -> {
                     resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
                     logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
@@ -212,28 +225,9 @@ public class FhirController {
     }
 
 
-    private Mono<Void> processCrtdltoFiles(Crtdl crtdl, String jobId) {
-        return fetchPatientListFromFlare(crtdl)
-                .flatMap(patientList ->
-                        transformer.collectResourcesByPatientReference(crtdl, patientList, 1)
-                                .onErrorResume(e -> {
-                                    resultFileManager.setStatus(jobId, "Failed at collectResources: " + e.getMessage());
-                                    logger.error("Error in collectResourcesByPatientReference: {}", e.getMessage());
-                                    return Mono.empty();
-                                })
-                                .filter(resourceFiles -> resourceFiles != null && !resourceFiles.isEmpty()) // Filter out null or empty lists
-                                .doOnSuccess(resourceFiles -> {
-                                    // Set status to "Completed" after the resources have been collected
-                                    logger.debug("Resources collected, total files: {}", resourceFiles.size());
-                                    resultFileManager.setStatus(jobId, "Completed");
-                                })
-                )
-                .doOnError(error -> {
-                    resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
-                    logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
-                })
-                .then();  // This will return Mono<Void> indicating completion
-    }
+
+
+
 
 
 

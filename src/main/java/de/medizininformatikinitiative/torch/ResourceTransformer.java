@@ -66,7 +66,9 @@ public class ResourceTransformer {
         return resources.map(resource -> {
             String id = null;
             try {
+
                 id = ResourceUtils.getPatientId((DomainResource) resource);
+                logger.debug("Got Resource {}",id);
                 Resource transformedResource = transform((DomainResource) resource, group);
                 return new TransformedResource(id, transformedResource, false);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
@@ -114,6 +116,58 @@ public class ResourceTransformer {
 
 
 
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patientBatch) {
+        logger.debug("Starting collectResourcesByPatientReference with patient batch size: {}", patientBatch.size());
+        logger.debug("Patients Received: {}", patientBatch);
+
+        Set<String> toBeDeleted = new HashSet<>();
+
+        return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                .flatMap(group -> {
+                    Flux<TransformedResource> resources = transformResources(searchBuilder.getSearchBatch(group, patientBatch), group);
+
+                    if (group.hasMustHave()) {
+                        return resources.filter(resource -> {
+                            if (resource.isMustHaveViolated()) {
+                                toBeDeleted.add(resource.getId());
+                                return false;
+                            }
+                            return true;
+                        });
+                    } else {
+                        return resources;
+                    }
+                })
+                .collect(Collectors.toMap(
+                        TransformedResource::getId, // Key: getID from TransformedResource
+                        resource -> {
+                            // Value: Collection of Resources (initially a singleton list)
+                            Collection<Resource> resources = new ArrayList<>();
+                            resources.add(resource.getResource());
+                            return resources;
+                        },
+                        (existing, replacement) -> {
+                            // Merge function to handle duplicate keys
+                            existing.addAll(replacement);
+                            return existing;
+                        }
+                ))
+                .map(result -> {
+                    // Final filtering based on `toBeDeleted`
+                    return result.entrySet().stream()
+                            .filter(entry -> !toBeDeleted.contains(entry.getKey()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                })
+                .doOnSuccess(result -> {
+                    if (result == null || result.isEmpty()) {
+                        logger.warn("Resulting map is empty or null after combining resources. {}",patientBatch);
+                    } else {
+                        logger.info("Successfully combined resources into map. Map size: {}", result.size());
+                    }
+                })
+                .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
+    }
+
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize) {
         logger.debug("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
@@ -126,6 +180,7 @@ public class ResourceTransformer {
             return Flux.fromIterable(batches)
                     .flatMap(batch -> Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
                             .flatMap(group -> {
+
                                 Flux<TransformedResource> resources = transformResources(searchBuilder.getSearchBatch(group, batch), group);
 
                                 if (group.hasMustHave()) {
@@ -181,18 +236,6 @@ public class ResourceTransformer {
 
 
 
-
-    // Helper method to save resources to a file asynchronously with batch name
-    private Mono<String> saveResourcesToFileAsync(Bundle bundle, String groupReference, String batchName, String JobID) {
-        return Mono.fromCallable(() -> {
-
-            String filename = JobID+"/"+ groupReference.hashCode() + "_" + batchName + "_" + System.currentTimeMillis() + ".json";
-            logger.info("File Name to be saved to {}",filename);
-            fileManager.saveBundleToFileSystem(filename,bundle);
-
-            return filename;
-        }).subscribeOn(Schedulers.boundedElastic());
-    }
 
 
 
