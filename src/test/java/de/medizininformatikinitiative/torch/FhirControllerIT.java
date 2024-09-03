@@ -212,11 +212,10 @@ public class FhirControllerIT extends AbstractIT {
         logger.info("ResourceType {}", crtdl.getResourceType());
         List<String> patients = new ArrayList<>();
         patients.add("3");
-       // Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients, 1);
-        /*Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
+        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients, 1);
+        Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
-*/
     }
 
 

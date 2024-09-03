@@ -85,8 +85,8 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ElementCopier copier, Redaction redaction, CdsStructureDefinitionHandler cds, FhirContext context) {
-        return new ResourceTransformer(dataStore, cds);
+    public ResourceTransformer resourceTransformer(DataStore dataStore,CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
+        return new ResourceTransformer(dataStore, cds,fileManager);
     }
 
     @Bean
@@ -129,4 +129,5 @@ public class AppConfig {
     ExecutorService executorService(){
         return Executors.newCachedThreadPool();
     }
+
 }

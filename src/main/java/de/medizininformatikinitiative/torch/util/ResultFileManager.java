@@ -73,11 +73,11 @@ public class ResultFileManager {
         logger.info("Status Map Size {}",getSize());
     }
 
-    public Mono<Void> saveBundleToFileSystem(String jobId, Bundle bundle) {
+    public Mono<Void> saveBundleToFileSystem(String fileName, Bundle bundle) {
         return Mono.fromRunnable(() -> {
-                    logger.info("Started Saving {} ", jobId);
+                    logger.info("Started Saving {} ", fileName);
                     try {
-                        Path jobDir = resultsDirPath.resolve(jobId);
+                        Path jobDir = resultsDirPath.resolve(fileName);
                         Files.createDirectories(jobDir);
 
                         String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(bundle);
@@ -85,12 +85,12 @@ public class ResultFileManager {
 
                         Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                     } catch (IOException e) {
-                        logger.error("Failed to save bundle for jobId {}: {}", jobId, e.getMessage());
+                        logger.error("Failed to save bundle for jobId {}: {}", fileName, e.getMessage());
                         throw new RuntimeException("Failed to save bundle", e);
                     }
                 })
                 .subscribeOn(Schedulers.boundedElastic())  // Run this on the boundedElastic scheduler
-                .doOnSuccess(unused -> jobStatusMap.put(jobId, "Completed"))
+                .doOnSuccess(unused -> jobStatusMap.put(fileName, "Completed"))
                 .then();  // Ensures Mono<Void> is returned
     }
 
@@ -121,7 +121,7 @@ public class ResultFileManager {
                 Files.list(jobDir).forEach(file -> {
                     if (file.toString().endsWith(".json")) {
                         String type = "Bundle"; // All files are bundles
-                        String url = "https://example.com/output/" + file.getFileName().toString();
+                        String url = file.getFileName().toString();
 
                         Map<String, String> fileEntry = new HashMap<>();
                         fileEntry.put("type", type);

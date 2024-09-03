@@ -178,6 +178,43 @@ public class FhirController {
     private Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
         return fetchPatientListFromFlare(crtdl)
                 .flatMap(patientList ->
+                        transformer.collectResourcesByPatientReference(crtdl, patientList, 5)
+                                .onErrorResume(e -> {
+                                    resultFileManager.setStatus(jobId, "Failed at collectResources: " + e.getMessage());
+                                    logger.error("Error in collectResourcesByPatientReference: {}", e.getMessage());
+                                    return Mono.empty();
+                                })
+                                .filter(resourceMap -> resourceMap != null && !resourceMap.isEmpty()) // Filter out null or empty maps
+                                .flatMap(resourceMap -> {
+                                    logger.debug("Map {}", resourceMap.keySet());
+                                    Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
+                                    logger.debug("Bundles Size {}", bundles.size());
+                                    Bundle finalBundle = new Bundle();
+                                    finalBundle.setType(Bundle.BundleType.BATCHRESPONSE);
+                                    for (Bundle bundle : bundles.values()) {
+                                        Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
+                                        entryComponent.setResource(bundle);
+                                        finalBundle.addEntry(entryComponent);
+                                    }
+
+                                    // Save the bundle to the file system and ensure the Mono completes properly
+                                    return resultFileManager.saveBundleToFileSystem(jobId, finalBundle)
+                                            .doOnSuccess(unused -> {
+                                                logger.debug("Bundle saved: {}", parser.setPrettyPrint(true).encodeResourceToString(finalBundle));
+                                            });
+                                })
+                )
+                .doOnError(error -> {
+                    resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
+                    logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
+                })
+                .then();  // This will return Mono<Void> indicating completion
+    }
+
+
+    private Mono<Void> processCrtdltoFiles(Crtdl crtdl, String jobId) {
+        return fetchPatientListFromFlare(crtdl)
+                .flatMap(patientList ->
                         transformer.collectResourcesByPatientReference(crtdl, patientList, 1)
                                 .onErrorResume(e -> {
                                     resultFileManager.setStatus(jobId, "Failed at collectResources: " + e.getMessage());
