@@ -109,18 +109,18 @@ public class Slicing {
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicing.getDiscriminator()) {
 
                     String path = discriminator.getPath();
-                    logger.info("Slicing Discriminator {} {}",discriminator.getType(),path);
+                    logger.debug("Slicing Discriminator {} {}",discriminator.getType(),path);
                     // Generate FHIR Path condition based on the discriminator type and path
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
-                            logger.info("Pattern discriminator found");
+                            logger.debug("Pattern discriminator found");
                             conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
                             conditions.add(slicedElement.getPath() + "." + path + ".exists()");
                             break;
                         case TYPE:
-                            logger.info("Type discriminator found");
+                            logger.debug("Type discriminator found");
                             conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
                             break;
                         case PROFILE:
@@ -152,7 +152,7 @@ public class Slicing {
         if(path!="$this"){
             elementId+="."+path;
         }
-        logger.info("Getting Conditions {}",elementId);
+        logger.debug("Getting Conditions {}",elementId);
         ElementDefinition elementDefinition= snapshot.getElementById(elementId);
         if(elementDefinition==null){
             logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);

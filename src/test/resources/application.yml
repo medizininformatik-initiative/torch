@@ -16,7 +16,7 @@ torch:
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 2
 nginx:
-    hostname: example.com/
+    servername: example.com/
 
 logging:
   level:

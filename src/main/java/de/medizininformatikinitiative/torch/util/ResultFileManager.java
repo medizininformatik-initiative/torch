@@ -36,7 +36,7 @@ public class ResultFileManager {
         this.duration = Duration.parse(duration);
         this.hostname=hostname;
 
-        logger.info(" Duration of persistence{}", this.duration);
+        logger.debug(" Duration of persistence{}", this.duration);
         // Ensure the directory exists
         if (!Files.exists(resultsDirPath)) {
             try {
@@ -54,27 +54,32 @@ public class ResultFileManager {
                     .filter(Files::isDirectory)
                     .forEach(jobDir -> {
                         String jobId = jobDir.getFileName().toString();
-                        Path bundleFilePath = jobDir.resolve(".ndjson");
-                        if (Files.exists(bundleFilePath)) {
+                        try {
+                            // Find any .ndjson files in the job directory
+                            boolean ndjsonExists = Files.list(jobDir)
+                                    .anyMatch(file -> file.toString().endsWith(".ndjson"));
 
-                            logger.info("Loaded existing job with jobId: {}", jobId);
-                            jobStatusMap.put(jobId, "Completed");
+                            if (ndjsonExists) {
+                                logger.debug("Loaded existing job with jobId: {}", jobId);
+                                jobStatusMap.put(jobId, "Completed");
 
-                            logger.info("Status set {}", jobStatusMap.get(jobId));
-
-                        } else {
-                            logger.warn("No bundle.json found for jobId: {}", jobId);
+                                logger.debug("Status set {}", jobStatusMap.get(jobId));
+                            } else {
+                                logger.warn("No .ndjson file found for jobId: {}", jobId);
+                            }
+                        } catch (IOException e) {
+                            logger.error("Error reading job directory {}: {}", jobDir, e.getMessage());
                         }
                     });
         } catch (IOException e) {
             logger.error("Error loading existing results from {}: {}", resultsDirPath, e.getMessage());
         }
-        logger.info("Status Map Size {}", getSize());
+        logger.debug("Status Map Size {}", getSize());
     }
 
     public Mono<Void> initJobDir(String jobID) {
         return Mono.fromRunnable(() -> {
-                    logger.info("Initializing job directory for {} ", jobID);
+                    logger.debug("Initializing job directory for {} ", jobID);
                     try {
                         // Get the path to the job directory
                         Path jobDir = resultsDirPath.resolve(jobID);
@@ -178,7 +183,7 @@ public class ResultFileManager {
                 response.put("request", requestUrl);
                 response.put("requiresAccessToken", true);
                 response.put("output", outputFiles);
-                logger.info("OutputFiles size {}",outputFiles.size());
+                logger.debug("OutputFiles size {}",outputFiles.size());
                 response.put("deleted", deletedFiles);
                 response.put("error", errorFiles);
             } else {

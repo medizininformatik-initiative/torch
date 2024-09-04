@@ -6,9 +6,10 @@ services:
       JAVA_TOOL_OPTIONS: "-Xmx1g"
       LOG_LEVEL: "info"
     ports:
-    - "8082:8080"
+      - "8082:8080"
     volumes:
-    - "data-store-data:/app/data"
+      - "data-store-data:/app/data"
+
   torch-flare:
     image: ghcr.io/medizininformatik-initiative/flare:pr-179
     ports:
@@ -26,14 +27,18 @@ services:
       JAVA_TOOL_OPTIONS: ${FLARE_JAVA_TOOL_OPTIONS:--Xmx4g}
       LOG_LEVEL: ${FLARE_LOG_LEVEL:-info}
     restart: unless-stopped
+
   torch-nginx:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
     ports:
       - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
     volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf
-      - "torch-data-store:/app/output"
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template
+      - ./start-nginx.sh:/start-nginx.sh
+      - torch-data-store:/app/output  # Shared with torch service
+    entrypoint: ["/bin/sh", "/start-nginx.sh"]
+
   torch:
     restart: unless-stopped
     build:
@@ -46,16 +51,18 @@ services:
       TORCH_PROFILE_DIR: /app/StructureDefinitions
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
-      TORCH_RESULTS_DIR: /app/bundles
+      TORCH_RESULTS_DIR: /app/output
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
       LOG_LEVEL: info
+      NGINX_SERVERNAME: localhost
     volumes:
-      - "torch-data-store:/app/output"
+      - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
-      - ./bundles:/app/bundles
+      - ./bundles:/app/output
     user: 1000:1000
 
 volumes:
   data-store-data:
   torch-data-store:
+
 

@@ -156,7 +156,7 @@ public class ResourceTransformer {
                             })
                             .block(); // Blocking call within a Callable to get the final result
                 })
-                .doOnSuccess(result -> logger.info("Successfully collected resources"))
+                .doOnSuccess(result -> logger.debug("Successfully collected resources"))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
 

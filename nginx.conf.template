@@ -4,7 +4,7 @@ pid /tmp/nginx.pid;
 http {
     server {
         listen 8080;
-        server_name ${TORCH_SERVER_NAME};
+        server_name localhost;
 
         root /output;
 

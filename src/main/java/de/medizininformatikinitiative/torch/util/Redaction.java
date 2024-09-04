@@ -76,7 +76,7 @@ public class Redaction {
           Slicing slicing = new Slicing(CDS);
           ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if(slicedElement.hasId()){
-                logger.info("Found Sliced Element {}", slicedElement.getIdElement().toString());
+                logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
                 elementID=slicedElement.getIdElement().toString();
 
             }
@@ -89,7 +89,7 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.info("Child to be handled {}",childID);
+            logger.debug("Child to be handled {}",childID);
             String type = "";
             int min=0;
             try {

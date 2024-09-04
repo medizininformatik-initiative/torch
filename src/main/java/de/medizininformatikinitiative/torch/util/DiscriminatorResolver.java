@@ -65,7 +65,7 @@ public class DiscriminatorResolver {
                                           ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         // Resolve the element containing the fixed or pattern information.
-        logger.info("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
+        logger.debug("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         // Resolve the base element along the path specified by the discriminator.
@@ -104,10 +104,10 @@ public class DiscriminatorResolver {
         }
 
         if (fixedOrPatternValue.isPrimitive()) {
-            logger.info("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
+            logger.debug("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
             return resolvedBase.equalsDeep(fixedOrPatternValue);
         } else {
-            logger.info("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
+            logger.debug("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
             // Iterate over the children of fixedOrPatternValue and compare them to the corresponding children in resolvedBase
             for (Property child : fixedOrPatternValue.children()) {
                 if (child.hasValues()) {
@@ -115,7 +115,7 @@ public class DiscriminatorResolver {
                     String childName = child.getName();
                     Property resolvedChild = resolvedBase.getChildByName(childName);
 
-                    logger.info("Handling Child {} {}", childName, resolvedChild);
+                    logger.debug("Handling Child {} {}", childName, resolvedChild);
 
                     // If the resolved base doesn't have this child, return false
                     if (resolvedChild == null) {
