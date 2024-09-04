@@ -24,9 +24,9 @@ public class FhirSearchBuilder {
         }
         String parameters;
         if (group.getGroupReferenceURL().contains("patient")) {
-            parameters = "identifier=" + String.join(".",batch);
+            parameters = "identifier=" + String.join(",",batch);
         } else {
-            parameters = "patient=" + batch;
+            parameters = "patient=" + String.join(",",batch);
         }
         parameters += "&_profile=" + group.getGroupReferenceURL() + filter;
         return parameters;

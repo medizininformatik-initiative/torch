@@ -182,23 +182,6 @@ public abstract class AbstractIT {
     }
 
 
-    /*void processFile(String filePath, List<String> patients, Map<String, Bundle> expectedResources, int batchSize) {
-        try (FileInputStream fis = new FileInputStream(filePath)) {
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients, batchSize);
-
-            StepVerifier.create(collectedResourcesMono)
-                    .expectNextMatches(combinedResourcesByPatientId -> {
-                        Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                        validateBundles(bundles, expectedResources);
-                        return true;
-                    })
-                    .expectComplete()
-                    .verify();
-        } catch (IOException e) {
-            logger.error("CRTDL file not found: {}", filePath, e);
-        }
-    }*/
 
     private void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
         for (Map.Entry<String, Bundle> entry : bundles.entrySet()) {

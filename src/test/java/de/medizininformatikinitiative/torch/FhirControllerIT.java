@@ -212,7 +212,7 @@ public class FhirControllerIT extends AbstractIT {
         logger.info("ResourceType {}", crtdl.getResourceType());
         List<String> patients = new ArrayList<>();
         patients.add("3");
-        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients, 1);
+        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
         Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
@@ -285,30 +285,43 @@ public class FhirControllerIT extends AbstractIT {
                 i++;
                 HttpEntity<String> entity = new HttpEntity<>(null, headers);
                 logger.info("Status URL {}", statusUrl);
+
+                // Perform the exchange and get the response
                 ResponseEntity<String> response = restTemplate.exchange(
                         statusUrl,
                         HttpMethod.GET, entity, String.class);
-                logger.info(" Call result {} {}", i, response);
+
+                // Log the full call result and response body
+                logger.info("Call result {} {}", i, response);
+                logger.info("Response Body: {}", response.getBody());
+
+                // Check the status code
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     Assertions.assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
+                    logger.debug("Final Response {}",response.getBody());
                 }
-                if(response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
+                if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
+                    logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());
                     Assertions.fail("Polling status endpoint failed with status code: " + response.getStatusCode());
                     completed = true;
                 }
-                if(i==100){
-                    Assertions.fail("Polling status endpoint failed running out of calls ");
+                if (i == 100) {
+                    Assertions.fail("Polling status endpoint failed running out of calls.");
                 }
             } catch (HttpStatusCodeException e) {
+                // Log the HTTP error and response body (if available)
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
+                logger.error("Response Body: {}", e.getResponseBodyAsString());
+
                 if (e.getStatusCode().is4xxClientError() || e.getStatusCode().is5xxServerError()) {
                     Assertions.fail("Polling status endpoint failed with status code: " + e.getStatusCode());
                     completed = true;
                 }
             }
+
             try {
-                Thread.sleep(200); // Delay between polls (e.g., 2 seconds)
+                Thread.sleep(200); // Delay between polls (e.g., 200ms)
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Polling was interrupted", e);

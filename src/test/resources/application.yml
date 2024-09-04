@@ -14,9 +14,12 @@ torch:
   results:
     dir: bundles/
     persistence: PT12H30M5S # Time Block in ISO 8601 format
-  batchsize: 1
+  batchsize: 2
 logging:
   level:
+    org.springframework.web.reactive.function.client: debug
+    reactor.netty: debug
+    reactor: debug
     de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:debug}
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
     de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:debug}

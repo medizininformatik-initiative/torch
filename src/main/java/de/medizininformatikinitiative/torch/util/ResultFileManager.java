@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 
-
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,13 +53,13 @@ public class ResultFileManager {
                     .filter(Files::isDirectory)
                     .forEach(jobDir -> {
                         String jobId = jobDir.getFileName().toString();
-                        Path bundleFilePath = jobDir.resolve(".json");
+                        Path bundleFilePath = jobDir.resolve(".ndjson");
                         if (Files.exists(bundleFilePath)) {
 
-                                logger.info("Loaded existing job with jobId: {}", jobId);
-                                jobStatusMap.put(jobId, "Completed");
+                            logger.info("Loaded existing job with jobId: {}", jobId);
+                            jobStatusMap.put(jobId, "Completed");
 
-                                logger.info("Status set {}",jobStatusMap.get(jobId));
+                            logger.info("Status set {}", jobStatusMap.get(jobId));
 
                         } else {
                             logger.warn("No bundle.json found for jobId: {}", jobId);
@@ -69,46 +68,82 @@ public class ResultFileManager {
         } catch (IOException e) {
             logger.error("Error loading existing results from {}: {}", resultsDirPath, e.getMessage());
         }
-        logger.info("Status Map Size {}",getSize());
+        logger.info("Status Map Size {}", getSize());
     }
 
-    public Mono<Void> saveBundleToFileSystem(String JobID,String fileName, Bundle bundle) {
+    public Mono<Void> initJobDir(String jobID) {
         return Mono.fromRunnable(() -> {
-                    logger.info("Started Saving {} ", JobID);
+                    logger.info("Initializing job directory for {} ", jobID);
                     try {
-                        Path jobDir = resultsDirPath.resolve(JobID);
+                        // Get the path to the job directory
+                        Path jobDir = resultsDirPath.resolve(jobID);
+
+                        // If the directory exists, delete it recursively
+                        if (Files.exists(jobDir)) {
+                            Files.walk(jobDir)
+                                    .sorted(Comparator.reverseOrder())  // Sort to delete files first, then directories
+                                    .forEach(path -> {
+                                        try {
+                                            Files.delete(path);
+                                        } catch (IOException e) {
+                                            logger.error("Failed to delete path {}: {}", path, e.getMessage());
+                                        }
+                                    });
+                        }
+                        logger.debug("Removed Dir {}", jobDir);
+                        // Recreate the directory after cleanup
                         Files.createDirectories(jobDir);
-
-                        String bundleJson = parser.setPrettyPrint(true).encodeResourceToString(bundle);
-                        Path bundleFile = jobDir.resolve(fileName+".json");
-
-                        Files.writeString(bundleFile, bundleJson, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
                     } catch (IOException e) {
-                        logger.error("Failed to save bundle for jobId {}: {}", JobID, e.getMessage());
-                        throw new RuntimeException("Failed to save bundle", e);
+                        logger.error("Failed to initialize directory for jobId {}: {}", jobID, e.getMessage());
+                        throw new RuntimeException("Failed to initialize job directory", e);
                     }
                 })
-                .subscribeOn(Schedulers.boundedElastic())  // Run this on the boundedElastic scheduler
-                .doOnSuccess(unused -> jobStatusMap.put(JobID, "Completed"))
+                .subscribeOn(Schedulers.boundedElastic())  // Run this on a separate scheduler for I/O tasks
                 .then();  // Ensures Mono<Void> is returned
     }
 
-    public void setStatus(String jobId, String status){
+    public Mono<Void> saveBundleToNDJSON(String jobID, String fileName, Bundle bundle) {
+        return Mono.fromRunnable(() -> {
+                    logger.info("Started Saving {} ", jobID);
+                    try {
+                        // Create or retrieve the job directory
+                        Path jobDir = resultsDirPath.resolve(jobID);
+                        Files.createDirectories(jobDir);
+
+                        // Serialize the bundle to a JSON string without pretty printing (as per NDJSON)
+                        String bundleJson = parser.setPrettyPrint(false).encodeResourceToString(bundle);
+
+                        // Define the NDJSON file path (the file will have an .ndjson extension)
+                        Path ndjsonFile = jobDir.resolve(fileName + ".ndjson");
+
+                        // Append the serialized bundle to the NDJSON file followed by a newline
+                        Files.writeString(ndjsonFile, bundleJson + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+
+                    } catch (IOException e) {
+                        logger.error("Failed to save bundle for jobId {}: {}", jobID, e.getMessage());
+                        throw new RuntimeException("Failed to save bundle", e);
+                    }
+                })
+                .subscribeOn(Schedulers.boundedElastic())  // Run this on a separate scheduler for I/O tasks
+                .doOnSuccess(unused -> jobStatusMap.put(jobID, "Completed"))
+                .then();  // Ensures Mono<Void> is returned
+    }
+
+
+    public void setStatus(String jobId, String status) {
         jobStatusMap.put(jobId, status);
     }
 
-    public String getStatus(String jobId){
+    public String getStatus(String jobId) {
         return jobStatusMap.get(jobId);
     }
 
-    public int getSize(){
+    public int getSize() {
         return jobStatusMap.size();
     }
 
 
-
-
-    public Map<String, Object> loadBundleFromFileSystem(String jobId) {
+    public Map<String, Object> loadBundleFromFileSystem(String jobId, String requestUrl, String transactionTime) {
         Map<String, Object> response = new HashMap<>();
         try {
             Path jobDir = resultsDirPath.resolve(jobId);
@@ -118,26 +153,28 @@ public class ResultFileManager {
                 List<Map<String, String>> errorFiles = new ArrayList<>();
 
                 Files.list(jobDir).forEach(file -> {
-                    if (file.toString().endsWith(".json")) {
-                        String type = "Bundle"; // All files are bundles
-                        String url = file.getFileName().toString();
+                    String fileName = file.getFileName().toString();
+                    String url = "https://example.com/output/" + fileName;
 
-                        Map<String, String> fileEntry = new HashMap<>();
+                    Map<String, String> fileEntry = new HashMap<>();
+                    fileEntry.put("url", url);
+
+                    if (fileName.endsWith(".ndjson")) {
+                        String type = determineFileType(fileName); // Helper method to determine the type
                         fileEntry.put("type", type);
-                        fileEntry.put("url", url);
-
-                        if (file.getFileName().toString().contains("err")) {
-                            errorFiles.add(fileEntry);
-                        } else if (file.getFileName().toString().contains("del")) {
-                            deletedFiles.add(fileEntry);
-                        } else {
-                            outputFiles.add(fileEntry);
-                        }
+                        outputFiles.add(fileEntry);
+                    } else if (fileName.contains("err")) {
+                        fileEntry.put("type", "OperationOutcome");
+                        errorFiles.add(fileEntry);
+                    } else if (fileName.contains("del")) {
+                        fileEntry.put("type", "Bundle");
+                        deletedFiles.add(fileEntry);
                     }
                 });
 
-                response.put("transactionTime", "2021-01-01T00:00:00Z");
-                response.put("request", "https://example.com/fhir/Patient/$export?_type=Patient,Observation");
+                // Set the transactionTime and requestUrl into the response
+                response.put("transactionTime", transactionTime);
+                response.put("request", requestUrl);
                 response.put("requiresAccessToken", true);
                 response.put("output", outputFiles);
                 response.put("deleted", deletedFiles);
@@ -152,5 +189,19 @@ public class ResultFileManager {
 
         return response.isEmpty() ? null : response;
     }
-}
 
+
+    /**
+     * Helper method to determine the type of file based on its name.
+     * You can enhance this method to use actual file inspection if needed.
+     */
+    private String determineFileType(String fileName) {
+        if (fileName.contains("patient")) {
+            return "Patient";
+        } else if (fileName.contains("observation")) {
+            return "Observation";
+        }
+        // Add more logic as needed to handle other types
+        return "Bundle"; // Default type if none matched
+    }
+}

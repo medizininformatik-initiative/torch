@@ -15,9 +15,10 @@ torch:
   batchsize: 1
 logging:
   level:
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:info}
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
-    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:info}
+    reactor: debug
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:debug}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
+    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:debug}
     org.springframework: ${LOG_LEVEL:info}
 
 
