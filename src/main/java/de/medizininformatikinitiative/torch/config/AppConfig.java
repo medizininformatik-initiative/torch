@@ -104,8 +104,8 @@ public class AppConfig {
     }
 
     @Bean
-    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser){
-        return new ResultFileManager(resultsDir,duration, parser);
+    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser, @Value("${nginx.hostname}") String hostname){
+        return new ResultFileManager(resultsDir,duration, parser,hostname);
     }
 
 

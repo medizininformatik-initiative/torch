@@ -15,6 +15,9 @@ torch:
     dir: bundles/
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 2
+nginx:
+    hostname: example.com/
+
 logging:
   level:
     org.springframework.web.reactive.function.client: debug

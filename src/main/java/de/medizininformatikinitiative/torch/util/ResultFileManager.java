@@ -24,16 +24,17 @@ public class ResultFileManager {
     private final Path resultsDirPath;
     private final IParser parser;
     private Duration duration;
+    private String hostname;
     public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
 
-    public ResultFileManager(String resultsDir, String duration, IParser parser) {
+    public ResultFileManager(String resultsDir, String duration, IParser parser,String hostname) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.parser = parser;
 
 
         this.duration = Duration.parse(duration);
-
+        this.hostname=hostname;
 
         logger.info(" Duration of persistence{}", this.duration);
         // Ensure the directory exists
@@ -154,7 +155,7 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = "https://example.com/output/" + fileName;
+                    String url = hostname + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
@@ -177,9 +178,9 @@ public class ResultFileManager {
                 response.put("request", requestUrl);
                 response.put("requiresAccessToken", true);
                 response.put("output", outputFiles);
+                logger.info("OutputFiles size {}",outputFiles.size());
                 response.put("deleted", deletedFiles);
                 response.put("error", errorFiles);
-                response.put("extension", Collections.singletonMap("https://example.com/extra-property", true));
             } else {
                 logger.warn("Job directory does not exist or is not a directory for jobId: {}", jobId);
             }

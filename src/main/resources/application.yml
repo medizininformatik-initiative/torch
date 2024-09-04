@@ -13,12 +13,14 @@ torch:
     dir: bundles/
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 1
+nginx:
+  hostname: example.com/
 logging:
   level:
     reactor: debug
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:debug}
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
-    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:debug}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:info}
     org.springframework: ${LOG_LEVEL:info}
 
 
