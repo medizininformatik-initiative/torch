@@ -25,16 +25,19 @@ public class ResultFileManager {
     private final IParser parser;
     private Duration duration;
     private String hostname;
+    private String fileserverName;
     public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
 
-    public ResultFileManager(String resultsDir, String duration, IParser parser,String hostname) {
+    public ResultFileManager(String resultsDir, String duration, IParser parser,String hostname,String fileserverName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.parser = parser;
 
 
         this.duration = Duration.parse(duration);
         this.hostname=hostname;
+        this.fileserverName=fileserverName;
+
 
         logger.debug(" Duration of persistence{}", this.duration);
         // Ensure the directory exists
@@ -163,7 +166,7 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = hostname+"/"+jobId+"/" + fileName;
+                    String url = fileserverName+"/"+jobId+"/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
@@ -183,7 +186,7 @@ public class ResultFileManager {
 
                 // Set the transactionTime and requestUrl into the response
                 response.put("transactionTime", transactionTime);
-                response.put("request", hostname+"/"+operation);
+                response.put("request", hostname+operation);
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
                 logger.debug("OutputFiles size {}",outputFiles.size());

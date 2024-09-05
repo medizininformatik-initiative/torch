@@ -17,6 +17,7 @@ torch:
   batchsize: 2
 nginx:
     servername: localhost:8080
+    filelocation: localhost:8080/output
 
 logging:
   level:

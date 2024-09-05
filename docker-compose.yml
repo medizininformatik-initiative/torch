@@ -56,6 +56,7 @@ services:
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
       LOG_LEVEL: info
       NGINX_SERVERNAME: localhost
+      NGINX_File: localhost:8080/output
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
