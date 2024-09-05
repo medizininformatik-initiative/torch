@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,9 @@ public class ResourceTransformationTest extends BaseTest {
     @Autowired
     private WebClient webClient;
 
+    @Autowired
+    private ResultFileManager resultFileManager;
+
     private DataStore dataStore;
 
     @BeforeAll void setup(){
@@ -27,8 +31,7 @@ public class ResourceTransformationTest extends BaseTest {
     @Test
     public void testObservation() {
 
-
-        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds,resultFileManager);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");

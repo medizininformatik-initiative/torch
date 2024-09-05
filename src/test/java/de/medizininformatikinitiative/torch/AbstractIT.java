@@ -5,9 +5,12 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
@@ -27,12 +30,15 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +48,7 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 @Testcontainers
 @SpringBootTest()
 @ActiveProfiles("test")
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+//@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractIT {
 
 
@@ -88,9 +94,9 @@ public abstract class AbstractIT {
     @Container
     public static DockerComposeContainer<?> environment =
             new DockerComposeContainer<>(new File("src/test/resources/docker-compose.yml"))
-                    .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+                    .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
                     .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                    .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+                    .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
                     .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
 
 
@@ -173,6 +179,39 @@ public abstract class AbstractIT {
             }
         }
         throw new RuntimeException("Health check failed for service: " + service + " at " + url);
+    }
+
+
+
+    private void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
+        for (Map.Entry<String, Bundle> entry : bundles.entrySet()) {
+            String patientId = entry.getKey();
+            Bundle bundle = entry.getValue();
+            Bundle expectedBundle = expectedResources.get(patientId);
+            // Remove the meta.lastUpdated field from both bundles
+            // You can calculate milliseconds using a tool or method or directly input the correct value.
+
+
+            // Remove meta.lastUpdated from all contained resources in the bundle
+            removeMetaLastUpdated(bundle);
+            removeMetaLastUpdated(expectedBundle);
+
+            //logger.debug(parser.setPrettyPrint(true).encodeResourceToString(bundle));
+            Assertions.assertNotNull(expectedBundle, "No expected bundle found for patientId " + patientId);
+            Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(expectedBundle),parser.setPrettyPrint(true).encodeResourceToString(bundle),
+
+                    bundle + " Expected not equal to actual output");
+        }
+    }
+
+    private void removeMetaLastUpdated(Bundle bundle) {
+        for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+            Resource resource = entry.getResource();
+            if (resource != null && resource.hasMeta() && resource.getMeta().hasLastUpdated()) {
+                logger.info("Removed lastUpdated ");
+                resource.getMeta().setLastUpdated(null);
+            }
+        }
     }
 
 }

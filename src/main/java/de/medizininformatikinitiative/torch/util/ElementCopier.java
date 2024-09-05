@@ -18,8 +18,6 @@ import java.util.List;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.torch.util.CopyUtils.*;
-import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.cleanFhirPath;
-import static de.medizininformatikinitiative.torch.util.FhirPathBuilder.handleSlicingForFhirPath;
 
 public class ElementCopier {
     private static final Logger logger = LoggerFactory.getLogger(ElementCopier.class);
@@ -30,7 +28,7 @@ public class ElementCopier {
 
     CdsStructureDefinitionHandler handler;
 
-    Slicing slicing;
+    FhirPathBuilder pathBuilder;
 
 
     /**
@@ -41,7 +39,7 @@ public class ElementCopier {
     public ElementCopier(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
-        this.slicing = new Slicing(handler);
+        this.pathBuilder=new FhirPathBuilder(handler);
 
     }
 
@@ -49,18 +47,20 @@ public class ElementCopier {
     /**
      * @param src       Source Resource to copy from
      * @param tgt       Target Resource to copy to
-     * @param attribute Attribute to copy containing FHIR Path and if it is a mandatory element.
+     * @param attribute Attribute to copy containing ElementID and if it is a mandatory element.
      * @throws MustHaveViolatedException if mandatory element is missing
      */
     public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException {
-        CanonicalType profileurl = src.getMeta().getProfile().getFirst();
-        StructureDefinition structureDefinition = handler.getDefinition(String.valueOf(profileurl.getValue()));
-        logger.debug("Empty Structuredefinition? {}", structureDefinition.isEmpty());
+        List<CanonicalType> profileurl = src.getMeta().getProfile();
+        StructureDefinition structureDefinition = handler.getDefinition(profileurl);
+        logger.debug("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(),profileurl.getFirst().getValue());
         List<String> legalExtensions = new LinkedList<>();
+
 
 
         ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(type.profile +'') ", StringType.class).forEach(stringType -> legalExtensions.add(stringType.getValue()));
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+        ElementDefinition elementDefinition =snapshot.getElementById(attribute.getAttributeRef());
 
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
         logger.debug("TGT set {}", tgt.getClass());
@@ -68,39 +68,58 @@ public class ElementCopier {
 
 
         try {
-            String fhirPath = cleanFhirPath(handleSlicingForFhirPath(attribute.getAttributeRef(), false,factory));
+            //logger.debug("Attribute Path {}", attribute.getAttributeRef());
+
+            String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.getAttributeRef(), factory, snapshot);
             logger.debug("FHIR PATH {}", fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-
-            //TODO Check Extensions on Element Level
-            elements.forEach(element -> {
-                if (element instanceof Element) {
-                    checkExtensions(attribute.getAttributeRef(), legalExtensions, (Element) element, structureDefinition);
-
-                }
-            });
+            //logger.debug("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.isMustHave()) {
                     throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
                 }
             } else {
-                String shorthandFHIRPATH = handleSlicingForFhirPath(attribute.getAttributeRef(), true,factory);
+                String terserFHIRPATH =     pathBuilder.handleSlicingForTerser(attribute.getAttributeRef());
 
                 if (elements.size() == 1) {
 
-                    if (shorthandFHIRPATH.endsWith("[x]")) {
+                    if (terserFHIRPATH.endsWith("[x]")) {
+                        //logger.debug("Tersertobehandled {}",terserFHIRPATH);
                         String type = capitalizeFirstLetter(elements.getFirst().fhirType());
-                        shorthandFHIRPATH = shorthandFHIRPATH.replace("[x]", type);
+                        terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
                     }
-                    TerserUtil.setFieldByFhirPath(ctx.newTerser(), shorthandFHIRPATH, tgt, elements.getFirst());
+                    //logger.debug("Setting {} {}",terserFHIRPATH,elements.getFirst().fhirType());
+                    try {
+                        TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
+                    }catch(Exception e){
+                        if(elementDefinition.hasType()) {
+                            elementDefinition.getType().getFirst().getWorkingCode();
+                            //TODO
+                            //logger.debug("Element not recognized {} {}",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
+                            try {
+                                Base casted = factory.stringtoPrimitive(elements.getFirst().toString(),elementDefinition.getType().getFirst().getWorkingCode());
+                                //logger.debug("Casted {}",casted.fhirType());
+                                TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
+                            }catch (Exception casterException){
+                                logger.warn("Element not recognized and cast unsupported currently  {} {} ",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
+                                logger.warn("{} ",casterException);
+                            }
+                        }else{
+                            logger.warn("Element has no known type ",terserFHIRPATH);
+                        }
+
+
+                    }
+
                 } else {
                     //Assume branching before element
+                    //TODO Go back in branching
 
                     int endIndex = attribute.getAttributeRef().lastIndexOf(".");
 
                     if (endIndex != -1) {
-                        String ParentPath = attribute.getAttributeRef().substring(0, endIndex); // not forgot to put check if(endIndex != -1)
+                        String ParentPath = attribute.getAttributeRef().substring(0, endIndex);
                         logger.debug("ParentPath {}", ParentPath);
                         logger.debug("Elemente {}", snapshot.getElementByPath(ParentPath));
                         String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
@@ -111,10 +130,9 @@ public class ElementCopier {
                 }
             }
         } catch (NullPointerException e) {
-            logger.debug("No Result for FHIR SEARCH");
-
+            //FHIR Search Returns Null, if not result found
         }catch (FHIRException e) {
-            logger.debug("Unsupported Type",e);
+            logger.error("Unsupported Type",e);
 
         }
 

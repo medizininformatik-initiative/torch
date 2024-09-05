@@ -52,10 +52,10 @@ public class Crtdl {
         return dataExtraction.getAttributeGroups().getFirst().getAttributes().getFirst().getAttributeRef().split("\\.")[0];
     }
 
-    public StructuredQuery getStructuredQuery() {
+/*    public StructuredQuery getStructuredQuery() {
         return sq;
     }
-
+*/
     public void setStructuredQuery(StructuredQuery sq) {
         this.sq = sq;
     }

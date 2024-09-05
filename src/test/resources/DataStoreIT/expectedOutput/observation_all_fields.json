@@ -1,14 +1,14 @@
 {
   "resourceType": "Bundle",
   "id": "3",
-  "type": "collection",
+  "type": "transaction",
   "entry": [ {
     "resource": {
       "resourceType": "Observation",
       "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
       "meta": {
         "versionId": "1",
-        "lastUpdated": "2024-08-08T08:08:51.689Z",
+        "lastUpdated": "2024-08-22T09:19:59.852Z",
         "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab" ]
       },
       "identifier": [ {
@@ -34,6 +34,9 @@
       "subject": {
         "reference": "Patient/3"
       },
+      "encounter": {
+        "reference": "Encounter/5"
+      },
       "effectiveDateTime": "2023-07-03T00:00:00Z",
       "valueQuantity": {
         "value": 8.4,
@@ -41,6 +44,32 @@
         "system": "http://unitsofmeasure.org",
         "code": "mmol/L"
       }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Patient",
+      "id": "3",
+      "meta": {
+        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Patient/3"
+    }
+  }, {
+    "resource": {
+      "resourceType": "Encounter",
+      "id": "5",
+      "status": "unknown"
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Encounter/5"
     }
   } ]
 }
