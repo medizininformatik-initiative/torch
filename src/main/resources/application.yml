@@ -10,9 +10,9 @@ torch:
   flare:
     url: http://localhost:8084
   results:
-    dir: bundles/
+    dir: output/
     persistence: PT12H30M5S # Time Block in ISO 8601 format
-  batchsize: 1
+  batchsize: 100
 nginx:
   servername: example.com/
 logging:

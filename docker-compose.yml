@@ -8,7 +8,7 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - "data-store-data:/app/data"
+      - "data-store-data:/app/output"
 
   torch-flare:
     image: ghcr.io/medizininformatik-initiative/flare:pr-179
@@ -37,6 +37,7 @@ services:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template
       - ./start-nginx.sh:/start-nginx.sh
       - torch-data-store:/app/output  # Shared with torch service
+      - ./output:/app/output
     entrypoint: ["/bin/sh", "/start-nginx.sh"]
 
   torch:
@@ -58,7 +59,7 @@ services:
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
-      - ./bundles:/app/output
+      - ./output:/app/output
     user: 1000:1000
 
 volumes:

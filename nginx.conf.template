@@ -6,7 +6,7 @@ http {
         listen 8080;
         server_name localhost;
 
-        root /output;
+        root /app/output;
 
         index index.html;
 
