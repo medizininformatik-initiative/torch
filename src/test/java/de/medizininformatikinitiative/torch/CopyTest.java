@@ -35,7 +35,7 @@ public class CopyTest extends BaseTest{
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourceSrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-                copier.copy(resourceSrc, tgt, new Attribute("Condition.onset[x]:onsetDateTime", false));
+                copier.copy(resourceSrc, tgt, new Attribute("Condition.onset[x]", false));
                 copier.copy(resourceSrc, tgt, new Attribute("Condition.meta", true));
                 copier.copy(resourceSrc, tgt, new Attribute("Condition.id", true));
                 copier.copy(resourceSrc, tgt, new Attribute("Condition.code", false));
@@ -43,6 +43,7 @@ public class CopyTest extends BaseTest{
                 assertNotNull(tgt);
 
                 assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), resource + " Expected not equal to actual output");
+
             } catch (Exception e) {
                 logger.error("",e);
             }
@@ -62,7 +63,11 @@ public class CopyTest extends BaseTest{
             copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
             copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
             copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
+            copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
+
             assertNotNull(tgt);
+          logger.info(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+
 
         } catch (Exception e) {
             logger.error("",e);

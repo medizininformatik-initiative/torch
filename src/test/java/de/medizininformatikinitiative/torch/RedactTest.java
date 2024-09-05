@@ -20,7 +20,7 @@ public class RedactTest extends BaseTest {
 
         Arrays.stream(resources).forEach(resource -> {
             try {
-
+                logger.info("Resource Handled {}",resource);
                 DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/" + resource);
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
                 resourceSrc = (DomainResource) redaction.redact(resourceSrc, "", 1);

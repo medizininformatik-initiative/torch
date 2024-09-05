@@ -5,10 +5,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
-import de.medizininformatikinitiative.torch.util.Redaction;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -36,20 +33,25 @@ public class ResourceTransformer {
     private final ElementCopier copier;
     private final Redaction redaction;
 
+    private final ResultFileManager fileManager;
+
     @Autowired(required = false)
     int batchSize = 1;
 
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
 
 
+    private final BundleCreator creator=new BundleCreator();
+
     public ConcurrentMap<String, Set<String>> fulfilledGroupsPerPatient;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
         this.fulfilledGroupsPerPatient = new ConcurrentHashMap<>();
+        this.fileManager=fileManager;
     }
 
 
@@ -94,25 +96,29 @@ public class ResourceTransformer {
         return tgt;
     }
 
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients, int batchSize)  {
-        logger.debug("Starting collectResourcesByPatientReference with batchSize: {}", batchSize);
+
+
+
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
+        logger.debug("Starting collectResourcesByPatientReference");
         logger.debug("Patients Received: {}", patients);
-        //Set of Pat Ids that survived so dar
+
+        // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
 
         // Mono.fromCallable is used to wrap the blocking code
-
         return Mono.fromCallable(() -> {
                     // This part of the code involves blocking operations like creating lists
                     List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
                             .map(group -> {
-                                //Set of PatIds that survived the
+                                // Set of PatIds that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
-                                List<String> batches = splitListIntoBatches(patients, batchSize);
-                                logger.debug("FHIR search List size for group {}: {}", group, batches.size());
+                                if(!group.hasMustHave()){
+                                    safeGroup.addAll(patients);
+                                }
 
-                                return Flux.fromIterable(batches)
-                                        .flatMap(batch -> transformResources(searchBuilder.getSearchBatch(group, batch), group))
+                                // Handling the entire patients list as a batch
+                                return transformResources(searchBuilder.getSearchBatch(group, patients), group)
                                         .filter(resource -> !resource.isEmpty())
                                         .collectMultimap(resource -> {
                                             try {
@@ -123,14 +129,12 @@ public class ResourceTransformer {
                                                 logger.error("PatientIdNotFoundException: {}", e.getMessage());
                                                 throw new RuntimeException(e);
                                             }
-
                                         })
                                         .doOnNext(map -> {
-                                                    logger.debug("Collected resources for group {}", group.getGroupReference());
-                                                    safeSet.retainAll(safeGroup); // Remove all elements in safeSet from safeGroup
-                                                    logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
-                                                }
-                                        );
+                                            logger.debug("Collected resources for group {}", group.getGroupReference());
+                                            safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
+                                            logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
+                                        });
                             })
                             .collect(Collectors.toList());
 
@@ -140,7 +144,7 @@ public class ResourceTransformer {
                                 logger.debug("Combining resource lists into a single map");
                                 return resourceLists.stream()
                                         .flatMap(map -> map.entrySet().stream())
-                                        .filter(entry -> safeSet.contains(entry.getKey()))
+                                        .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
                                         .collect(Collectors.toMap(
                                                 Map.Entry::getKey,
                                                 Map.Entry::getValue,
@@ -152,9 +156,16 @@ public class ResourceTransformer {
                             })
                             .block(); // Blocking call within a Callable to get the final result
                 })
-                .doOnSuccess(result -> logger.info("Successfully collected resources"))
+                .doOnSuccess(result -> logger.debug("Successfully collected resources"))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
+
+
+
+
+
+
+
 
 
 }

@@ -20,7 +20,7 @@ public class CapabilityStatementController {
 
     @GetMapping(value = "/fhir/metadata", produces = MediaType.APPLICATION_JSON_VALUE)
     public String getCapabilityStatement() {
-        logger.info("Received request for /fhir/metadata");
+        logger.debug("Received request for /fhir/metadata");
         CapabilityStatement capabilityStatement = createCapabilityStatement();
         String capabilityStatementString = parser.setPrettyPrint(true).encodeResourceToString(capabilityStatement);
         logger.debug("Encoded CapabilityStatement to JSON");

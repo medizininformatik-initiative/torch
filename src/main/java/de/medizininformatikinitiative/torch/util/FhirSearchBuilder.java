@@ -17,16 +17,16 @@ public class FhirSearchBuilder {
     }
 
 
-    public String getSearchBatch(AttributeGroup group, String batch) {
+    public String getSearchBatch(AttributeGroup group, List<String> batch) {
         String filter = "";
         if (group.hasFilter()) {
             filter = "&" + group.getFilterString();
         }
         String parameters;
         if (group.getGroupReferenceURL().contains("patient")) {
-            parameters = "identifier=" + batch;
+            parameters = "identifier=" + String.join(",",batch);
         } else {
-            parameters = "patient=" + batch;
+            parameters = "patient=" + String.join(",",batch);
         }
         parameters += "&_profile=" + group.getGroupReferenceURL() + filter;
         return parameters;
@@ -34,16 +34,6 @@ public class FhirSearchBuilder {
     }
 
 
-    public List<String> getSearchBatches(AttributeGroup group, List<String> patients, int size) {
-        List<String> batches = splitListIntoBatches(patients, size);
-        List<String> searchBatches = new ArrayList<>();
-        for (String batch : batches) {
-            String parameters = getSearchBatch(group, batch);
-            searchBatches.add(parameters);
-        }
-
-        return searchBatches;
-    }
 
 
 }

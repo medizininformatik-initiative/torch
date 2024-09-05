@@ -10,7 +10,9 @@ import de.medizininformatikinitiative.torch.DataStore;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -20,9 +22,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.http.client.HttpClient;
 
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
 @Configuration
 public class AppConfig {
-    public int batchSize = 10;
 
     @Bean
     @Qualifier("fhirClient")
@@ -63,6 +67,7 @@ public class AppConfig {
         return new DataStore(client, context);  // Or use your specific configuration to instantiate
     }
 
+
     @Bean
     public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
         return new ElementCopier(cds);  // Or use your specific configuration to instantiate
@@ -79,8 +84,8 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ElementCopier copier, Redaction redaction, CdsStructureDefinitionHandler cds, FhirContext context) {
-        return new ResourceTransformer(dataStore, cds);
+    public ResourceTransformer resourceTransformer(DataStore dataStore,CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
+        return new ResourceTransformer(dataStore, cds,fileManager);
     }
 
     @Bean
@@ -99,6 +104,12 @@ public class AppConfig {
     }
 
     @Bean
+    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser, @Value("${nginx.servername}") String hostname){
+        return new ResultFileManager(resultsDir,duration, parser,hostname);
+    }
+
+
+    @Bean
     public CapabilityStatementController capabilityStatementController() {
         return new CapabilityStatementController();
     }
@@ -112,4 +123,11 @@ public class AppConfig {
     public ObjectMapper objectMapper(){
         return new ObjectMapper();
     }
+
+    @Bean
+    ExecutorService executorService(){
+        return Executors.newCachedThreadPool();
+    }
+
+
 }

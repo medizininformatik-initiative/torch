@@ -4,7 +4,7 @@ services:
   blaze:
     image: samply/blaze:0.25
     environment:
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
     ports:
       - "8080"
     healthcheck:
@@ -17,16 +17,10 @@ services:
   flare:
     image: ghcr.io/medizininformatik-initiative/flare:pr-179
     environment:
-      - LOG_LEVEL=debug
+      - LOG_LEVEL=info
       - FLARE_FHIR_SERVER=http://blaze:8080/fhir
     ports:
-      - "8081:8080"
+      - "8080"
     depends_on:
       blaze:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 40s

@@ -53,7 +53,7 @@ public class Redaction {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 logger.debug("Profile Found {} ",profileurl.getValue());
-                structureDefinition=CDS.getDefinition(String.valueOf(profileurl.getValue()));
+                structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
 
                 // Check if structureDefinition is not null
                 if (structureDefinition != null) {
@@ -71,10 +71,12 @@ public class Redaction {
         ElementDefinition definition = snapshot.getElementById(elementID);
 
 
-        if (definition.hasSlicing()) {
-              Slicing slicing = new Slicing(CDS);
-            ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+      if (definition.hasSlicing()) {
+
+          Slicing slicing = new Slicing(CDS);
+          ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if(slicedElement.hasId()){
+                logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
                 elementID=slicedElement.getIdElement().toString();
 
             }
@@ -87,7 +89,7 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.info("Child to be handled {}",childID);
+            logger.debug("Child to be handled {}",childID);
             String type = "";
             int min=0;
             try {

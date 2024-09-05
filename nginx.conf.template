@@ -1,0 +1,27 @@
+events{}
+pid /tmp/nginx.pid;
+
+http {
+    server {
+        listen 8080;
+        server_name localhost;
+
+        root /app/output;
+
+        index index.html;
+
+        location / {
+            try_files $uri $uri/ =404;
+            autoindex off;
+        }
+
+        access_log /var/log/nginx/access.log;
+        error_log /var/log/nginx/error.log;
+
+        error_page 404 /404.html;
+        location = /404.html {
+            internal;
+        }
+    }
+}
+

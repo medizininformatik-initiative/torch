@@ -1,0 +1,69 @@
+services:
+  torch-data-store:
+    image: "samply/blaze:0.28"
+    environment:
+      BASE_URL: "http://torch-data-store:8080"
+      JAVA_TOOL_OPTIONS: "-Xmx1g"
+      LOG_LEVEL: "info"
+    ports:
+      - "8082:8080"
+    volumes:
+      - "data-store-data:/app/output"
+
+  torch-flare:
+    image: ghcr.io/medizininformatik-initiative/flare:pr-179
+    ports:
+      - ${FEASIBILITY_FLARE_PORT:-127.0.0.1:8084}:8080
+    environment:
+      FLARE_FHIR_SERVER: ${FLARE_FHIR_SERVER_URL:-http://torch-data-store:8080/fhir/}
+      FLARE_FHIR_MAX_CONNECTIONS: ${FLARE_FHIR_MAX_CONNECTIONS:-32}
+      FLARE_FHIR_PAGE_COUNT: ${FLARE_FHIR_PAGE_COUNT:-500}
+      FLARE_CACHE_MEM_SIZE_MB: ${FLARE_CACHE_MEM_SIZE_MB:-1024}
+      FLARE_CACHE_MEM_EXPIRE: ${FLARE_CACHE_MEM_EXPIRE:-PT48H}
+      FLARE_CACHE_MEM_REFRESH: ${FLARE_CACHE_MEM_REFRESH:-PT24H}
+      FLARE_CACHE_DISK_PATH: ${FLARE_CACHE_DISK_PATH:-cache}
+      FLARE_CACHE_DISK_THREADS: ${FLARE_CACHE_DISK_THREADS:-4}
+      FLARE_CACHE_DISK_EXPIRE: ${FLARE_CACHE_DISK_EXPIRE:-P7D}
+      JAVA_TOOL_OPTIONS: ${FLARE_JAVA_TOOL_OPTIONS:--Xmx4g}
+      LOG_LEVEL: ${FLARE_LOG_LEVEL:-info}
+    restart: unless-stopped
+
+  torch-nginx:
+    restart: unless-stopped
+    image: nginxinc/nginx-unprivileged:1.25.5-alpine
+    ports:
+      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
+    volumes:
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template
+      - ./start-nginx.sh:/start-nginx.sh
+      - torch-data-store:/app/output  # Shared with torch service
+      - ./output:/app/output
+    entrypoint: ["/bin/sh", "/start-nginx.sh"]
+
+  torch:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - ${PORT_TORCH:-127.0.0.1:8086}:8080
+    environment:
+      SERVER_PORT: 8080
+      TORCH_PROFILE_DIR: /app/StructureDefinitions
+      TORCH_FHIR_URL: http://torch-data-store:8080/fhir
+      TORCH_FLARE_URL: http://torch-flare:8080
+      TORCH_RESULTS_DIR: /app/output
+      TORCH_RESULTS_PERSISTENCE: PT12H30M5S
+      LOG_LEVEL: info
+      NGINX_SERVERNAME: localhost
+    volumes:
+      - "torch-data-store:/app/output"   # Shared volume with torch-nginx
+      - ./structureDefinitions:/app/StructureDefinitions
+      - ./output:/app/output
+    user: 1000:1000
+
+volumes:
+  data-store-data:
+  torch-data-store:
+
+

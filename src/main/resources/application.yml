@@ -9,9 +9,20 @@ torch:
     url: http://localhost:8082/fhir
   flare:
     url: http://localhost:8084
-
+  results:
+    dir: output/
+    persistence: PT12H30M5S # Time Block in ISO 8601 format
+  batchsize: 100
+nginx:
+  servername: localhost:8080
 logging:
   level:
-    org.springframework: ${LOG_LEVEL:warn}
+    org.springframework.web.reactive.function.client: info
+    reactor.netty: info
+    reactor: info
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:info}
+    org.springframework: ${LOG_LEVEL:info}
 
 
