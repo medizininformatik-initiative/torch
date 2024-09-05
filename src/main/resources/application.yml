@@ -15,6 +15,7 @@ torch:
   batchsize: 100
 nginx:
   servername: localhost:8080
+  filelocation: localhost:8080/output
 logging:
   level:
     org.springframework.web.reactive.function.client: info
