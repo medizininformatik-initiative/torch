@@ -14,7 +14,7 @@ torch:
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 100
 nginx:
-  servername: example.com/
+  servername: localhost:8080
 logging:
   level:
     org.springframework.web.reactive.function.client: info

@@ -56,6 +56,8 @@ import static org.springframework.web.reactive.function.server.ServerResponse.*;
 @RestController
 public class FhirController {
 
+    private static final String operation = "/fhir/$extract-data";
+
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
     private static final MediaType MEDIA_TYPE_CRTDL_JSON = MediaType.valueOf("application/crtdl+json");
 
@@ -93,20 +95,23 @@ public class FhirController {
     @Bean
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
-        return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleCrtdlBundle)
+        ResultFileManager.setOperation(operation);
+        return route(POST(operation).and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleCrtdlBundle)
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
     }
 
     public Mono<ServerResponse> handleCrtdlBundle(ServerRequest request) {
-
+        UUID uuid = UUID.randomUUID();
+        String jobId = uuid.toString();
+        resultFileManager.setStatus(jobId,"Processing");
         // Read the body asynchronously and process it
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(body -> {
                     // Generate jobId based on the request body hashCode
-                    String jobId = String.valueOf(body.hashCode());
+
                     logger.info("Create CRTDL with jobId: {}", jobId);
-                    resultFileManager.setStatus(jobId,"Processing");
+
                     // Initialize the job directory asynchronously
                     return resultFileManager.initJobDir(jobId)
                             .then(Mono.fromCallable(() -> {
@@ -218,8 +223,9 @@ public class FhirController {
 
                                 return Flux.fromIterable(bundles.values())
                                         .flatMap(bundle -> {
+                                            UUID uuid = UUID.randomUUID();
                                             // Save each serialized bundle (as an individual line in NDJSON) to the file system
-                                            return resultFileManager.saveBundleToNDJSON(jobId, String.valueOf(batch.hashCode()), bundle)
+                                            return resultFileManager.saveBundleToNDJSON(jobId, uuid.toString(), bundle)
                                                     .doOnSuccess(unused -> {
                                                         logger.debug("Bundle appended: {}", batch.hashCode());
                                                     });

@@ -20,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ResultFileManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ResultFileManager.class);
-
+    private static String operation;
     private final Path resultsDirPath;
     private final IParser parser;
     private Duration duration;
@@ -46,6 +46,10 @@ public class ResultFileManager {
             }
         }
         loadExistingResults();
+    }
+
+    public static void setOperation(String operation) {
+        ResultFileManager.operation = operation;
     }
 
     public void loadExistingResults() {
@@ -131,7 +135,6 @@ public class ResultFileManager {
                     }
                 })
                 .subscribeOn(Schedulers.boundedElastic())  // Run this on a separate scheduler for I/O tasks
-                .doOnSuccess(unused -> jobStatusMap.put(jobID, "Completed"))
                 .then();  // Ensures Mono<Void> is returned
     }
 
@@ -160,7 +163,7 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = hostname + fileName;
+                    String url = hostname+"/"+jobId+"/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
@@ -180,8 +183,8 @@ public class ResultFileManager {
 
                 // Set the transactionTime and requestUrl into the response
                 response.put("transactionTime", transactionTime);
-                response.put("request", requestUrl);
-                response.put("requiresAccessToken", true);
+                response.put("request", hostname+"/"+operation);
+                response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
                 logger.debug("OutputFiles size {}",outputFiles.size());
                 response.put("deleted", deletedFiles);
