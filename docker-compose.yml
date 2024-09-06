@@ -9,7 +9,6 @@ services:
       - "8082:8080"
     volumes:
       - "data-store-data:/app/output"
-
   torch-flare:
     image: ghcr.io/medizininformatik-initiative/flare:pr-179
     ports:
@@ -27,7 +26,6 @@ services:
       JAVA_TOOL_OPTIONS: ${FLARE_JAVA_TOOL_OPTIONS:--Xmx4g}
       LOG_LEVEL: ${FLARE_LOG_LEVEL:-info}
     restart: unless-stopped
-
   torch-nginx:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
@@ -39,7 +37,6 @@ services:
       - torch-data-store:/app/output  # Shared with torch service
       - ./output:/app/output
     entrypoint: ["/bin/sh", "/start-nginx.sh"]
-
   torch:
     restart: unless-stopped
     build:
@@ -56,7 +53,7 @@ services:
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
       LOG_LEVEL: info
       NGINX_SERVERNAME: localhost
-      NGINX_File: localhost:8080/output
+      NGINX_FILELOCATION: http://localhost:80
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
