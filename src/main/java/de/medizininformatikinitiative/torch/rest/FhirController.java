@@ -220,14 +220,14 @@ public class FhirController {
                                 logger.debug("Map {}", resourceMap.keySet());
                                 Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
                                 logger.debug("Bundles Size {}", bundles.size());
-
+                                UUID uuid = UUID.randomUUID();
                                 return Flux.fromIterable(bundles.values())
                                         .flatMap(bundle -> {
-                                            UUID uuid = UUID.randomUUID();
+
                                             // Save each serialized bundle (as an individual line in NDJSON) to the file system
                                             return resultFileManager.saveBundleToNDJSON(jobId, uuid.toString(), bundle)
                                                     .doOnSuccess(unused -> {
-                                                        logger.debug("Bundle appended: {}", batch.hashCode());
+                                                        logger.debug("Bundle appended: {}", parser.setPrettyPrint(true).encodeResourceToString(bundle));
                                                     });
                                         })
                                         .then();  // Ensure the Mono completes after all bundles are appended

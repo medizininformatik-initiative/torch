@@ -58,8 +58,10 @@ public class ResourceTransformer {
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
         Flux<Resource> resources = dataStore.getResources(resourceType, parameters);
+
         return resources.map(resource -> {
             try {
+
                 return transform((DomainResource) resource, group);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                      InstantiationException e) {
@@ -79,8 +81,13 @@ public class ResourceTransformer {
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-        for (Attribute attribute : group.getAttributes()) {
-            copier.copy(resourcesrc, tgt, attribute);
+
+        try {
+        logger.debug("Handling resource {}",ResourceUtils.getPatientId(resourcesrc));
+            for (Attribute attribute : group.getAttributes()) {
+
+                copier.copy(resourcesrc, tgt, attribute);
+
         }
         //TODO define technically required in all Ressources
         copier.copy(resourcesrc, tgt, new Attribute("meta.profile", true));
@@ -93,6 +100,9 @@ public class ResourceTransformer {
             copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
         }
         redaction.redact(tgt, "", 1);
+        } catch (PatientIdNotFoundException e) {
+            throw new RuntimeException(e);
+        }
         return tgt;
     }
 
@@ -131,9 +141,9 @@ public class ResourceTransformer {
                                             }
                                         })
                                         .doOnNext(map -> {
-                                            logger.debug("Collected resources for group {}", group.getGroupReference());
+                                            logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
                                             safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
-                                            logger.debug("SafeGroup after diff with SafeSet: {}", safeGroup);
+                                            logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
                                         });
                             })
                             .collect(Collectors.toList());
@@ -156,7 +166,7 @@ public class ResourceTransformer {
                             })
                             .block(); // Blocking call within a Callable to get the final result
                 })
-                .doOnSuccess(result -> logger.debug("Successfully collected resources"))
+                .doOnSuccess(result -> logger.debug("Successfully collected resources {}",result.entrySet()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
 

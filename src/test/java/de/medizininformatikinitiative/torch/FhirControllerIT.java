@@ -130,7 +130,7 @@ public class FhirControllerIT extends AbstractIT {
         // Count the number of patient IDs
         int patientCount = patientIds.size();
         logger.info(String.valueOf(patientIds));
-        Assertions.assertEquals(3, patientCount);
+        Assertions.assertEquals(4, patientCount);
     }
 
 
