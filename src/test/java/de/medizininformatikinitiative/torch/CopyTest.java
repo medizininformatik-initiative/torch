@@ -66,7 +66,7 @@ public class CopyTest extends BaseTest{
             copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
 
             assertNotNull(tgt);
-          logger.info(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+         // logger.info(parser.setPrettyPrint(true).encodeResourceToString(tgt));
 
 
         } catch (Exception e) {

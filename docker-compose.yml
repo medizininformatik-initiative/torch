@@ -51,7 +51,7 @@ services:
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
-      LOG_LEVEL: debug
+      LOG_LEVEL: info
       NGINX_SERVERNAME: localhost
       NGINX_FILELOCATION: http://localhost:80
       TORCH_BATCHSIZE: 100

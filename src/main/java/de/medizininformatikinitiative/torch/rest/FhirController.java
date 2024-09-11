@@ -124,7 +124,7 @@ public class FhirController {
 
                                         // Decode and parse CRTDL content
                                         Crtdl crtdl = parseCrtdlContent(decodeCrtdlContent(parameters));
-                                        logger.debug("Parsed CRTDL: {}", crtdl.getSqString());
+                                        //logger.debug("Parsed CRTDL: {}", crtdl.getSqString());
                                         return crtdl;
                                     }).subscribeOn(Schedulers.boundedElastic()) // Perform blocking tasks on a separate thread pool
                                     .doOnNext(crtdl -> {
@@ -198,6 +198,9 @@ public class FhirController {
     private Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
         return fetchPatientListFromFlare(crtdl)
                 .flatMapMany(patientList -> {
+                    if(patientList.isEmpty()){
+                        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: ");
+                    }
                     // Split the patient list into batches
                     List<List<String>> batches = splitListIntoBatches(patientList, batchsize);
                     return Flux.fromIterable(batches);
@@ -217,7 +220,7 @@ public class FhirController {
                                 return !resourceMap.isEmpty();
                             }) // Filter out null or empty maps
                             .flatMap(resourceMap -> {
-                                logger.debug("Map {}", resourceMap.keySet());
+                                //logger.debug("Map {}", resourceMap.keySet());
                                 Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
                                 logger.debug("Bundles Size {}", bundles.size());
                                 UUID uuid = UUID.randomUUID();
@@ -227,7 +230,7 @@ public class FhirController {
                                             // Save each serialized bundle (as an individual line in NDJSON) to the file system
                                             return resultFileManager.saveBundleToNDJSON(jobId, uuid.toString(), bundle)
                                                     .doOnSuccess(unused -> {
-                                                        logger.debug("Bundle appended: {}", parser.setPrettyPrint(true).encodeResourceToString(bundle));
+                                                        logger.debug("Bundle appended: {}", uuid);
                                                     });
                                         })
                                         .then();  // Ensure the Mono completes after all bundles are appended
@@ -250,7 +253,7 @@ public class FhirController {
 
 
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        logger.debug("Flare called for the following input {}",crtdl.getSqString());
+        //logger.debug("Flare called for the following input {}",crtdl.getSqString());
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))

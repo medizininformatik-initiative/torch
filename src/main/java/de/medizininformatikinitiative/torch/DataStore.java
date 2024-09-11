@@ -39,7 +39,7 @@ public class DataStore {
      * @return the resources found with the {@param FHIRSearchQuery}
      */
     public Flux<Resource> getResources(String resourceType,String parameters) {
-        logger.debug("Search Parameters{}", parameters);
+        //logger.debug("Search Parameters{}", parameters);
 
 
         return client.post()
@@ -57,7 +57,7 @@ public class DataStore {
     }
 
     private Mono<Bundle> fetchPage(WebClient client, String url) {
-        logger.debug("Fetch Page {}", url);
+        //logger.debug("Fetch Page {}", url);
         return client.get()
                 .uri(URI.create(url))
                 .retrieve()

@@ -110,8 +110,8 @@ public class ResourceTransformer {
 
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
-        logger.debug("Starting collectResourcesByPatientReference");
-        logger.debug("Patients Received: {}", patients);
+        //logger.debug("Starting collectResourcesByPatientReference");
+        //logger.debug("Patients Received: {}", patients);
 
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
@@ -141,9 +141,9 @@ public class ResourceTransformer {
                                             }
                                         })
                                         .doOnNext(map -> {
-                                            logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
+                                            //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
                                             safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
-                                            logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
+                                            //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
                                         });
                             })
                             .collect(Collectors.toList());
@@ -151,7 +151,7 @@ public class ResourceTransformer {
                     return Flux.concat(groupMonos)
                             .collectList()
                             .map(resourceLists -> {
-                                logger.debug("Combining resource lists into a single map");
+                                //logger.debug("Combining resource lists into a single map");
                                 return resourceLists.stream()
                                         .flatMap(map -> map.entrySet().stream())
                                         .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set

@@ -65,7 +65,7 @@ public class DiscriminatorResolver {
                                           ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         // Resolve the element containing the fixed or pattern information.
-        logger.debug("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
+        //logger.debug("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         // Resolve the base element along the path specified by the discriminator.

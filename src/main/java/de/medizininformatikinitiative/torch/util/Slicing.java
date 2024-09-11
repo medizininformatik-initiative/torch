@@ -33,8 +33,7 @@ public class Slicing {
     public Slicing(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
-        parser = ctx.newJsonParser().setPrettyPrint(true);
-
+        parser = ctx.newJsonParser().setPrettyPrint(false);
     }
 
     /**
@@ -53,7 +52,7 @@ public class Slicing {
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
 
         if (slicedElement == null || !slicedElement.hasSlicing()) {
-            logger.warn("Element not sliced {}",elementID);
+            //logger.warn("Element not sliced {}",elementID);
             return null; // Return null if the sliced element is not found or has no slicing
         }
 
@@ -155,7 +154,7 @@ public class Slicing {
         logger.debug("Getting Conditions {}",elementId);
         ElementDefinition elementDefinition= snapshot.getElementById(elementId);
         if(elementDefinition==null){
-            logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
+            //logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
             return conditions;
         }
         if(elementDefinition.hasFixedOrPattern()){
@@ -164,7 +163,7 @@ public class Slicing {
             logger.debug("Got Pattern ");
             conditions.addAll(traverseValueRec(elementDefinition.getPath(),pattern));
         }else{
-            logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
+            //logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
 
         }
 
