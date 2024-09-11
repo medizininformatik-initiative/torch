@@ -77,6 +77,32 @@ public class CopyTest extends BaseTest{
     }
 
     @Test
+    public void testIdentityList() {
+        try {
+            DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte-list.json");
+            Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
+            DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
+            copier.copy(resourcesrc,tgt,new Attribute("Observation.identifier",false));
+
+            copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
+            copier.copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
+            copier.copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
+            copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
+            copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
+
+            assertNotNull(tgt);
+            logger.info(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+
+
+        } catch (Exception e) {
+            logger.error("",e);
+        }
+
+
+    }
+
+
+    @Test
     public void testEncounter() {
         try {
             DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Encounter/Encounter-mii-exa-fall-kontakt-gesundheitseinrichtung-2.json");

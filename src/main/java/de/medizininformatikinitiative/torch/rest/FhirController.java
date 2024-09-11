@@ -207,7 +207,7 @@ public class FhirController {
                 })
                 .flatMap(batch -> {
                     // Log the batch being processed
-                    logger.debug("Handling batch {}", String.join(",", batch));
+                    //logger.debug("Handling batch {}", String.join(",", batch));
 
                     return transformer.collectResourcesByPatientReference(crtdl, batch)
                             .onErrorResume(e -> {
