@@ -155,6 +155,7 @@ public class Slicing {
         ElementDefinition elementDefinition= snapshot.getElementById(elementId);
         if(elementDefinition==null){
             //logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
+            logger.debug("Unsupported Element potentially contains Profile reference {}",elementId);
             return conditions;
         }
         if(elementDefinition.hasFixedOrPattern()){
@@ -163,7 +164,7 @@ public class Slicing {
             logger.debug("Got Pattern ");
             conditions.addAll(traverseValueRec(elementDefinition.getPath(),pattern));
         }else{
-            //logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
+            logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
 
         }
 
