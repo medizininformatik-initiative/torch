@@ -12,7 +12,7 @@ convert_to_crtdl() {
   # Read the input JSON from the file
   input_json=$(cat "$input_file")
 
-  # Use jq to create the new JSON structure
+  # Use jq to create the new JSON structure and filter for date from 2020 to 2025
   crtdl_json=$(echo "$input_json" | jq '
     {
       "version": "http://json-schema.org/to-be-done/schema#",
@@ -24,10 +24,12 @@ convert_to_crtdl() {
             "attributes": (.fields | map({ "attributeRef": .id, "mustHave": false })),
             "filter": (
               if .filters then
-                .filters | map({
-                  "type": .type,
-                  "name": .name
-                })
+                .filters[] | select(.type == "date") | {
+                  "type": "date",
+                  "name": .name,
+                  "start": "2020",
+                  "end": "2025"
+                }
               else []
               end
             )
