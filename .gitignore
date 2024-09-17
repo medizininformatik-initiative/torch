@@ -15,3 +15,7 @@
 log/
 target/
 output
+dependencies
+package.json
+fhirpkg.lock.json
+
