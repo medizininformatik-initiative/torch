@@ -43,27 +43,38 @@ generate_filename() {
 perform_fhir_operations() {
     local file=$1
 
-    # Perform the sequence of fhir commands if the file is a StructureDefinition
-    if grep -q '"resourceType": "StructureDefinition"' "$file"; then
+    # Check if the file contains a StructureDefinition
+    if jq -e '.resourceType == "StructureDefinition"' "$file" > /dev/null; then
         echo "Processing StructureDefinition in $file"
 
-        # Push the file to FHIR
-        fhir push "$file"
+        # Check if the snapshot already exists
+        if jq -e '.snapshot' "$file" > /dev/null; then
+            echo "Snapshot already exists in $file, copying file."
 
-        # Generate snapshot
-        fhir snapshot
+            # Copy the file to the target directory
+            cp "$file" "$TARGET_DIR/$(basename "$file")"
+            echo "Copied $file to $TARGET_DIR"
+        else
+            # Push the file to FHIR
+            fhir push "$file"
 
-        # Generate a good filename
-        filename=$(generate_filename "$file")
+            # Generate snapshot
+            fhir snapshot
 
-        # Save the result with the generated filename to the target directory
-        fhir save "$TARGET_DIR/$filename"
+            # Generate a good filename
+            filename=$(generate_filename "$file")
 
-        echo "Saved processed StructureDefinition from $file to $TARGET_DIR/$filename"
+            # Save the result with the generated filename to the target directory
+            fhir save "$TARGET_DIR/$filename"
+
+            echo "Saved processed StructureDefinition from $file to $TARGET_DIR/$filename"
+        fi
     else
         echo "No operation performed for $file (not a StructureDefinition)"
     fi
 }
+
+
 
 # Function to process each file, ignoring excluded directories
 process_files() {
