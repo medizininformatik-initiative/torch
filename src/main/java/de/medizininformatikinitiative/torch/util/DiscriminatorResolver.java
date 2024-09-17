@@ -121,7 +121,11 @@ public class DiscriminatorResolver {
                     if (resolvedChild == null) {
                         return false;
                     } else {
-                        return compareBaseToFixedOrPattern(resolvedChild.getValues().get(0), child.getValues().get(0));
+                        try {
+                            return compareBaseToFixedOrPattern(resolvedChild.getValues().get(0), child.getValues().get(0));
+                        }catch(IndexOutOfBoundsException ex){
+                            return false;
+                        }
                     }
                 }
 

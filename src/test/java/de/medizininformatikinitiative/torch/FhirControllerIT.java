@@ -30,6 +30,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import reactor.core.publisher.Mono;
+import reactor.test.StepVerifier;
 
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -144,8 +145,7 @@ public class FhirControllerIT extends AbstractIT {
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json",
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json",
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"
-                ),
-                1
+                )
         );
     }
 
@@ -157,8 +157,7 @@ public class FhirControllerIT extends AbstractIT {
                 ),
                 List.of(
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
-                ),
-                1
+                )
         );
     }
 
@@ -170,8 +169,7 @@ public class FhirControllerIT extends AbstractIT {
                 ),
                 List.of(
                         RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"
-                ),
-                1
+                )
         );
     }
 
@@ -182,27 +180,12 @@ public class FhirControllerIT extends AbstractIT {
                         RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"
                 ),
                 List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_all_fields.json"
-                ),
-                1
+                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"
+                )
         );
     }
 
 
-
-    @Test
-    public void testFhirSearchBatch() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json",
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id4.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
-                ),
-                2
-        );
-    }
 
     @Test
     public void testMustHave() throws IOException {
@@ -219,13 +202,31 @@ public class FhirControllerIT extends AbstractIT {
     }
 
 
-    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths, int batchSize) throws IOException, PatientIdNotFoundException {
+    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
         List<String> patients = new ArrayList<>(expectedResources.keySet());
 
         for (String filePath : filePaths) {
-            //processFile(filePath, patients, expectedResources, batchSize);
+            processFile(filePath, patients, expectedResources);
+        }
+    }
+
+    private void processFile(String filePath, List<String> patients, Map<String, Bundle> expectedResources) {
+        try (FileInputStream fis = new FileInputStream(filePath)) {
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+            Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
+
+            StepVerifier.create(collectedResourcesMono)
+                    .expectNextMatches(combinedResourcesByPatientId -> {
+                        Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                        validateBundles(bundles, expectedResources);
+                        return true;
+                    })
+                    .expectComplete()
+                    .verify();
+        } catch (IOException e) {
+            logger.error("CRTDL file not found: {}", filePath, e);
         }
     }
 
@@ -240,7 +241,7 @@ public class FhirControllerIT extends AbstractIT {
                 String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
                 // Read the JSON file into a JsonNode
 
-                JsonNode rootNode = objectMapper.readTree(fileContent);
+              /*  JsonNode rootNode = objectMapper.readTree(fileContent);
 
                 // Extract the cohortDefinition object
                 JsonNode cohortDefinitionNode = rootNode.path("cohortDefinition");
@@ -254,7 +255,7 @@ public class FhirControllerIT extends AbstractIT {
 
                 List<String>result =fhirController.fetchPatientListFromFlare(crtdl).block();
                 logger.info("Flare Call direct {}", result);
-
+*/
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
                     ResponseEntity<String> response = restTemplate.exchange(

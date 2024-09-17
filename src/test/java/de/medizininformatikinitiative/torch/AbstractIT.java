@@ -183,15 +183,11 @@ public abstract class AbstractIT {
 
 
 
-    private void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
+    void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
         for (Map.Entry<String, Bundle> entry : bundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
             Bundle expectedBundle = expectedResources.get(patientId);
-            // Remove the meta.lastUpdated field from both bundles
-            // You can calculate milliseconds using a tool or method or directly input the correct value.
-
-
             // Remove meta.lastUpdated from all contained resources in the bundle
             removeMetaLastUpdated(bundle);
             removeMetaLastUpdated(expectedBundle);
