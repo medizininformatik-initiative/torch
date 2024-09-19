@@ -205,6 +205,7 @@ public class FhirController {
                     List<List<String>> batches = splitListIntoBatches(patientList, batchsize);
                     return Flux.fromIterable(batches);
                 })
+                .parallel()
                 .flatMap(batch -> {
                     // Log the batch being processed
                     //logger.debug("Handling batch {}", String.join(",", batch));

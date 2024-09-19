@@ -26,4 +26,8 @@ logging:
     de.medizininformatikinitiative.torch.rest: ${LOG_LEVEL:info}
     org.springframework: ${LOG_LEVEL:info}
 
+spring:
+  codec:
+    max-in-memory-size: 100MB
+
 

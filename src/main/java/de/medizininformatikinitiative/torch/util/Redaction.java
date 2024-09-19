@@ -20,7 +20,7 @@ public class Redaction {
     private StructureDefinition structureDefinition;
     private final Factory factory;
     private final CdsStructureDefinitionHandler CDS;
-
+    Slicing slicing;
 
     /**
      * Constructor for Redaction
@@ -30,6 +30,7 @@ public class Redaction {
     public Redaction(CdsStructureDefinitionHandler CDS) {
         this.CDS = CDS;
         factory = new Factory();
+        this.slicing= new Slicing(CDS);
     }
 
 
@@ -73,9 +74,12 @@ public class Redaction {
 
       if (definition.hasSlicing()) {
 
-          Slicing slicing = new Slicing(CDS);
+
           ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
-            if(slicedElement.hasId()){
+          if(slicedElement==null){
+              logger.warn("Slicing unknown {}",elementID);
+          }
+          else if(slicedElement.hasId()){
                 logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
                 elementID=slicedElement.getIdElement().toString();
 
