@@ -15,6 +15,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -57,7 +58,17 @@ public class ResourceTransformer {
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
-        Flux<Resource> resources = dataStore.getResources(resourceType, parameters);
+
+        // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
+        Flux<Resource> resources = dataStore.getResources(resourceType, parameters)
+                .subscribeOn(Schedulers.boundedElastic())  // Ensure HTTP requests are offloaded
+                // Error handling in case the HTTP request fails
+                .onErrorResume(e -> {
+                    logger.error("Error fetching resources for parameters: {}", parameters, e);
+                    return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
+                });
+
+
 
         return resources.map(resource -> {
             try {
@@ -116,58 +127,50 @@ public class ResourceTransformer {
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
 
-        // Mono.fromCallable is used to wrap the blocking code
-        return Mono.fromCallable(() -> {
-                    // This part of the code involves blocking operations like creating lists
-                    List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
-                            .map(group -> {
-                                // Set of PatIds that survived for this group
-                                Set<String> safeGroup = new HashSet<>();
-                                if(!group.hasMustHave()){
-                                    safeGroup.addAll(patients);
+        // Wrapping the entire operation in a reactive pipeline without blocking
+        return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                .flatMap(group -> {
+                    // Set of PatIds that survived for this group
+                    Set<String> safeGroup = new HashSet<>();
+                    if (!group.hasMustHave()) {
+                        safeGroup.addAll(patients);
+                    }
+
+                    // Handling the entire patients list as a batch
+                    return transformResources(searchBuilder.getSearchBatch(group, patients), group)
+                            .filter(resource -> !resource.isEmpty())
+                            .collectMultimap(resource -> {
+                                try {
+                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                    safeGroup.add(id);
+                                    return id;
+                                } catch (PatientIdNotFoundException e) {
+                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                    throw new RuntimeException(e);
                                 }
-
-                                // Handling the entire patients list as a batch
-                                return transformResources(searchBuilder.getSearchBatch(group, patients), group)
-                                        .filter(resource -> !resource.isEmpty())
-                                        .collectMultimap(resource -> {
-                                            try {
-                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                                safeGroup.add(id);
-                                                return id;
-                                            } catch (PatientIdNotFoundException e) {
-                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                                throw new RuntimeException(e);
-                                            }
-                                        })
-                                        .doOnNext(map -> {
-                                            //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
-                                            safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
-                                            //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
-                                        });
                             })
-                            .collect(Collectors.toList());
-
-                    return Flux.concat(groupMonos)
-                            .collectList()
-                            .map(resourceLists -> {
-                                //logger.debug("Combining resource lists into a single map");
-                                return resourceLists.stream()
-                                        .flatMap(map -> map.entrySet().stream())
-                                        .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
-                                        .collect(Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                Map.Entry::getValue,
-                                                (existing, replacement) -> {
-                                                    existing.addAll(replacement);
-                                                    return existing;
-                                                }
-                                        ));
-                            })
-                            .block(); // Blocking call within a Callable to get the final result
+                            .doOnNext(map -> {
+                                safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
+                            });
                 })
-                .doOnSuccess(result -> logger.debug("Successfully collected resources {}",result.entrySet()))
+                .collectList()
+                .map(resourceLists -> {
+                    // Combining all resource lists into a single map
+                    return resourceLists.stream()
+                            .flatMap(map -> map.entrySet().stream())
+                            .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    Map.Entry::getValue,
+                                    (existing, replacement) -> {
+                                        existing.addAll(replacement);
+                                        return existing;
+                                    }
+                            ));
+                })
+                .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result.entrySet()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
+
     }
 
 

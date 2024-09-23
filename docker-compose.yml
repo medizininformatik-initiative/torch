@@ -55,6 +55,7 @@ services:
       NGINX_SERVERNAME: localhost
       NGINX_FILELOCATION: http://localhost:80
       TORCH_BATCHSIZE: 100
+      TORCH_MAXCONCURRENCY: 3
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions

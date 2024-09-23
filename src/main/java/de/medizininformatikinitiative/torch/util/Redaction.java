@@ -76,14 +76,14 @@ public class Redaction {
 
 
           ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
-          if(slicedElement==null){
-              logger.warn("Slicing unknown {}",elementID);
-          }
-          else if(slicedElement.hasId()){
-                logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
-                elementID=slicedElement.getIdElement().toString();
+          if(slicedElement!=null){
+              if(slicedElement.hasId()){
+                  logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
+                  elementID=slicedElement.getIdElement().toString();
 
-            }
+              }
+              //logger.warn("Slicing unknown {}",elementID);
+          }
         }
 
         int finalRecursion = recursion;

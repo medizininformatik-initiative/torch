@@ -117,7 +117,7 @@ public class ResultFileManager {
 
     public Mono<Void> saveBundleToNDJSON(String jobID, String fileName, Bundle bundle) {
         return Mono.fromRunnable(() -> {
-                    logger.info("Started Saving {} ", jobID);
+                    //logger.info("Started Saving {} ", jobID);
                     try {
                         // Create or retrieve the job directory
                         Path jobDir = resultsDirPath.resolve(jobID);
