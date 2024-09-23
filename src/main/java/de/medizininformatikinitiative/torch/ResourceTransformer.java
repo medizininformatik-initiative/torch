@@ -23,8 +23,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
-import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
-
 @Component
 public class ResourceTransformer {
 
@@ -110,7 +108,9 @@ public class ResourceTransformer {
         if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class) {
             copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
         }
-        redaction.redact(tgt, "", 1);
+
+
+        redaction.redact(tgt);
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }

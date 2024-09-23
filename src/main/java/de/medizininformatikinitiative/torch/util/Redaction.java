@@ -14,10 +14,6 @@ public class Redaction {
 
 
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-
-    private org.hl7.fhir.r4.model.StructureDefinition.StructureDefinitionSnapshotComponent snapshot;
-
-    private StructureDefinition structureDefinition;
     private final Factory factory;
     private final CdsStructureDefinitionHandler CDS;
     Slicing slicing;
@@ -33,56 +29,83 @@ public class Redaction {
         this.slicing= new Slicing(CDS);
     }
 
-
-    /**
-     * Executes redaction operation on the given base element recursively.
-     * @param base Base to be redacted (e.g. a Ressource or an Element)
-     * @param elementID "Element ID of parent currently handled initially empty String"
-     * @param recursion "Resurcion depth (for debug purposes)
-     * @return redacted Base
-     */
-    public Base redact(Base base, String elementID, int recursion) {
-        AtomicBoolean childrenEmpty = new AtomicBoolean(true);
-        recursion++;
-
+    public Base redact(Base base){
         /*
          * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
          */
+        StructureDefinition structureDefinition;
+        String elementID ="";
         if (base instanceof DomainResource resource) {
-            recursion = 1;
             if (resource.hasMeta()) {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
-                logger.debug("Profile Found {} ",profileurl.getValue());
                 structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
 
+                if(!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())){
+                    logger.warn("Profile Missmatch {} {}",structureDefinition.getUrl(),profileurl.getValue());
+                }
                 // Check if structureDefinition is not null
                 if (structureDefinition != null) {
-                    snapshot = structureDefinition.getSnapshot();
+                    elementID = String.valueOf(resource.getResourceType());
+                    return redact(base,elementID,0,structureDefinition);
+
                 } else {
                     logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
                     // Handle the case where structureDefinition is null
                     // This could be throwing an exception, setting a default value, or other error handling logic
+                    throw new RuntimeException("No Structure Definition known for "+profileurl.getValue());
                 }
             }
-            elementID = String.valueOf(resource.getResourceType());
+
+        }else{
+
+            throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
+
         }
+
+
+        return null;
+    }
+
+
+    /**
+     * Executes redaction operation on the given base element recursively.
+     *
+     * @param base                Base to be redacted (e.g. a Ressource or an Element)
+     * @param elementID           "Element ID of parent currently handled initially empty String"
+     * @param recursion           "Resurcion depth (for debug purposes)
+     * @param structureDefinition
+     * @return redacted Base
+     */
+    public Base redact(Base base, String elementID, int recursion, StructureDefinition structureDefinition) {
+
+        AtomicBoolean childrenEmpty = new AtomicBoolean(true);
+        recursion++;
+
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot=structureDefinition.getSnapshot();
 
 
         ElementDefinition definition = snapshot.getElementById(elementID);
 
-
-      if (definition.hasSlicing()) {
+      if(definition==null){
+          logger.warn("Definiton unknown {} {}  Element ID {} {}",base.fhirType(), base.getIdBase(),elementID, structureDefinition.getUrl());
+      } else if (definition.hasSlicing()) {
 
 
           ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
           if(slicedElement!=null){
               if(slicedElement.hasId()){
-                  logger.debug("Found Sliced Element {}", slicedElement.getIdElement().toString());
+                  //logger.warn("Found Sliced Element {}", slicedElement.getIdElement().toString());
                   elementID=slicedElement.getIdElement().toString();
 
               }
-              //logger.warn("Slicing unknown {}",elementID);
+              else{
+                  logger.warn("Sliced Element has no valid ID {}",elementID);
+              }
+
+          }
+          else{
+              logger.warn("Sliced Element is null {}",elementID);
           }
         }
 
@@ -126,7 +149,7 @@ public class Redaction {
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
 
-                       redact(value, finalChildID, finalRecursion);
+                       redact(value, finalChildID, finalRecursion, structureDefinition);
                     }
                 });
 

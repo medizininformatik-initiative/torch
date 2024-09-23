@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 
 public class RedactTest extends BaseTest {
 
@@ -23,7 +21,7 @@ public class RedactTest extends BaseTest {
                 logger.info("Resource Handled {}",resource);
                 DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/" + resource);
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
-                resourceSrc = (DomainResource) redaction.redact(resourceSrc, "", 1);
+                resourceSrc = (DomainResource) redaction.redact(resourceSrc);
                 Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
             } catch (Exception e) {
                 logger.error(" ", e);
@@ -46,7 +44,7 @@ public class RedactTest extends BaseTest {
 
                 DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/" + resource);
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
-                resourceSrc = (DomainResource) redaction.redact(resourceSrc, "", 1);
+                resourceSrc = (DomainResource) redaction.redact(resourceSrc);
                 Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
 
             } catch (Exception e) {
