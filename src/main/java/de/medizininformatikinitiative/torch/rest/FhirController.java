@@ -207,6 +207,11 @@ public class FhirController {
                 })
                 .parallel()
                 .flatMap(batch -> {
+                    //Call Consent
+                    //Call Encounter
+                    //Build patient map
+                    //Filter Patients and update batch
+
                     // Log the batch being processed
                     //logger.debug("Handling batch {}", String.join(",", batch));
 

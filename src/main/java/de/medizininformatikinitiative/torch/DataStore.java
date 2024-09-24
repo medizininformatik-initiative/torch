@@ -56,6 +56,7 @@ public class DataStore {
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)));
     }
 
+
     private Mono<Bundle> fetchPage(WebClient client, String url) {
         //logger.debug("Fetch Page {}", url);
         return client.get()

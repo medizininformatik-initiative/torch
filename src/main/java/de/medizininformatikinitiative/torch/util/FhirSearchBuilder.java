@@ -17,7 +17,7 @@ public class FhirSearchBuilder {
     }
 
 
-    public String getSearchBatch(AttributeGroup group, List<String> batch) {
+    public static String getSearchBatch(AttributeGroup group, List<String> batch) {
         String filter = "";
         if (group.hasFilter()) {
             filter = "&" + group.getFilterString();
@@ -32,6 +32,27 @@ public class FhirSearchBuilder {
         return parameters;
 
     }
+
+    public static String getConsent(List<String> batch) {
+        String parameters;
+
+        parameters = "patient=" + String.join(",",batch);
+
+        parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
+        return parameters;
+
+    }
+
+    public static String getEncounter(List<String> batch) {
+        String parameters;
+
+        parameters = "patient=" + String.join(",",batch);
+
+        parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
+        return parameters;
+
+    }
+
 
 
 

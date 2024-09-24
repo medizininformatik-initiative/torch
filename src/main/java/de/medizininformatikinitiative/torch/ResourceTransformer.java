@@ -38,8 +38,6 @@ public class ResourceTransformer {
     @Autowired(required = false)
     int batchSize = 1;
 
-    private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
-
 
     private final BundleCreator creator=new BundleCreator();
 
@@ -116,6 +114,7 @@ public class ResourceTransformer {
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
 
+<<<<<<< Updated upstream
         // Mono.fromCallable is used to wrap the blocking code
         return Mono.fromCallable(() -> {
                     // This part of the code involves blocking operations like creating lists
@@ -125,6 +124,28 @@ public class ResourceTransformer {
                                 Set<String> safeGroup = new HashSet<>();
                                 if(!group.hasMustHave()){
                                     safeGroup.addAll(patients);
+=======
+        // Wrapping the entire operation in a reactive pipeline without blocking
+        return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                .flatMap(group -> {
+                    // Set of PatIds that survived for this group
+                    Set<String> safeGroup = new HashSet<>();
+                    if (!group.hasMustHave()) {
+                        safeGroup.addAll(patients);
+                    }
+
+                    // Handling the entire patients list as a batch
+                    return transformResources(FhirSearchBuilder.getSearchBatch(group, patients), group)
+                            .filter(resource -> !resource.isEmpty())
+                            .collectMultimap(resource -> {
+                                try {
+                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                    safeGroup.add(id);
+                                    return id;
+                                } catch (PatientIdNotFoundException e) {
+                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                    throw new RuntimeException(e);
+>>>>>>> Stashed changes
                                 }
 
                                 // Handling the entire patients list as a batch
