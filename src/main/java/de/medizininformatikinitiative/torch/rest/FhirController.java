@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.annotation.JsonAppend;
 import de.medizininformatikinitiative.flare.model.mapping.MappingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
+import de.medizininformatikinitiative.torch.ConsentHandler;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -72,6 +73,7 @@ public class FhirController {
     private final ResultFileManager resultFileManager;
     private final ExecutorService executorService;
     private final int batchsize;
+    private final ConsentHandler consentHandler;
 
     @Autowired
     public FhirController(
@@ -79,6 +81,7 @@ public class FhirController {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
+            ConsentHandler consentHandler,
             ObjectMapper objectMapper,
             IParser parser, ExecutorService executorService, @Value("${torch.batchsize:10}") int batchsize) {
         this.webClient = webClient;
@@ -89,6 +92,7 @@ public class FhirController {
         this.resultFileManager=resultFileManager;
         this.executorService=executorService;
         this.batchsize=batchsize;
+        this.consentHandler=consentHandler;
 
     }
 
@@ -208,6 +212,7 @@ public class FhirController {
                 .parallel()
                 .flatMap(batch -> {
                     //Call Consent
+                    buildingConsentInfo(batch);
                     //Call Encounter
                     //Build patient map
                     //Filter Patients and update batch

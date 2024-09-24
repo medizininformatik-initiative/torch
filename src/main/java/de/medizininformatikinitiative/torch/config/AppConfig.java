@@ -4,13 +4,9 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.DataStore;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -85,7 +81,7 @@ public class AppConfig {
 
     @Bean
     public ResourceTransformer resourceTransformer(DataStore dataStore,CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
-        return new ResourceTransformer(dataStore, cds,fileManager);
+        return new ResourceTransformer(dataStore, cds);
     }
 
     @Bean
@@ -106,6 +102,11 @@ public class AppConfig {
     @Bean
     public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser, @Value("${nginx.servername}") String hostname,@Value("${nginx.filelocation}") String fileserverName){
         return new ResultFileManager(resultsDir,duration, parser,hostname,fileserverName);
+    }
+
+    @Bean
+    public ConsentHandler consentHandler(DataStore dataStore,CdsStructureDefinitionHandler cdsStructureDefinitionHandler){
+        return new ConsentHandler(dataStore,cdsStructureDefinitionHandler);
     }
 
 

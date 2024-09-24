@@ -1,16 +1,14 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.*;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r5.model.Consent;
+import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Consent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,20 +31,18 @@ public class ConsentHandler {
     private final DataStore dataStore;
 
 
+    private FhirContext ctx;
 
 
-    private final BundleCreator creator=new BundleCreator();
-
-    public ConcurrentMap<String, Set<String>> fulfilledGroupsPerPatient;
 
     @Autowired
     public ConsentHandler(DataStore dataStore, CdsStructureDefinitionHandler cds) {
         this.dataStore = dataStore;
-
+        this.ctx=cds.ctx;
     }
 
 
-    public Flux<Map<Patient, List<ConsentPeriod>>> buildingConsentInfo(List<String> batch) {
+    public Flux<Map<String, List<ConsentPeriod>>> buildingConsentInfo(List<String> batch) {
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
         Flux<Resource> resources = dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
@@ -58,7 +54,7 @@ public class ConsentHandler {
                 });
 
         // Map to store the patient's consent periods
-        Map<Patient, List<ConsentPeriod>> patientConsentMap = new HashMap<>();
+        Map<String, List<ConsentPeriod>> patientConsentMap = new HashMap<>();
 
         return resources.map(resource -> {
             try {
@@ -69,7 +65,7 @@ public class ConsentHandler {
 
                 // Transform to extract patient and consent period information
                 ConsentPeriod consentPeriod = transformToConsentPeriod(domainResource, provisionList); // Adjusted to include provisions
-                Patient patient = extractPatient(domainResource);
+                String patient = ResourceUtils.getPatientId(domainResource);
 
                 // Update the map with the patient's consent periods
                 patientConsentMap.computeIfAbsent(patient, k -> new ArrayList<>()).add(consentPeriod);
@@ -85,23 +81,24 @@ public class ConsentHandler {
     private List<Base> extractConsentProvisions(DomainResource domainResource) {
         try {
             // Using FHIRPath to extract Encounter.provision.provision elements from the resource
-            FhirPathEngine fhirPathEngine = new FhirPathEngine(new FhirContext());
-            return fhirPathEngine.evaluate(domainResource, "Consent.provision.provision");
+
+
+            return ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision.period",Base.class);
         } catch (Exception e) {
             logger.error("Error extracting provisions with FHIRPath ", e);
             return Collections.emptyList();  // Return an empty list in case of errors
         }
     }
 
-    private ConsentPeriod transformToConsentPeriod(DomainResource domainResource, List<Base> provisionList) {
+    private ConsentPeriod transformToConsentPeriod(DomainResource domainResource, List<Base> provisionPeriodList) {
         LocalDateTime maxStart = null;
         LocalDateTime minEnd = null;
 
         // Iterate over the provisions to find the maximum start and minimum end
-        for (Base provision : provisionList) {
+        for (Base provision : provisionPeriodList) {
             try {
                 // Assuming provision has a period with start and end dates
-                Period period = (Period) ((Consent.ProvisionComponent) provision).getPeriod();
+                Period period = (Period) provision;
                 LocalDateTime start = period.hasStart() ? LocalDateTime.parse(period.getStart().toString()) : null;
                 LocalDateTime end = period.hasEnd() ? LocalDateTime.parse(period.getEnd().toString()) : null;
 

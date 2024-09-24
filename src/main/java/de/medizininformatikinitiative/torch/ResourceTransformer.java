@@ -15,14 +15,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
-
-import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
 
 @Component
 public class ResourceTransformer {
@@ -33,29 +32,37 @@ public class ResourceTransformer {
     private final ElementCopier copier;
     private final Redaction redaction;
 
-    private final ResultFileManager fileManager;
-
     @Autowired(required = false)
     int batchSize = 1;
 
+    private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
 
-    private final BundleCreator creator=new BundleCreator();
+
 
     public ConcurrentMap<String, Set<String>> fulfilledGroupsPerPatient;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
         this.fulfilledGroupsPerPatient = new ConcurrentHashMap<>();
-        this.fileManager=fileManager;
     }
 
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
-        Flux<Resource> resources = dataStore.getResources(resourceType, parameters);
+
+        // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
+        Flux<Resource> resources = dataStore.getResources(resourceType, parameters)
+                .subscribeOn(Schedulers.boundedElastic())  // Ensure HTTP requests are offloaded
+                // Error handling in case the HTTP request fails
+                .onErrorResume(e -> {
+                    logger.error("Error fetching resources for parameters: {}", parameters, e);
+                    return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
+                });
+
+
 
         return resources.map(resource -> {
             try {
@@ -81,23 +88,25 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-        logger.debug("Handling resource {}",ResourceUtils.getPatientId(resourcesrc));
+            logger.debug("Handling resource {}",ResourceUtils.getPatientId(resourcesrc));
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
 
-        }
-        //TODO define technically required in all Ressources
-        copier.copy(resourcesrc, tgt, new Attribute("meta.profile", true));
-        copier.copy(resourcesrc, tgt, new Attribute("id", true));
-        //TODO Handle Custom ENUM Types like Status, since it has its Error in the valuesystem.
-        if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Observation.class) {
-            copier.copy(resourcesrc, tgt, new Attribute("status", true));
-        }
-        if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class) {
-            copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
-        }
-        redaction.redact(tgt, "", 1);
+            }
+            //TODO define technically required in all Ressources
+            copier.copy(resourcesrc, tgt, new Attribute("meta.profile", true));
+            copier.copy(resourcesrc, tgt, new Attribute("id", true));
+            //TODO Handle Custom ENUM Types like Status, since it has its Error in the valuesystem.
+            if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Observation.class) {
+                copier.copy(resourcesrc, tgt, new Attribute("status", true));
+            }
+            if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class) {
+                copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
+            }
+
+
+            redaction.redact(tgt);
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -114,17 +123,6 @@ public class ResourceTransformer {
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
 
-<<<<<<< Updated upstream
-        // Mono.fromCallable is used to wrap the blocking code
-        return Mono.fromCallable(() -> {
-                    // This part of the code involves blocking operations like creating lists
-                    List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
-                            .map(group -> {
-                                // Set of PatIds that survived for this group
-                                Set<String> safeGroup = new HashSet<>();
-                                if(!group.hasMustHave()){
-                                    safeGroup.addAll(patients);
-=======
         // Wrapping the entire operation in a reactive pipeline without blocking
         return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
                 .flatMap(group -> {
@@ -135,7 +133,7 @@ public class ResourceTransformer {
                     }
 
                     // Handling the entire patients list as a batch
-                    return transformResources(FhirSearchBuilder.getSearchBatch(group, patients), group)
+                    return transformResources(searchBuilder.getSearchBatch(group, patients), group)
                             .filter(resource -> !resource.isEmpty())
                             .collectMultimap(resource -> {
                                 try {
@@ -145,50 +143,30 @@ public class ResourceTransformer {
                                 } catch (PatientIdNotFoundException e) {
                                     logger.error("PatientIdNotFoundException: {}", e.getMessage());
                                     throw new RuntimeException(e);
->>>>>>> Stashed changes
                                 }
-
-                                // Handling the entire patients list as a batch
-                                return transformResources(searchBuilder.getSearchBatch(group, patients), group)
-                                        .filter(resource -> !resource.isEmpty())
-                                        .collectMultimap(resource -> {
-                                            try {
-                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                                safeGroup.add(id);
-                                                return id;
-                                            } catch (PatientIdNotFoundException e) {
-                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                                throw new RuntimeException(e);
-                                            }
-                                        })
-                                        .doOnNext(map -> {
-                                            //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
-                                            safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
-                                            //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
-                                        });
                             })
-                            .collect(Collectors.toList());
-
-                    return Flux.concat(groupMonos)
-                            .collectList()
-                            .map(resourceLists -> {
-                                //logger.debug("Combining resource lists into a single map");
-                                return resourceLists.stream()
-                                        .flatMap(map -> map.entrySet().stream())
-                                        .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
-                                        .collect(Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                Map.Entry::getValue,
-                                                (existing, replacement) -> {
-                                                    existing.addAll(replacement);
-                                                    return existing;
-                                                }
-                                        ));
-                            })
-                            .block(); // Blocking call within a Callable to get the final result
+                            .doOnNext(map -> {
+                                safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
+                            });
                 })
-                .doOnSuccess(result -> logger.debug("Successfully collected resources {}",result.entrySet()))
+                .collectList()
+                .map(resourceLists -> {
+                    // Combining all resource lists into a single map
+                    return resourceLists.stream()
+                            .flatMap(map -> map.entrySet().stream())
+                            .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    Map.Entry::getValue,
+                                    (existing, replacement) -> {
+                                        existing.addAll(replacement);
+                                        return existing;
+                                    }
+                            ));
+                })
+                .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result.entrySet()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
+
     }
 
 
@@ -200,5 +178,3 @@ public class ResourceTransformer {
 
 
 }
-
-

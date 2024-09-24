@@ -31,7 +31,7 @@ public class ResourceTransformationTest extends BaseTest {
     @Test
     public void testObservation() {
 
-        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds,resultFileManager);
+        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
