@@ -15,6 +15,7 @@ torch:
     dir: output/
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 2
+  maxConcurrency: 1
 nginx:
     servername: localhost:8080
     filelocation: localhost:8080/output

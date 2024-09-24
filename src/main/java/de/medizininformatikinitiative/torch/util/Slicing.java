@@ -48,30 +48,41 @@ public class Slicing {
 
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
         String fhirPath = "StructureDefinition.snapshot.element.where(path = '" + elementID + "')";
+
         ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
+        if(elementID.contains(":")){
+        slicedElement = snapshot.getElementById(elementID);
+        }
+
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
 
-        if (slicedElement == null || !slicedElement.hasSlicing()) {
-            //logger.warn("Element not sliced {}",elementID);
+        if (slicedElement == null ) {
+            logger.warn("slicedElement null {} {}",elementID,structureDefinition.getUrl());
+            return null;
+        }
+        if (!slicedElement.hasSlicing()) {
+            logger.warn("Element has no slicing {} {}",elementID,structureDefinition.getUrl());
             return null; // Return null if the sliced element is not found or has no slicing
         }
+
 
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
         List<ElementDefinition> ElementDefinition = ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
         ElementDefinition.forEach(element -> {
+            //logger.debug("Slice to be handled {}",element.getIdElement());
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 //iterate over every discriminator and test if base holds for it
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
                     if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
-                        logger.debug("Check failed {}", element.getIdElement());
+                        //logger.debug("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
                 }
                 if (foundSlice) {
-                    logger.debug("Check passed {}", element.getIdElement());
+                    //logger.error("Check passed {}", element.getIdElement());
                     returnElement.set(element);
                 }
 
