@@ -1,10 +1,8 @@
 package de.medizininformatikinitiative.torch;
 
-
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
-import reactor.core.publisher.Hooks;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
@@ -13,12 +11,7 @@ import reactor.core.publisher.Hooks;
 })
 public class Torch {
 
-
-        public static void main(String[] args) {
-            SpringApplication.run(Torch.class, args);
-        }
-
-
-
-
+    public static void main(String[] args) {
+        SpringApplication.run(Torch.class, args);
+    }
 }

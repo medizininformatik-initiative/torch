@@ -22,7 +22,7 @@ public class RedactTest extends BaseTest {
                 DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/" + resource);
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
                 resourceSrc = (DomainResource) redaction.redact(resourceSrc);
-                Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
+                Assertions.assertEquals(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected), ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
             } catch (Exception e) {
                 logger.error(" ", e);
             }
@@ -45,7 +45,7 @@ public class RedactTest extends BaseTest {
                 DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/" + resource);
                 DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
                 resourceSrc = (DomainResource) redaction.redact(resourceSrc);
-                Assertions.assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
+                Assertions.assertEquals(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected), ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc), " Expected not equal to actual output");
 
             } catch (Exception e) {
                 logger.error(" ", e);
@@ -58,4 +58,3 @@ public class RedactTest extends BaseTest {
 
 
 }
-

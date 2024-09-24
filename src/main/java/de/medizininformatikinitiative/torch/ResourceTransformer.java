@@ -27,32 +27,18 @@ import java.util.stream.Collectors;
 public class ResourceTransformer {
 
     private static final Logger logger = LoggerFactory.getLogger(ResourceTransformer.class);
-    private final DataStore dataStore;
 
+    private final DataStore dataStore;
     private final ElementCopier copier;
     private final Redaction redaction;
-
-    private final ResultFileManager fileManager;
-
-    @Autowired(required = false)
-    int batchSize = 1;
-
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
 
-
-    private final BundleCreator creator=new BundleCreator();
-
-    public ConcurrentMap<String, Set<String>> fulfilledGroupsPerPatient;
-
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
-        this.fulfilledGroupsPerPatient = new ConcurrentHashMap<>();
-        this.fileManager=fileManager;
     }
-
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
@@ -65,8 +51,6 @@ public class ResourceTransformer {
                     logger.error("Error fetching resources for parameters: {}", parameters, e);
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
-
-
 
         return resources.map(resource -> {
             try {
@@ -85,7 +69,6 @@ public class ResourceTransformer {
         });
 
     }
-
 
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
@@ -116,9 +99,6 @@ public class ResourceTransformer {
         }
         return tgt;
     }
-
-
-
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
         //logger.debug("Starting collectResourcesByPatientReference");
@@ -170,17 +150,5 @@ public class ResourceTransformer {
                 })
                 .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result.entrySet()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
-
     }
-
-
-
-
-
-
-
-
-
 }
-
-

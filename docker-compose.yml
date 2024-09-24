@@ -1,16 +1,16 @@
 services:
   torch-data-store:
-    image: "samply/blaze:0.28"
+    image: "samply/blaze:0.30"
     environment:
       BASE_URL: "http://torch-data-store:8080"
-      JAVA_TOOL_OPTIONS: "-Xmx1g"
+      JAVA_TOOL_OPTIONS: "-Xmx2g"
       LOG_LEVEL: "info"
     ports:
       - "8082:8080"
     volumes:
       - "data-store-data:/app/output"
   torch-flare:
-    image: ghcr.io/medizininformatik-initiative/flare:pr-179
+    image: ghcr.io/medizininformatik-initiative/flare:2.4.0-alpha.1
     ports:
       - ${FEASIBILITY_FLARE_PORT:-127.0.0.1:8084}:8080
     environment:
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
     ports:
-      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
+      - ${PORT_TORCH_NGINX:-127.0.0.1:8080}:8080
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template
       - ./start-nginx.sh:/start-nginx.sh
@@ -51,7 +51,7 @@ services:
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output
       TORCH_RESULTS_PERSISTENCE: PT12H30M5S
-      LOG_LEVEL: info
+      LOG_LEVEL: debug
       NGINX_SERVERNAME: localhost
       NGINX_FILELOCATION: http://localhost:80
       TORCH_BATCHSIZE: 100
@@ -65,5 +65,3 @@ services:
 volumes:
   data-store-data:
   torch-data-store:
-
-

@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -16,21 +15,18 @@ import reactor.core.publisher.Mono;
 import java.net.URI;
 import java.util.Optional;
 
-
-
 @Component
 public class DataStore {
     private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
 
     private final WebClient client;
-    private final IParser parser;
+    private final FhirContext fhirContext;
 
     @Autowired
-    public DataStore( @Qualifier("fhirClient") WebClient client, FhirContext context) {
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext) {
         this.client = client;
-        this.parser = context.newJsonParser();
+        this.fhirContext = fhirContext;
     }
-
 
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
@@ -49,7 +45,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .doOnNext(response -> logger.debug("getResources Response: {}", response))
-                .flatMap(response -> Mono.just(parser.parseResource(Bundle.class, response)))
+                .flatMap(response -> Mono.just(fhirContext.newJsonParser().parseResource(Bundle.class, response)))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(client, link.getUrl()))
                         .orElse(Mono.empty()))
@@ -62,7 +58,7 @@ public class DataStore {
                 .uri(URI.create(url))
                 .retrieve()
                 .bodyToMono(String.class)
-                .map(response -> parser.parseResource(Bundle.class, response));
+                .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
     }
 
 }

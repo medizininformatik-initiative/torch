@@ -1,10 +1,10 @@
 package de.medizininformatikinitiative.torch.util;
 
 
+import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import ca.uhn.fhir.parser.IParser;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -17,21 +17,22 @@ import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
+//TODO: documentation
 public class ResultFileManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ResultFileManager.class);
-    private static String operation;
+
     private final Path resultsDirPath;
-    private final IParser parser;
+    private final FhirContext fhirContext;
     private Duration duration;
     private String hostname;
     private String fileserverName;
     public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
 
-    public ResultFileManager(String resultsDir, String duration, IParser parser,String hostname,String fileserverName) {
+    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileserverName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
-        this.parser = parser;
+        this.fhirContext = fhirContext;
 
 
         this.duration = Duration.parse(duration);
@@ -49,10 +50,6 @@ public class ResultFileManager {
             }
         }
         loadExistingResults();
-    }
-
-    public static void setOperation(String operation) {
-        ResultFileManager.operation = operation;
     }
 
     public void loadExistingResults() {
@@ -84,12 +81,12 @@ public class ResultFileManager {
         logger.debug("Status Map Size {}", getSize());
     }
 
-    public Mono<Void> initJobDir(String jobID) {
-        return Mono.fromRunnable(() -> {
-                    logger.debug("Initializing job directory for {} ", jobID);
+    public Mono<Path> initJobDir(String jobId) {
+        return Mono.fromCallable(() -> {
+                    logger.debug("Initializing directory for job with id: {} ", jobId);
                     try {
                         // Get the path to the job directory
-                        Path jobDir = resultsDirPath.resolve(jobID);
+                        Path jobDir = resultsDirPath.resolve(jobId);
 
                         // If the directory exists, delete it recursively
                         if (Files.exists(jobDir)) {
@@ -106,13 +103,13 @@ public class ResultFileManager {
                         logger.debug("Removed Dir {}", jobDir);
                         // Recreate the directory after cleanup
                         Files.createDirectories(jobDir);
+                        return jobDir;
                     } catch (IOException e) {
-                        logger.error("Failed to initialize directory for jobId {}: {}", jobID, e.getMessage());
+                        logger.error("Failed to initialize directory for jobId {}: {}", jobId, e.getMessage());
                         throw new RuntimeException("Failed to initialize job directory", e);
                     }
                 })
-                .subscribeOn(Schedulers.boundedElastic())  // Run this on a separate scheduler for I/O tasks
-                .then();  // Ensures Mono<Void> is returned
+                .subscribeOn(Schedulers.boundedElastic());  // Run this on a separate scheduler for I/O tasks
     }
 
     public Mono<Void> saveBundleToNDJSON(String jobID, String fileName, Bundle bundle) {
@@ -124,7 +121,7 @@ public class ResultFileManager {
                         Files.createDirectories(jobDir);
 
                         // Serialize the bundle to a JSON string without pretty printing (as per NDJSON)
-                        String bundleJson = parser.setPrettyPrint(false).encodeResourceToString(bundle);
+                        String bundleJson = fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToString(bundle);
 
                         // Define the NDJSON file path (the file will have an .ndjson extension)
                         Path ndjsonFile = jobDir.resolve(fileName + ".ndjson");
@@ -186,7 +183,7 @@ public class ResultFileManager {
 
                 // Set the transactionTime and requestUrl into the response
                 response.put("transactionTime", transactionTime);
-                response.put("request", hostname+operation);
+                response.put("request", hostname+"/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
                 logger.debug("OutputFiles size {}",outputFiles.size());

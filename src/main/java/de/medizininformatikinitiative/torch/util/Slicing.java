@@ -1,8 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
-
 
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
@@ -10,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,7 +17,6 @@ public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
     private FhirContext ctx;
-    private IParser parser;
 
 
     CdsStructureDefinitionHandler handler;
@@ -33,7 +29,6 @@ public class Slicing {
     public Slicing(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
-        parser = ctx.newJsonParser().setPrettyPrint(false);
     }
 
     /**
