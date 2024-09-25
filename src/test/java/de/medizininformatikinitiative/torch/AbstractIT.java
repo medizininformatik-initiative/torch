@@ -1,18 +1,14 @@
 package de.medizininformatikinitiative.torch;
 
-
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,21 +20,19 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,28 +40,25 @@ import java.util.Map;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 @Testcontainers
-@SpringBootTest()
+@SpringBootTest
 @ActiveProfiles("test")
-//@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractIT {
 
+    protected static final Logger logger = LoggerFactory.getLogger(AbstractIT.class);
 
     protected final WebClient webClient;
     protected final WebClient flareClient;
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final CdsStructureDefinitionHandler cds;
-    protected final FhirContext context;
-    protected final IParser parser;
+    protected final FhirContext fhirContext;
     protected final BundleCreator bundleCreator;
     protected final ObjectMapper objectMapper;
 
-    protected static final Logger logger = LoggerFactory.getLogger(AbstractIT.class);
     protected static boolean dataImported = false;
 
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
-
 
     @Autowired
     public AbstractIT(
@@ -76,8 +67,7 @@ public abstract class AbstractIT {
             ResourceTransformer transformer,
             DataStore dataStore,
             CdsStructureDefinitionHandler cds,
-            FhirContext context,
-            IParser parser,
+            FhirContext fhirContext,
             BundleCreator bundleCreator,
             ObjectMapper objectMapper) {
         this.webClient = webClient;
@@ -85,22 +75,18 @@ public abstract class AbstractIT {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
-        this.context = context;
-        this.parser = parser;
+        this.fhirContext = fhirContext;
         this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
     }
 
     @Container
-    public static DockerComposeContainer<?> environment =
-            new DockerComposeContainer<>(new File("src/test/resources/docker-compose.yml"))
+    public static ComposeContainer environment =
+            new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
                     .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
                     .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
                     .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
                     .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
-
-
-
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry){
@@ -116,10 +102,8 @@ public abstract class AbstractIT {
         registry.add("torch.flare.url", () -> "http://%s:%d".formatted(flareHost,flarePort));
     }
 
-
     @BeforeEach
     void init() throws IOException {
-
         if (!dataImported) {
             webClient.post()
                     .bodyValue(Files.readString(Path.of(testPopulationPath)))
@@ -130,10 +114,8 @@ public abstract class AbstractIT {
             dataImported = true;
             logger.info("Data Import on {}", webClient.options());
         }
-   logger.info("Setup Complete");
-
+        logger.info("Setup Complete");
     }
-
 
     protected Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = new HashMap<>();
@@ -209,8 +191,8 @@ public abstract class AbstractIT {
 
                 // Compare the actual and expected resources as strings after encoding
                 Assertions.assertEquals(
-                        parser.setPrettyPrint(true).encodeResourceToString(expectedResource),
-                        parser.setPrettyPrint(true).encodeResourceToString(actualResource),
+                        fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource),
+                        fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource),
                         "Expected resource for profile " + profileKey + " does not match actual resource."
                 );
             }
@@ -248,5 +230,4 @@ public abstract class AbstractIT {
             }
         }
     }
-
 }

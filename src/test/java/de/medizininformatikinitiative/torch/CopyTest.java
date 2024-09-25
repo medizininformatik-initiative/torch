@@ -42,7 +42,7 @@ public class CopyTest extends BaseTest{
 
                 assertNotNull(tgt);
 
-                assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceExpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), resource + " Expected not equal to actual output");
+                assertEquals(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected), ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt), resource + " Expected not equal to actual output");
 
             } catch (Exception e) {
                 logger.error("",e);
@@ -91,7 +91,7 @@ public class CopyTest extends BaseTest{
             copier.copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
 
             assertNotNull(tgt);
-            logger.info(parser.setPrettyPrint(true).encodeResourceToString(tgt));
+            logger.info(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
 
 
         } catch (Exception e) {
@@ -121,4 +121,3 @@ public class CopyTest extends BaseTest{
 
 
 }
-

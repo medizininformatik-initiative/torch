@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.config;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
@@ -10,7 +9,6 @@ import de.medizininformatikinitiative.torch.DataStore;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -19,8 +17,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.netty.resources.ConnectionProvider;
 import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -60,17 +58,14 @@ public class AppConfig {
         return builder.build();
     }
 
-
-
     @Bean
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context) {
-        return new DataStore(client, context);  // Or use your specific configuration to instantiate
+        return new DataStore(client, context);
     }
-
 
     @Bean
     public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
-        return new ElementCopier(cds);  // Or use your specific configuration to instantiate
+        return new ElementCopier(cds);
     }
 
     @Bean
@@ -80,12 +75,12 @@ public class AppConfig {
 
     @Bean
     public Redaction redaction(CdsStructureDefinitionHandler cds) {
-        return new Redaction(cds);  // Or use your specific configuration to instantiate
+        return new Redaction(cds);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore,CdsStructureDefinitionHandler cds, ResultFileManager fileManager) {
-        return new ResourceTransformer(dataStore, cds,fileManager);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
+        return new ResourceTransformer(dataStore, cds);
     }
 
     @Bean
@@ -94,20 +89,14 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir){
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
         return new CdsStructureDefinitionHandler(fhirContext, dir);
     }
 
     @Bean
-    public IParser parser(FhirContext fhirContext) {
-        return fhirContext.newJsonParser();
+    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
+        return new ResultFileManager(resultsDir, duration, fhirContext, hostname, fileserverName);
     }
-
-    @Bean
-    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, IParser parser, @Value("${nginx.servername}") String hostname,@Value("${nginx.filelocation}") String fileserverName){
-        return new ResultFileManager(resultsDir,duration, parser,hostname,fileserverName);
-    }
-
 
     @Bean
     public CapabilityStatementController capabilityStatementController() {
@@ -115,19 +104,17 @@ public class AppConfig {
     }
 
     @Bean
-    public BundleCreator bundleCreator(){
+    public BundleCreator bundleCreator() {
         return new BundleCreator();
     }
 
     @Bean
-    public ObjectMapper objectMapper(){
+    public ObjectMapper objectMapper() {
         return new ObjectMapper();
     }
 
     @Bean
-    ExecutorService executorService(){
+    ExecutorService executorService() {
         return Executors.newCachedThreadPool();
     }
-
-
 }

@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.model;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.databind.JsonNode;
 import de.medizininformatikinitiative.flare.model.sq.StructuredQuery;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -19,7 +20,7 @@ public class Crtdl {
     private String display;
 
     @JsonProperty("cohortDefinition")
-    private StructuredQuery sq;
+    private JsonNode cohortDefinition;
 
     @JsonIgnore
     private String sqString;
@@ -52,19 +53,7 @@ public class Crtdl {
         return dataExtraction.getAttributeGroups().getFirst().getAttributes().getFirst().getAttributeRef().split("\\.")[0];
     }
 
-/*    public StructuredQuery getStructuredQuery() {
-        return sq;
-    }
-*/
-    public void setStructuredQuery(StructuredQuery sq) {
-        this.sq = sq;
-    }
-
-    public String getSqString() {
-        return sqString;
-    }
-
-    public void setSqString(String sqString) {
-        this.sqString = sqString;
+    public JsonNode getCohortDefinition() {
+        return cohortDefinition;
     }
 }
