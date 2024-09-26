@@ -77,7 +77,7 @@ public class FhirControllerIT extends AbstractIT {
         );
 
         List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Library/Parameters_all_fields.json");
+                "src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 

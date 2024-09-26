@@ -1,3 +1,5 @@
+package de.medizininformatikinitiative.torch.util;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,23 +14,21 @@ public class ConsentCodeMapper {
 
     private Map<String, List<String>> consentMap;
 
-    // Use @Value to inject values from the YAML file directly into the constructor
     public ConsentCodeMapper(
-            @Value("${orch.profile.dir}") String profileDir,
-            @Value("${orch.mapping.consent}") String consentFilePath
+            @Value("${torch.mapping.consent}") String consentFilePath
     ) throws IOException {
         this.consentMap = new HashMap<>();
-        System.out.println("Profile Directory: " + profileDir); // This can be used if needed later
-        System.out.println("Consent File Path: " + consentFilePath);
         buildConsentMap(consentFilePath);
     }
 
     // Method to build the map based on the JSON file
     private void buildConsentMap(String filePath) throws IOException {
+        System.out.println(System.getProperty("user.name"));
+        File file = new File(filePath);
+        System.out.println("File exists: " + file.exists());
+        System.out.println("Can read: " + file.canRead());
         ObjectMapper mapper = new ObjectMapper();
-        JsonNode consentMappingData = mapper.readTree(new File(filePath));
-
-        // Iterate over the consentMappingData and build the map
+        JsonNode consentMappingData = mapper.readTree(file.getAbsoluteFile());
         for (JsonNode consent : consentMappingData) {
             String keyCode = consent.get("key").get("code").asText();
             List<String> relevantCodes = new ArrayList<>();
@@ -44,7 +44,6 @@ public class ConsentCodeMapper {
                 }
             }
 
-            // Store the list of codes under the key in the map
             consentMap.put(keyCode, relevantCodes);
         }
     }

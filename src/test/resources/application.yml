@@ -5,6 +5,8 @@ server:
 torch:
   profile:
     dir: src/test/resources/StructureDefinitions
+  mapping:
+    consent: src/test/resources/mappings/consent-mappings.json
   fhir:
     url: http://localhost:8082/fhir
     testPopulation:

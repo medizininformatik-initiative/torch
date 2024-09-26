@@ -5,6 +5,8 @@ server:
 torch:
   profile:
     dir: src/test/resources/StructureDefinitions
+  mapping:
+    consent: src/main/resources/mappings/consent-mappings_fhir.json
   fhir:
     url: http://localhost:8082/fhir
   flare:

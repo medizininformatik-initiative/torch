@@ -5,10 +5,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
-import de.medizininformatikinitiative.torch.util.Redaction;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -32,13 +29,15 @@ public class ResourceTransformer {
     private final DataStore dataStore;
     private final ElementCopier copier;
     private final Redaction redaction;
+    private final ConsentHandler handler;
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
-
+        
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
+        this.handler = handler;
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
@@ -104,6 +103,14 @@ public class ResourceTransformer {
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
         //logger.debug("Starting collectResourcesByPatientReference");
         //logger.debug("Patients Received: {}", patients);
+        boolean consent;
+        //todo get consent key from crtdl, get all conset ressources and map all times where consent is valid to each code
+        String key=crtdl.getConsentKey();
+        if(key==""){
+            //no consent needed i.e. no building of key maps and processing of consnet neede
+            consent=false;
+            //Call maps
+        }
 
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
@@ -120,7 +127,7 @@ public class ResourceTransformer {
                                 }
 
                                 // Handling the entire patients list as a batch
-                                return transformResources(searchBuilder.getSearchBatch(group, patients), group)
+                                return transformResources(searchBuilder.getSearchParam(group, patients), group)
                                         .filter(resource -> !resource.isEmpty())
                                         .collectMultimap(resource -> {
                                             try {

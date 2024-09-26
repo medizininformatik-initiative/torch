@@ -32,17 +32,20 @@ public class ConsentHandler {
 
 
     private FhirContext ctx;
-
+    private final ConsentCodeMapper mapper;
 
 
     @Autowired
-    public ConsentHandler(DataStore dataStore, CdsStructureDefinitionHandler cds) {
+    public ConsentHandler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
         this.dataStore = dataStore;
         this.ctx=cds.ctx;
+        this.mapper = mapper;
     }
 
 
-    public Flux<Map<String, List<ConsentPeriod>>> buildingConsentInfo(List<String> batch) {
+
+    public Flux<Map<String, List<ConsentPeriod>>> buildingConsentInfo(String key, List<String> batch) {
+        List<String> codes = mapper.getRelevantCodes(key);
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
         Flux<Resource> resources = dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
@@ -54,7 +57,7 @@ public class ConsentHandler {
                 });
 
         // Map to store the patient's consent periods
-        Map<String, List<ConsentPeriod>> patientConsentMap = new HashMap<>();
+        ConcurrentMap<String, List<ConsentPeriod>> patientConsentMap = new ConcurrentHashMap<>();
 
         return resources.map(resource -> {
             try {
@@ -83,7 +86,7 @@ public class ConsentHandler {
             // Using FHIRPath to extract Encounter.provision.provision elements from the resource
 
 
-            return ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision.period",Base.class);
+            return ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision",Base.class);
         } catch (Exception e) {
             logger.error("Error extracting provisions with FHIRPath ", e);
             return Collections.emptyList();  // Return an empty list in case of errors
