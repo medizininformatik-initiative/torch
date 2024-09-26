@@ -2,7 +2,7 @@
   "version": "http://json-schema.org/to-be-done/schema#",
   "display": "",
   "cohortDefinition": {
-    "version": "https://medizininformatik-initiative.de/fdpg/ClinicalCohortDefinitionLanguage/v1/schema",
+    "version": "http://to_be_decided.com/draft-1/schema#",
     "display": "",
     "inclusionCriteria": [
       [

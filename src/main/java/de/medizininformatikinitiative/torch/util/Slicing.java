@@ -1,16 +1,15 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
-
-
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.Element;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -20,7 +19,6 @@ public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
     private FhirContext ctx;
-    private IParser parser;
 
 
     CdsStructureDefinitionHandler handler;
@@ -33,7 +31,6 @@ public class Slicing {
     public Slicing(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
         this.ctx = handler.ctx;
-        parser = ctx.newJsonParser().setPrettyPrint(false);
     }
 
     /**
@@ -48,30 +45,41 @@ public class Slicing {
 
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
         String fhirPath = "StructureDefinition.snapshot.element.where(path = '" + elementID + "')";
+
         ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
+        if (elementID.contains(":")) {
+            slicedElement = snapshot.getElementById(elementID);
+        }
+
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
 
-        if (slicedElement == null || !slicedElement.hasSlicing()) {
-            //logger.warn("Element not sliced {}",elementID);
+        if (slicedElement == null) {
+            logger.warn("slicedElement null {} {}", elementID, structureDefinition.getUrl());
+            return null;
+        }
+        if (!slicedElement.hasSlicing()) {
+            logger.warn("Element has no slicing {} {}", elementID, structureDefinition.getUrl());
             return null; // Return null if the sliced element is not found or has no slicing
         }
+
 
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
         List<ElementDefinition> ElementDefinition = ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
         ElementDefinition.forEach(element -> {
+            //logger.debug("Slice to be handled {}",element.getIdElement());
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 //iterate over every discriminator and test if base holds for it
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
                     if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
-                        logger.debug("Check failed {}", element.getIdElement());
+                        //logger.debug("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
                 }
                 if (foundSlice) {
-                    logger.debug("Check passed {}", element.getIdElement());
+                    //logger.error("Check passed {}", element.getIdElement());
                     returnElement.set(element);
                 }
 

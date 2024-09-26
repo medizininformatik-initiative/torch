@@ -14,8 +14,8 @@ import java.io.FileInputStream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-
 public class ResourceTransformationTest extends BaseTest {
+
     @Autowired
     private WebClient webClient;
 
@@ -24,7 +24,8 @@ public class ResourceTransformationTest extends BaseTest {
 
     private DataStore dataStore;
 
-    @BeforeAll void setup(){
+    @BeforeAll
+    void setup() {
         dataStore = new DataStore(webClient, ctx);
     }
 
@@ -38,13 +39,10 @@ public class ResourceTransformationTest extends BaseTest {
             DomainResource resourceexpected = (DomainResource) ResourceReader.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
             DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getDataExtraction().getAttributeGroups().getFirst());
             assertNotNull(tgt);
-            assertEquals(parser.setPrettyPrint(true).encodeResourceToString(resourceexpected), parser.setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
+            assertEquals(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceexpected), ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
 
         } catch (Exception e) {
             logger.error("",e);
         }
-
     }
-
 }
-

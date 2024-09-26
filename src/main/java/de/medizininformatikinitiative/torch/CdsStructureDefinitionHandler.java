@@ -1,11 +1,11 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.RuntimeResourceDefinition;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.springframework.stereotype.Component;
-import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,17 +13,10 @@ import java.util.HashMap;
 import java.util.List;
 
 @Component
-
-
 public class CdsStructureDefinitionHandler {
 
-
-    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
-
-
     public FhirContext ctx;
-
-    public IParser jsonParser;
+    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
     public CdsStructureDefinitionHandler(FhirContext ctx, String fileDirectory) {
         try {
@@ -32,15 +25,11 @@ public class CdsStructureDefinitionHandler {
             throw new RuntimeException(e);
         }
         this.ctx = ctx;
-        this.jsonParser = ctx.newJsonParser();
     }
 
     public CdsStructureDefinitionHandler(FhirContext ctx) {
-
         this.ctx = ctx;
-        this.jsonParser = ctx.newJsonParser();
     }
-
 
     /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
@@ -51,13 +40,6 @@ public class CdsStructureDefinitionHandler {
     public void readStructureDefinition(String filePath) throws IOException {
         StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
-    }
-
-    /**
-     * Returns HAPI JSON Parser
-     */
-    public IParser getJsonParser() {
-        return jsonParser;
     }
 
     /**

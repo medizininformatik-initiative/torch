@@ -5,7 +5,10 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.util.*;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
+import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -19,36 +22,24 @@ import reactor.core.scheduler.Schedulers;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
 import java.util.stream.Collectors;
 
 @Component
 public class ResourceTransformer {
 
     private static final Logger logger = LoggerFactory.getLogger(ResourceTransformer.class);
-    private final DataStore dataStore;
 
+    private final DataStore dataStore;
     private final ElementCopier copier;
     private final Redaction redaction;
-
-    @Autowired(required = false)
-    int batchSize = 1;
-
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
-
-
-
-    public ConcurrentMap<String, Set<String>> fulfilledGroupsPerPatient;
 
     @Autowired
     public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
-        this.fulfilledGroupsPerPatient = new ConcurrentHashMap<>();
     }
-
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
         String resourceType = group.getResourceType();
@@ -61,8 +52,6 @@ public class ResourceTransformer {
                     logger.error("Error fetching resources for parameters: {}", parameters, e);
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
-
-
 
         return resources.map(resource -> {
             try {
@@ -82,13 +71,12 @@ public class ResourceTransformer {
 
     }
 
-
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.debug("Handling resource {}",ResourceUtils.getPatientId(resourcesrc));
+            logger.debug("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -113,9 +101,6 @@ public class ResourceTransformer {
         return tgt;
     }
 
-
-
-
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
         //logger.debug("Starting collectResourcesByPatientReference");
         //logger.debug("Patients Received: {}", patients);
@@ -123,58 +108,57 @@ public class ResourceTransformer {
         // Set of Pat Ids that survived so far
         Set<String> safeSet = new HashSet<>(patients);
 
-        // Wrapping the entire operation in a reactive pipeline without blocking
-        return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
-                .flatMap(group -> {
-                    // Set of PatIds that survived for this group
-                    Set<String> safeGroup = new HashSet<>();
-                    if (!group.hasMustHave()) {
-                        safeGroup.addAll(patients);
-                    }
-
-                    // Handling the entire patients list as a batch
-                    return transformResources(searchBuilder.getSearchBatch(group, patients), group)
-                            .filter(resource -> !resource.isEmpty())
-                            .collectMultimap(resource -> {
-                                try {
-                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                    safeGroup.add(id);
-                                    return id;
-                                } catch (PatientIdNotFoundException e) {
-                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                    throw new RuntimeException(e);
+        // Mono.fromCallable is used to wrap the blocking code
+        return Mono.fromCallable(() -> {
+                    // This part of the code involves blocking operations like creating lists
+                    List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
+                            .map(group -> {
+                                // Set of PatIds that survived for this group
+                                Set<String> safeGroup = new HashSet<>();
+                                if (!group.hasMustHave()) {
+                                    safeGroup.addAll(patients);
                                 }
+
+                                // Handling the entire patients list as a batch
+                                return transformResources(searchBuilder.getSearchBatch(group, patients), group)
+                                        .filter(resource -> !resource.isEmpty())
+                                        .collectMultimap(resource -> {
+                                            try {
+                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                                safeGroup.add(id);
+                                                return id;
+                                            } catch (PatientIdNotFoundException e) {
+                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                                throw new RuntimeException(e);
+                                            }
+                                        })
+                                        .doOnNext(map -> {
+                                            //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
+                                            safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
+                                            //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
+                                        });
                             })
-                            .doOnNext(map -> {
-                                safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
-                            });
-                })
-                .collectList()
-                .map(resourceLists -> {
-                    // Combining all resource lists into a single map
-                    return resourceLists.stream()
-                            .flatMap(map -> map.entrySet().stream())
-                            .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    Map.Entry::getValue,
-                                    (existing, replacement) -> {
-                                        existing.addAll(replacement);
-                                        return existing;
-                                    }
-                            ));
+                            .collect(Collectors.toList());
+
+                    return Flux.concat(groupMonos)
+                            .collectList()
+                            .map(resourceLists -> {
+                                //logger.debug("Combining resource lists into a single map");
+                                return resourceLists.stream()
+                                        .flatMap(map -> map.entrySet().stream())
+                                        .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
+                                        .collect(Collectors.toMap(
+                                                Map.Entry::getKey,
+                                                Map.Entry::getValue,
+                                                (existing, replacement) -> {
+                                                    existing.addAll(replacement);
+                                                    return existing;
+                                                }
+                                        ));
+                            })
+                            .block(); // Blocking call within a Callable to get the final result
                 })
                 .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result.entrySet()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
-
     }
-
-
-
-
-
-
-
-
-
 }

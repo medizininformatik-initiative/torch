@@ -1,6 +1,6 @@
 package de.medizininformatikinitiative.torch.rest;
 
-import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.Enumerations;
 import org.slf4j.Logger;
@@ -16,15 +16,13 @@ public class CapabilityStatementController {
     private static final Logger logger = LoggerFactory.getLogger(CapabilityStatementController.class);
 
     @Autowired
-    IParser parser;
+    FhirContext fhirContext;
 
     @GetMapping(value = "/fhir/metadata", produces = MediaType.APPLICATION_JSON_VALUE)
     public String getCapabilityStatement() {
         logger.debug("Received request for /fhir/metadata");
-        CapabilityStatement capabilityStatement = createCapabilityStatement();
-        String capabilityStatementString = parser.setPrettyPrint(true).encodeResourceToString(capabilityStatement);
-        //logger.debug("Encoded CapabilityStatement to JSON");
-        return capabilityStatementString;
+        var capabilityStatement = createCapabilityStatement();
+        return fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(capabilityStatement);
     }
 
     private CapabilityStatement createCapabilityStatement() {

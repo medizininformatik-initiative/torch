@@ -4,34 +4,6 @@
   "type": "transaction",
   "entry": [ {
     "resource": {
-      "resourceType": "Condition",
-      "id": "4",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
-      },
-      "code": {
-        "coding": [ {
-          "system": "http://snomed.info/sct",
-          "code": "789012",
-          "display": "Example diagnosis 3"
-        } ]
-      },
-      "subject": {
-        "reference": "Patient/3"
-      },
-      "_recordedDate": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      }
-    },
-    "request": {
-      "method": "PUT",
-      "url": "Condition/4"
-    }
-  }, {
-    "resource": {
       "resourceType": "Observation",
       "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
       "meta": {
@@ -78,6 +50,41 @@
       "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
     }
   }, {
+    "resource": {
+      "resourceType": "Condition",
+      "id": "4",
+      "meta": {
+        "profile": [
+          "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+        ]
+      },
+      "code": {
+        "coding": [
+          {
+            "system": "http://snomed.info/sct",
+            "code": "789012",
+            "display": "Example diagnosis 3"
+          }
+        ]
+      },
+      "subject": {
+        "reference": "Patient/3"
+      },
+      "_recordedDate": {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+            "valueCode": "masked"
+          }
+        ]
+      }
+    },
+    "request": {
+      "method": "PUT",
+      "url": "Condition/4"
+    }
+  },
+    {
     "resource": {
       "resourceType": "Patient",
       "id": "3",
