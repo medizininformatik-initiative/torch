@@ -33,14 +33,14 @@ public class ResourceTransformer {
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
         
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
-        this.handler = handler;
+        this.handler = new ConsentHandler(dataStore,cds,mapper);
     }
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group) {
+    public Flux<Resource> transformResources(String parameters, AttributeGroup group,Flux<Map<String, List<ConsentPeriod>>> consentmap) {
         String resourceType = group.getResourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
@@ -100,22 +100,23 @@ public class ResourceTransformer {
         return tgt;
     }
 
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> patients)  {
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch)  {
         //logger.debug("Starting collectResourcesByPatientReference");
-        //logger.debug("Patients Received: {}", patients);
-        boolean consent;
+        //logger.debug("Patients Received: {}", batch);
+        Flux<Map<String, List<ConsentPeriod>>> consentmap=Flux.empty();
         //todo get consent key from crtdl, get all conset ressources and map all times where consent is valid to each code
         String key=crtdl.getConsentKey();
-        if(key==""){
-            //no consent needed i.e. no building of key maps and processing of consnet neede
-            consent=false;
+        if(key!=""){
+            //Consent needed
             //Call maps
+            consentmap = handler.buildingConsentInfo(key, batch);
         }
 
         // Set of Pat Ids that survived so far
-        Set<String> safeSet = new HashSet<>(patients);
+        Set<String> safeSet = new HashSet<>(batch);
 
         // Mono.fromCallable is used to wrap the blocking code
+        Flux<Map<String, List<ConsentPeriod>>> finalConsentmap = consentmap;
         return Mono.fromCallable(() -> {
                     // This part of the code involves blocking operations like creating lists
                     List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
@@ -123,11 +124,11 @@ public class ResourceTransformer {
                                 // Set of PatIds that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
                                 if (!group.hasMustHave()) {
-                                    safeGroup.addAll(patients);
+                                    safeGroup.addAll(batch);
                                 }
 
-                                // Handling the entire patients list as a batch
-                                return transformResources(searchBuilder.getSearchParam(group, patients), group)
+                                // Handling the entire batch list as a batch
+                                return transformResources(searchBuilder.getSearchParam(group, batch), group, finalConsentmap)
                                         .filter(resource -> !resource.isEmpty())
                                         .collectMultimap(resource -> {
                                             try {
@@ -141,7 +142,7 @@ public class ResourceTransformer {
                                         })
                                         .doOnNext(map -> {
                                             //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
-                                            safeSet.retainAll(safeGroup); // Retain only the patients that are present in both sets
+                                            safeSet.retainAll(safeGroup); // Retain only the batch that are present in both sets
                                             //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
                                         });
                             })

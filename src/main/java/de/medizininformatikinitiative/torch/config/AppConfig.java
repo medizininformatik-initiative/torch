@@ -3,11 +3,9 @@ package de.medizininformatikinitiative.torch.config;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.DataStore;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -79,8 +77,12 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
-        return new ResourceTransformer(dataStore, cds);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
+        return new ResourceTransformer(dataStore, cds, mapper);
+    }
+
+    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper){
+        return new ConsentHandler(dataStore,cds,mapper);
     }
 
     @Bean

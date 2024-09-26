@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -8,8 +9,10 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -32,8 +35,11 @@ public class ResourceTransformationTest extends BaseTest {
     @Test
     public void testObservation() {
 
-        ResourceTransformer transformer = new ResourceTransformer(dataStore, cds);
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
+        ResourceTransformer transformer = null;
+        try {
+            transformer = new ResourceTransformer(dataStore, cds, new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"));
+
+       FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = (DomainResource) ResourceReader.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
