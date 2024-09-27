@@ -15,7 +15,7 @@ public class ConsentCodeMapper {
     private Map<String, List<String>> consentMap;
 
     public ConsentCodeMapper(
-            @Value("${torch.mapping.consent}") String consentFilePath
+           String consentFilePath
     ) throws IOException {
         this.consentMap = new HashMap<>();
         buildConsentMap(consentFilePath);

@@ -114,7 +114,7 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.debug("Child to be handled {}",childID);
+            logger.trace("Child to be handled {}",childID);
             String type = "";
             int min=0;
             try {
@@ -126,7 +126,7 @@ public class Redaction {
                 try {
                     type=child.getTypeCode();
                     min=child.getMinCardinality();
-                    logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+                    logger.trace("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
                 } catch (NullPointerException ex) {
 
                     logger.error(" Child  Type Unknown {}", childID,child.getName());

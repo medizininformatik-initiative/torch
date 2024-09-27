@@ -63,7 +63,6 @@ public class FhirController {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
-            ObjectMapper objectMapper,
             FhirContext fhirContext,
             ExecutorService executorService,
             @Value("${torch.batchsize:10}") int batchsize,
@@ -71,7 +70,7 @@ public class FhirController {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
         this.executorService = executorService;

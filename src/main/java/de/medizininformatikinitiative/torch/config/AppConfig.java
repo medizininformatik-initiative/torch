@@ -18,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -54,6 +55,12 @@ public class AppConfig {
                 .defaultHeader("Accept", "application/sq+json");
 
         return builder.build();
+    }
+
+
+    @Bean
+    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
+        return new ConsentCodeMapper(consentFilePath);
     }
 
     @Bean
