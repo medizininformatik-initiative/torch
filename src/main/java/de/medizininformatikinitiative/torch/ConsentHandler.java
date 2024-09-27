@@ -31,20 +31,20 @@ public class ConsentHandler {
     private final DataStore dataStore;
 
 
-    private FhirContext ctx;
-    private final ConsentCodeMapper mapper;
 
+    private final ConsentCodeMapper mapper;
+    private final ConsentProcessor processor;
 
     @Autowired
     public ConsentHandler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
         this.dataStore = dataStore;
-        this.ctx=cds.ctx;
         this.mapper = mapper;
+        this.processor=new ConsentProcessor(cds.ctx);
     }
 
 
 
-    public Flux<Map<String, List<ConsentPeriod>>> buildingConsentInfo(String key, List<String> batch) {
+    public Flux<Map<String, Map<String, List<ConsentPeriod>>>> buildingConsentInfo(String key, List<String> batch) {
         List<String> codes = mapper.getRelevantCodes(key);
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
@@ -56,84 +56,44 @@ public class ConsentHandler {
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
 
-        // Map to store the patient's consent periods
-        ConcurrentMap<String, List<ConsentPeriod>> patientConsentMap = new ConcurrentHashMap<>();
+        // Map to store the patient's consent periods by patient ID
+        ConcurrentMap<String, Map<String, List<ConsentPeriod>>> patientConsentMap = new ConcurrentHashMap<>();
 
+        // Process each resource
         return resources.map(resource -> {
-            try {
-                DomainResource domainResource = (DomainResource) resource;
+                    try {
+                        DomainResource domainResource = (DomainResource) resource;
 
-                // Extract consent provisions using FHIRPath
-                List<Base> provisionList = extractConsentProvisions(domainResource);
+                        // Extract consent periods for the domain resource and valid codes
+                        Map<String, List<ConsentPeriod>> consents = processor.transformToConsentPeriodByCode(domainResource, codes);
+                        String patient = ResourceUtils.getPatientId(domainResource);
 
-                // Transform to extract patient and consent period information
-                ConsentPeriod consentPeriod = transformToConsentPeriod(domainResource, provisionList); // Adjusted to include provisions
-                String patient = ResourceUtils.getPatientId(domainResource);
+                        // Update the map with the patient's consent periods (handling multiple periods per code)
+                        patientConsentMap.computeIfAbsent(patient, k -> new ConcurrentHashMap<>());
 
-                // Update the map with the patient's consent periods
-                patientConsentMap.computeIfAbsent(patient, k -> new ArrayList<>()).add(consentPeriod);
+                        // Iterate through the consents (codes and their lists of ConsentPeriods)
+                        consents.forEach((code, newConsentPeriods) -> {
+                            // For each patient and code, either update the existing list of periods or create a new list
+                            patientConsentMap.get(patient)
+                                    .computeIfAbsent(code, x -> new ArrayList<>())
+                                    .addAll(newConsentPeriods); // Add all new periods for this code
+                        });
 
-                return patientConsentMap;
-            } catch (Exception e) {
-                logger.error("Error processing resource ", e);
-                throw new RuntimeException(e);
-            }
-        });
-    }
-
-    private List<Base> extractConsentProvisions(DomainResource domainResource) {
-        try {
-            // Using FHIRPath to extract Encounter.provision.provision elements from the resource
-
-
-            return ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision",Base.class);
-        } catch (Exception e) {
-            logger.error("Error extracting provisions with FHIRPath ", e);
-            return Collections.emptyList();  // Return an empty list in case of errors
-        }
-    }
-
-    private ConsentPeriod transformToConsentPeriod(DomainResource domainResource, List<Base> provisionPeriodList) {
-        LocalDateTime maxStart = null;
-        LocalDateTime minEnd = null;
-
-        // Iterate over the provisions to find the maximum start and minimum end
-        for (Base provision : provisionPeriodList) {
-            try {
-                // Assuming provision has a period with start and end dates
-                Period period = (Period) provision;
-                LocalDateTime start = period.hasStart() ? LocalDateTime.parse(period.getStart().toString()) : null;
-                LocalDateTime end = period.hasEnd() ? LocalDateTime.parse(period.getEnd().toString()) : null;
-
-                // Update maxStart and minEnd based on current provision
-                if (start != null) {
-                    if (maxStart == null || start.isAfter(maxStart)) {
-                        maxStart = start;
+                        return patientConsentMap;
+                    } catch (Exception e) {
+                        logger.error("Error processing resource", e);
+                        throw new RuntimeException(e);
                     }
-                }
-
-                if (end != null) {
-                    if (minEnd == null || end.isBefore(minEnd)) {
-                        minEnd = end;
-                    }
-                }
-            } catch (Exception e) {
-                logger.error("Error processing provision period", e);
-            }
-        }
-
-        // Handle the case where no valid periods were found
-        if (maxStart == null || minEnd == null) {
-            throw new IllegalStateException("No valid start or end dates found in provisions");
-        }
-
-        // Create and return the ConsentPeriod with the calculated max start and min end
-        ConsentPeriod consentPeriod = new ConsentPeriod();
-        consentPeriod.setStart(maxStart);
-        consentPeriod.setEnd(minEnd);
-
-        return consentPeriod;
+                }).collectList() // Collect all the maps into a list
+                .flatMapMany(list -> Flux.fromIterable(list)) // Convert list back to Flux
+                .map(map -> new HashMap<>(map));  // Return the final map in the desired format
     }
+
+
+
+
+
+
 
 
 

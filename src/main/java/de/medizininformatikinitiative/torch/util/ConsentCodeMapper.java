@@ -23,10 +23,8 @@ public class ConsentCodeMapper {
 
     // Method to build the map based on the JSON file
     private void buildConsentMap(String filePath) throws IOException {
-        System.out.println(System.getProperty("user.name"));
         File file = new File(filePath);
-        System.out.println("File exists: " + file.exists());
-        System.out.println("Can read: " + file.canRead());
+
         ObjectMapper mapper = new ObjectMapper();
         JsonNode consentMappingData = mapper.readTree(file.getAbsoluteFile());
         for (JsonNode consent : consentMappingData) {

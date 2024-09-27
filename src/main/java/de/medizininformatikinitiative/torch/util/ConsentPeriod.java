@@ -6,6 +6,7 @@ public class ConsentPeriod {
 
     private LocalDateTime start;
     private LocalDateTime end;
+    private String code;
 
     // Default constructor
     public ConsentPeriod() {
@@ -33,9 +34,20 @@ public class ConsentPeriod {
     }
 
     // Setter for end
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    // Getter for end
+    public String getCode() {
+        return code;
+    }
+
+    // Setter for end
     public void setEnd(LocalDateTime end) {
         this.end = end;
     }
+
 
     // Optionally, override toString() for easy debugging and logging
     @Override

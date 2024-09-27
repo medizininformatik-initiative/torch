@@ -40,7 +40,7 @@ public class ResourceTransformer {
         this.handler = new ConsentHandler(dataStore,cds,mapper);
     }
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group,Flux<Map<String, List<ConsentPeriod>>> consentmap) {
+    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap) {
         String resourceType = group.getResourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
@@ -103,7 +103,7 @@ public class ResourceTransformer {
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch)  {
         //logger.debug("Starting collectResourcesByPatientReference");
         //logger.debug("Patients Received: {}", batch);
-        Flux<Map<String, List<ConsentPeriod>>> consentmap=Flux.empty();
+        Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap=Flux.empty();
         //todo get consent key from crtdl, get all conset ressources and map all times where consent is valid to each code
         String key=crtdl.getConsentKey();
         if(key!=""){
@@ -116,7 +116,7 @@ public class ResourceTransformer {
         Set<String> safeSet = new HashSet<>(batch);
 
         // Mono.fromCallable is used to wrap the blocking code
-        Flux<Map<String, List<ConsentPeriod>>> finalConsentmap = consentmap;
+        Flux<Map<String, Map<String, List<ConsentPeriod>>>> finalConsentmap = consentmap;
         return Mono.fromCallable(() -> {
                     // This part of the code involves blocking operations like creating lists
                     List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
