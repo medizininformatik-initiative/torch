@@ -88,8 +88,11 @@ public class ResourceTransformer {
             if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Observation.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("status", true));
             }
-            if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class) {
+            if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
+            }
+            if(resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class){
+                copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
 
 
