@@ -1,15 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.ConsentHandler;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Period;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.LocalDateTime;
 import java.util.*;
 
 public class ConsentProcessor {
@@ -32,7 +28,7 @@ public class ConsentProcessor {
         }
     }
 
-    public Map<String, List<ConsentPeriod>> transformToConsentPeriodByCode(DomainResource domainResource, List<String> validCodes) {
+    public Map<String, List<ConsentPeriod>> transformToConsentPeriodByCode(DomainResource domainResource, Set<String> validCodes) throws ConsentViolatedException {
         // Map to hold lists of ConsentPeriod for each code
         validCodes.forEach( code->logger.debug("validCode {}",code));
         Map<String, List<ConsentPeriod>> consentPeriodMap = new HashMap<>();
@@ -53,10 +49,10 @@ public class ConsentProcessor {
 
                     continue; // Skip if code is not valid
                 }
-                logger.debug("Found valid code  {]",code);
+                logger.debug("Found valid code  {}",code);
                 // Extract start and end dates from the provision's period
-                LocalDateTime start = period.hasStart() ? LocalDateTime.parse(period.getStart().toString()) : null;
-                LocalDateTime end = period.hasEnd() ? LocalDateTime.parse(period.getEnd().toString()) : null;
+                DateTimeType start = period.hasStart() ? period.getStartElement() : null;
+                DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
 
                 // If no start or end period is present, skip to the next provision
                 if (start == null || end == null) continue;
@@ -78,6 +74,11 @@ public class ConsentProcessor {
         // Handle the case where no valid periods were found for any code
         if (consentPeriodMap.isEmpty()) {
             throw new IllegalStateException("No valid start or end dates found for the provided valid codes");
+        }
+
+        if(consentPeriodMap.keySet()!=validCodes){
+            throw new ConsentViolatedException("Resource does not have consents for every code");
+
         }
 
         return consentPeriodMap;

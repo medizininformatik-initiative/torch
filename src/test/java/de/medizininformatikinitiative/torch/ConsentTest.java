@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.Base;
@@ -9,6 +10,8 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.util.*;
 
+import static org.junit.Assert.assertThrows;
+
 public class ConsentTest extends BaseTest {
 
 
@@ -16,26 +19,27 @@ public class ConsentTest extends BaseTest {
     public void testConsentHandler() throws IOException {
         ConsentCodeMapper consentCodeMapper=new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json");
         ConsentProcessor processor=new ConsentProcessor(cds.ctx);
-        String[] resources = {"VHF006_Consent.json"};
+        String[] resources = {"VHF006_Consent_Fail.json"};
         Arrays.stream(resources).forEach(resource -> {
-            try {
+            assertThrows(ConsentViolatedException.class, () -> {
+                try {
 
-                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
-                assert(Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
-                List<Base> provisionList = processor.extractConsentProvisions(resourceSrc);
+                    DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
+                    assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
+                    // Transform to extract patient and consent period information
+                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
+                    String patient = ResourceUtils.getPatientId(resourceSrc);
+                    logger.debug("map size {}", consentPeriodMap.entrySet());
+                    // Update the map with the patient's consent periods
+                    assert (!consentPeriodMap.get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty());
 
-                // Transform to extract patient and consent period information
-                Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
-                String patient = ResourceUtils.getPatientId(resourceSrc);
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                } catch (PatientIdNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
-                // Update the map with the patient's consent periods
-                assert(!consentPeriodMap.get("VHF-0006").isEmpty());
-
-            } catch (IOException e) {
-                throw new RuntimeException(e);
-            } catch (PatientIdNotFoundException e) {
-                throw new RuntimeException(e);
-            }
         });
     }
 

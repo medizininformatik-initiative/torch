@@ -46,8 +46,7 @@ public class ConsentCodeMapper {
         }
     }
 
-    // Method to get the relevant codes for a given key (e.g., "yes-yes-yes-yes")
-    public List<String> getRelevantCodes(String key) {
-        return consentMap.getOrDefault(key, Collections.emptyList());
+    public Set<String> getRelevantCodes(String key) {
+        return new HashSet<>(consentMap.getOrDefault(key, Collections.emptyList()));
     }
 }

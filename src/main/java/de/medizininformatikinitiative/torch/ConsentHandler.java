@@ -45,7 +45,7 @@ public class ConsentHandler {
 
 
     public Flux<Map<String, Map<String, List<ConsentPeriod>>>> buildingConsentInfo(String key, List<String> batch) {
-        List<String> codes = mapper.getRelevantCodes(key);
+        Set<String> codes = mapper.getRelevantCodes(key);
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
         Flux<Resource> resources = dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
