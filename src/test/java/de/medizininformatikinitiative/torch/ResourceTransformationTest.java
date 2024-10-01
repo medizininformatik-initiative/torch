@@ -9,10 +9,8 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
 
 import java.io.FileInputStream;
-import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -37,7 +35,7 @@ public class ResourceTransformationTest extends BaseTest {
 
         ResourceTransformer transformer = null;
         try {
-            transformer = new ResourceTransformer(dataStore, cds, new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"));
+            transformer = new ResourceTransformer(dataStore, cds, new ConsentHandler( dataStore, new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"), "src/test/resources/mappings/profile_consent_map.json",cds ));
 
        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);

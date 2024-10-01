@@ -41,7 +41,7 @@ public class ConsentProcessor {
                 // Assuming provision has a period with start and end dates
                 Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
                 Period period = provision.getPeriod();
-                String code = provision.getCode().getFirst().getCoding().getFirst().getCode().toString();
+                String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
 
                 logger.debug("Period found {} {} Code {}",period.getStart(),period.getEnd(),code);
                 // Check if the code is in the list of valid codes
@@ -73,11 +73,11 @@ public class ConsentProcessor {
 
         // Handle the case where no valid periods were found for any code
         if (consentPeriodMap.isEmpty()) {
-            throw new IllegalStateException("No valid start or end dates found for the provided valid codes");
+            throw new ConsentViolatedException("No valid start or end dates found for the provided valid codes");
         }
 
-        if(consentPeriodMap.keySet()!=validCodes){
-            throw new ConsentViolatedException("Resource does not have consents for every code");
+        if(!consentPeriodMap.keySet().equals(validCodes)){
+            throw new ConsentViolatedException("Resource does not have valid consents for every  requested code");
 
         }
 

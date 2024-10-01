@@ -33,11 +33,11 @@ public class ResourceTransformer {
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
         
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
-        this.handler = new ConsentHandler(dataStore,cds,mapper);
+        this.handler = handler;
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group, Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap) {
@@ -54,7 +54,7 @@ public class ResourceTransformer {
 
         return resources.map(resource -> {
             try {
-
+                if(handler.checkConsent((DomainResource) resource,consentmap))
                 return transform((DomainResource) resource, group);
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                      InstantiationException e) {
@@ -91,7 +91,7 @@ public class ResourceTransformer {
             if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
             }
-            if(resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class){
+            if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
 

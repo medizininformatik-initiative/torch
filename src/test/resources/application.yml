@@ -7,6 +7,7 @@ torch:
     dir: structureDefinitions
   mapping:
     consent: src/test/resources/mappings/consent-mappings.json
+    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
     testPopulation:
@@ -27,7 +28,7 @@ logging:
     org.springframework.web.reactive.function.client: info
     reactor.netty: info
     reactor: info
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:trace}
     org.springframework: ${LOG_LEVEL:info}
 
 

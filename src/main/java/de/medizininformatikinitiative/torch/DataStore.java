@@ -34,23 +34,34 @@ public class DataStore {
      * @param parameters the fhir search query parameters defining the patient resources to be fetched
      * @return the resources found with the {@param FHIRSearchQuery}
      */
-    public Flux<Resource> getResources(String resourceType,String parameters) {
-        //logger.debug("Search Parameters{}", parameters);
-
+    public Flux<Resource> getResources(String resourceType, String parameters) {
+        logger.debug("Executing FHIR search for resourceType: {} with parameters: {}", resourceType, parameters);
 
         return client.post()
-                .uri("/"+resourceType+"/_search")
+                .uri("/" + resourceType + "/_search")
                 .bodyValue(parameters)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .retrieve()
                 .bodyToMono(String.class)
-                .doOnNext(response -> logger.debug("getResources Response: {}", response))
-                .flatMap(response -> Mono.just(fhirContext.newJsonParser().parseResource(Bundle.class, response)))
+                .doOnNext(response -> logger.debug("Received initial response from FHIR server for resourceType: {}", resourceType))
+                .flatMap(response -> {
+                    logger.debug("Parsing FHIR response for resourceType: {}", resourceType);
+                    return Mono.just(fhirContext.newJsonParser().parseResource(Bundle.class, response));
+                })
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
-                        .map(link -> fetchPage(client, link.getUrl()))
+                        .map(link -> {
+                            logger.debug("Fetching next page of results for resourceType: {}", resourceType);
+                            return fetchPage(client, link.getUrl());
+                        })
                         .orElse(Mono.empty()))
-                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)));
+                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
+                .collectList()  // Collect the resources into a List to log the size
+                .doOnSuccess(resources -> logger.debug("Successfully fetched {} resources for resourceType: {}", resources.size(), resourceType))
+                .flatMapMany(Flux::fromIterable)  // Convert the List back into a Flux
+                .doOnNext(resource -> logger.debug("Fetched resource: {}", resource.getIdElement().getIdPart()))  // Log each resource fetched
+                .doOnError(error -> logger.error("Error occurred while fetching resources for resourceType: {}: {}", resourceType, error.getMessage()));
     }
+
 
 
     private Mono<Bundle> fetchPage(WebClient client, String url) {

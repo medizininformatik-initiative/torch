@@ -7,6 +7,7 @@ torch:
     dir: src/main/resources/StructureDefinitions
   mapping:
     consent: src/main/resources/mappings/consent-mappings_fhir.json
+    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
   flare:

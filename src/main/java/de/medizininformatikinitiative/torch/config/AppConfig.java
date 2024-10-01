@@ -84,12 +84,12 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper) {
-        return new ResourceTransformer(dataStore, cds, mapper);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+        return new ResourceTransformer(dataStore, cds, handler);
     }
 
-    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper){
-        return new ConsentHandler(dataStore,cds,mapper);
+    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper,@Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
+        return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
     }
 
     @Bean
@@ -99,7 +99,7 @@ public class AppConfig {
 
     @Bean
     public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
-        return new CdsStructureDefinitionHandler(fhirContext, dir);
+        return new CdsStructureDefinitionHandler(dir);
     }
 
     @Bean

@@ -18,18 +18,14 @@ public class CdsStructureDefinitionHandler {
     public FhirContext ctx;
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    public CdsStructureDefinitionHandler(FhirContext ctx, String fileDirectory) {
+    public CdsStructureDefinitionHandler(String fileDirectory) {
         try {
             processDirectory(fileDirectory);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-        this.ctx = ctx;
     }
 
-    public CdsStructureDefinitionHandler(FhirContext ctx) {
-        this.ctx = ctx;
-    }
 
     /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
