@@ -52,22 +52,29 @@ public class ResourceTransformer {
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
 
-        return resources.map(resource -> {
+        // Since consentmap is global for the batch, use the first consent map and cache it
+        Mono<Map<String, Map<String, List<ConsentPeriod>>>> cachedConsentMap = consentmap
+                .next()  // Assuming that the first emitted item is the global consent map for all patients
+                .cache();  // Cache to reuse for all resources
+
+        return resources.flatMap(resource -> cachedConsentMap.flatMap(consent -> {
             try {
-                if(handler.checkConsent((DomainResource) resource,consentmap))
-                return transform((DomainResource) resource, group);
+                if (handler.checkConsent((DomainResource) resource, consent)) {
+                    return Mono.just(transform((DomainResource) resource, group));
+                } else {
+                    Patient empty = new Patient();
+                    return Mono.just(empty);
+                }
             } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                      InstantiationException e) {
                 logger.error("Transform error ", e);
-                throw new RuntimeException(e);
+                return Mono.error(new RuntimeException(e));
             } catch (MustHaveViolatedException e) {
                 Patient empty = new Patient();
                 logger.error("Empty Transformation {}", empty.isEmpty());
-                return empty;
+                return Mono.just(empty);
             }
-
-        });
-
+        }));
     }
 
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
