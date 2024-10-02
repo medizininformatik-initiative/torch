@@ -89,20 +89,11 @@ public class ResultFileManager {
                         Path jobDir = resultsDirPath.resolve(jobId);
 
                         // If the directory exists, delete it recursively
-                        if (Files.exists(jobDir)) {
-                            Files.walk(jobDir)
-                                    .sorted(Comparator.reverseOrder())  // Sort to delete files first, then directories
-                                    .forEach(path -> {
-                                        try {
-                                            Files.delete(path);
-                                        } catch (IOException e) {
-                                            logger.error("Failed to delete path {}: {}", path, e.getMessage());
-                                        }
-                                    });
+                        if (!Files.exists(jobDir)) {
+                            Files.createDirectories(jobDir);
+
                         }
-                        logger.debug("Removed Dir {}", jobDir);
                         // Recreate the directory after cleanup
-                        Files.createDirectories(jobDir);
                         return jobDir;
                     } catch (IOException e) {
                         logger.error("Failed to initialize directory for jobId {}: {}", jobId, e.getMessage());
