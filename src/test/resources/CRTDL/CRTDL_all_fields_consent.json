@@ -1,40 +1,24 @@
 {
   "version": "http://json-schema.org/to-be-done/schema#",
   "display": "",
-  "cohortDefinition": {
+  "cohortDefinition":   {
     "version": "http://to_be_decided.com/draft-1/schema#",
     "display": "",
     "inclusionCriteria": [
       [
         {
-          "termCodes": [
-            {
-              "code": "263495000",
-              "system": "http://snomed.info/sct",
-              "display": "Geschlecht"
-            }
-          ],
           "context": {
-            "code": "Patient",
-            "system": "fdpg.mii.cds",
-            "version": "1.0.0",
-            "display": "Patient"
+            "code": "Einwilligung",
+            "display": "Einwilligung",
+            "system": "fdpg.mii.cds"
           },
-          "valueFilter": {
-            "selectedConcepts": [
-              {
-                "code": "female",
-                "display": "Female",
-                "system": "http://hl7.org/fhir/administrative-gender"
-              },
-              {
-                "code": "male",
-                "display": "Male",
-                "system": "http://hl7.org/fhir/administrative-gender"
-              }
-            ],
-            "type": "concept"
-          }
+          "termcodes": [
+            {
+              "code": "yes-yes-yes-yes",
+              "display": "Verteilte, EU-DSGVO konforme Analyse, mit Krankenkassendaten, und mit Rekontaktierung",
+              "system": "fdpg.consent.combined"
+            }
+          ]
         }
       ]
     ]

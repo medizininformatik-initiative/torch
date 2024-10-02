@@ -82,6 +82,23 @@ public class FhirControllerIT extends AbstractIT {
     }
 
     @Test
+    public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.add("content-type", "application/fhir+json");
+        List<String> expectedResourceFilePaths = List.of(
+                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
+        );
+
+        List<String> filePaths = List.of(
+                "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
+        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+    }
+
+
+
+
+    @Test
     public void testFlare() throws IOException {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX+"CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
