@@ -41,7 +41,7 @@ public class ElementCopier {
      */
     public ElementCopier(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
-        this.ctx = handler.ctx;
+        this.ctx = ResourceReader.ctx;
         this.pathBuilder=new FhirPathBuilder(handler);
 
     }

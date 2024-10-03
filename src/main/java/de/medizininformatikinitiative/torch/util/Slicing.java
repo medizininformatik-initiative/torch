@@ -18,7 +18,6 @@ import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.re
 public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
-    private FhirContext ctx;
 
 
     CdsStructureDefinitionHandler handler;
@@ -30,7 +29,7 @@ public class Slicing {
      */
     public Slicing(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
-        this.ctx = handler.ctx;
+
     }
 
     /**
@@ -65,7 +64,7 @@ public class Slicing {
 
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> ElementDefinition = ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
+        List<ElementDefinition> ElementDefinition = ResourceReader.ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
         ElementDefinition.forEach(element -> {
             //logger.debug("Slice to be handled {}",element.getIdElement());
             boolean foundSlice = true;

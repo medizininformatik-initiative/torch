@@ -140,7 +140,7 @@ public class ConsentHandler {
     public Flux<Map<String, Map<String, List<ConsentPeriod>>>> buildingConsentInfo(String key, List<String> batch) {
         // Retrieve the relevant codes for the given key
         Set<String> codes = mapper.getRelevantCodes(key);
-        ConsentProcessor processor = new ConsentProcessor(ctx);
+        ConsentProcessor processor = new ConsentProcessor();
 
         logger.info("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
 

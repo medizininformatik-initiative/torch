@@ -10,12 +10,13 @@
           "context": {
             "code": "Einwilligung",
             "display": "Einwilligung",
-            "system": "fdpg.mii.cds"
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
           },
-          "termcodes": [
+          "termCodes": [
             {
-              "code": "yes-yes-yes-yes",
-              "display": "Verteilte, EU-DSGVO konforme Analyse, mit Krankenkassendaten, und mit Rekontaktierung",
+              "code": "yes-yes-no-yes",
+              "display": "Verteilte, EU-DSGVO konforme Analyse, ohne Krankenassendaten, und mit Rekontaktierung",
               "system": "fdpg.consent.combined"
             }
           ]

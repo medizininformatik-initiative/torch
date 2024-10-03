@@ -10,9 +10,7 @@ import java.util.*;
 
 public class ConsentProcessor {
     public static final Logger logger = LoggerFactory.getLogger(ConsentProcessor.class);
-    public final FhirContext ctx;
-    public ConsentProcessor(FhirContext ctx) {
-    this.ctx=ctx;
+    public ConsentProcessor() {
     }
 
 
@@ -21,7 +19,7 @@ public class ConsentProcessor {
             // Using FHIRPath to extract Encounter.provision.provision elements from the resource
 
 
-            return ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision",Base.class);
+            return ResourceReader.ctx.newFhirPath().evaluate(domainResource, "Consent.provision.provision",Base.class);
         } catch (Exception e) {
             logger.error("Error extracting provisions with FHIRPath ", e);
             return Collections.emptyList();  // Return an empty list in case of errors

@@ -21,7 +21,7 @@ public class ConsentProcessorTest extends BaseTest {
     @Test
     public void testConsentProcessorFail() throws IOException {
 
-        ConsentProcessor processor=new ConsentProcessor(ResourceReader.ctx);
+        ConsentProcessor processor=new ConsentProcessor();
         String[] resources = {"VHF006_Consent_Fail.json"};
         Arrays.stream(resources).forEach(resource -> {
             assertThrows(ConsentViolatedException.class, () -> {
@@ -49,7 +49,7 @@ public class ConsentProcessorTest extends BaseTest {
     @Test
     public void testConsentProcessor() throws IOException {
 
-        ConsentProcessor processor=new ConsentProcessor(cds.ctx);
+        ConsentProcessor processor=new ConsentProcessor();
         String[] resources = {"VHF006_Consent.json"};
         Arrays.stream(resources).forEach(resource -> {
                 try {
