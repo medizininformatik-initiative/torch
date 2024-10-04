@@ -40,7 +40,7 @@ public class ResourceTransformer {
         this.handler = handler;
     }
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap) {
+    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<ConsentPeriod>>> consentmap) {
         String resourceType = group.getResourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
@@ -52,30 +52,45 @@ public class ResourceTransformer {
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
 
-        // Since consentmap is global for the batch, use the first consent map and cache it
-        Mono<Map<String, Map<String, List<ConsentPeriod>>>> cachedConsentMap = consentmap
-                .next()  // Assuming that the first emitted item is the global consent map for all patients
-                .cache();  // Cache to reuse for all resources
-
-        return resources.flatMap(resource -> cachedConsentMap.flatMap(consent -> {
-            try {
-                if (handler.checkConsent((DomainResource) resource, consent)) {
+        // Transform resources based on consentmap availability
+        if (consentmap.isEmpty()) {
+            // No consent map available, process resources without consent checks
+            return resources.flatMap(resource -> {
+                try {
                     return Mono.just(transform((DomainResource) resource, group));
-                } else {
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                    logger.error("Transform error: ", e);
+                    return Mono.error(new RuntimeException(e));
+                } catch (MustHaveViolatedException e) {
                     Patient empty = new Patient();
+                    logger.error("Empty Transformation: {}", empty.isEmpty());
                     return Mono.just(empty);
                 }
-            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
-                     InstantiationException e) {
-                logger.error("Transform error ", e);
-                return Mono.error(new RuntimeException(e));
-            } catch (MustHaveViolatedException e) {
-                Patient empty = new Patient();
-                logger.error("Empty Transformation {}", empty.isEmpty());
-                return Mono.just(empty);
-            }
-        }));
+            });
+        } else {
+            // Consent map is available, apply consent checks
+            return resources.flatMap(resource -> {
+                try {
+                    if (handler.checkConsent((DomainResource) resource, consentmap)) {
+                        return Mono.just(transform((DomainResource) resource, group));
+                    } else {
+                        // Return empty resource when consent is violated
+                        Patient empty = new Patient();
+                        return Mono.just(empty);
+                    }
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                    logger.error("Transform error: ", e);
+                    return Mono.error(new RuntimeException(e));
+                } catch (MustHaveViolatedException e) {
+                    Patient empty = new Patient();
+                    logger.error("Empty Transformation: {}", empty.isEmpty());
+                    return Mono.just(empty);
+                }
+            });
+        }
     }
+
+
 
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
@@ -110,34 +125,33 @@ public class ResourceTransformer {
         return tgt;
     }
 
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch)  {
-        //logger.debug("Starting collectResourcesByPatientReference");
-        //logger.debug("Patients Received: {}", batch);
-        Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap=Flux.empty();
-        //todo get consent key from crtdl, get all conset ressources and map all times where consent is valid to each code
-        String key=crtdl.getConsentKey();
-        if(key!=""){
-            //Consent needed
-            //Call maps
-            consentmap = handler.buildingConsentInfo(key, batch);
-        }
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch) {
+        logger.debug("Starting collectResourcesByPatientReference");
+        logger.debug("Patients Received: {}", batch);
 
-        // Set of Pat Ids that survived so far
+        // Fetch consent key
+        String key = crtdl.getConsentKey();
+
+        // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
+        Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap = key.isEmpty() ?
+                Flux.empty() : handler.buildingConsentInfo(key, batch);
+
+        // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);
 
-        // Mono.fromCallable is used to wrap the blocking code
-        Flux<Map<String, Map<String, List<ConsentPeriod>>>> finalConsentmap = consentmap;
-        return Mono.fromCallable(() -> {
-                    // This part of the code involves blocking operations like creating lists
-                    List<Mono<Map<String, Collection<Resource>>>> groupMonos = crtdl.getDataExtraction().getAttributeGroups().stream()
-                            .map(group -> {
-                                // Set of PatIds that survived for this group
+        return consentmap.switchIfEmpty(Flux.just(Collections.emptyMap())) // Handle case where no consent is required
+                .flatMap(finalConsentmap -> {
+
+                    // Collect the attribute groups for each batch
+                    return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                            .flatMap(group -> {
+                                // Set of patient IDs that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
                                 if (!group.hasMustHave()) {
-                                    safeGroup.addAll(batch);
+                                    safeGroup.addAll(batch); // No constraints, all patients are initially safe
                                 }
 
-                                // Handling the entire batch list as a batch
+                                // Handle each group reactively
                                 return transformResources(searchBuilder.getSearchParam(group, batch), group, finalConsentmap)
                                         .filter(resource -> !resource.isEmpty())
                                         .collectMultimap(resource -> {
@@ -151,32 +165,30 @@ public class ResourceTransformer {
                                             }
                                         })
                                         .doOnNext(map -> {
-                                            //logger.debug("Collected resources for group {} {}", group.getGroupReference(),map.size());
-                                            safeSet.retainAll(safeGroup); // Retain only the batch that are present in both sets
-                                            //logger.debug("SafeGroup after diff with SafeSet: {} {}", safeSet.size(), safeSet);
+                                            safeSet.retainAll(safeGroup); // Retain only the patients present in both sets
                                         });
-                            })
-                            .collect(Collectors.toList());
-
-                    return Flux.concat(groupMonos)
-                            .collectList()
-                            .map(resourceLists -> {
-                                //logger.debug("Combining resource lists into a single map");
-                                return resourceLists.stream()
-                                        .flatMap(map -> map.entrySet().stream())
-                                        .filter(entry -> safeSet.contains(entry.getKey())) // Ensure the entry key is in the safe set
-                                        .collect(Collectors.toMap(
-                                                Map.Entry::getKey,
-                                                Map.Entry::getValue,
-                                                (existing, replacement) -> {
-                                                    existing.addAll(replacement);
-                                                    return existing;
-                                                }
-                                        ));
-                            })
-                            .block(); // Blocking call within a Callable to get the final result
+                            });
                 })
-                .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result.entrySet()))
+                .collectList()
+                .map(resourceLists -> resourceLists.stream()
+                        .flatMap(map -> map.entrySet().stream())
+                        .filter(entry -> safeSet.contains(entry.getKey())) // Filter by the safe set
+                        .collect(Collectors.toMap(
+                                Map.Entry::getKey,
+                                Map.Entry::getValue,
+                                (existing, replacement) -> {
+                                    existing.addAll(replacement);
+                                    return existing;
+                                }
+                        ))
+                )
+                .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
+
+
+
+
+
+
 }

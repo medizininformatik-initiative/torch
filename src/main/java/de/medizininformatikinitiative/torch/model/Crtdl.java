@@ -75,7 +75,7 @@ public class Crtdl {
                 for (JsonNode criteria : criteriaGroup) {
                     JsonNode context = criteria.get("context");
                     if (context != null && "Einwilligung".equals(context.get("code").asText())) {
-                        JsonNode termcodes = criteria.get("termcodes");
+                        JsonNode termcodes = criteria.get("termCodes");
                         if (termcodes != null && termcodes.isArray()) {
                             // Assuming only one termcode per "Einwilligung" context
                             JsonNode firstTermcode = termcodes.get(0);

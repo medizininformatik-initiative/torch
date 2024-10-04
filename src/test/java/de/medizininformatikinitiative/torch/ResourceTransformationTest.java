@@ -35,7 +35,7 @@ public class ResourceTransformationTest extends BaseTest {
 
         ResourceTransformer transformer = null;
         try {
-            transformer = new ResourceTransformer(dataStore, cds, new ConsentHandler( dataStore, new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"), "src/test/resources/mappings/profile_consent_map.json",cds ));
+            transformer = new ResourceTransformer(dataStore, cds, new ConsentHandler( dataStore, new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"), "src/test/resources/mappings/profile_to_consent.json",cds ));
 
        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);

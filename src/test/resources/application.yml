@@ -7,7 +7,7 @@ torch:
     dir: structureDefinitions
   mapping:
     consent: src/test/resources/mappings/consent-mappings.json
-    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
+    consent_to_profile: src/test/resources/mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
     testPopulation:

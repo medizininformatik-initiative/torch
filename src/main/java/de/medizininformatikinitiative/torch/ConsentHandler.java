@@ -45,6 +45,7 @@ public class ConsentHandler {
     //Get the consent info
     // Check consent based on resource profiles and mapping
     public Boolean checkConsent(DomainResource resource, Map<String, Map<String, List<ConsentPeriod>>> consentInfo) {
+        logger.debug("Checking Consent for {}",resource.getResourceType());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
@@ -58,7 +59,9 @@ public class ConsentHandler {
 
             // Check if the profile is a valid key in the JsonNode
             if (mappingProfiletoDateField.has(profile)) {
+                logger.debug("handling the following Profile {}",profile);
                 fieldValue = mappingProfiletoDateField.get(profile);
+                logger.debug("Fieldvalue {}",fieldValue);
                 snapshot = cdsStructureDefinitionHandler.getSnapshot(profile);
                 logger.debug("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
                 break;  // Exit the loop after finding the first match
@@ -74,12 +77,12 @@ public class ConsentHandler {
 
         // Process the fieldValue as needed
         if (fieldValue != null) {
-            if (fieldValue.equals("")) {
-                logger.debug("Field value is empty, consent is automatically granted.");
+            if (fieldValue.isEmpty()) {
+                logger.debug("Field value is empty, consent is automatically granted, if Patient has consents in general");
                 return true;
             } else {
                 // Evaluate the field value using FHIRPath
-
+                logger.debug("Fieldvalue to be handled {} as FhirPath",fieldValue.asText());
                 List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(),snapshot), Base.class);
                 logger.debug("Evaluated FHIRPath expression, found {} values.", values.size());
 
@@ -148,7 +151,7 @@ public class ConsentHandler {
         return dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
                 .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
                 .doOnSubscribe(subscription -> logger.info("Fetching resources for batch: {}", batch))
-                .doOnNext(resource -> logger.debug("Resource fetched: {}", resource.getIdElement().getIdPart()))  // Log each resource fetched
+                .doOnNext(resource -> logger.debug("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))  // Log each resource fetched
                 .onErrorResume(e -> {
                     logger.error("Error fetching resources for parameters: {}", FhirSearchBuilder.getConsent(batch), e);
                     return Flux.empty();  // Return an empty Flux if there's an error to prevent the pipeline from crashing
@@ -160,7 +163,7 @@ public class ConsentHandler {
                         DomainResource domainResource = (DomainResource) resource;
                         String patient = ResourceUtils.getPatientId(domainResource);
 
-                        logger.debug("Processing resource for patient: {}", patient);
+                        logger.debug("Processing resource for patient: {} {}", patient,resource.getResourceType());
 
                         // Extract the consent periods for the relevant codes
                         Map<String, List<ConsentPeriod>> consents = processor.transformToConsentPeriodByCode(domainResource, codes);
