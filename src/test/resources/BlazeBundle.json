@@ -493,7 +493,7 @@
         "encounter": {
           "reference": "Encounter/VHF00006-E-1"
         },
-        "effectiveDateTime": "2021-01-01T00:00:00+01:00",
+        "effectiveDateTime": "2022-01-01T00:00:00+01:00",
         "valueQuantity": {
           "value": 27.4,
           "unit": "picogram per milliliter",
@@ -534,7 +534,7 @@
         "subject": {
           "reference": "Patient/VHF00006"
         },
-        "recordedDate": "2021-01-01T00:00:00+01:00"
+        "recordedDate": "2022-01-01T00:00:00+01:00"
       },
       "request": {
         "method": "PUT",

@@ -40,104 +40,98 @@ public class ConsentHandler {
     }
 
 
-    //TODO Test for each resource
-    //Load Resource mapping by profile
-    //Get the consent info
-    // Check consent based on resource profiles and mapping
     public Boolean checkConsent(DomainResource resource, Map<String, Map<String, List<ConsentPeriod>>> consentInfo) {
-        logger.debug("Checking Consent for {}",resource.getResourceType());
+        logger.debug("Checking Consent for {}", resource.getResourceType());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
-        // Log the resource type and number of profiles
+
         logger.debug("Checking consent for resource of type: {} with {} profiles", resource.getResourceType(), resource.getMeta().getProfile().size());
 
         // Iterate over the profiles
         while (profileIterator.hasNext()) {
-            String profile = profileIterator.next().asStringValue();  // Get profile URL as a string
+            String profile = profileIterator.next().asStringValue();
             logger.debug("Evaluating profile: {}", profile);
 
-            // Check if the profile is a valid key in the JsonNode
             if (mappingProfiletoDateField.has(profile)) {
-                logger.debug("handling the following Profile {}",profile);
+                logger.debug("Handling the following Profile {}", profile);
                 fieldValue = mappingProfiletoDateField.get(profile);
-                logger.debug("Fieldvalue {}",fieldValue);
+                logger.debug("Fieldvalue {}", fieldValue);
                 snapshot = cdsStructureDefinitionHandler.getSnapshot(profile);
                 logger.debug("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
-                break;  // Exit the loop after finding the first match
+                break; // Exit after finding the first match
             }
         }
 
-        // Log if no profile was matched
         if (fieldValue == null) {
             logger.warn("No matching profile found for resource of type: {}", resource.getResourceType());
+            return false; // No profile match, thus no consent
         }
 
-        logger.debug("ProfileMap Value {} for resource type {}", fieldValue, resource.getResourceType());
+        if (fieldValue.asText().isEmpty()) {
+            logger.debug("Field value is empty, consent is automatically granted if patient has consents in general.");
+            return true; // Empty field means automatic consent
+        } else {
+            // Evaluate the field value using FHIRPath
+            logger.debug("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
+            List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(), snapshot), Base.class);
+            logger.debug("Evaluated FHIRPath expression, found {} values.", values.size());
 
-        // Process the fieldValue as needed
-        if (fieldValue != null) {
-            if (fieldValue.isEmpty()) {
-                logger.debug("Field value is empty, consent is automatically granted, if Patient has consents in general");
-                return true;
-            } else {
-                // Evaluate the field value using FHIRPath
-                logger.debug("Fieldvalue to be handled {} as FhirPath",fieldValue.asText());
-                List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(),snapshot), Base.class);
-                logger.debug("Evaluated FHIRPath expression, found {} values.", values.size());
+            // Loop through the values to check against consent periods
+            for (Base value : values) {
+                DateTimeType dateTimeStart;
+                DateTimeType dateTimeEnd;
 
-                // Loop through the values to check against consent periods
-                for (Base value : values) {
-                    DateTimeType dateTimeStart;
-                    DateTimeType dateTimeEnd;
-
-                    // Assuming value is a DateTimeType or similar type
-                    if (value instanceof DateTimeType) {
-                        dateTimeStart = (DateTimeType) value;
-                        dateTimeEnd = (DateTimeType) value;
-                        logger.debug("Evaluated value is DateTimeType: start {}, end {}", dateTimeStart, dateTimeEnd);
-                    } else if (value instanceof Period) {
-                        dateTimeStart = ((Period) value).getStartElement();
-                        dateTimeEnd = ((Period) value).getEndElement();
-                        logger.debug("Evaluated value is Period: start {}, end {}", dateTimeStart, dateTimeEnd);
-                    } else {
-                        logger.error("No valid Date Time Value found. Value: {}", value);
-                        throw new IllegalArgumentException("No valid Date Time Value found");
-                    }
-
-                    // Iterate over consentInfo to check if the date falls within any of the ConsentPeriods
-                    for (Map.Entry<String, Map<String, List<ConsentPeriod>>> entry : consentInfo.entrySet()) {
-                        String patientId = entry.getKey();
-                        Map<String, List<ConsentPeriod>> consentPeriodMap = entry.getValue();
-                        logger.debug("Checking consent periods for patient: {}", patientId);
-
-                        for (Map.Entry<String, List<ConsentPeriod>> innerEntry : consentPeriodMap.entrySet()) {
-                            String code = innerEntry.getKey();
-                            List<ConsentPeriod> consentPeriods = innerEntry.getValue();
-
-                            logger.debug("Checking {} consent periods for code: {}", consentPeriods.size(), code);
-
-                            // Check if any consent period applies
-                            for (ConsentPeriod period : consentPeriods) {
-                                logger.debug("Evaluating ConsentPeriod: start {}, end {}", period.getStart(), period.getEnd());
-
-                                if (dateTimeStart.after(period.getStart()) && dateTimeEnd.before(period.getEnd())) {
-                                    logger.info("Valid consent period found for patient: {} within code: {}", patientId, code);
-                                    return true;  // A valid consent period applies to this value
-                                }
-                            }
-                        }
-                    }
+                // Handle DateTimeType and Period values
+                if (value instanceof DateTimeType) {
+                    dateTimeStart = (DateTimeType) value;
+                    dateTimeEnd = (DateTimeType) value;
+                    logger.debug("Evaluated value is DateTimeType: start {}, end {}", dateTimeStart, dateTimeEnd);
+                } else if (value instanceof Period) {
+                    dateTimeStart = ((Period) value).getStartElement();
+                    dateTimeEnd = ((Period) value).getEndElement();
+                    logger.debug("Evaluated value is Period: start {}, end {}", dateTimeStart, dateTimeEnd);
+                } else {
+                    logger.error("No valid Date Time Value found. Value: {}", value);
+                    throw new IllegalArgumentException("No valid Date Time Value found");
                 }
-                logger.warn("No valid consent period found for any value.");
-                return false;  // No matching consent period found
-            }
-        }
 
-        // No matching profile found, or required field not found
-        logger.warn("Consent check failed due to missing profile or field value.");
-        return false;
+                boolean hasValidConsent = Boolean.TRUE.equals(
+                        consentInfo.entrySet().parallelStream()
+                                .allMatch(entry -> {
+                                    String patientId = entry.getKey();
+                                    Map<String, List<ConsentPeriod>> consentPeriodMap = entry.getValue();
+                                    logger.debug("Checking consent periods for patient: {}", patientId);
+
+                                    // Check all codes for the patient
+                                    return consentPeriodMap.entrySet().stream()
+                                            .allMatch(innerEntry -> {
+                                                String code = innerEntry.getKey();
+                                                List<ConsentPeriod> consentPeriods = innerEntry.getValue();
+                                                logger.debug("Checking {} consent periods for code: {}", consentPeriods.size(), code);
+
+                                                // Check if at least one consent period is valid
+                                                return consentPeriods.stream()
+                                                        .anyMatch(period -> {
+                                                            logger.debug("Evaluating ConsentPeriod: start {}, end {} vs {} and {}", dateTimeStart,dateTimeEnd, period.getStart(),period.getEnd());
+                                                            logger.debug("Result {}",dateTimeStart.after(period.getStart()) && dateTimeEnd.before(period.getEnd()));
+                                                            return dateTimeStart.after(period.getStart()) && dateTimeEnd.before(period.getEnd());
+                                                        });
+                                            });
+                                })
+                );
+
+                // Return if a valid consent period was found
+                if (hasValidConsent) {
+                    logger.info("Valid consent period found for evaluated values.");
+                    return true;
+                }
+            }
+            logger.warn("No valid consent period found for any value.");
+            return false;  // No matching consent period found
+        }
     }
+
 
 
     public Flux<Map<String, Map<String, List<ConsentPeriod>>>> buildingConsentInfo(String key, List<String> batch) {
