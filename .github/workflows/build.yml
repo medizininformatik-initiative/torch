@@ -30,7 +30,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.m2/repository
-          key: maven-${{ hashFiles('pom.xml') }}
+          key: tests-maven-${{ hashFiles('pom.xml') }}
+
+      - uses: s4u/maven-settings-action@v3.0.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
