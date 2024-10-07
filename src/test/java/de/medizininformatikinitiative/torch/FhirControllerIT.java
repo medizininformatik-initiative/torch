@@ -6,8 +6,9 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.rest.FhirController;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
+import de.medizininformatikinitiative.torch.util.ConsentPeriod;
+import de.medizininformatikinitiative.torch.util.ResourceReader;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +19,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -28,6 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /*@Testcontainers
@@ -47,6 +51,8 @@ public class FhirControllerIT extends AbstractIT {
 
     @Autowired
     FhirController fhirController;
+
+    @Autowired ConsentHandler consentHandler;
 
     @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
@@ -233,21 +239,6 @@ public class FhirControllerIT extends AbstractIT {
                 String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
                 // Read the JSON file into a JsonNode
 
-              /*  JsonNode rootNode = objectMapper.readTree(fileContent);
-
-                // Extract the cohortDefinition object
-                JsonNode cohortDefinitionNode = rootNode.path("cohortDefinition");
-
-                // Convert the cohortDefinition object to a JSON string
-                String cohortDefinitionJson = objectMapper.writeValueAsString(cohortDefinitionNode);
-
-                Crtdl crtdl = objectMapper.readValue(fileContent, Crtdl.class);
-
-                crtdl.setSqString(cohortDefinitionJson);
-
-                List<String>result =fhirController.fetchPatientListFromFlare(crtdl).block();
-                logger.info("Flare Call direct {}", result);
-*/
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
                     ResponseEntity<String> response = restTemplate.exchange(
@@ -320,6 +311,72 @@ public class FhirControllerIT extends AbstractIT {
                 throw new RuntimeException("Polling was interrupted", e);
             }
         }
+    }
+
+
+    @Test
+    public void testHandler() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            Resource consent = ResourceReader.readResource("src/test/resources/InputResources/Consent/VHF006_Consent.json");
+
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertTrue(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+    }
+
+    @Test
+    public void testHandlerFail() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            Resource consent = ResourceReader.readResource("src/test/resources/InputResources/Consent/VHF006_Consent.json");
+            DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
+            ((Observation)observation).setEffective(time);
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertFalse(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
     }
 
 }
