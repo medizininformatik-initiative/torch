@@ -40,9 +40,7 @@ public class CqlClient {
             measureReport = fhirConnector.evaluateMeasure(measureUri, params);
 
             var subjectListId = measureReport.getGroupFirstRep().getPopulationFirstRep().getSubjectResults().getReferenceElement().getIdPart();
-            ListResource patientList = fhirConnector.getSubjectList(subjectListId);
-            List<String> patientidList = patientList.getEntry().stream().map((var entry) -> entry.getItem().getReferenceElement().getIdPart()).toList();
-            return Mono.just(patientidList);
+            return Mono.just(fhirConnector.searchAndExtractIds(subjectListId));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
