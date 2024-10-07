@@ -250,6 +250,20 @@
         </profile>
     </profiles>
 
+    <repositories>
+        <repository>
+            <id>mii</id>
+            <name>GitHub Medizininformatik-Initiative Apache Maven Packages</name>
+            <url>https://maven.pkg.github.com/medizininformatik-initiative/*</url>
+            <releases>
+                <enabled>true</enabled>
+            </releases>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
     <build>
         <finalName>torch</finalName>
         <plugins>
