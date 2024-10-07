@@ -14,22 +14,25 @@ import java.util.List;
 public class MutableCriterion {
     @JsonProperty("context")
     TermCode context;
-    @JsonProperty("termCodes") List<TermCode> termCodes;
-    @JsonProperty("attributeFilters") List<AttributeFilter> attributeFilters;
+    @JsonProperty("termCodes")
+    List<TermCode> termCodes;
+    @JsonProperty("attributeFilters")
+    List<AttributeFilter> attributeFilters;
     @JsonProperty("valueFilter")
     ValueFilter valueFilter;
     @JsonProperty("timeRestriction")
     TimeRestriction timeRestriction;
-    @JsonProperty("issues") List<ValidationIssue> validationIssues;
+    @JsonProperty("issues")
+    List<ValidationIssue> validationIssues;
 
-    public static MutableCriterion createMutableCriterion (Criterion criterion) {
-      return MutableCriterion.builder()
-          .termCodes(criterion.termCodes())
-          .context(criterion.context())
-          .attributeFilters(criterion.attributeFilters())
-          .valueFilter(criterion.valueFilter())
-          .timeRestriction(criterion.timeRestriction())
-          .validationIssues(criterion.validationIssues())
-          .build();
+    public static MutableCriterion createMutableCriterion(Criterion criterion) {
+        return MutableCriterion.builder()
+                .termCodes(criterion.termCodes())
+                .context(criterion.context())
+                .attributeFilters(criterion.attributeFilters())
+                .valueFilter(criterion.valueFilter())
+                .timeRestriction(criterion.timeRestriction())
+                .validationIssues(criterion.validationIssues())
+                .build();
     }
 }

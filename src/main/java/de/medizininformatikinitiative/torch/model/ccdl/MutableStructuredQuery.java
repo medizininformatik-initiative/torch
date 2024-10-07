@@ -14,10 +14,14 @@ import java.util.List;
 @Builder
 @Data
 public class MutableStructuredQuery {
-    @JsonProperty URI version;
-    @JsonProperty("inclusionCriteria") List<List<MutableCriterion>> inclusionCriteria;
-    @JsonProperty("exclusionCriteria") List<List<MutableCriterion>> exclusionCriteria;
-    @JsonProperty("display") String display;
+    @JsonProperty
+    URI version;
+    @JsonProperty("inclusionCriteria")
+    List<List<MutableCriterion>> inclusionCriteria;
+    @JsonProperty("exclusionCriteria")
+    List<List<MutableCriterion>> exclusionCriteria;
+    @JsonProperty("display")
+    String display;
 
     public static MutableStructuredQuery createMutableStructuredQuery(StructuredQuery structuredQuery) {
         List<List<MutableCriterion>> mutableInclusionCriteria = new ArrayList<>();
@@ -42,10 +46,10 @@ public class MutableStructuredQuery {
             }
         }
         return MutableStructuredQuery.builder()
-            .version(structuredQuery.version())
-            .inclusionCriteria(mutableInclusionCriteria)
-            .exclusionCriteria(mutableExclusionCriteria)
-            .display(structuredQuery.display())
-            .build();
+                .version(structuredQuery.version())
+                .inclusionCriteria(mutableInclusionCriteria)
+                .exclusionCriteria(mutableExclusionCriteria)
+                .display(structuredQuery.display())
+                .build();
     }
 }

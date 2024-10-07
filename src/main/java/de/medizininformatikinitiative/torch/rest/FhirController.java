@@ -7,13 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.cql.CqlQueryTranslator;
 import de.medizininformatikinitiative.torch.cql.QueryTranslationException;
 import de.medizininformatikinitiative.torch.cql.QueryTranslator;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.model.ccdl.StructuredQuery;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import lombok.NonNull;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Parameters;
@@ -37,7 +35,6 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -228,7 +225,7 @@ public class FhirController {
 
     public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
 
-        return (useCql) ? fetchPatientListUsingCql(crtdl): fetchPatientListFromFlare(crtdl);
+        return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
     }
 
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
@@ -277,7 +274,7 @@ public class FhirController {
             throw new RuntimeException(e);
         }
 
-        return  this.cqlClient.getPatientListByCql(cqlQuery);
+        return this.cqlClient.getPatientListByCql(cqlQuery);
 
     }
 

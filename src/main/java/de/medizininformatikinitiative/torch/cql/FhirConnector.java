@@ -4,11 +4,15 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.exceptions.FhirClientConnectionException;
 import ca.uhn.fhir.rest.gclient.StringClientParam;
 import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Measure;
+import org.hl7.fhir.r4.model.MeasureReport;
+import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.stereotype.Component;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 
 
@@ -36,48 +40,60 @@ public class FhirConnector {
     }
 
 
-    public List<String> searchAndExtractIds(String id) {
-        Bundle bundle = null;
+    public Mono<List<String>> searchAndExtractIds(String id) {
+        return fetchInitialBundle(id)
+                .flatMapMany(this::fetchAllPages)
+                .map(entry -> entry.getResource().getIdElement().getIdPart())
+                .collectList();
+    }
 
-        var patientIds = new ArrayList<String>();
+    // Fetch the initial bundle asynchronously
+    private Mono<Bundle> fetchInitialBundle(String id) {
+        return Mono.fromCallable(() -> client.search()
+                        .forResource("Patient")
+                        .where(new StringClientParam("_list").matches().value(id))
+                        .elementsSubset("id")
+                        .returnBundle(Bundle.class)
+                        .execute())
+                .onErrorResume(e -> {
+                    System.err.println("Failed to connect to the FHIR server: " + e.getMessage());
+                    return Mono.empty();
+                });
+    }
 
-        try {
-            do {
-                if (bundle == null) {
+    private Flux<Bundle.BundleEntryComponent> fetchAllPages(Bundle initialBundle) {
+        return Flux.create(sink -> {
+            Bundle bundle = initialBundle;
 
-                    bundle = client.search()
-                            .forResource("Patient")
-                            .where(new StringClientParam("_list").matches().value(id))
-                            .elementsSubset("id")
-                            .returnBundle(Bundle.class)
-                            .execute();
-                } else {
-                    bundle = client.loadPage().next(bundle).execute();
-                }
+            try {
+                do {
+                    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
+                        sink.next(entry);
+                    }
 
-                for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                    String patId = entry.getResource().getIdElement().getIdPart();
-                    patientIds.add(patId);
-                }
+                    if (bundle.getLink(Bundle.LINK_NEXT) != null) {
+                        bundle = client.loadPage().next(bundle).execute();
+                    } else {
+                        bundle = null;
+                    }
+                } while (bundle != null);
 
-            } while (bundle.getLink(Bundle.LINK_NEXT) != null);
-
-        } catch (FhirClientConnectionException e) {
-            System.err.println("Failed to connect to the FHIR server: " + e.getMessage());
-        }
-
-        return patientIds;
+                sink.complete();
+            } catch (FhirClientConnectionException e) {
+                sink.error(e);
+            }
+        });
     }
 
 
     /**
      * Get the {@link MeasureReport} for a previously transmitted {@link Measure}
      *
-     * @param measureUri the identifier of the {@link Measure}
+     * @param params the Parameters for the evaluation of the {@link Measure}
      * @return the retrieved {@link MeasureReport} from the server
      * @throws IOException if the communication with the FHIR server fails due to any client or server error
      */
-    public MeasureReport evaluateMeasure(String measureUri, Parameters params) throws IOException {
+    public MeasureReport evaluateMeasure(Parameters params) throws IOException {
         try {
 
             return client.operation().onType(Measure.class)

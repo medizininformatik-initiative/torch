@@ -8,8 +8,8 @@ import lombok.Builder;
 @JsonInclude(Include.NON_NULL)
 @Builder
 public record Unit(
-    @JsonProperty("code") String code,
-    @JsonProperty("display") String display
+        @JsonProperty("code") String code,
+        @JsonProperty("display") String display
 ) {
 
 }

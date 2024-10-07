@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.cql;
 
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
 import reactor.core.publisher.Mono;
@@ -37,10 +36,10 @@ public class CqlClient {
 
             Parameters params = fhirHelper.getListExecutionParams();
             params.setParameter("measure", measureUri);
-            measureReport = fhirConnector.evaluateMeasure(measureUri, params);
+            measureReport = fhirConnector.evaluateMeasure(params);
 
             var subjectListId = measureReport.getGroupFirstRep().getPopulationFirstRep().getSubjectResults().getReferenceElement().getIdPart();
-            return Mono.just(fhirConnector.searchAndExtractIds(subjectListId));
+            return fhirConnector.searchAndExtractIds(subjectListId);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
