@@ -14,6 +14,9 @@ torch:
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 100
   maxconcurrency: 100
+  mappingsFile: ontology/mapping_cql.json
+  conceptTreeFile: ontology/mapping_tree.json
+  useCql: true
 nginx:
   servername: localhost:8080
   filelocation: localhost:8080/output

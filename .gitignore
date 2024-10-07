@@ -15,6 +15,7 @@
 log/
 target/
 output
+ontology
 dependencies
 package.json
 fhirpkg.lock.json

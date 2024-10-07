@@ -2,7 +2,7 @@ services:
   torch-data-store:
     image: "samply/blaze:0.30"
     environment:
-      BASE_URL: "http://torch-data-store:8080"
+      BASE_URL: "http://localhost:8082"
       JAVA_TOOL_OPTIONS: "-Xmx2g"
       LOG_LEVEL: "info"
     ports:
@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
     ports:
-      - ${PORT_TORCH_NGINX:-127.0.0.1:8080}:8080
+      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template
       - ./start-nginx.sh:/start-nginx.sh
