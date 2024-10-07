@@ -4,10 +4,13 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.exceptions.FhirClientConnectionException;
 import ca.uhn.fhir.rest.gclient.StringClientParam;
 import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
+import de.medizininformatikinitiative.torch.rest.FhirController;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Measure;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -20,6 +23,8 @@ import java.util.List;
 public class FhirConnector {
 
     private final IGenericClient client;
+
+    private static final Logger logger = LoggerFactory.getLogger(FhirConnector.class);
 
     public FhirConnector(IGenericClient client) {
         this.client = client;
@@ -47,7 +52,6 @@ public class FhirConnector {
                 .collectList();
     }
 
-    // Fetch the initial bundle asynchronously
     private Mono<Bundle> fetchInitialBundle(String id) {
         return Mono.fromCallable(() -> client.search()
                         .forResource("Patient")
@@ -56,7 +60,7 @@ public class FhirConnector {
                         .returnBundle(Bundle.class)
                         .execute())
                 .onErrorResume(e -> {
-                    System.err.println("Failed to connect to the FHIR server: " + e.getMessage());
+                    logger.debug("Failed to connect to the FHIR server: {}", e.getMessage());
                     return Mono.empty();
                 });
     }

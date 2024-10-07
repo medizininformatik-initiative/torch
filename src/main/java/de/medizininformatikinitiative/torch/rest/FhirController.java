@@ -258,7 +258,6 @@ public class FhirController {
     }
 
     public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) {
-        //logger.debug("Flare called for the following input {}",crtdl.getSqString());
 
         StructuredQuery ccdl = null;
         try {
