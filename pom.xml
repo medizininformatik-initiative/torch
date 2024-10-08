@@ -145,6 +145,15 @@
             <groupId>de.medizininformatik-initiative</groupId>
             <artifactId>sq2cql</artifactId>
             <version>v0.5.0-alpha.1</version>
+
+
+        </dependency>
+
+        <!-- https://mvnrepository.com/artifact/org.codehaus.mojo/exec-maven-plugin -->
+        <dependency>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>exec-maven-plugin</artifactId>
+            <version>3.1.0</version>
         </dependency>
 
     </dependencies>

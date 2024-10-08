@@ -83,7 +83,7 @@ public class FhirControllerIT extends AbstractIT {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
-
+        fis.close();
         String responseBody = flareClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
