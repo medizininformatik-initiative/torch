@@ -7,6 +7,9 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.rest.FhirController;
+import de.medizininformatikinitiative.torch.util.ConsentPeriod;
+import de.medizininformatikinitiative.torch.util.ResourceReader;
+import org.hl7.fhir.r4.model.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
@@ -22,6 +25,7 @@ import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -32,6 +36,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
 
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
@@ -39,10 +45,13 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 public class FhirControllerIT extends AbstractIT {
 
     private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
-    @Autowired
-    FhirController fhirController;
     @LocalServerPort
     private int port;
+
+    @Autowired
+    FhirController fhirController;
+
+    @Autowired ConsentHandler consentHandler;
 
     @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
@@ -74,9 +83,26 @@ public class FhirControllerIT extends AbstractIT {
         );
 
         List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Library/Parameters_all_fields.json");
+                "src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
+
+    @Test
+    public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
+        HttpHeaders headers = new HttpHeaders();
+
+        headers.add("content-type", "application/fhir+json");
+        List<String> expectedResourceFilePaths = List.of(
+                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
+        );
+
+        List<String> filePaths = List.of(
+                "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
+        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+    }
+
+
+
 
     @Test
     public void testFlare() throws IOException {
@@ -94,7 +120,7 @@ public class FhirControllerIT extends AbstractIT {
                     return clientResponse.createException();
                 })
                 .bodyToMono(String.class)
-                .block();
+                .block();  // Blocking to get the response synchronously
 
         logger.debug("Response Body: {}", responseBody);
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
@@ -224,21 +250,6 @@ public class FhirControllerIT extends AbstractIT {
                 String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
                 // Read the JSON file into a JsonNode
 
-              /*  JsonNode rootNode = objectMapper.readTree(fileContent);
-
-                // Extract the cohortDefinition object
-                JsonNode cohortDefinitionNode = rootNode.path("cohortDefinition");
-
-                // Convert the cohortDefinition object to a JSON string
-                String cohortDefinitionJson = objectMapper.writeValueAsString(cohortDefinitionNode);
-
-                Crtdl crtdl = objectMapper.readValue(fileContent, Crtdl.class);
-
-                crtdl.setSqString(cohortDefinitionJson);
-
-                List<String>result =fhirController.fetchPatientListFromFlare(crtdl).block();
-                logger.info("Flare Call direct {}", result);
-*/
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
                     ResponseEntity<String> response = restTemplate.exchange(
@@ -311,6 +322,70 @@ public class FhirControllerIT extends AbstractIT {
                 throw new RuntimeException("Polling was interrupted", e);
             }
         }
+    }
+
+
+    @Test
+    public void testHandler() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertTrue(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+    }
+
+    @Test
+    public void testHandlerFail() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
+            ((Observation)observation).setEffective(time);
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertFalse(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
     }
 
 }

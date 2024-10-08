@@ -13,7 +13,7 @@ services:
       start_period: 40s
 
   flare:
-    image: ghcr.io/medizininformatik-initiative/flare:2.4.0-alpha.1
+    image: ghcr.io/medizininformatik-initiative/flare:develop
     environment:
       - LOG_LEVEL=info
       - FLARE_FHIR_SERVER=http://blaze:8080/fhir

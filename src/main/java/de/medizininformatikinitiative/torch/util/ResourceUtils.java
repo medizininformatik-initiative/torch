@@ -52,6 +52,11 @@ public class ResourceUtils {
         }
 
         try {
+            if (resource instanceof Consent consent) {
+                if (consent.hasPatient()) {
+                    return getPatientReference(consent.getPatient().getReference());
+                }
+            } else{
             // Use reflection to check if the method 'hasSubject' exists
             Method hasSubjectMethod = resource.getClass().getMethod("hasSubject");
             boolean hasSubject = (Boolean) hasSubjectMethod.invoke(resource);
@@ -69,15 +74,11 @@ public class ResourceUtils {
                     // Use reflection to get the 'getReference' method from 'subject'
                     Method getReferenceMethod = subject.getClass().getMethod("getReference");
                     String reference = (String) getReferenceMethod.invoke(subject);
-                    if (reference != null && reference.startsWith("Patient/")) {
-                        return reference.substring("Patient/".length());
-                    }
-                    else{
-                        throw new PatientIdNotFoundException("Reference does not start with 'Patient/': " + reference);
-                    }
+                    return getPatientReference(reference);
                 }
 
             }
+        }
             throw new PatientIdNotFoundException("Patient Reference not found ");
         } catch (Exception e) {
             // Handle reflection exceptions
@@ -86,6 +87,15 @@ public class ResourceUtils {
 
         // Throw an error if no patient ID is found
         throw new PatientIdNotFoundException("Patient ID not found in the given resource");
+    }
+
+
+    public static String getPatientReference(String reference) throws PatientIdNotFoundException {
+        if (reference != null && reference.startsWith("Patient/")) {
+            return reference.substring("Patient/".length());
+        } else {
+            throw new PatientIdNotFoundException("Reference does not start with 'Patient/': " + reference);
+        }
     }
 
     public static String getPatientIdFromBundle(Bundle bundle) throws PatientIdNotFoundException {

@@ -29,35 +29,38 @@ public class Redaction {
         this.slicing= new Slicing(CDS);
     }
 
-    public Base redact(Base base){
+    public Base redact(Base base) {
         /*
          * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
          */
         StructureDefinition structureDefinition;
-        String elementID ="";
+        String elementID = "";
         if (base instanceof DomainResource resource) {
             if (resource.hasMeta()) {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
-
-                if(!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())){
-                    logger.warn("Profile Missmatch {} {}",structureDefinition.getUrl(),profileurl.getValue());
+                if(structureDefinition==null){
+                    logger.warn("Unknown Profile {}",profileurl);
+                    return new Patient();
+                }
+                if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
+                    logger.warn("Profile Missmatch {} {}", structureDefinition.getUrl(), profileurl.getValue());
                 }
                 // Check if structureDefinition is not null
                 if (structureDefinition != null) {
                     elementID = String.valueOf(resource.getResourceType());
-                    return redact(base,elementID,0,structureDefinition);
+                    return redact(base, elementID, 0, structureDefinition);
 
                 } else {
                     logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
                     // Handle the case where structureDefinition is null
                     // This could be throwing an exception, setting a default value, or other error handling logic
-                    throw new RuntimeException("No Structure Definition known for "+profileurl.getValue());
+                    throw new RuntimeException("No Structure Definition known for " + profileurl.getValue());
                 }
             }
 
-        }else{
+        } else {
 
             throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
 
@@ -82,31 +85,29 @@ public class Redaction {
         AtomicBoolean childrenEmpty = new AtomicBoolean(true);
         recursion++;
 
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot=structureDefinition.getSnapshot();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
 
 
         ElementDefinition definition = snapshot.getElementById(elementID);
 
-      if(definition==null){
-          logger.warn("Definiton unknown {} {}  Element ID {} {}",base.fhirType(), base.getIdBase(),elementID, structureDefinition.getUrl());
-      } else if (definition.hasSlicing()) {
+        if (definition == null) {
+            logger.warn("Definiton unknown {} {}  Element ID {} {}", base.fhirType(), base.getIdBase(), elementID, structureDefinition.getUrl());
+        } else if (definition.hasSlicing()) {
 
 
           ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
-          if(slicedElement!=null){
-              if(slicedElement.hasId()){
-                  //logger.warn("Found Sliced Element {}", slicedElement.getIdElement().toString());
-                  elementID=slicedElement.getIdElement().toString();
+            if (slicedElement != null) {
+                if (slicedElement.hasId()) {
+                    //logger.warn("Found Sliced Element {}", slicedElement.getIdElement().toString());
+                    elementID = slicedElement.getIdElement().toString();
 
-              }
-              else{
-                  logger.warn("Sliced Element has no valid ID {}",elementID);
-              }
+                } else {
+                    logger.warn("Sliced Element has no valid ID {}", elementID);
+                }
 
-          }
-          else{
-              logger.warn("Sliced Element is null {}",elementID);
-          }
+            } else {
+                logger.warn("Sliced Element is null {}", elementID);
+            }
         }
 
         int finalRecursion = recursion;
@@ -116,7 +117,7 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.debug("Child to be handled {}",childID);
+            logger.trace("Child to be handled {}",childID);
             String type = "";
             int min=0;
             try {
@@ -128,7 +129,7 @@ public class Redaction {
                 try {
                     type=child.getTypeCode();
                     min=child.getMinCardinality();
-                    logger.debug("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+                    logger.trace("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
                 } catch (NullPointerException ex) {
 
                     logger.error(" Child  Type Unknown {}", childID,child.getName());
@@ -149,7 +150,7 @@ public class Redaction {
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
 
-                       redact(value, finalChildID, finalRecursion, structureDefinition);
+                        redact(value, finalChildID, finalRecursion, structureDefinition);
                     }
                 });
 

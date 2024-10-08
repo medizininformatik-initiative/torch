@@ -9,7 +9,9 @@ import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
@@ -80,6 +82,12 @@ public class AppConfig {
                 .defaultHeader("Accept", "application/sq+json");
 
         return builder.build();
+    }
+
+
+    @Bean
+    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
+        return new ConsentCodeMapper(consentFilePath);
     }
 
     @Bean
@@ -166,8 +174,12 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
-        return new ResourceTransformer(dataStore, cds);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+        return new ResourceTransformer(dataStore, cds, handler);
+    }
+
+    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper,@Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
+        return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
     }
 
     @Bean
@@ -177,7 +189,7 @@ public class AppConfig {
 
     @Bean
     public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
-        return new CdsStructureDefinitionHandler(fhirContext, dir);
+        return new CdsStructureDefinitionHandler(dir);
     }
 
     @Bean
