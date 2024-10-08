@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.flare.model.fhir;
+package de.medizininformatikinitiative.torch.model.fhir;
 
 import static java.util.Objects.requireNonNull;
 

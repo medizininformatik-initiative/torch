@@ -7,11 +7,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.cql.QueryTranslationException;
-import de.medizininformatikinitiative.torch.cql.QueryTranslator;
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.model.ccdl.StructuredQuery;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import de.numcodex.sq2cql.Translator;
+import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Parameters;
@@ -59,15 +58,15 @@ public class FhirController {
     private final ExecutorService executorService;
     private final int batchSize;
     private final int maxConcurrency;
-    private final QueryTranslator cqlQueryTranslator;
     private final CqlClient cqlClient;
+    private final Translator cqlQueryTranslator;
     private final boolean useCql;
 
 
     @Autowired
     public FhirController(
             @Qualifier("flareClient") WebClient webClient,
-            @Qualifier("cql") QueryTranslator cqlQueryTranslator,
+            Translator cqlQueryTranslator,
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
@@ -87,9 +86,9 @@ public class FhirController {
         this.executorService = executorService;
         this.batchSize = batchsize;
         this.maxConcurrency = maxConcurrency;
-        this.cqlQueryTranslator = cqlQueryTranslator;
         this.cqlClient = cqlClient;
         this.useCql = useCql;
+        this.cqlQueryTranslator = cqlQueryTranslator;
 
     }
 
@@ -225,11 +224,14 @@ public class FhirController {
 
     public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
 
-        return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
+        try {
+            return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
+        } catch (JsonProcessingException e) {
+            return Mono.error(e);
+        }
     }
 
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        //logger.debug("Flare called for the following input {}",crtdl.getSqString());
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -257,24 +259,9 @@ public class FhirController {
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) {
-
-        StructuredQuery ccdl = null;
-        try {
-            ccdl = objectMapper.readValue(objectMapper.writeValueAsString(crtdl.getCohortDefinition()), StructuredQuery.class);
-        } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-
-        String cqlQuery = null;
-        try {
-            cqlQuery = cqlQueryTranslator.translate(ccdl);
-        } catch (QueryTranslationException e) {
-            throw new RuntimeException(e);
-        }
-
-        return this.cqlClient.getPatientListByCql(cqlQuery);
-
+    public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
+        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
     }
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {

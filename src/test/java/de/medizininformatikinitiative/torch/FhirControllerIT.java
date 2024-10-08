@@ -1,28 +1,27 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.rest.FhirController;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.numcodex.sq2cql.Translator;
+import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
-
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -34,29 +33,22 @@ import java.nio.file.Paths;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-
-/*@Testcontainers
-@ExtendWith(SpringExtension.class)
-@ContextConfiguration(classes = AppConfig.class)
-@SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ActiveProfiles("test")
-*/
+import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 @SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 public class FhirControllerIT extends AbstractIT {
 
     private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
-
+    @Autowired
+    FhirController fhirController;
     @LocalServerPort
     private int port;
 
     @Autowired
-    FhirController fhirController;
-
-    @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
-                            @Qualifier("flareClient") WebClient flareClient, ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext context, BundleCreator bundleCreator, ObjectMapper objectMapper) {
-        super(webClient, flareClient, transformer, dataStore, cds, context, bundleCreator, objectMapper);
+                            @Qualifier("flareClient") WebClient flareClient, ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext context, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
+                            Translator cqlQueryTranslator) {
+        super(webClient, flareClient, transformer, dataStore, cds, context, bundleCreator, objectMapper, cqlClient, cqlQueryTranslator);
     }
 
     @Test
@@ -88,11 +80,10 @@ public class FhirControllerIT extends AbstractIT {
 
     @Test
     public void testFlare() throws IOException {
-        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX+"CRTDL/CRTDL_diagnosis_female.json");
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
 
-        // Use the serialized JSON string in the bodyValue method and capture the response
         String responseBody = flareClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -103,17 +94,30 @@ public class FhirControllerIT extends AbstractIT {
                     return clientResponse.createException();
                 })
                 .bodyToMono(String.class)
-                .block();  // Blocking to get the response synchronously
+                .block();
 
-        // Log the response body
         logger.debug("Response Body: {}", responseBody);
-        // Parse the response body as a list of patient IDs
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
 
-        // Count the number of patient IDs
         int patientCount = patientIds.size();
         logger.info(String.valueOf(patientIds));
         assertEquals(4, patientCount);
+    }
+
+    @Test
+    public void testCql() throws IOException {
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
+        String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
+        Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
+
+        var ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+
+        Mono<List<String>> patientListMono = cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
+        List<String> patientList = patientListMono.block();
+
+        List<String> expectedPatientList = Arrays.asList("1", "2", "4", "VHF00006");
+        assertEquals(expectedPatientList.size(), patientList.size(), "Patient list size mismatch");
+        assertIterableEquals(expectedPatientList, patientList, "Patient list contents mismatch");
     }
 
 
@@ -168,11 +172,10 @@ public class FhirControllerIT extends AbstractIT {
     }
 
 
-
     @Test
     public void testMustHave() throws IOException {
 
-        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX+"CRTDL/CRTDL_observation_must_have.json");
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         logger.info("ResourceType {}", crtdl.getResourceType());
         List<String> patients = new ArrayList<>();
@@ -245,7 +248,7 @@ public class FhirControllerIT extends AbstractIT {
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
 
                     // Polling the status endpoint
-                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port+ Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
+                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
                 } catch (HttpStatusCodeException e) {
                     logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                     Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
@@ -280,7 +283,7 @@ public class FhirControllerIT extends AbstractIT {
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
-                    logger.debug("Final Response {}",response.getBody());
+                    logger.debug("Final Response {}", response.getBody());
                 }
                 if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());

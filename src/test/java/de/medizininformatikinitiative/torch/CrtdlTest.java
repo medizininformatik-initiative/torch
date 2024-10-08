@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.flare.model.sq.StructuredQuery;
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import org.junit.jupiter.api.Test;
@@ -10,7 +9,7 @@ import java.io.FileInputStream;
 import static org.junit.jupiter.api.Assertions.*;
 
 
-public class CrtdlTest extends BaseTest{
+public class CrtdlTest extends BaseTest {
 
 
     @Test
@@ -19,10 +18,10 @@ public class CrtdlTest extends BaseTest{
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
             Attribute attribute1 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().getFirst();
-            assertEquals("Condition.code",attribute1.getAttributeRef());
+            assertEquals("Condition.code", attribute1.getAttributeRef());
             assertFalse(attribute1.isMustHave());
         } catch (Exception e) {
-            logger.error(" ",e);
+            logger.error(" ", e);
         }
 
     }
@@ -35,17 +34,15 @@ public class CrtdlTest extends BaseTest{
             Crtdl crtdl = objectMapper.readValue(bytes, Crtdl.class);
             assertNotNull(crtdl);
             Attribute attribute2 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().get(1);
-            assertEquals("Observation.encounter",attribute2.getAttributeRef());
-            assertTrue(!attribute2.isMustHave());
+            assertEquals("Observation.encounter", attribute2.getAttributeRef());
+            assertFalse(attribute2.isMustHave());
 
         } catch (Exception e) {
-            logger.error(" ",e);
+            logger.error(" ", e);
         }
 
 
     }
-
-
 
 
 }

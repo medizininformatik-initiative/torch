@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.cql;
 
-import de.medizininformatikinitiative.flare.model.fhir.Query;
-import de.medizininformatikinitiative.flare.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Bundle;
@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
-import static de.medizininformatikinitiative.flare.model.fhir.QueryParams.stringValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 
 
 @Slf4j

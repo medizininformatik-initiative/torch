@@ -1,10 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.flare.Util;
-import de.medizininformatikinitiative.flare.model.Population;
-import de.medizininformatikinitiative.flare.model.fhir.Query;
-import de.medizininformatikinitiative.flare.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -26,7 +25,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
 
-import static de.medizininformatikinitiative.flare.model.fhir.QueryParams.stringValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 
 @Component
@@ -56,7 +55,6 @@ public class DataStore {
     public Flux<Resource> getResources(String resourceType,String parameters) {
         //logger.debug("Search Parameters{}", parameters);
 
-
         return client.post()
                 .uri("/"+resourceType+"/_search")
                 .bodyValue(parameters)
@@ -80,12 +78,12 @@ public class DataStore {
                 .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
     }
 
-    private Mono<de.medizininformatikinitiative.flare.model.fhir.Bundle> fetchPageCompressed(String url) {
+    private Mono<de.medizininformatikinitiative.torch.model.fhir.Bundle> fetchPageCompressed(String url) {
         logger.trace("fetch page {}", url);
         return client.get()
                 .uri(url)
                 .retrieve()
-                .bodyToMono(de.medizininformatikinitiative.flare.model.fhir.Bundle.class);
+                .bodyToMono(de.medizininformatikinitiative.torch.model.fhir.Bundle.class);
     }
 
     public Mono<List<String>> executeCollectPatientIds(Query query) {
@@ -96,7 +94,7 @@ public class DataStore {
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .bodyValue(query.params().appendParams(extraQueryParams(query.type())).toString())
                 .retrieve()
-                .bodyToFlux(de.medizininformatikinitiative.flare.model.fhir.Bundle.class)
+                .bodyToFlux(de.medizininformatikinitiative.torch.model.fhir.Bundle.class)
                 .expand(bundle -> bundle.linkWithRel("next")
                         .map(link -> fetchPageCompressed(link.url()))
                         .orElse(Mono.empty()))
@@ -106,7 +104,7 @@ public class DataStore {
                 .flatMap(bundle -> Flux.fromStream(bundle.entry().stream().flatMap(e -> e.resource().patientId().stream())))
                 .collectList()
                 .doOnNext(p -> logger.debug("Finished query `{}` returning {} patients in {} seconds.", query, p.size(),
-                        "%.1f".formatted(Util.durationSecondsSince(startNanoTime))))
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
                 .doOnError(e -> logger.error("Error while executing query `{}`: {}", query, e.getMessage()));
     }
 
