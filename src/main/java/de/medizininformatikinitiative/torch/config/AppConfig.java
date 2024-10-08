@@ -5,10 +5,12 @@ import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
-import de.medizininformatikinitiative.torch.cql.*;
+import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.cql.FhirConnector;
+import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -42,6 +44,11 @@ import static java.util.Map.entry;
 
 @Configuration
 public class AppConfig {
+
+    @Value("${torch.mappingsFile}")
+    private String mappingsFile;
+    @Value("${torch.conceptTreeFile}")
+    private String conceptTreeFile;
 
     @Bean
     @Qualifier("fhirClient")
@@ -77,16 +84,10 @@ public class AppConfig {
 
     @Bean
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
-    @Value("${torch.fhir.pageCount}") int pageCount) {
+                               @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, clock, pageCount);
 
     }
-
-    @Value("${torch.mappingsFile}")
-    private String mappingsFile;
-
-    @Value("${torch.conceptTreeFile}")
-    private String conceptTreeFile;
 
     @Lazy
     @Bean
@@ -120,15 +121,6 @@ public class AppConfig {
                         entry("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "consent"),
                         entry("http://hl7.org/fhir/sid/icd-o-3", "icdo3"),
                         entry("http://hl7.org/fhir/consent-provision-type", "provisiontype"))));
-    }
-
-    @Qualifier("cql")
-    @Lazy
-    @Bean
-    QueryTranslator createCqlQueryTranslator(
-            Translator sq2cqlTranslator,
-            @Qualifier("translation") ObjectMapper jsonUtil) {
-        return new CqlQueryTranslator(sq2cqlTranslator, jsonUtil);
     }
 
 

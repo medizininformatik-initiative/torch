@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.cql;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import lombok.extern.slf4j.Slf4j;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
@@ -17,7 +16,6 @@ import java.util.UUID;
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 
 
-@Slf4j
 public class CqlClient {
     private final FhirConnector fhirConnector;
     private final FhirHelper fhirHelper;
