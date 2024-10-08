@@ -31,14 +31,11 @@ public class ConsentProcessorTest extends BaseTest {
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
                     // Transform to extract patient and consent period information
                     Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
-                    String patient = ResourceUtils.getPatientId(resourceSrc);
                     logger.debug("map size {}", consentPeriodMap.entrySet());
                     // Update the map with the patient's consent periods
                     assert (!consentPeriodMap.get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty());
 
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
-                } catch (PatientIdNotFoundException e) {
                     throw new RuntimeException(e);
                 }
             });
@@ -58,14 +55,11 @@ public class ConsentProcessorTest extends BaseTest {
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
                     // Transform to extract patient and consent period information
                     Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
-                    String patient = ResourceUtils.getPatientId(resourceSrc);
                     logger.debug("Consent map {}", consentPeriodMap.entrySet());
                     // Update the map with the patient's consent periods
                     assert (!consentPeriodMap.get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty());
 
                 } catch (IOException e) {
-                    throw new RuntimeException(e);
-                } catch (PatientIdNotFoundException e) {
                     throw new RuntimeException(e);
                 } catch (ConsentViolatedException e) {
                     throw new RuntimeException(e);

@@ -54,7 +54,7 @@ public class ResourceUtils {
         try {
             if (resource instanceof Consent consent) {
                 if (consent.hasPatient()) {
-                    return getPatientReference(consent.getPatient().getReference().toString());
+                    return getPatientReference(consent.getPatient().getReference());
                 }
             } else{
             // Use reflection to check if the method 'hasSubject' exists

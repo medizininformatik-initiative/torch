@@ -323,7 +323,6 @@ public class FhirControllerIT extends AbstractIT {
         Resource observation = null;
         try {
             observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            Resource consent = ResourceReader.readResource("src/test/resources/InputResources/Consent/VHF006_Consent.json");
 
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
@@ -355,7 +354,6 @@ public class FhirControllerIT extends AbstractIT {
         Resource observation = null;
         try {
             observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            Resource consent = ResourceReader.readResource("src/test/resources/InputResources/Consent/VHF006_Consent.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux

@@ -40,7 +40,10 @@ public class Redaction {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
-
+                if(structureDefinition==null){
+                    logger.warn("Unknown Profile {}",profileurl);
+                    return new Patient();
+                }
                 if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
                     logger.warn("Profile Missmatch {} {}", structureDefinition.getUrl(), profileurl.getValue());
                 }

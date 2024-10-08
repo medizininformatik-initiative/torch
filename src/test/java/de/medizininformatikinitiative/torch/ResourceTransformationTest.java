@@ -44,7 +44,7 @@ public class ResourceTransformationTest extends BaseTest {
             DomainResource tgt = (DomainResource) transformer.transform(resourcesrc,crtdl.getDataExtraction().getAttributeGroups().getFirst());
             assertNotNull(tgt);
             assertEquals(ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceexpected), ctx.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt), " Expected not equal to actual output");
-
+            fis.close();
         } catch (Exception e) {
             logger.error("",e);
         }
