@@ -5,7 +5,7 @@ import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.DataStore;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
@@ -29,6 +29,7 @@ import reactor.netty.resources.ConnectionProvider;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Clock;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -75,8 +76,10 @@ public class AppConfig {
     }
 
     @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context) {
-        return new DataStore(client, context);
+    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
+    @Value("${torch.fhir.pageCount}") int pageCount) {
+        return new DataStore(client, context, clock, pageCount);
+
     }
 
     @Value("${torch.mappingsFile}")
@@ -142,10 +145,11 @@ public class AppConfig {
     @Bean
     CqlClient createCqlQueryClient(
             FhirConnector fhirConnector,
-            FhirHelper fhirHelper
+            FhirHelper fhirHelper,
+            DataStore dataStore
     ) {
 
-        return new CqlClient(fhirConnector, fhirHelper);
+        return new CqlClient(fhirConnector, fhirHelper, dataStore);
     }
 
     @Qualifier("translation")
@@ -207,5 +211,10 @@ public class AppConfig {
     @Bean
     ExecutorService executorService() {
         return Executors.newCachedThreadPool();
+    }
+
+    @Bean
+    public Clock systemDefaultZone() {
+        return Clock.systemDefaultZone();
     }
 }

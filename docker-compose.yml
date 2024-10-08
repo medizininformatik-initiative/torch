@@ -8,7 +8,7 @@ services:
     ports:
       - "8082:8080"
     volumes:
-      - "data-store-data:/app/output"
+      - "data-store-data:/app/data"
   torch-flare:
     image: ghcr.io/medizininformatik-initiative/flare:2.4.0-alpha.1
     ports:

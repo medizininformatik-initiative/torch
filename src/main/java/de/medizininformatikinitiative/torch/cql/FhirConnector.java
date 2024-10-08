@@ -4,7 +4,6 @@ import ca.uhn.fhir.rest.client.api.IGenericClient;
 import ca.uhn.fhir.rest.client.exceptions.FhirClientConnectionException;
 import ca.uhn.fhir.rest.gclient.StringClientParam;
 import ca.uhn.fhir.rest.server.exceptions.BaseServerResponseException;
-import de.medizininformatikinitiative.torch.rest.FhirController;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Measure;
 import org.hl7.fhir.r4.model.MeasureReport;
@@ -22,9 +21,8 @@ import java.util.List;
 @Component
 public class FhirConnector {
 
-    private final IGenericClient client;
-
     private static final Logger logger = LoggerFactory.getLogger(FhirConnector.class);
+    private final IGenericClient client;
 
     public FhirConnector(IGenericClient client) {
         this.client = client;
