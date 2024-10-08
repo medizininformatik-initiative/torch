@@ -43,7 +43,7 @@ jobs:
           languages: java
           queries: security-and-quality
 
-      - name: Build
+      - name: Download Ontology and Build
         run: mvn -Pdownload-ontology -B verify
 
       - name: Upload coverage to Codecov
@@ -142,6 +142,9 @@ jobs:
 
       - name: Load torch Image
         run: docker load --input /tmp/torch.tar
+
+      - name: Download Ontology
+        run: mvn -Pdownload-ontology -B -DskipTests package
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
