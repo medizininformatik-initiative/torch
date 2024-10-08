@@ -143,6 +143,11 @@ jobs:
       - name: Load torch Image
         run: docker load --input /tmp/torch.tar
 
+      - uses: s4u/maven-settings-action@v3.0.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
+
       - name: Download Ontology
         run: mvn -Pdownload-ontology -B -DskipTests package
 
