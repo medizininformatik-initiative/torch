@@ -60,13 +60,6 @@ public abstract class AbstractIT {
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final CdsStructureDefinitionHandler cds;
-    @Container
-    public static ComposeContainer environment =
-            new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                    .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
-                    .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                    .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
-                    .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     protected final BundleCreator bundleCreator;
     protected final ObjectMapper objectMapper;
     protected final CqlClient cqlClient;
