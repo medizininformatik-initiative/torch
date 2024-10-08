@@ -21,7 +21,6 @@ import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.testcontainers.containers.ComposeContainer;
-import org.testcontainers.containers.DockerComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
@@ -51,7 +50,13 @@ public abstract class AbstractIT {
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final CdsStructureDefinitionHandler cds;
-    protected final FhirContext fhirContext;
+    @Container
+    public static ComposeContainer environment =
+            new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
+                    .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                    .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
+                    .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                    .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     protected final BundleCreator bundleCreator;
     protected final ObjectMapper objectMapper;
 
@@ -59,6 +64,7 @@ public abstract class AbstractIT {
 
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
+    protected final FhirContext fhirContext;
 
     @Autowired
     public AbstractIT(
@@ -79,14 +85,6 @@ public abstract class AbstractIT {
         this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
     }
-
-    @Container
-    public static ComposeContainer environment =
-            new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                    .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
-                    .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                    .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
-                    .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
 
     @DynamicPropertySource
     static void dynamicProperties(DynamicPropertyRegistry registry){

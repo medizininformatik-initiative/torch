@@ -47,6 +47,8 @@ services:
     environment:
       SERVER_PORT: 8080
       TORCH_PROFILE_DIR: /app/StructureDefinitions
+      TORCH_MAPPING_CONSENT: /app/Mappings/consent-mappings_fhir.json
+      TORCH_MAPPING_CONSENT_TO_PROFILE: src/main/resources/mappings/profile_to_consent.json
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output

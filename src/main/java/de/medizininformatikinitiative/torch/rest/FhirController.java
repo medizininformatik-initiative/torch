@@ -11,7 +11,6 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -64,7 +63,6 @@ public class FhirController {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
-            ObjectMapper objectMapper,
             FhirContext fhirContext,
             ExecutorService executorService,
             @Value("${torch.batchsize:10}") int batchsize,
@@ -72,7 +70,7 @@ public class FhirController {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
-        this.objectMapper = objectMapper;
+        this.objectMapper = new ObjectMapper();
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
         this.executorService = executorService;

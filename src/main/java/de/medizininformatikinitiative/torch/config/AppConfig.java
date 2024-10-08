@@ -3,11 +3,9 @@ package de.medizininformatikinitiative.torch.config;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.DataStore;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -20,6 +18,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
+import java.io.IOException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -58,6 +57,12 @@ public class AppConfig {
         return builder.build();
     }
 
+
+    @Bean
+    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
+        return new ConsentCodeMapper(consentFilePath);
+    }
+
     @Bean
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context) {
         return new DataStore(client, context);
@@ -79,8 +84,12 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds) {
-        return new ResourceTransformer(dataStore, cds);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+        return new ResourceTransformer(dataStore, cds, handler);
+    }
+
+    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper,@Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
+        return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
     }
 
     @Bean
@@ -90,7 +99,7 @@ public class AppConfig {
 
     @Bean
     public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
-        return new CdsStructureDefinitionHandler(fhirContext, dir);
+        return new CdsStructureDefinitionHandler(dir);
     }
 
     @Bean

@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.flare.model.sq.StructuredQuery;
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import org.junit.jupiter.api.Test;
