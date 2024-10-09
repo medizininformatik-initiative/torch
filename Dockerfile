@@ -13,6 +13,8 @@ ENV TRUSTSTORE_FILE=self-signed-truststore.jks
 COPY target/torch.jar /app/
 COPY structureDefinitions  app/structureDefinitions
 COPY mappings  app/Mappings
+COPY ontology /app/ontology
+
 RUN mkdir /app/output
 RUN chown -R 1001:1001 /app
 

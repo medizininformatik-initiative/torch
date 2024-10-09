@@ -6,8 +6,11 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import de.numcodex.sq2cql.Translator;
+import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Parameters;
@@ -46,7 +49,6 @@ public class FhirController {
 
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
-
     private final WebClient webClient;
     private final ResourceTransformer transformer;
     private final BundleCreator bundleCreator;
@@ -56,17 +58,24 @@ public class FhirController {
     private final ExecutorService executorService;
     private final int batchSize;
     private final int maxConcurrency;
+    private final CqlClient cqlClient;
+    private final Translator cqlQueryTranslator;
+    private final boolean useCql;
+
 
     @Autowired
     public FhirController(
             @Qualifier("flareClient") WebClient webClient,
+            Translator cqlQueryTranslator,
+            CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
             FhirContext fhirContext,
             ExecutorService executorService,
             @Value("${torch.batchsize:10}") int batchsize,
-            @Value("${torch.maxConcurrency:5}") int maxConcurrency) {
+            @Value("${torch.maxConcurrency:5}") int maxConcurrency,
+            @Value("${torch.useCql}") boolean useCql) {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
@@ -76,7 +85,12 @@ public class FhirController {
         this.executorService = executorService;
         this.batchSize = batchsize;
         this.maxConcurrency = maxConcurrency;
+        this.cqlClient = cqlClient;
+        this.useCql = useCql;
+        this.cqlQueryTranslator = cqlQueryTranslator;
+
     }
+
 
     private static byte[] decodeCrtdlContent(Parameters parameters) {
         for (var parameter : parameters.getParameter()) {
@@ -164,7 +178,7 @@ public class FhirController {
     }
 
     private Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
-        return fetchPatientListFromFlare(crtdl)
+        return fetchPatientList(crtdl)
                 .flatMapMany(patientList -> {
                     if (patientList.isEmpty()) {
                         resultFileManager.setStatus(jobId, "Failed at collectResources for batch: ");
@@ -207,8 +221,16 @@ public class FhirController {
                 .then();  // This returns Mono<Void> indicating completion
     }
 
+    public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
+
+        try {
+            return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
+        } catch (JsonProcessingException e) {
+            return Mono.error(e);
+        }
+    }
+
     public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        //logger.debug("Flare called for the following input {}",crtdl.getSqString());
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -234,6 +256,11 @@ public class FhirController {
                 })
                 .doOnSubscribe(subscription -> logger.debug("Fetching patient list from Flare"))
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
+    }
+
+    public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
+        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
     }
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {

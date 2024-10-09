@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.FileInputStream;
+import java.time.Clock;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -26,8 +28,8 @@ public class ResourceTransformationTest extends BaseTest {
     private DataStore dataStore;
 
     @BeforeAll
-    void setup() {
-        dataStore = new DataStore(webClient, ctx);
+    void setup(){
+        dataStore = new DataStore(webClient, ctx, Clock.systemDefaultZone(), 500);
     }
 
     @Test
