@@ -144,6 +144,7 @@ public class FhirControllerIT extends AbstractIT {
         List<String> expectedPatientList = Arrays.asList("1", "2", "4", "VHF00006");
         assertEquals(expectedPatientList.size(), patientList.size(), "Patient list size mismatch");
         assertIterableEquals(expectedPatientList, patientList, "Patient list contents mismatch");
+        fis.close();
     }
 
 
@@ -210,6 +211,7 @@ public class FhirControllerIT extends AbstractIT {
         Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
+        fis.close();
     }
 
 
