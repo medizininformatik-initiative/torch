@@ -4,9 +4,13 @@ server:
   port: 8080
 torch:
   profile:
-    dir: src/test/resources/StructureDefinitions
+    dir: src/main/resources/StructureDefinitions
+  mapping:
+    consent: src/main/resources/mappings/consent-mappings_fhir.json
+    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
+    pageCount: 500
   flare:
     url: http://localhost:8084
   results:
@@ -14,6 +18,9 @@ torch:
     persistence: PT12H30M5S # Time Block in ISO 8601 format
   batchsize: 100
   maxconcurrency: 100
+  mappingsFile: ontology/mapping_cql.json
+  conceptTreeFile: ontology/mapping_tree.json
+  useCql: true
 nginx:
   servername: localhost:8080
   filelocation: localhost:8080/output

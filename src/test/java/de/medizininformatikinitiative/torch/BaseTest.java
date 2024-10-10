@@ -24,7 +24,7 @@ public class BaseTest {
     public static void setUp() {
         objectMapper = new ObjectMapper();
         ctx = FhirContext.forR4();
-        cds = new CdsStructureDefinitionHandler(ctx, "src/test/resources/StructureDefinitions/");
+        cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/");
         copier = new ElementCopier(cds);
         redaction = new Redaction(cds);
     }

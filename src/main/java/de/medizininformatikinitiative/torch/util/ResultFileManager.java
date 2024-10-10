@@ -174,7 +174,7 @@ public class ResultFileManager {
 
                 // Set the transactionTime and requestUrl into the response
                 response.put("transactionTime", transactionTime);
-                response.put("request", hostname+"/fhir/$extract-data");
+                response.put("request", hostname + "/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
                 logger.debug("OutputFiles size {}",outputFiles.size());
