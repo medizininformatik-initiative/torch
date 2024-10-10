@@ -135,7 +135,7 @@ public class ResourceTransformer {
 
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
         Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap = key.isEmpty() ?
-                Flux.empty() : handler.buildingConsentInfo(key, batch);
+                Flux.empty() : handler.updateConsentInfo(handler.buildingConsentInfo(key, batch),batch);
 
         // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);

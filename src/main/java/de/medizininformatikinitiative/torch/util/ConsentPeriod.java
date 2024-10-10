@@ -1,6 +1,9 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Period;
+
+import java.util.Date;
 
 /**
  * Represents a consent period with start and end dates and an associated code.
@@ -104,6 +107,22 @@ public class ConsentPeriod {
     public boolean isWithinPeriod(DateTimeType date) {
         if (date == null) return false;
         return (start == null || !date.after(start)) && (end == null || !date.before(end));
+    }
+    /**
+     * Checks if the Consent start is wihtin a given Period.
+     *
+     * @param date the date to check
+     * @return {@code true} if the date is within the consent period; {@code false} otherwise
+     */
+    // Helper method to check if the consent period start overlaps with the encounter period
+    public boolean isWithinEncounterPeriod(Period encounterPeriod) {
+
+        DateTimeType encounterStart = encounterPeriod.getStartElement();
+        DateTimeType encounterEnd = encounterPeriod.getEndElement();
+
+        // Adjust the logic based on your specific requirements
+        return (start.before(encounterEnd) || start.equals(encounterEnd)) &&
+                (start.after(encounterStart) || start.equals(encounterStart));
     }
 
     /**

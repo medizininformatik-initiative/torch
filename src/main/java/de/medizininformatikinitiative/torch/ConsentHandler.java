@@ -20,9 +20,9 @@ import java.io.IOException;
 import java.util.*;
 
 @Component
-public class ConsentInfoBuilder {
+public class ConsentHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConsentInfoBuilder.class);
+    private static final Logger logger = LoggerFactory.getLogger(ConsentHandler.class);
     private final DataStore dataStore;
 
 
@@ -34,7 +34,7 @@ public class ConsentInfoBuilder {
     private final ConsentProcessor consentProcessor;
 
     @Autowired
-    public ConsentInfoBuilder(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx = ResourceReader.ctx;
@@ -216,23 +216,27 @@ public class ConsentInfoBuilder {
                 });
 
         // Step 2: Group the encounters by patient ID
-        Mono<Map<String, List<Encounter>>> encountersByPatientMono = allEncountersFlux
+        Mono<Map<String, Collection<Encounter>>> encountersByPatientMono = allEncountersFlux
                 .flatMap(encounter -> {
                     try {
                         String patientId = ResourceUtils.getPatientId(encounter);
-                        return Mono.just(Tuples.of(patientId, encounter));
+                        // Use Map.Entry to pair patient ID with the encounter
+                        return Mono.just(new AbstractMap.SimpleEntry<>(patientId, encounter));
                     } catch (PatientIdNotFoundException e) {
                         logger.error("Patient ID not found in encounter resource", e);
-                        return Mono.empty();
+                        return Mono.empty(); // Skip this encounter
                     }
                 })
-                .collectMultimap(tuple -> tuple.getT1(), tuple -> tuple.getT2());
+                .collectMultimap(
+                        Map.Entry::getKey, // Key Mapper: patient ID
+                        Map.Entry::getValue // Value Mapper: Encounter object
+                );
 
         // Step 3: Process each patient's consent info individually
         return encountersByPatientMono.flatMapMany(encountersByPatientMap ->
                 consentInfoFlux.flatMap(patientConsentInfo -> {
                     // Extract the patient ID from the consent info map
-                    String patientId = extractPatientId(patientConsentInfo);
+                    String patientId = patientConsentInfo.keySet().stream().findFirst().orElse(null);
 
                     if (patientId == null) {
                         logger.warn("Patient ID not found in consent info");
@@ -240,7 +244,7 @@ public class ConsentInfoBuilder {
                     }
 
                     // Get the encounters for this patient
-                    List<Encounter> patientEncounters = encountersByPatientMap.get(patientId);
+                    List<Encounter> patientEncounters = (List<Encounter>) encountersByPatientMap.get(patientId);
 
                     if (patientEncounters == null || patientEncounters.isEmpty()) {
                         logger.info("No encounters found for patient {}", patientId);
@@ -258,18 +262,11 @@ public class ConsentInfoBuilder {
         );
     }
 
-    // Helper method to extract patient ID from the consent info map
-    private String extractPatientId(Map<String, Map<String, List<ConsentPeriod>>> patientConsentInfo) {
-        // Assuming the patient ID is the key of the outermost map
-        // Adjust this logic based on the actual structure of your consent info map
-        return patientConsentInfo.keySet().stream().findFirst().orElse(null);
-    }
-
     // Helper method to update consent periods for a patient based on their encounters
     private void updateConsentPeriodsForPatient(
             Map<String, Map<String, List<ConsentPeriod>>> patientConsentInfo, List<Encounter> encounters) {
 
-        String patientId = extractPatientId(patientConsentInfo);
+        String patientId = patientConsentInfo.keySet().stream().findFirst().orElse(null);
         Map<String, List<ConsentPeriod>> consentFields = patientConsentInfo.get(patientId);
 
         // Iterate over each encounter for the patient
@@ -278,48 +275,17 @@ public class ConsentInfoBuilder {
 
             // Iterate over each consent field and update the consent periods
             for (Map.Entry<String, List<ConsentPeriod>> entry : consentFields.entrySet()) {
-                String fieldName = entry.getKey();
                 List<ConsentPeriod> consentPeriods = entry.getValue();
 
                 for (ConsentPeriod consentPeriod : consentPeriods) {
                     // Check if the consent period needs to be updated
-                    if (isWithinEncounterPeriod(consentPeriod, encounterPeriod)) {
-                        updateConsentPeriod(consentPeriod, encounterPeriod);
+                    if (consentPeriod.isWithinEncounterPeriod(encounterPeriod)) {
+                        consentPeriod.setStart(encounterPeriod.getStartElement());
                     }
                 }
             }
         }
     }
-
-    // Helper method to check if the consent period overlaps with the encounter period
-    private boolean isWithinEncounterPeriod(ConsentPeriod consentPeriod, Period encounterPeriod) {
-        Date consentStart = consentPeriod.getStart();
-        Date consentEnd = consentPeriod.getEnd();
-        Date encounterStart = encounterPeriod.getStart();
-        Date encounterEnd = encounterPeriod.getEnd();
-
-        // Adjust the logic based on your specific requirements
-        return (consentStart.before(encounterEnd) || consentStart.equals(encounterEnd)) &&
-                (consentEnd.after(encounterStart) || consentEnd.equals(encounterStart));
-    }
-
-    // Helper method to update the consent period based on the encounter period
-    private void updateConsentPeriod(ConsentPeriod consentPeriod, Period encounterPeriod) {
-        Date encounterStart = encounterPeriod.getStart();
-        Date encounterEnd = encounterPeriod.getEnd();
-
-        // Update the consent period's start and end dates if necessary
-        if (encounterStart.before(consentPeriod.getStart())) {
-            consentPeriod.setStart(encounterStart);
-        }
-        if (encounterEnd.after(consentPeriod.getEnd())) {
-            consentPeriod.setEnd(encounterEnd);
-        }
-    }
-
-
-
-
 
 }
 

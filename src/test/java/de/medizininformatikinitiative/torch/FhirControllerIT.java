@@ -51,7 +51,8 @@ public class FhirControllerIT extends AbstractIT {
     @Autowired
     FhirController fhirController;
 
-    @Autowired ConsentHandler consentHandler;
+    @Autowired
+    ConsentHandler consentHandler;
 
     @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
