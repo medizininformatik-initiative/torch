@@ -88,12 +88,12 @@ public class ResultFileManager {
                         // Get the path to the job directory
                         Path jobDir = resultsDirPath.resolve(jobId);
 
-                        // If the directory exists, delete it recursively
+
                         if (!Files.exists(jobDir)) {
                             Files.createDirectories(jobDir);
 
                         }
-                        // Recreate the directory after cleanup
+
                         return jobDir;
                     } catch (IOException e) {
                         logger.error("Failed to initialize directory for jobId {}: {}", jobId, e.getMessage());
