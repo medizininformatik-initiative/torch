@@ -2,57 +2,91 @@ package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.r4.model.DateTimeType;
 
-import java.time.LocalDateTime;
-import java.time.chrono.ChronoLocalDateTime;
-
+/**
+ * Represents a consent period with start and end dates and an associated code.
+ */
 public class ConsentPeriod {
 
     private DateTimeType start;
     private DateTimeType end;
     private String code;
 
-    // Default constructor
+    /**
+     * Default constructor.
+     */
     public ConsentPeriod() {
     }
 
-    // Parameterized constructor for convenience
+    /**
+     * Constructs a {@code ConsentPeriod} with specified start and end dates.
+     *
+     * @param start the start date of the consent period
+     * @param end   the end date of the consent period
+     */
     public ConsentPeriod(DateTimeType start, DateTimeType end) {
         this.start = start;
         this.end = end;
     }
 
-    // Getter for start
+    /**
+     * Gets the start date of the consent period.
+     *
+     * @return the start date
+     */
     public DateTimeType getStart() {
         return start;
     }
 
-    // Setter for start
+    /**
+     * Sets the start date of the consent period.
+     *
+     * @param start the start date to set
+     */
     public void setStart(DateTimeType start) {
         this.start = start;
     }
 
-    // Getter for end
+    /**
+     * Gets the end date of the consent period.
+     *
+     * @return the end date
+     */
     public DateTimeType getEnd() {
         return end;
     }
 
-    // Setter for end
-    public void setCode(String code) {
-        this.code = code;
-    }
-
-    // Getter for end
-    public String getCode() {
-        return code;
-    }
-
-    // Setter for end
+    /**
+     * Sets the end date of the consent period.
+     *
+     * @param end the end date to set
+     */
     public void setEnd(DateTimeType end) {
         this.end = end;
     }
 
+    /**
+     * Gets the code associated with the consent period.
+     *
+     * @return the code
+     */
+    public String getCode() {
+        return code;
+    }
 
-    // Optionally, override toString() for easy debugging and logging
+    /**
+     * Sets the code associated with the consent period.
+     *
+     * @param code the code to set
+     */
+    public void setCode(String code) {
+        this.code = code;
+    }
+
+    /**
+     * Returns a string representation of the {@code ConsentPeriod}.
+     *
+     * @return a string representation of the consent period
+     */
     @Override
     public String toString() {
         return "ConsentPeriod{" +
@@ -61,15 +95,22 @@ public class ConsentPeriod {
                 '}';
     }
 
-    // You can also add utility methods, such as:
-
-    // Check if a given date falls within the consent period
+    /**
+     * Checks if a given date falls within the consent period.
+     *
+     * @param date the date to check
+     * @return {@code true} if the date is within the consent period; {@code false} otherwise
+     */
     public boolean isWithinPeriod(DateTimeType date) {
         if (date == null) return false;
         return (start == null || !date.after(start)) && (end == null || !date.before(end));
     }
 
-    // Check if the consent period is valid (start is before end)
+    /**
+     * Checks if the consent period is valid (start is before end).
+     *
+     * @return {@code true} if the period is valid; {@code false} otherwise
+     */
     public boolean isValidPeriod() {
         return start != null && end != null && start.before(end);
     }
