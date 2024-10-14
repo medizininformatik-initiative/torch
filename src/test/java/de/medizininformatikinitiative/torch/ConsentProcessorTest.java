@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Period;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -30,7 +31,7 @@ public class ConsentProcessorTest extends BaseTest {
                     DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
                     // Transform to extract patient and consent period information
-                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
+                    Map<String, List<Period>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
                     logger.debug("map size {}", consentPeriodMap.entrySet());
                     // Update the map with the patient's consent periods
                     assert (!consentPeriodMap.get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty());
@@ -54,7 +55,7 @@ public class ConsentProcessorTest extends BaseTest {
                     DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
                     // Transform to extract patient and consent period information
-                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
+                    Map<String, List<Period>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
                     logger.debug("Consent map {}", consentPeriodMap.entrySet());
                     // Update the map with the patient's consent periods
                     assert (!consentPeriodMap.get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty());

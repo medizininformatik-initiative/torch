@@ -32,10 +32,10 @@ public class ConsentProcessor {
         }
     }
 
-    public Map<String, List<ConsentPeriod>> transformToConsentPeriodByCode(DomainResource domainResource, Set<String> validCodes) throws ConsentViolatedException {
+    public Map<String, List<Period>> transformToConsentPeriodByCode(DomainResource domainResource, Set<String> validCodes) throws ConsentViolatedException {
         // Map to hold lists of ConsentPeriod for each code
         validCodes.forEach(code -> logger.debug("validCode {}", code));
-        Map<String, List<ConsentPeriod>> consentPeriodMap = new HashMap<>();
+        Map<String, List<Period>> consentPeriodMap = new HashMap<>();
         List<Base> provisionPeriodList = extractConsentProvisions(domainResource);
 
         // Iterate over the provisions to find periods for each valid code
@@ -62,14 +62,11 @@ public class ConsentProcessor {
                 // If no start or end period is present, skip to the next provision
                 if (start == null || end == null) continue;
 
-                // Create a new ConsentPeriod for the provision
-                ConsentPeriod consentPeriod = new ConsentPeriod();
-                consentPeriod.setStart(start);
-                consentPeriod.setEnd(end);
-                consentPeriod.setCode(code);
+
+
 
                 // Add the new consent period to the map under the corresponding code
-                consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(consentPeriod);
+                consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(period);
 
             } catch (Exception e) {
                 logger.error("Error processing provision period", e);
