@@ -133,7 +133,7 @@ public class ConsentHandler {
                 try {
                     patientID = ResourceUtils.getPatientId(resource);
                 } catch (PatientIdNotFoundException e) {
-                    logger.warn("Resource does not Contain any Patient Reference", resource.getIdElement());
+                    logger.warn("Resource does not Contain any Patient Reference {}", resource.getIdElement());
                     return false;
                 }
 
