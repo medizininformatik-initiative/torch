@@ -39,7 +39,7 @@ public class FhirSearchBuilder {
 
         parameters = "patient=" + String.join(",",batch);
 
-        parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
+        parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
         return parameters;
 
     }

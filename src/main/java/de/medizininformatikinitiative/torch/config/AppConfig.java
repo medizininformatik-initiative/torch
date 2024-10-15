@@ -178,7 +178,8 @@ public class AppConfig {
         return new ResourceTransformer(dataStore, cds, handler);
     }
 
-    @Bean ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper,@Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
+    @Bean
+    ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
         return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
     }
 
