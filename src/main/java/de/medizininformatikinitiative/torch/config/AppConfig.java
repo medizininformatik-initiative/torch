@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.*;
+import de.medizininformatikinitiative.torch.model.mapping.SystemCodeToContextMapping;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -51,6 +52,8 @@ public class AppConfig {
     private String mappingsFile;
     @Value("${torch.conceptTreeFile}")
     private String conceptTreeFile;
+    @Value("src/main/resources/mappings/code-system-to-context.json")
+    private String codeSysToContextFile;
 
     @Bean
     @Qualifier("fhirClient")
@@ -97,11 +100,20 @@ public class AppConfig {
 
     }
 
+    @Bean
+    public MappingTreeBase mappingTreeBase(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
+        return new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
+    }
+
+    @Bean
+    SystemCodeToContextMapping codeSystemToContextMapping(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
+        return jsonUtil.readValue(new File(codeSysToContextFile), SystemCodeToContextMapping.class);
+    }
+
     @Lazy
     @Bean
-    Translator createCqlTranslator(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
+    Translator createCqlTranslator(@Qualifier("translation") ObjectMapper jsonUtil, MappingTreeBase mappingTreeBase) throws IOException {
         var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
-        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
 
         return Translator.of(MappingContext.of(
                 Stream.of(mappings)

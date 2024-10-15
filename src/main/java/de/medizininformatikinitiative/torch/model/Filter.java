@@ -2,6 +2,9 @@ package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.config.SpringContext;
+import de.numcodex.sq2cql.model.common.TermCode;
+import de.numcodex.sq2cql.model.structured_query.ContextualTermCode;
 
 import java.util.*;
 
@@ -10,6 +13,13 @@ public class Filter {
 
     // No-argument constructor
     public Filter() {
+    }
+
+    // Constructor for direct instantiation (for testing)
+    public Filter(String type, String name, List<Code> codes) {
+        this.type = type;
+        this.name = name;
+        this.codes = codes;
     }
 
     @JsonProperty("type")
@@ -57,10 +67,13 @@ public class Filter {
             result+=name+"=";
             List<String> codeUrls = new ArrayList<>();
             for (Code code : codes) {
-                codeUrls.add(code.getCodeURL());
+                // In order to be able to use the existing MappingTreeBase to expand a Code, a corresponding context to
+                // the Code is looked up and the expanded contextual term codes are converted back to Codes
+                var expandedCodes = SpringContext.getMappingTreeBase().expand(code.getContextualTermCode()).map(Code::of);
+
+                codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
             }
             result += String.join(",", codeUrls);
-
         }
         return result;
     }
