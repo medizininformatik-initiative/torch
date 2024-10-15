@@ -16,7 +16,7 @@ COPY mappings  /app/mappings
 COPY ontology /app/ontology
 
 RUN mkdir /app/output
-RUN chown -R 1001:1001 /app
+RUN chown -R 1000:1000 /app
 
 
 COPY docker-entrypoint.sh /

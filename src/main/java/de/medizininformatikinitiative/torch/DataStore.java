@@ -35,7 +35,7 @@ public class DataStore {
      * @return the resources found with the {@param FHIRSearchQuery}
      */
     public Flux<Resource> getResources(String resourceType, String parameters) {
-        logger.debug("Executing FHIR search for resourceType: {} with parameters: {}", resourceType, parameters);
+        logger.trace("Executing FHIR search for resourceType: {} with parameters: {}", resourceType, parameters);
 
         return client.post()
                 .uri("/" + resourceType + "/_search")
@@ -55,12 +55,10 @@ public class DataStore {
                         })
                         .orElse(Mono.empty()))
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
-                .collectList()  // Collect the resources into a List to log the size
-                .doOnSuccess(resources -> logger.debug("Successfully fetched {} resources for resourceType: {}", resources.size(), resourceType))
-                .flatMapMany(Flux::fromIterable)  // Convert the List back into a Flux
-                .doOnNext(resource -> logger.debug("Fetched resource: {}", resource.getIdElement().getIdPart()))  // Log each resource fetched
+                .doOnNext(resource -> logger.trace("Fetched resource: {}", resource.getIdElement().getIdPart()))  // Log each resource as it's fetched
                 .doOnError(error -> logger.error("Error occurred while fetching resources for resourceType: {}: {}", resourceType, error.getMessage()));
     }
+
 
 
 
