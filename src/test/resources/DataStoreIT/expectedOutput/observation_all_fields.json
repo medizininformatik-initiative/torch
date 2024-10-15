@@ -42,7 +42,7 @@
       "code": {
         "coding": [ {
           "system": "http://snomed.info/sct",
-          "code": "789012",
+          "code": "45252009",
           "display": "Example diagnosis 3"
         } ]
       },
