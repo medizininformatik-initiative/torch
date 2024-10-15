@@ -10,10 +10,14 @@ torch:
     consent_to_profile: src/test/resources/mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
+    user: test
+    password: test
     pageCount: 500
     testPopulation:
         path: src/test/resources/BlazeBundle.json
   flare:
+    user: test
+    password: test
     url: http://localhost:8084
   results:
     dir: output/

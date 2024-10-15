@@ -46,9 +46,9 @@ services:
       - ${PORT_TORCH:-127.0.0.1:8086}:8080
     environment:
       SERVER_PORT: 8080
-      TORCH_PROFILE_DIR: /app/StructureDefinitions
-      TORCH_MAPPING_CONSENT: /app/Mappings/consent-mappings_fhir.json
-      TORCH_MAPPING_CONSENT_TO_PROFILE: src/main/resources/mappings/profile_to_consent.json
+      TORCH_PROFILE_DIR: /app/structureDefinitions
+      TORCH_MAPPING_CONSENT: /app/mappings/consent-mappings_fhir.json
+      TORCH_MAPPING_CONSENT_TO_PROFILE: /app/mappings/profile_to_consent.json
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output
@@ -58,11 +58,15 @@ services:
       NGINX_FILELOCATION: http://localhost:80
       TORCH_BATCHSIZE: 100
       TORCH_MAXCONCURRENCY: 4
+      TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
+      TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
+      TORCH_USECQL: false
+
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
       - ./output:/app/output
-    user: 1000:1000
+    user: 1001:1001
 
 volumes:
   data-store-data:
