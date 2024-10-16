@@ -67,9 +67,12 @@ public class AppConfig {
 
     @Bean
     @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl, @Value("${torch.fhir.user}") String user,
+    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
+                                   @Value("${torch.fhir.user}") String user,
                                    @Value("${torch.fhir.password}") String password,
                                    @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction) {
+        logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
+
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
@@ -79,10 +82,11 @@ public class AppConfig {
                 .baseUrl(baseUrl)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/fhir+json");
+
         if (!user.isEmpty() && !password.isEmpty()) {
             builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
+            logger.info("Added basic authentication for user: {}", user);
         }
-
 
         return builder.filter(oauthExchangeFilterFunction).build();
     }
@@ -90,6 +94,8 @@ public class AppConfig {
     @Bean
     @Qualifier("flareClient")
     public WebClient flareWebClient(@Value("${torch.flare.url}") String baseUrl) {
+        logger.info("Initializing Flare WebClient with URL: {}", baseUrl);
+
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
@@ -100,12 +106,8 @@ public class AppConfig {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/sq+json");
 
-
-
-
         return builder.build();
     }
-
 
     @Bean
     public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
