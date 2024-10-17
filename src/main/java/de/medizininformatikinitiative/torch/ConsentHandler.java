@@ -78,23 +78,23 @@ public class ConsentHandler {
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
     public Boolean checkConsent(@NotNull DomainResource resource, Map<String, Map<String, List<Period>>> consentInfo) {
-        logger.debug("Checking Consent for {}", resource.getResourceType());
+        logger.trace("Checking Consent for {}", resource.getResourceType());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
 
-        logger.debug("Checking consent for resource of type: {} with {} profiles", resource.getResourceType(), resource.getMeta().getProfile().size());
+        logger.trace("Checking consent for resource of type: {} with {} profiles", resource.getResourceType(), resource.getMeta().getProfile().size());
 
         while (profileIterator.hasNext()) {
             String profile = profileIterator.next().asStringValue();
-            logger.debug("Evaluating profile: {}", profile);
+            logger.trace("Evaluating profile: {}", profile);
 
             if (mappingProfiletoDateField.has(profile)) {
-                logger.debug("Handling the following Profile {}", profile);
+                logger.trace("Handling the following Profile {}", profile);
                 fieldValue = mappingProfiletoDateField.get(profile);
-                logger.debug("Fieldvalue {}", fieldValue);
+                logger.trace("Fieldvalue {}", fieldValue);
                 snapshot = cdsStructureDefinitionHandler.getSnapshot(profile);
-                logger.debug("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
+                logger.trace("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
                 break; // Exit after finding the first match
             }
         }
@@ -105,12 +105,12 @@ public class ConsentHandler {
         }
 
         if (fieldValue.asText().isEmpty()) {
-            logger.debug("Field value is empty, consent is automatically granted if patient has consents in general.");
+            logger.trace("Field value is empty, consent is automatically granted if patient has consents in general.");
             return true;
         } else {
-            logger.debug("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
+            logger.trace("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
             List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(), snapshot), Base.class);
-            logger.debug("Evaluated FHIRPath expression, found {} values.", values.size());
+            logger.trace("Evaluated FHIRPath expression, found {} values.", values.size());
 
             for (Base value : values) {
                 DateTimeType resourceStart;
@@ -119,11 +119,11 @@ public class ConsentHandler {
                 if (value instanceof DateTimeType) {
                     resourceStart = (DateTimeType) value;
                     resourceEnd = (DateTimeType) value;
-                    logger.debug("Evaluated value is DateTimeType: start {}, end {}", resourceStart, resourceEnd);
+                    logger.trace("Evaluated value is DateTimeType: start {}, end {}", resourceStart, resourceEnd);
                 } else if (value instanceof Period) {
                     resourceStart = ((Period) value).getStartElement();
                     resourceEnd = ((Period) value).getEndElement();
-                    logger.debug("Evaluated value is Period: start {}, end {}", resourceStart, resourceEnd);
+                    logger.trace("Evaluated value is Period: start {}, end {}", resourceStart, resourceEnd);
                 } else {
                     logger.error("No valid Date Time Value found. Value: {}", value);
                     throw new IllegalArgumentException("No valid Date Time Value found");
@@ -137,8 +137,8 @@ public class ConsentHandler {
                     return false;
                 }
 
-                logger.debug("Patient ID {} and Set {} ", patientID, consentInfo.keySet());
-                logger.debug("Get Result {}", consentInfo.get(patientID));
+                logger.trace("Patient ID {} and Set {} ", patientID, consentInfo.keySet());
+                logger.trace("Get Result {}", consentInfo.get(patientID));
 
                 boolean hasValidConsent = Optional.ofNullable(consentInfo.get(patientID))
                         .map(consentPeriodMap -> consentPeriodMap.entrySet().stream()
@@ -150,7 +150,7 @@ public class ConsentHandler {
                                     // Check if at least one consent period is valid for the current code
                                     return consentPeriods.stream()
                                             .anyMatch(period -> {
-                                                logger.debug("Evaluating ConsentPeriod: start {}, end {} vs {} and {}",
+                                                logger.trace("Evaluating ConsentPeriod: start {}, end {} vs {} and {}",
                                                         resourceStart, resourceEnd, period.getStart(), period.getEnd());
                                                 logger.debug("Result: {}", resourceStart.after(period.getStartElement()) && resourceEnd.before(period.getEndElement()));
                                                 return resourceStart.after(period.getStartElement()) && resourceEnd.before(period.getEndElement());
@@ -159,11 +159,11 @@ public class ConsentHandler {
                         .orElse(false);
 
                 if (hasValidConsent) {
-                    logger.info("Valid consent period found for evaluated values.");
+                    logger.debug("Valid consent period found for evaluated values.");
                     return true;
                 }
             }
-            logger.warn("No valid consent period found for any value.");
+            logger.debug("No valid consent period found for any value.");
             return false;  // No matching consent period found
         }
     }
@@ -182,13 +182,13 @@ public class ConsentHandler {
         // Retrieve the relevant codes for the given key
         Set<String> codes = mapper.getRelevantCodes(key);
 
-        logger.info("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
+        logger.trace("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
 
         // Fetch resources using a bounded elastic scheduler for offloading blocking HTTP I/O
         return dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
                 .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
-                .doOnSubscribe(subscription -> logger.info("Fetching resources for batch: {}", batch))
-                .doOnNext(resource -> logger.debug("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))
+                .doOnSubscribe(subscription -> logger.debug("Fetching resources for batch: {}", batch))
+                .doOnNext(resource -> logger.trace("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))
                 .onErrorResume(e -> {
                     logger.error("Error fetching resources for parameters: {}", FhirSearchBuilder.getConsent(batch), e);
                     return Flux.empty();
@@ -199,7 +199,7 @@ public class ConsentHandler {
                         DomainResource domainResource = (DomainResource) resource;
                         String patient = ResourceUtils.getPatientId(domainResource);
 
-                        logger.debug("Processing resource for patient: {} {}", patient, resource.getResourceType());
+                        logger.trace("Processing resource for patient: {} {}", patient, resource.getResourceType());
 
                         Map<String, List<Period>> consents = consentProcessor.transformToConsentPeriodByCode(domainResource, codes);
 
@@ -207,7 +207,7 @@ public class ConsentHandler {
                         patientConsentMap.put(patient, new HashMap<>());
 
                         // Log consent periods transformation
-                        logger.debug("Transformed resource into {} consent periods for patient: {}", consents.size(), patient);
+                        logger.trace("Transformed resource into {} consent periods for patient: {}", consents.size(), patient);
 
                         // Iterate over the consent periods and add them to the patient's map
                         consents.forEach((code, newConsentPeriods) -> {
@@ -216,7 +216,7 @@ public class ConsentHandler {
                                     .addAll(newConsentPeriods);
                         });
 
-                        logger.debug("Consent periods updated for patient: {} with {} codes", patient, consents.size());
+                        logger.trace("Consent periods updated for patient: {} with {} codes", patient, consents.size());
 
                         // Return the map containing the patient's consent periods
                         return patientConsentMap;
@@ -227,7 +227,7 @@ public class ConsentHandler {
                 })
 
                 .collectList()
-                .doOnSuccess(list -> logger.info("Successfully processed {} resources", list.size()))
+                .doOnSuccess(list -> logger.trace("Successfully processed {} resources for buildingConsentInfo", list.size()))
 
                 .flatMapMany(Flux::fromIterable);
     }
@@ -252,8 +252,8 @@ public class ConsentHandler {
         Flux<Encounter> allEncountersFlux = dataStore.getResources("Encounter", FhirSearchBuilder.getEncounter(batch))
                 .subscribeOn(Schedulers.boundedElastic())
                 .cast(Encounter.class)
-                .doOnSubscribe(subscription -> logger.info("Fetching encounters for batch: {}", batch))
-                .doOnNext(encounter -> logger.debug("Encounter fetched: {}", encounter.getIdElement().getIdPart()))
+                .doOnSubscribe(subscription -> logger.debug("Fetching encounters for batch: {}", batch))
+                .doOnNext(encounter -> logger.trace("Encounter fetched: {}", encounter.getIdElement().getIdPart()))
                 .onErrorResume(e -> {
                     logger.error("Error fetching encounters for batch: {}", batch, e);
                     return Flux.empty();

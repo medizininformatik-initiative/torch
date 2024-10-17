@@ -99,15 +99,15 @@ public class DiscriminatorResolver {
         // You may need to recursively compare the elements that are defined in fixedOrPatternValue
         // Example: if fixedOrPatternValue is a complex type, iterate over its children
         if (!Objects.equals(resolvedBase.fhirType(), fixedOrPatternValue.fhirType())) {
-            logger.warn("Incompatible Data types when comparing ");
+            logger.warn("Incompatible Data types when comparing {} {}",resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
             return false;
         }
 
         if (fixedOrPatternValue.isPrimitive()) {
-            logger.debug("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
+            logger.trace("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
             return resolvedBase.equalsDeep(fixedOrPatternValue);
         } else {
-            logger.debug("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
+            logger.trace("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
             // Iterate over the children of fixedOrPatternValue and compare them to the corresponding children in resolvedBase
             for (Property child : fixedOrPatternValue.children()) {
                 if (child.hasValues()) {
@@ -115,7 +115,7 @@ public class DiscriminatorResolver {
                     String childName = child.getName();
                     Property resolvedChild = resolvedBase.getChildByName(childName);
 
-                    logger.debug("Handling Child {} {}", childName, resolvedChild);
+                    logger.trace("Handling Child {} {}", childName, resolvedChild);
 
                     // If the resolved base doesn't have this child, return false
                     if (resolvedChild == null) {

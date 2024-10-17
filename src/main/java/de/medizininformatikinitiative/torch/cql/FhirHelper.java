@@ -1,11 +1,14 @@
 package de.medizininformatikinitiative.torch.cql;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Library;
 import org.hl7.fhir.r4.model.Measure;
 import org.hl7.fhir.r4.model.Parameters;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -17,6 +20,7 @@ import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.POST;
 
 @Component
 public class FhirHelper {
+    private static final Logger logger = LoggerFactory.getLogger(FhirHelper.class);
 
     private static final String CQL_REPRESENTATION = "text/cql";
     private final FhirContext context;
@@ -93,6 +97,7 @@ public class FhirHelper {
                 getResourceFileAsString("Measure.json"))
                 .setUrl(measureUri)
                 .addLibrary(libraryUri);
+        logger.debug("Measure {}",measure);
         return bundleLibraryAndMeasure(library, measure);
     }
 

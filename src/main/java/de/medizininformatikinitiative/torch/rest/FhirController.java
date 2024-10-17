@@ -88,7 +88,6 @@ public class FhirController {
         this.cqlClient = cqlClient;
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
-
     }
 
 
