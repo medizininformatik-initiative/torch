@@ -11,7 +11,6 @@ import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.rest.FhirController;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
@@ -65,12 +64,17 @@ public class AppConfig {
     @Value("${torch.conceptTreeFile}")
     private String conceptTreeFile;
 
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
     @Bean
     @Qualifier("fhirClient")
     public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   @Value("${torch.fhir.user}") String user,
-                                   @Value("${torch.fhir.password}") String password,
-                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction) {
+                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction, @Value("${torch.fhir.user}") String user,
+                                   @Value("${torch.fhir.password}") String password) {
         logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
@@ -86,6 +90,8 @@ public class AppConfig {
         if (!user.isEmpty() && !password.isEmpty()) {
             builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
             logger.info("Added basic authentication for user: {}", user);
+        }else{
+            logger.info("Using OAuth");
         }
 
         return builder.filter(oauthExchangeFilterFunction).build();
@@ -118,12 +124,11 @@ public class AppConfig {
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
                                @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, clock, pageCount);
-
     }
 
     @Lazy
     @Bean
-    Translator createCqlTranslator(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
+    Translator createCqlTranslator( ObjectMapper jsonUtil) throws IOException {
         var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
         var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
 
@@ -168,18 +173,10 @@ public class AppConfig {
 
     @Bean
     CqlClient createCqlQueryClient(
-            FhirConnector fhirConnector,
             FhirHelper fhirHelper,
-            DataStore dataStore
-    ) {
+            DataStore dataStore) {
 
-        return new CqlClient(fhirConnector, fhirHelper, dataStore);
-    }
-
-    @Qualifier("translation")
-    @Bean
-    ObjectMapper createTranslationObjectMapper() {
-        return new ObjectMapper();
+        return new CqlClient( fhirHelper, dataStore);
     }
 
     @Bean
@@ -232,10 +229,6 @@ public class AppConfig {
         return new BundleCreator();
     }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 
     @Bean
     ExecutorService executorService() {

@@ -9,9 +9,16 @@ torch:
     consent: src/main/resources/mappings/consent-mappings_fhir.json
     consent_to_profile: src/main/resources/mappings/profile_to_consent.json
   fhir:
-    user: test
-    password: test
-    url: http://localhost:8082/fhir
+    user: ""
+    password: ""
+    oauth:
+      issuer:
+        uri: "https://auth.localhost:444/auth/realms/blaze"
+      client:
+        id: account
+        secret: insecure
+
+    url: http://localhost:8081/fhir
     pageCount: 500
   flare:
     url: http://localhost:8084
@@ -32,6 +39,7 @@ logging:
     reactor.netty: info
     reactor: info
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+
 
 spring:
   codec:
