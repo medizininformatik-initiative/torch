@@ -57,6 +57,7 @@ import static org.springframework.security.oauth2.core.AuthorizationGrantType.CL
 import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
 
 @Configuration
+@Profile("active")
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 

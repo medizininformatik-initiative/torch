@@ -42,5 +42,7 @@ logging:
 
 
 spring:
+  profiles:
+    active: active
   codec:
     max-in-memory-size: 100MB
