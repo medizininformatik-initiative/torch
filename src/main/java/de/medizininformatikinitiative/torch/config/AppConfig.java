@@ -133,7 +133,7 @@ public class AppConfig {
     }
 
     @Bean
-    public DseMappingTreeBase dseMappingTreeBase(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
+    public DseMappingTreeBase dseMappingTreeBase(ObjectMapper jsonUtil) throws IOException {
         return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
     }
 
