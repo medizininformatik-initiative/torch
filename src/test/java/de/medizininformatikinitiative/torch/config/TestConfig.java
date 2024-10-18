@@ -10,6 +10,8 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.*;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -65,6 +67,8 @@ public class TestConfig {
     private String mappingsFile;
     @Value("${torch.conceptTreeFile}")
     private String conceptTreeFile;
+    @Value("${torch.dseMappingTreeFile}")
+    private String dseMappingTreeFile;
 
 
     @Bean
@@ -119,6 +123,11 @@ public class TestConfig {
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
                                @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, clock, pageCount);
+    }
+
+    @Bean
+    public DseMappingTreeBase dseMappingTreeBase(ObjectMapper jsonUtil) throws IOException {
+        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
     }
 
     @Lazy

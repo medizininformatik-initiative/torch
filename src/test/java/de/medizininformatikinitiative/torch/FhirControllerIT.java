@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.rest.FhirController;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
@@ -54,8 +55,8 @@ public class FhirControllerIT extends AbstractIT {
     @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
                             @Qualifier("flareClient") WebClient flareClient, ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext context, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
-                            Translator cqlQueryTranslator) {
-        super(webClient, flareClient, transformer, dataStore, cds, context, bundleCreator, objectMapper, cqlClient, cqlQueryTranslator);
+                            Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+        super(webClient, flareClient, transformer, dataStore, cds, context, bundleCreator, objectMapper, cqlClient, cqlQueryTranslator, dseMappingTreeBase);
     }
 
     @Test

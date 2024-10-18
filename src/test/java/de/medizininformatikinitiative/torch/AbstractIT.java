@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -74,6 +75,8 @@ public abstract class AbstractIT {
     private String testPopulationPath;
     protected final FhirContext fhirContext;
 
+    protected final DseMappingTreeBase dseMappingTreeBase;
+
     @Bean
     @Autowired
     @Qualifier("fhirClient")
@@ -104,7 +107,8 @@ public abstract class AbstractIT {
             BundleCreator bundleCreator,
             ObjectMapper objectMapper,
             CqlClient cqlClient,
-            Translator cqlQueryTranslator) {
+            Translator cqlQueryTranslator,
+                      DseMappingTreeBase dseMappingTreeBase) {
         this.webClient = webClient;
         this.flareClient = flareClient;
         this.transformer = transformer;
@@ -115,6 +119,7 @@ public abstract class AbstractIT {
         this.objectMapper = objectMapper;
         this.cqlClient = cqlClient;
         this.cqlQueryTranslator = cqlQueryTranslator;
+        this.dseMappingTreeBase = dseMappingTreeBase;
 
     }
 
