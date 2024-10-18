@@ -18,9 +18,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Bean;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import org.testcontainers.containers.ComposeContainer;
@@ -29,6 +33,8 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.io.File;
 import java.io.IOException;
@@ -68,9 +74,28 @@ public abstract class AbstractIT {
     private String testPopulationPath;
     protected final FhirContext fhirContext;
 
+    @Bean
     @Autowired
-    public AbstractIT(
-            @Qualifier("fhirClient") WebClient webClient,
+    @Qualifier("fhirClient")
+    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl) {
+        logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
+
+        ConnectionProvider provider = ConnectionProvider.builder("data-store")
+                .maxConnections(4)
+                .pendingAcquireMaxCount(500)
+                .build();
+        HttpClient httpClient = HttpClient.create(provider);
+        WebClient.Builder builder = WebClient.builder()
+                .baseUrl(baseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .defaultHeader("Accept", "application/fhir+json");
+
+
+        return builder.build();
+    }
+
+    @Autowired
+    public AbstractIT(@Qualifier("fhirClient") WebClient webClient,
             @Qualifier("flareClient") WebClient flareClient,
             ResourceTransformer transformer,
             DataStore dataStore,

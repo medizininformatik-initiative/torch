@@ -4,12 +4,21 @@ server:
   port: 8080
 torch:
   profile:
-    dir: src/main/resources/StructureDefinitions
+    dir: structureDefinitions
   mapping:
-    consent: src/main/resources/mappings/consent-mappings_fhir.json
-    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
+    consent: mappings/consent-mappings_fhir.json
+    consent_to_profile: mappings/profile_to_consent.json
   fhir:
-    url: http://localhost:8082/fhir
+    user: ""
+    password: ""
+    oauth:
+      issuer:
+        uri:
+      client:
+        id:
+        secret:
+
+    url: http://localhost:8081/fhir
     pageCount: 500
   flare:
     url: http://localhost:8084
@@ -22,8 +31,8 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   useCql: true
 nginx:
-  servername: localhost:8080
-  filelocation: localhost:8080/output
+  servername: http://localhost:8080
+  filelocation: http://localhost:8080/output
 logging:
   level:
     org.springframework.web.reactive.function.client: info
@@ -31,6 +40,9 @@ logging:
     reactor: info
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
 
+
 spring:
+  profiles:
+    active: active
   codec:
     max-in-memory-size: 100MB

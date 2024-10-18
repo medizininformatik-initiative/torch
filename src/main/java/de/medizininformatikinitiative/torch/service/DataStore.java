@@ -5,6 +5,8 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.MeasureReport;
+import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,6 +38,7 @@ public class DataStore {
     private final FhirContext fhirContext;
     private final Clock clock;
     private final int pageCount;
+
 
     @Autowired
     public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,  @Qualifier("systemDefaultZone") Clock clock,
@@ -116,8 +119,7 @@ public class DataStore {
     private static String queryElements(String type) {
         return switch (type) {
             case "Patient" -> "id";
-            case "Immunization" -> "patient";
-            case "Consent" -> "patient";
+            case "Immunization", "Consent" -> "patient";
             default -> "subject";
         };
     }
@@ -126,5 +128,51 @@ public class DataStore {
         return code.is5xxServerError() || code.value() == 404;
     }
 
+    public Mono<Void> transmitBundle(Bundle bundle) {
 
+        return client.post()
+                .uri("")
+                .header("Content-Type", "application/fhir+json")
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
+                .retrieve()
+                .bodyToMono(String.class)
+                .doOnNext(response -> {
+                    try {
+                        logger.trace("Received response: {}", response);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error processing the response", e);
+                    }
+                })
+                .doOnSuccess(response -> logger.debug("Successfully transmitted Bundle"))
+                .doOnError(error -> logger.error("Error occurred while transmitting Bundle: {}", error.getMessage()))
+                .then();
+    }
+
+
+
+
+
+
+    /**
+     * Get the {@link MeasureReport} for a previously transmitted {@link Measure}
+     *
+     * @param params the Parameters for the evaluation of the {@link Measure}
+     * @return the retrieved {@link MeasureReport} from the server
+     */
+    public Mono<MeasureReport> evaluateMeasure(Parameters params) {
+        logger.debug("Evaluating Measure with provided parameters.");
+        logger.debug(params.toString());
+        return client.post()
+                .uri("/Measure/$evaluate-measure")
+                .header("Content-Type", "application/fhir+json")
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(params))
+                .retrieve()
+                .bodyToMono(String.class)
+                .flatMap(response -> {
+                    logger.debug("Parsing response into MeasureReport.");
+                    return Mono.just(fhirContext.newJsonParser().parseResource(MeasureReport.class, response));
+                })
+                .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure and received MeasureReport."))
+                .doOnError(error -> logger.error("Error occurred while evaluating Measure: {}", error.getMessage()));
+    }
 }

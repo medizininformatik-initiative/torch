@@ -99,7 +99,7 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.debug("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
+            logger.trace("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -128,8 +128,8 @@ public class ResourceTransformer {
     }
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch) {
-        logger.debug("Starting collectResourcesByPatientReference");
-        logger.debug("Patients Received: {}", batch);
+        logger.trace("Starting collectResourcesByPatientReference");
+        logger.trace("Patients Received: {}", batch);
 
         // Fetch consent key
         String key = crtdl.getConsentKey();

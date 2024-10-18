@@ -66,13 +66,13 @@ public class Slicing {
 
         List<ElementDefinition> ElementDefinition = ResourceReader.ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
         ElementDefinition.forEach(element -> {
-            //logger.debug("Slice to be handled {}",element.getIdElement());
+            logger.trace("Slice to be handled {}",element.getIdElement());
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 //iterate over every discriminator and test if base holds for it
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
                     if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
-                        //logger.debug("Check failed {}", element.getIdElement());
+                        logger.trace("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
@@ -115,18 +115,18 @@ public class Slicing {
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicing.getDiscriminator()) {
 
                     String path = discriminator.getPath();
-                    logger.debug("Slicing Discriminator {} {}",discriminator.getType(),path);
+                    logger.trace("Slicing Discriminator {} {}",discriminator.getType(),path);
                     // Generate FHIR Path condition based on the discriminator type and path
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
-                            logger.debug("Pattern discriminator found");
+                            logger.trace("Pattern discriminator found");
                             conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
                             conditions.add(slicedElement.getPath() + "." + path + ".exists()");
                             break;
                         case TYPE:
-                            logger.debug("Type discriminator found");
+                            logger.trace("Type discriminator found");
                             conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
                             break;
                         case PROFILE:
