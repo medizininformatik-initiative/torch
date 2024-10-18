@@ -1,22 +1,22 @@
 # Server configuration
 
 server:
-  port: 8086
+  port: 8080
 torch:
   profile:
-    dir: src/main/resources/StructureDefinitions
+    dir: structureDefinitions
   mapping:
-    consent: src/main/resources/mappings/consent-mappings_fhir.json
-    consent_to_profile: src/main/resources/mappings/profile_to_consent.json
+    consent: mappings/consent-mappings_fhir.json
+    consent_to_profile: mappings/profile_to_consent.json
   fhir:
     user: ""
     password: ""
     oauth:
       issuer:
-        uri: "https://auth.localhost:444/auth/realms/blaze"
+        uri:
       client:
-        id: account
-        secret: insecure
+        id:
+        secret:
 
     url: http://localhost:8081/fhir
     pageCount: 500

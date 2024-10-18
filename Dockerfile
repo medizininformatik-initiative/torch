@@ -23,8 +23,6 @@ RUN chown -R 1001:1001 /app
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 
-
-
 WORKDIR /app
 USER 1001
 
