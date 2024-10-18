@@ -47,8 +47,6 @@ public class FhirControllerIT extends AbstractIT {
     @LocalServerPort
     private int port;
 
-    @Autowired
-    FhirController fhirController;
 
     @Autowired
     ConsentHandler consentHandler;
