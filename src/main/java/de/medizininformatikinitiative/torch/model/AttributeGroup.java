@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.config.SpringContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

@@ -28,6 +28,7 @@ torch:
   maxConcurrency: 1
   mappingsFile: ontology/mapping_cql.json
   conceptTreeFile: ontology/mapping_tree.json
+  dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: false
 nginx:
     servername: localhost:8080
