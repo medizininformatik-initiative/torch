@@ -110,7 +110,7 @@
           "reference": "Patient/VHF00006"
         },
         "period": {
-          "start": "2021-01-01T00:00:00+01:00",
+          "start": "2019-01-01T00:00:00+01:00",
           "end": "2021-01-02T00:00:00+01:00"
         },
         "diagnosis": [
@@ -1042,6 +1042,233 @@
         "method": "PUT",
         "url": "Patient/4"
       }
+    }, {
+      "fullUrl": "Consent/4-CO-1",
+      "resource": {
+        "patient": {
+          "reference": "Patient/4"
+        },
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://loinc.org",
+                "code": "59284-0"
+              }
+            ]
+          }
+        ],
+        "provision": {
+          "provision": [
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.8"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.46"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.10"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.37"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.26"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.27"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.28"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.29"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.31"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            },
+            {
+              "type": "permit",
+              "code": [
+                {
+                  "coding": [
+                    {
+                      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                      "code": "2.16.840.1.113883.3.1937.777.24.5.3.30"
+                    }
+                  ]
+                }
+              ],
+              "period": {
+                "start": "2019-01-01T00:00:00+01:00",
+                "end": "2030-12-31T00:00:00+01:00"
+              }
+            }
+
+          ],
+          "type": "deny",
+          "period": {
+            "start": "2019-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          }
+        },
+        "meta": {
+          "versionId": "6",
+          "lastUpdated": "2024-09-27T09:01:54.858Z",
+          "profile": [
+            "http://fhir.de/ConsentManagement/StructureDefinition/Consent",
+            "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"
+          ]
+        },
+        "resourceType": "Consent",
+        "scope": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+              "code": "research"
+            }
+          ]
+        },
+        "policy": [
+          {
+            "uri": "https://www.medizininformatik-initiative.de/sites/default/files/2020-04/MII_AG-Consent_Einheitlicher-Mustertext_v1.6d.pdf"
+          }
+        ],
+        "dateTime": "2019-01-01T00:00:00+01:00",
+        "status": "active",
+        "id": "4-CO-1"
+      },  "request": {
+        "method": "PUT",
+        "url": "Consent/4-CO-1"
+      }
+
+
     },
     {
       "resource": {

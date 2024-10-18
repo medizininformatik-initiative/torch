@@ -36,6 +36,7 @@ public class FhirConnector {
      */
     public void transmitBundle(Bundle bundle) throws IOException {
         try {
+            //Post Bundle
             client.transaction().withBundle(bundle).execute();
         } catch (BaseServerResponseException e) {
             throw new IOException("An error occurred while trying to create measure and library", e);
@@ -43,14 +44,10 @@ public class FhirConnector {
     }
 
 
-    public Mono<List<String>> searchAndExtractIds(String id) {
-        return fetchInitialBundle(id)
-                .flatMapMany(this::fetchAllPages)
-                .map(entry -> entry.getResource().getIdElement().getIdPart())
-                .collectList();
-    }
+
 
     private Mono<Bundle> fetchInitialBundle(String id) {
+        //get mit FHIR Search
         return Mono.fromCallable(() -> client.search()
                         .forResource("Patient")
                         .where(new StringClientParam("_list").matches().value(id))
@@ -63,29 +60,6 @@ public class FhirConnector {
                 });
     }
 
-    private Flux<Bundle.BundleEntryComponent> fetchAllPages(Bundle initialBundle) {
-        return Flux.create(sink -> {
-            Bundle bundle = initialBundle;
-
-            try {
-                do {
-                    for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
-                        sink.next(entry);
-                    }
-
-                    if (bundle.getLink(Bundle.LINK_NEXT) != null) {
-                        bundle = client.loadPage().next(bundle).execute();
-                    } else {
-                        bundle = null;
-                    }
-                } while (bundle != null);
-
-                sink.complete();
-            } catch (FhirClientConnectionException e) {
-                sink.error(e);
-            }
-        });
-    }
 
 
     /**
@@ -97,7 +71,7 @@ public class FhirConnector {
      */
     public MeasureReport evaluateMeasure(Parameters params) throws IOException {
         try {
-
+            //Get
             return client.operation().onType(Measure.class)
                     .named("evaluate-measure")
                     .withParameters(params)

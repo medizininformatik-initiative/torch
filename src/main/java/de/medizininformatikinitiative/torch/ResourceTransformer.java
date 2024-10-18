@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +42,7 @@ public class ResourceTransformer {
         this.handler = handler;
     }
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<ConsentPeriod>>> consentmap) {
+    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
         String resourceType = group.getResourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
@@ -98,7 +99,7 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.debug("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
+            logger.trace("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -127,15 +128,15 @@ public class ResourceTransformer {
     }
 
     public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, List<String> batch) {
-        logger.debug("Starting collectResourcesByPatientReference");
-        logger.debug("Patients Received: {}", batch);
+        logger.trace("Starting collectResourcesByPatientReference");
+        logger.trace("Patients Received: {}", batch);
 
         // Fetch consent key
         String key = crtdl.getConsentKey();
 
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
-        Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentmap = key.isEmpty() ?
-                Flux.empty() : handler.buildingConsentInfo(key, batch);
+        Flux<Map<String, Map<String, List<Period>>>> consentmap = key.isEmpty() ?
+                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch),batch);
 
         // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);

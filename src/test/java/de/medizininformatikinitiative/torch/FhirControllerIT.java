@@ -7,7 +7,6 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.rest.FhirController;
-import de.medizininformatikinitiative.torch.util.ConsentPeriod;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -48,10 +47,9 @@ public class FhirControllerIT extends AbstractIT {
     @LocalServerPort
     private int port;
 
-    @Autowired
-    FhirController fhirController;
 
-    @Autowired ConsentHandler consentHandler;
+    @Autowired
+    ConsentHandler consentHandler;
 
     @Autowired
     public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
@@ -328,23 +326,64 @@ public class FhirControllerIT extends AbstractIT {
 
 
     @Test
-    public void testHandler() {
+    public void testHandlerWithUpdate() {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-
+            //Observation with Consent outside the consent, but inside with encounter within
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
+            ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
-            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
 
             // Collect the Flux into a List of Maps, without altering its structure
-            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
             // Assuming you need the first element from the list
-            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertTrue(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+    }
+
+
+
+    @Test
+    public void testHandlerWithoutUpdate() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            //Observation with Consent outside the consent, but inside with encounter within
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            DateTimeType time= new DateTimeType("2022-01-01T00:00:00+01:00");
+            ((Observation)observation).setEffective(time);
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
 
             // Now pass the Map (instead of the Flux) to checkConsent
             Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
@@ -359,24 +398,58 @@ public class FhirControllerIT extends AbstractIT {
     }
 
     @Test
-    public void testHandlerFail() {
+    public void testHandlerWithUpdatingFail() {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            DateTimeType time= new DateTimeType("2026-01-01T00:00:00+01:00");
+            ((Observation)observation).setEffective(time);
+            // Build consent information as a Flux
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+
+            // Collect the Flux into a List of Maps, without altering its structure
+            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+
+            // Assuming you need the first element from the list
+            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+
+            // Now pass the Map (instead of the Flux) to checkConsent
+            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+
+            assertFalse(consentInfoResult);
+
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+
+
+    }
+
+
+
+    @Test
+    public void testHandlerWithoutUpdatingFail() {
+        List<String> strings = new ArrayList<>();
+        strings.add("VHF00006");
+
+        // Reading resource
+        Resource observation = null;
+        try {
+            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
-            Flux<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
             // Collect the Flux into a List of Maps, without altering its structure
-            List<Map<String, Map<String, List<ConsentPeriod>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
             // Assuming you need the first element from the list
-            Map<String, Map<String, List<ConsentPeriod>>> consentInfo = consentInfoList.get(0);
+            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
 
             // Now pass the Map (instead of the Flux) to checkConsent
             Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);

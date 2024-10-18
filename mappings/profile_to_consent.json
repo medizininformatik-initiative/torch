@@ -118,7 +118,7 @@
   "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Todesursache": "Condition.recordedDate",
   "http://fhir.de/ConsentManagement/StructureDefinition/DocumentReference": "DocumentReference.date",
   "http://fhir.de/ConsentManagement/StructureDefinition/TemplateFrame": "",
-  "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung": "Consent.dateTime",
+  "http://fhir.de/ConsentManagement/StructureDefinition/Consent": "Consent.dateTime",
   "http://fhir.de/ConsentManagement/StructureDefinition/TemplateModule": "",
   "http://fhir.de/ConsentManagement/StructureDefinition/Domain/Organization": "",
   "http://fhir.de/ConsentManagement/StructureDefinition/QuestionnaireComposed": "",

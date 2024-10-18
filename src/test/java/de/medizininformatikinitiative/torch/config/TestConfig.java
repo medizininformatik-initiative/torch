@@ -10,8 +10,6 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.*;
-import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -59,16 +57,14 @@ import static org.springframework.security.oauth2.core.AuthorizationGrantType.CL
 import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
 
 @Configuration
-@Profile("active")
-public class AppConfig {
-    private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
+@Profile("test")
+public class TestConfig {
+    private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
 
     @Value("${torch.mappingsFile}")
     private String mappingsFile;
     @Value("${torch.conceptTreeFile}")
     private String conceptTreeFile;
-    @Value("${torch.dseMappingTreeFile}")
-    private String dseMappingTreeFile;
 
 
     @Bean
@@ -78,9 +74,7 @@ public class AppConfig {
 
     @Bean
     @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction, @Value("${torch.fhir.user}") String user,
-                                   @Value("${torch.fhir.password}") String password) {
+    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl) {
         logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
@@ -93,14 +87,9 @@ public class AppConfig {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/fhir+json");
 
-        if (!user.isEmpty() && !password.isEmpty()) {
-            builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
-            logger.info("Added basic authentication for user: {}", user);
-        }else{
-            logger.info("Using OAuth");
-        }
 
-        return builder.filter(oauthExchangeFilterFunction).build();
+
+        return builder.build();
     }
 
     @Bean
@@ -130,11 +119,6 @@ public class AppConfig {
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
                                @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, clock, pageCount);
-    }
-
-    @Bean
-    public DseMappingTreeBase dseMappingTreeBase(@Qualifier("translation") ObjectMapper jsonUtil) throws IOException {
-        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
     }
 
     @Lazy
@@ -251,33 +235,6 @@ public class AppConfig {
         return Clock.systemDefaultZone();
     }
 
-    @Bean
-    @Qualifier("oauth")
-    ExchangeFilterFunction oauthExchangeFilterFunction(
-            @Value("${torch.fhir.oauth.issuer.uri:}") String issuerUri,
-            @Value("${torch.fhir.oauth.client.id:}") String clientId,
-            @Value("${torch.fhir.oauth.client.secret:}") String clientSecret) {
-        if (!issuerUri.isEmpty() && !clientId.isEmpty() && !clientSecret.isEmpty()) {
-            logger.debug("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
-                    issuerUri, clientId);
-            var clientRegistration = ClientRegistrations.fromIssuerLocation(issuerUri)
-                    .registrationId(REGISTRATION_ID)
-                    .clientId(clientId)
-                    .clientSecret(clientSecret)
-                    .authorizationGrantType(CLIENT_CREDENTIALS)
-                    .build();
-            var registrations = new InMemoryReactiveClientRegistrationRepository(clientRegistration);
-            var clientService = new InMemoryReactiveOAuth2AuthorizedClientService(registrations);
-            var authorizedClientManager = new AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager(
-                    registrations, clientService);
-            var oAuthExchangeFilterFunction = new ServerOAuth2AuthorizedClientExchangeFilterFunction(
-                    authorizedClientManager);
-            oAuthExchangeFilterFunction.setDefaultClientRegistrationId(REGISTRATION_ID);
 
-            return oAuthExchangeFilterFunction;
-        } else {
-            logger.debug("Skipping OAuth2 authentication.");
-            return (request, next) -> next.exchange(request);
-        }
-    }
+
 }
