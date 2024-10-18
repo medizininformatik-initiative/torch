@@ -1,15 +1,13 @@
 package de.medizininformatikinitiative.torch.config;
 
-import de.medizininformatikinitiative.torch.model.mapping.SystemCodeToContextMapping;
-import de.numcodex.sq2cql.model.MappingTreeBase;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.jetbrains.annotations.NotNull;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
 import org.springframework.stereotype.Component;
 
 /**
- * A Context to retrieve {@link MappingTreeBase} and {@link SystemCodeToContextMapping} beans from a non-Spring-managed
- * instance.
+ * A context to retrieve {@link DseMappingTreeBase} bean from a non-Spring-managed instance.
  */
 @Component
 public class SpringContext implements ApplicationContextAware {
@@ -21,11 +19,7 @@ public class SpringContext implements ApplicationContextAware {
         context = applicationContext;
     }
 
-    public static MappingTreeBase getMappingTreeBase() {
-        return context.getBean(MappingTreeBase.class);
-    }
-
-    public static SystemCodeToContextMapping getCodeSystemToContextMapping() {
-        return context.getBean(SystemCodeToContextMapping.class);
+    public static DseMappingTreeBase getDseMappingTreeBase() {
+        return context.getBean(DseMappingTreeBase.class);
     }
 }
