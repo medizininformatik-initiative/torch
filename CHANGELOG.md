@@ -1,5 +1,28 @@
 # Changelog
 
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+
+## [UNRELEASED] - yyyy-mm-dd
+
+### Added
+### Changed
+### Deprecated
+### Removed
+### Fixed
+### Security
+
+## [v1.0.0-alpha.1] - 2024-10-21
+
+### Added
+- **Open Id Connect Authenticatoon**
+- **Filter Resources by Consent selected in CCDL**
+- **Expand concept code filter**
+- **CQL cohort execution**
+- **Ontology integration**
+
+
 ## [v1.0.0-alpha] - 2024-09-19
 
 ### Added
@@ -11,19 +34,4 @@
 - **Multi FHIR Profile Handling**: Added the ability to handle multiple FHIR profiles per resource, selecting the first known profile greedily.
 - **Resource Redaction and Copying**: Introduced basic functionality for redacting and copying patient resources.
 
-### Changed
--None.
-
-
-### Deprecated
-- None.
-
-### Removed
-- None.
-
-### Fixed
-- None.
-
-### Security
-- None.
 
