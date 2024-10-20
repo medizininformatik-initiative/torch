@@ -41,7 +41,7 @@ public class ElementCopier {
      */
     public ElementCopier(CdsStructureDefinitionHandler handler) {
         this.handler = handler;
-        this.ctx = handler.ctx;
+        this.ctx = ResourceReader.ctx;
         this.pathBuilder=new FhirPathBuilder(handler);
 
     }
@@ -57,7 +57,7 @@ public class ElementCopier {
         String id = ResourceUtils.getPatientId(src);
         List<CanonicalType> profileurl = src.getMeta().getProfile();
         StructureDefinition structureDefinition = handler.getDefinition(profileurl);
-        logger.debug("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(),profileurl.getFirst().getValue());
+        logger.trace("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(),profileurl.getFirst().getValue());
         List<String> legalExtensions = new LinkedList<>();
 
 
@@ -67,18 +67,18 @@ public class ElementCopier {
         ElementDefinition elementDefinition =snapshot.getElementById(attribute.getAttributeRef());
 
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
-        logger.debug("{} TGT set {}",id, tgt.getClass());
-        logger.debug("{} Attribute FHIR PATH {}", id, attribute.getAttributeRef());
+        logger.trace("{} TGT set {}",id, tgt.getClass());
+        logger.trace("{} Attribute FHIR PATH {}", id, attribute.getAttributeRef());
 
 
         try {
-            logger.debug("Attribute Path {}", attribute.getAttributeRef());
+            logger.trace("Attribute Path {}", attribute.getAttributeRef());
 
             String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.getAttributeRef(), snapshot);
-            logger.debug("FHIR PATH {}", fhirPath);
+            logger.trace("FHIR PATH {}", fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-            logger.debug("Elements received {}", fhirPath);
+            logger.trace("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.isMustHave()) {
                     throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
@@ -89,21 +89,21 @@ public class ElementCopier {
                 if (elements.size() == 1) {
 
                     if (terserFHIRPATH.endsWith("[x]")) {
-                        logger.debug("Tersertobehandled {}", terserFHIRPATH);
+                        logger.trace("Tersertobehandled {}", terserFHIRPATH);
                         String type = capitalizeFirstLetter(elements.getFirst().fhirType());
                         terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
                     }
-                    logger.debug("Setting {} {}", terserFHIRPATH, elements.getFirst().fhirType());
+                    logger.trace("Setting {} {}", terserFHIRPATH, elements.getFirst().fhirType());
                     try {
                         TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
                     } catch (Exception e) {
                         if (elementDefinition.hasType()) {
                             elementDefinition.getType().getFirst().getWorkingCode();
                             //TODO
-                            logger.debug("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
+                            logger.trace("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
                             try {
                                 Base casted = factory.stringtoPrimitive(elements.getFirst().toString(),elementDefinition.getType().getFirst().getWorkingCode());
-                                logger.debug("Casted {}",casted.fhirType());
+                                logger.trace("Casted {}",casted.fhirType());
                                 TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
                             }catch (Exception casterException){
                                 logger.warn("Element not recognized and cast unsupported currently  {} {} ",terserFHIRPATH,elementDefinition.getType().getFirst().getWorkingCode());
@@ -118,7 +118,7 @@ public class ElementCopier {
 
                 } else {
 
-                    logger.info("terserFHIRPATH {} ", terserFHIRPATH);
+                    logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
                     String[] elementParts = terserFHIRPATH.split("\\.");
                     //check if fieldname or deeper in the branch
                     if (elementParts.length > 2) {
@@ -131,16 +131,16 @@ public class ElementCopier {
 
                         if (endIndex != -1) {
                             String ParentPath = attribute.getAttributeRef().substring(0, endIndex);
-                            logger.debug("ParentPath {}", ParentPath);
-                            logger.debug("Elemente {}", snapshot.getElementByPath(ParentPath));
+                            logger.trace("ParentPath {}", ParentPath);
+                            logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
                             String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
                             elements.forEach(element -> helper.setField(ParentPath, type, element));
                         }
                     } else {
-                        logger.debug("Base Field to be Set {} ", elementParts.length);
+                        logger.trace("Base Field to be Set {} ", elementParts.length);
                         // Convert the list to an array
                         IBase[] elementsArray = elements.toArray(new IBase[0]);
-                        logger.info("elementsArray {} ", elementsArray.length);
+                        logger.trace("elementsArray {} ", elementsArray.length);
                         // Now pass the array as varargs
                         TerserUtil.setField(ctx, elementParts[1], (IBaseResource) tgt, elementsArray);
                     }

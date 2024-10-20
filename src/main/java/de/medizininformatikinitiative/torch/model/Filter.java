@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.config.SpringContext;
 
 import java.util.*;
 
@@ -10,6 +11,13 @@ public class Filter {
 
     // No-argument constructor
     public Filter() {
+    }
+
+    // Constructor for direct instantiation (for testing)
+    public Filter(String type, String name, List<Code> codes) {
+        this.type = type;
+        this.name = name;
+        this.codes = codes;
     }
 
     @JsonProperty("type")
@@ -57,10 +65,12 @@ public class Filter {
             result+=name+"=";
             List<String> codeUrls = new ArrayList<>();
             for (Code code : codes) {
-                codeUrls.add(code.getCodeURL());
+                String s = code.getSystem();
+                var expandedCodes = SpringContext.getDseMappingTreeBase().expand(s, code.getCode()).map(c -> new Code(s, c));
+
+                codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
             }
             result += String.join(",", codeUrls);
-
         }
         return result;
     }

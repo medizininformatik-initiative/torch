@@ -12,6 +12,12 @@ public class Code {
     // No-argument constructor
     public Code() {
     }
+
+    public Code(String system, String code) {
+        this.system = system;
+        this.code = code;
+    }
+
     @JsonProperty("code")
     private String code;
 
@@ -20,7 +26,6 @@ public class Code {
 
     @JsonProperty("display")
     private String display;
-
 
 
     public String getCodeURL(){
@@ -35,4 +40,11 @@ public class Code {
     }
 
     // Getters and Setters
+    public String getCode() {
+        return code;
+    }
+
+    public String getSystem() {
+        return system;
+    }
 }

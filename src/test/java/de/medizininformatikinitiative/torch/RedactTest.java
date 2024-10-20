@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.util.ResourceReader;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 

@@ -1,0 +1,138 @@
+{
+    "patient": {
+      "reference": "Patient/VHF00006"
+    },
+    "category": [
+      {
+        "coding": [
+          {
+            "system": "http://loinc.org",
+            "code": "59284-0"
+          }
+        ]
+      }
+    ],
+    "provision": {
+      "provision": [
+        {
+          "type": "permit",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                  "code": "2.16.840.1.113883.3.1937.777.24.5.3.10",
+                  "display": "Krankenkassendaten retrospektiv uebertragen, speichern, nutzen"
+                }
+              ]
+            }
+          ],
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          }
+        },
+        {
+          "type": "permit",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                  "code": "2.16.840.1.113883.3.1937.777.24.5.3.16",
+                  "display": "KKDAT_5J_pro_speichern_verarbeiten"
+                }
+              ]
+            }
+          ],
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          }
+        },
+        {
+          "type": "permit",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                  "code": "2.16.840.1.113883.3.1937.777.24.5.3.17",
+                  "display": "KKDAT_5J_pro_wissenschaftlich_nutzen"
+                }
+              ]
+            }
+          ],
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2050-12-31T00:00:00+01:00"
+          }
+        },
+        {
+          "type": "permit",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                  "code": "2.16.840.1.113883.3.1937.777.24.5.3.39",
+                  "display": "KKDAT_5J_pro_uebertragen_KVNR"
+                }
+              ]
+            }
+          ],
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          }
+        },
+        {
+          "type": "permit",
+          "code": [
+            {
+              "coding": [
+                {
+                  "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                  "code": "2.16.840.1.113883.3.1937.777.24.5.3.25",
+                  "display": "BIOMAT_Zusatzmengen_entnehmen"
+                }
+              ]
+            }
+          ],
+          "period": {
+            "start": "2021-01-01T00:00:00+01:00",
+            "end": "2025-12-31T00:00:00+01:00"
+          }
+        }
+      ],
+      "type": "deny",
+      "period": {
+        "start": "2021-01-01T00:00:00+01:00",
+        "end": "2050-12-31T00:00:00+01:00"
+      }
+    },
+    "meta": {
+      "versionId": "6",
+      "lastUpdated": "2024-09-27T09:01:54.858Z",
+      "profile": [
+        "http://fhir.de/ConsentManagement/StructureDefinition/Consent"
+      ]
+    },
+    "resourceType": "Consent",
+    "scope": {
+      "coding": [
+        {
+          "system": "http://terminology.hl7.org/CodeSystem/consentscope",
+          "code": "research"
+        }
+      ]
+    },
+    "policy": [
+      {
+        "uri": "https://www.medizininformatik-initiative.de/sites/default/files/2020-04/MII_AG-Consent_Einheitlicher-Mustertext_v1.6d.pdf"
+      }
+    ],
+    "dateTime": "2021-01-01T00:00:00+01:00",
+    "status": "active",
+    "id": "VHF00006-CO-1"
+  }

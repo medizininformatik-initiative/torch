@@ -11,14 +11,17 @@ ENV TRUSTSTORE_PATH=/app/truststore
 ENV TRUSTSTORE_FILE=self-signed-truststore.jks
 
 COPY target/torch.jar /app/
-COPY structureDefinitions  app/structureDefinitions
-RUN mkdir /app/output
-RUN chown -R 1001:1001 /app
+COPY structureDefinitions /app/structureDefinitions
+COPY mappings  /app/mappings
+COPY ontology /app/ontology
 
+RUN mkdir -p $CERTIFICATE_PATH $TRUSTSTORE_PATH
+RUN mkdir /app/output
+
+RUN chown -R 1001:1001 /app
 
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
-
 
 WORKDIR /app
 USER 1001
