@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.setup.BaseTestSetup;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Period;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +29,7 @@ public class ConsentProcessorTest {
     @Test
     public void testConsentProcessorFail() throws IOException {
 
-        ConsentProcessor processor=new ConsentProcessor();
+        ConsentProcessor processor=new ConsentProcessor(baseTestSetup.getFhirContext());
         String[] resources = {"VHF006_Consent_Fail.json"};
 
         Arrays.stream(resources).forEach(resource -> {
@@ -38,7 +39,7 @@ public class ConsentProcessorTest {
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                     // Transform to extract patient and consent period information
-                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
+                    Map<String, List<Period>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
                     logger.debug("map size {}", consentPeriodMap.entrySet());
 
                     // Update the map with the patient's consent periods
@@ -53,7 +54,7 @@ public class ConsentProcessorTest {
 
     @Test
     public void testConsentProcessor() throws IOException {
-        ConsentProcessor processor = new ConsentProcessor();
+        ConsentProcessor processor = new ConsentProcessor(baseTestSetup.getFhirContext());
         String[] resources = {"VHF006_Consent.json"};
 
         Arrays.stream(resources).forEach(resource -> {
@@ -62,7 +63,7 @@ public class ConsentProcessorTest {
                 assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                 // Transform to extract patient and consent period information
-                Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(
+                Map<String, List<Period>> consentPeriodMap = processor.transformToConsentPeriodByCode(
                         resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")
                 ); // Adjusted to include provisions
 
