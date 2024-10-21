@@ -27,7 +27,8 @@ public class ConsentProcessorTest {
 
     @Test
     public void testConsentProcessorFail() throws IOException {
-        ConsentProcessor processor = new ConsentProcessor();
+
+        ConsentProcessor processor=new ConsentProcessor();
         String[] resources = {"VHF006_Consent_Fail.json"};
 
         Arrays.stream(resources).forEach(resource -> {
@@ -37,10 +38,7 @@ public class ConsentProcessorTest {
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                     // Transform to extract patient and consent period information
-                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(
-                            resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")
-                    ); // Adjusted to include provisions
-
+                    Map<String, List<ConsentPeriod>> consentPeriodMap = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
                     logger.debug("map size {}", consentPeriodMap.entrySet());
 
                     // Update the map with the patient's consent periods

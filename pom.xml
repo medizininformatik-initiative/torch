@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>6.2.5</Hapi.version>
-        <ontology-tag>v3.0.0-test.9</ontology-tag>
+        <ontology-tag>v3.0.0-alpha</ontology-tag>
     </properties>
 
     <dependencies>
@@ -145,8 +145,11 @@
             <groupId>de.medizininformatik-initiative</groupId>
             <artifactId>sq2cql</artifactId>
             <version>v0.5.0-alpha.1</version>
+        </dependency>
 
-
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-oauth2-client</artifactId>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.codehaus.mojo/exec-maven-plugin -->

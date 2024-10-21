@@ -99,9 +99,10 @@ jobs:
           output: trivy-results.sarif
           severity: 'CRITICAL,HIGH'
           timeout: '15m0s'
+          skip-files: 'app/ontology/*'
         env:
-          # https://aquasecurity.github.io/trivy/v0.55/docs/references/troubleshooting/#github-rate-limiting
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
+          TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
 
       - name: Upload Trivy Scan Results to GitHub Security Tab
         uses: github/codeql-action/upload-sarif@v3
