@@ -1,6 +1,5 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +8,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ConsentCodeMapperTest {
+public class ConsentCodeMapperIT {
 
     private ConsentCodeMapper consentCodeMapper;
 

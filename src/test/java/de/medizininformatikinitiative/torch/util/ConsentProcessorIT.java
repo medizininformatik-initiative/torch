@@ -1,8 +1,7 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.setup.BaseTestSetup;
-import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Period;
 import org.junit.jupiter.api.Test;
@@ -14,14 +13,14 @@ import java.util.*;
 
 import static org.junit.Assert.assertThrows;
 
-public class ConsentProcessorTest {
+public class ConsentProcessorIT {
 
-    protected static final Logger logger = LoggerFactory.getLogger(ConsentProcessorTest.class);
+    protected static final Logger logger = LoggerFactory.getLogger(ConsentProcessorIT.class);
 
     private final BaseTestSetup baseTestSetup = new BaseTestSetup();
     private final ConsentCodeMapper consentCodeMapper;
 
-    public ConsentProcessorTest() throws IOException {
+    public ConsentProcessorIT() throws IOException {
         // Initialize the ConsentCodeMapper as before
         consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json");
     }
