@@ -9,10 +9,7 @@ import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static java.lang.String.format;
@@ -45,132 +42,95 @@ public class FhirPathBuilder {
      * @return a string with slicing removed according to the Terser base path rules
      */
     public  String handleSlicingForTerser(String input) {
+        if(input == null){
+            return null;
+        }
         // Remove anything after colons (:) until the next dot (.) or end of the string
         String output = input.replaceAll(":[^\\.]*", "");
         return output;
     }
 
-    // Function to transform the FHIRPath expression
-    public  String transformFhirPath(String fhirPath) {
-        // Step 1: Remove the ofType clause (e.g., .ofType(CodeableConcept))
-        String ofTypeRegex = "\\.ofType\\(([^)]+)\\)";
-        fhirPath = fhirPath.replaceAll(ofTypeRegex, "$1");
-
-        // Step 2: Remove the where clause (e.g., .where(condition))
-        String whereRegex = "\\.where\\([^)]*\\)";
-        fhirPath = fhirPath.replaceAll(whereRegex, "");
-
-        // Step 3: Adjust the 'value' prefix manually
-        if (fhirPath.contains("valueCodeableConcept")) {
-            fhirPath = fhirPath.replace("value", "valueCodeableConcept");
+    public String handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
+        // Handle null or input without slicing indicators
+        if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
+            return input;
         }
 
-        return fhirPath;
-    }
+        // Split the input path by dots to process each segment
+        String[] elementIDParts = input.split("\\.");
+        StringBuilder result = new StringBuilder();
+        StringBuilder elementIDSoFar = new StringBuilder();
 
-    public String handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        if (input.contains(":") || input.contains("[x]")) {
-            String[] elementIDParts = input.split("\\.");
+        boolean isFirstElement = true;  // Flag to manage dot separators
 
-           // logger.debug("Slicing Found {} size", elementIDParts.length);
-            StringBuilder result = new StringBuilder();
-            StringBuilder elementIDSoFar = new StringBuilder();
-            List<String> conditions = new ArrayList<>();
-
-            boolean isFirstElement = true;  // Flag to track the first element
-
-            for (String e : elementIDParts) {
-
-                if (!isFirstElement) {
-                    elementIDSoFar.append(".");
-                    result.append(".");  // Add dot only for subsequent elements
-                } else {
-                    isFirstElement = false;  // After the first iteration, set the flag to false
-                }
-
-                elementIDSoFar.append(e);
-                logger.debug("Processing {}", elementIDSoFar);
-
-                // Choice Element handling by getting the type slice candidate and then creating a standard fhir type to check if it is known.
-                if (e.contains("[x]")) {
-                    String[] sliceParts = e.split(":");
-
-                    String path = sliceParts[0].replace("[x]", "");
-                    if (sliceParts.length > 1) {
-                        String sliceName = sliceParts[1].replace(path, "");
-                        Base element;
-                        try {
-                            element = factory.create(sliceName);
-                        } catch (FHIRException upperCaseException) {
-                            try {
-                                sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
-                                element = factory.create(sliceName);
-                            } catch (FHIRException lowerCaseException) {
-                                throw new FHIRException("Unsupported Slicing " + sliceName);
-                            }
-                        }
-                        result.append(path).append(".ofType(").append(sliceName).append(")");
-                    } else {
-                        result.append(path);
-                    }
-                } else {
-                    if (e.contains(":")) {
-                        result.append(e.split(":")[0]);
-                        //logger.debug("Adding Conditions");
-                        conditions.addAll(slicing.generateConditionsForFHIRPath(elementIDSoFar.toString(), snapshot));
-                        //logger.debug("Conditions Generated {}",conditions);
-                    } else {
-                        result.append(e);
-                    }
-                }
+        for (String e : elementIDParts) {
+            if (!isFirstElement) {
+                result.append(".");
+                elementIDSoFar.append(".");
+            } else {
+                isFirstElement = false;
             }
 
-            //logger.debug("Result  {}", result);
-            return buildConditions(result.toString(), conditions);
+            // Check if the segment is a choice element (contains [x])
+            if (e.contains("[x]")) {
+                String[] sliceParts = e.split(":");
+                String path = sliceParts[0].replace("[x]", "");  // Remove [x] from the path
+
+                // Append the base path
+                result.append(path);
+                elementIDSoFar.append(path);
+
+                // Handle slicing if present
+                if (sliceParts.length > 1) {
+                    String sliceName = sliceParts[1].replace(path, "").trim();
+
+                    // Attempt to create the slice using the factory
+                    Base element;
+                    try {
+                        element = factory.create(sliceName);
+                    } catch (FHIRException upperCaseException) {
+                        // Attempt with lowercase first letter
+                        try {
+                            sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
+                            element = factory.create(sliceName);
+                        } catch (FHIRException lowerCaseException) {
+                            throw new FHIRException("Unsupported Slicing " + sliceName);
+                        }
+                    }
+
+                    // Append the ofType clause
+                    result.append(".ofType(").append(sliceName).append(")");
+                }
+            } else {
+                // Check if the segment contains a slicing indicator (:)
+                if (e.contains(":")) {
+                    String[] sliceParts = e.split(":");
+                    String basePath = sliceParts[0].trim();
+                    String slice = sliceParts[1].trim();
+
+                    // Append the base path without slicing
+                    result.append(basePath);
+                    elementIDSoFar.append(basePath);
+
+                    // Generate slicing conditions for the current path segment
+                    String slicingPath = elementIDSoFar.toString() + ":" + slice;
+                    List<String> conditions = slicing.generateConditionsForFHIRPath(slicingPath, snapshot);
+
+                    // Append the where clause with combined conditions
+                    if (!conditions.isEmpty()) {
+                        String combinedConditions = String.join(" and ", conditions);
+                        result.append(".where(").append(combinedConditions).append(")");
+                    }
+                } else {
+                    // Append the segment as-is if no slicing is present
+                    result.append(e);
+                    elementIDSoFar.append(e);
+                }
+            }
         }
-        //logger.debug("Result  {}", input);
-        return input;
+
+        return result.toString();
     }
-
-
-
-    // Unified function to handle polymorphic elements [x] and resolve explicit slicing like [x]:valueQuantity
-    public static String transformTerserPath(String fhirPath) {
-        // Step 1: Replace [x]:slice with just the slice (e.g., value[x]:valueQuantity -> valueQuantity)
-        fhirPath = replaceExplicitlySlicedElements(fhirPath);
-
-        // Step 2: Remove any slicing identifiers (e.g., :icd10-gm)
-        fhirPath = removeSlicingIdentifiers(fhirPath);
-
-        return fhirPath;
-    }
-
-    // Helper function to replace [x]:slice with just the slice (e.g., value[x]:valueQuantity -> valueQuantity)
-    private static String replaceExplicitlySlicedElements(String fhirPath) {
-        // Regex to match [x]:slice (e.g., value[x]:valueQuantity)
-        Pattern pattern = Pattern.compile("(\\[x\\]):([a-zA-Z]+)");
-        Matcher matcher = pattern.matcher(fhirPath);
-
-        // Replace [x]:slice with just the slice part
-        fhirPath = matcher.replaceAll("$2");  // Keep only the slice type (e.g., valueQuantity)
-
-        return fhirPath;
-    }
-
-    // Helper function to remove any slicing components like :icd10-gm
-    private static String removeSlicingIdentifiers(String fhirPath) {
-        // Regex to match and remove slicing components like :icd10-gm
-        Pattern slicingPattern = Pattern.compile(":([a-zA-Z0-9\\-]+)");
-        Matcher slicingMatcher = slicingPattern.matcher(fhirPath);
-
-        // Remove any slicing identifier after the colon
-        fhirPath = slicingMatcher.replaceAll("");
-
-        return fhirPath;
-    }
-
-
-
 
 
     /**
@@ -180,8 +140,9 @@ public class FhirPathBuilder {
      * @param conditions list of condition strings
      * @return FHIRPath with combined where conditions
      */
-    public String buildConditions(String path, List<String> conditions) {
-        if(conditions.isEmpty()){
+    public String buildConditions(String path,  List<String> conditions) {
+        if(path == null) return null;
+        if(conditions == null || conditions.isEmpty()){
             return path;
         }
         String combinedCondition = conditions.stream()

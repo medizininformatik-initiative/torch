@@ -159,6 +159,21 @@
             <version>3.1.0</version>
         </dependency>
 
+        <!-- Mockito Core -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito JUnit Jupiter Extension -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
 
     <profiles>

@@ -88,7 +88,6 @@ public class Crtdl {
             }
         }
 
-        logger.error("No valid consent key found in cohortDefinition.");
         return "";
     }
 

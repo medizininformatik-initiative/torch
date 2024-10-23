@@ -21,14 +21,18 @@ public class Redaction {
     /**
      * Constructor for Redaction
      *
-     * @param CDS CDSStructureDefinitionHandler
+     * @param cds CDSStructureDefinitionHandler
      */
-    public Redaction(CdsStructureDefinitionHandler CDS) {
-        this.CDS = CDS;
+    public Redaction(CdsStructureDefinitionHandler cds) {
+        this.CDS = cds;
         factory = new Factory();
-        this.slicing= new Slicing(CDS);
+        this.slicing = new Slicing(cds);
     }
 
+    /**
+     * @param base - Resource after Data Selection and Extraction process with possibly missing required fields
+     * @return Base with fulfilled required fields using Data Absent Reasons
+     */
     public Base redact(Base base) {
         /*
          * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
@@ -39,9 +43,9 @@ public class Redaction {
             if (resource.hasMeta()) {
 
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
-                structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
-                if(structureDefinition==null){
-                    logger.warn("Unknown Profile {}",profileurl);
+                structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
+                if (structureDefinition == null) {
+                    logger.warn("Unknown Profile {}", profileurl);
                     return new Patient();
                 }
                 if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
@@ -95,7 +99,7 @@ public class Redaction {
         } else if (definition.hasSlicing()) {
 
 
-          ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+            ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if (slicedElement != null) {
                 if (slicedElement.hasId()) {
                     //logger.warn("Found Sliced Element {}", slicedElement.getIdElement().toString());
@@ -117,22 +121,22 @@ public class Redaction {
 
             String childID = finalElementID + "." + child.getName();
             ElementDefinition childDefinition = null;
-            logger.trace("Child to be handled {}",childID);
+            logger.trace("Child to be handled {}", childID);
             String type = "";
-            int min=0;
+            int min = 0;
             try {
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().getFirst().getWorkingCode();
-                min=childDefinition.getMin();
+                min = childDefinition.getMin();
             } catch (NullPointerException e) {
 
                 try {
-                    type=child.getTypeCode();
-                    min=child.getMinCardinality();
-                    logger.trace("{} Standard Type {} with cardinality {} ",child.getName(),type,min);
+                    type = child.getTypeCode();
+                    min = child.getMinCardinality();
+                    logger.trace("{} Standard Type {} with cardinality {} ", child.getName(), type, min);
                 } catch (NullPointerException ex) {
 
-                    logger.error(" Child  Type Unknown {}", childID,child.getName());
+                    logger.error(" Child  Type Unknown {}", childID, child.getName());
                 }
             }
             if (child.hasValues() && childDefinition != null) {
