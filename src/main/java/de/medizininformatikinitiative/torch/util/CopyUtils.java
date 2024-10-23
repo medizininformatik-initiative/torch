@@ -6,7 +6,7 @@ public class CopyUtils {
 
 
     /**
-     * Get the name of the element from the path
+     * Get the name of the element from the path by getting the last non empty element after a separator (.)
      *
      * @param path
      * @return

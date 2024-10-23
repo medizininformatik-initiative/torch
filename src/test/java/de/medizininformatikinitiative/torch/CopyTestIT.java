@@ -15,8 +15,8 @@ import java.util.Arrays;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class CopyTest {
-    private static final Logger logger = LoggerFactory.getLogger(CopyTest.class);
+public class CopyTestIT {
+    private static final Logger logger = LoggerFactory.getLogger(CopyTestIT.class);
 
     // Create an instance of BaseTestSetup
     private final BaseTestSetup baseTestSetup = new BaseTestSetup();
