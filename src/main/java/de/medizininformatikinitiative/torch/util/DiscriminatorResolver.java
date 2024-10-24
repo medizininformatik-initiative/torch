@@ -123,7 +123,7 @@ public class DiscriminatorResolver {
                     .toList();
 
             // Check if the number of children matches
-            if (fixedChildren.size() != resolvedChildren.size()) {
+            if (fixedChildren.size() > resolvedChildren.size()) {
                 logger.warn("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
                         fixedChildren.size(), resolvedChildren.size());
                 return false;

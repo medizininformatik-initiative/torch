@@ -114,7 +114,7 @@ class CompareBaseToFixedOrPatternTest {
         CodeableConcept fixedCode = new CodeableConcept();
         fixedCode.addCoding().setCode("code1");
         fixedOrPatternValue.setCode(fixedCode);
-        // Missing the 'value' child
+        fixedOrPatternValue.setValue(new Quantity().setValue(10).setUnit("mg"));
 
         // Act
         boolean result = invokeCompareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
@@ -168,6 +168,7 @@ class CompareBaseToFixedOrPatternTest {
         CodeableConcept fixedCode = new CodeableConcept();
         fixedCode.addCoding().setCode("code1");
         fixedOrPatternValue.setCode(fixedCode);
+        fixedOrPatternValue.setValue(new StringType("Test"));
         // Missing the 'value' child
 
         // Act
