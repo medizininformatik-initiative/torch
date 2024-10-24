@@ -56,11 +56,11 @@ public class ConsentHandler {
      * @throws IOException If an error occurs while reading the mapping profile file.
      */
     @Autowired
-    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
-        this.ctx = ResourceReader.ctx;
-        this.fhirPathBuilder = new FhirPathBuilder(cdsStructureDefinitionHandler);
+        this.ctx=ctx;
+        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(cdsStructureDefinitionHandler,ctx));
         this.cdsStructureDefinitionHandler = cdsStructureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
         ObjectMapper objectMapper = new ObjectMapper();

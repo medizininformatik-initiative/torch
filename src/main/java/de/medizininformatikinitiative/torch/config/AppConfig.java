@@ -13,11 +13,8 @@ import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.util.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.Redaction;
-import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
 import de.numcodex.sq2cql.model.MappingContext;
@@ -70,6 +67,11 @@ public class AppConfig {
     @Value("${torch.dseMappingTreeFile}")
     private String dseMappingTreeFile;
 
+
+    @Bean
+    ResourceReader resourceReader(FhirContext ctx){
+        return new ResourceReader(ctx);
+    }
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -191,8 +193,8 @@ public class AppConfig {
     }
 
     @Bean
-    public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
-        return new ElementCopier(cds);
+    public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+        return new ElementCopier(handler,ctx,fhirPathBuilder);
     }
 
     @Bean
@@ -201,18 +203,19 @@ public class AppConfig {
     }
 
     @Bean
-    public Redaction redaction(CdsStructureDefinitionHandler cds) {
-        return new Redaction(cds);
+    public Redaction redaction(CdsStructureDefinitionHandler cds,Slicing slicing) {
+        return new Redaction(cds,slicing);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
-        return new ResourceTransformer(dataStore, cds, handler);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction) {
+
+              return  new ResourceTransformer(dataStore, handler,copier,redaction);
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
-        return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
+    ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds,FhirContext ctx) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx);
     }
 
     @Bean
@@ -221,8 +224,8 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
-        return new CdsStructureDefinitionHandler(dir);
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir,ResourceReader resourceReader) {
+        return new CdsStructureDefinitionHandler(dir, resourceReader);
     }
 
     @Bean

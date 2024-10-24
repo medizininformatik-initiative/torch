@@ -33,8 +33,8 @@ public class CopyTestIT {
         String[] resources = {"Diagnosis1.json"};
         Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceExpected = (DomainResource) ResourceReader.readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
+                DomainResource resourceSrc = baseTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+                DomainResource resourceExpected = baseTestSetup.readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
                 Class<? extends DomainResource> resourceClass = resourceSrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
@@ -59,7 +59,7 @@ public class CopyTestIT {
     @Test
     public void testObservation() {
         try {
-            DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte.json");
+            DomainResource resourcesrc = baseTestSetup.readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
@@ -78,7 +78,7 @@ public class CopyTestIT {
     @Test
     public void testIdentityList() {
         try {
-            DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte-list.json");
+            DomainResource resourcesrc = baseTestSetup.readResource("src/test/resources/InputResources/Observation/Example-MI-Initiative-Laborprofile-Laborwerte-list.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
@@ -99,7 +99,7 @@ public class CopyTestIT {
     @Test
     public void testEncounter() {
         try {
-            DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Encounter/Encounter-mii-exa-fall-kontakt-gesundheitseinrichtung-2.json");
+            DomainResource resourcesrc = baseTestSetup.readResource("src/test/resources/InputResources/Encounter/Encounter-mii-exa-fall-kontakt-gesundheitseinrichtung-2.json");
             Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
             DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 

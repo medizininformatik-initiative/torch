@@ -26,11 +26,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class FhirPathBuilderTest {
 
-    @Captor
-    ArgumentCaptor<String> pathCaptor;
 
-    @Mock
-    private CdsStructureDefinitionHandler handler;
 
     @Mock
     private Slicing slicing;
@@ -49,11 +45,10 @@ class FhirPathBuilderTest {
     @BeforeEach
     void setUp() {
         // Initialize the FhirPathBuilder with the mocked handler
-        fhirPathBuilder = new FhirPathBuilder(handler);
+        fhirPathBuilder = new FhirPathBuilder(slicing);
 
         // Inject the mocked Factory and Slicing directly
         fhirPathBuilder.factory = factory;
-        fhirPathBuilder.slicing = slicing;
     }
 
     // --- handleSlicingForTerser Tests ---

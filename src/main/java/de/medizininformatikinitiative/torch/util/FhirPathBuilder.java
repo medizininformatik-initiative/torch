@@ -27,8 +27,8 @@ public class FhirPathBuilder {
      *
      * @param handler CDSStructureDefinitionHandler
      */
-    public FhirPathBuilder(CdsStructureDefinitionHandler handler) {
-    slicing=new Slicing(handler);
+    public FhirPathBuilder(Slicing slicing) {
+    this.slicing=slicing;
     }
 
     /**

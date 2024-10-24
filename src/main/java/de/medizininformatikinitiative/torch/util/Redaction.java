@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -8,7 +9,7 @@ import org.slf4j.LoggerFactory;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static de.medizininformatikinitiative.torch.util.FhirExtensionsUtil.createAbsentReasonExtension;
+import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 
 public class Redaction {
 
@@ -23,10 +24,10 @@ public class Redaction {
      *
      * @param cds CDSStructureDefinitionHandler
      */
-    public Redaction(CdsStructureDefinitionHandler cds) {
+    public Redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
         this.CDS = cds;
         factory = new Factory();
-        this.slicing = new Slicing(cds);
+        this.slicing = slicing;
     }
 
     /**

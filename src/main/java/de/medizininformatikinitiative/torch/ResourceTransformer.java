@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Attribute;
@@ -7,10 +8,7 @@ import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,10 +33,10 @@ public class ResourceTransformer {
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
         
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction) {
         this.dataStore = dataStore;
-        this.copier = new ElementCopier(cds);
-        this.redaction = new Redaction(cds);
+        this.copier = copier;
+        this.redaction = redaction;
         this.handler = handler;
     }
 

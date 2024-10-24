@@ -44,20 +44,20 @@ public class ResourceTransformationTest {
         try {
             transformer = new ResourceTransformer(
                     dataStore,
-                    baseTestSetup.getCds(),
                     new ConsentHandler(
                             dataStore,
                             new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"),
                             "src/test/resources/mappings/profile_to_consent.json",
-                            baseTestSetup.getCds()
-                    )
+                            baseTestSetup.getCds(),
+                            baseTestSetup.getFhirContext()
+                    ),baseTestSetup.getCopier(),baseTestSetup.getRedaction()
             );
 
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
             Crtdl crtdl = baseTestSetup.getObjectMapper().readValue(fis, Crtdl.class);
 
-            DomainResource resourcesrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            DomainResource resourceexpected = (DomainResource) ResourceReader.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
+            DomainResource resourcesrc = baseTestSetup.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            DomainResource resourceexpected = baseTestSetup.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
 
             DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, crtdl.getDataExtraction().getAttributeGroups().getFirst());
 

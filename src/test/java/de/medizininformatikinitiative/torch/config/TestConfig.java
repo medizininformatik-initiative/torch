@@ -66,6 +66,12 @@ public class TestConfig {
         return new ContainerManager();
     }
 
+    @Bean
+    ResourceReader resourceReader(FhirContext ctx){
+        return new ResourceReader(ctx);
+    }
+
+
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -150,8 +156,8 @@ public class TestConfig {
     }*/
 
     @Bean
-    FhirTestHelper testHelper(FhirContext context){
-        return new FhirTestHelper(context);
+    FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader){
+        return new FhirTestHelper(context,resourceReader);
     }
 
 
@@ -225,8 +231,8 @@ public class TestConfig {
     }
 
     @Bean
-    public ElementCopier elementCopier(CdsStructureDefinitionHandler cds) {
-        return new ElementCopier(cds);
+    public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+        return new ElementCopier(handler,ctx,fhirPathBuilder);
     }
 
     @Bean
@@ -235,19 +241,22 @@ public class TestConfig {
     }
 
     @Bean
-    public Redaction redaction(CdsStructureDefinitionHandler cds) {
-        return new Redaction(cds);
+    public Redaction redaction(CdsStructureDefinitionHandler cds,Slicing slicing) {
+        return new Redaction(cds,slicing);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
-        return new ResourceTransformer(dataStore, cds, handler);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction) {
+
+        return  new ResourceTransformer(dataStore, handler,copier,redaction);
     }
 
+
     @Bean
-    ConsentHandler handler(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath) throws IOException {
-        return new ConsentHandler(dataStore, mapper,consentFilePath,cds);
+    ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds,FhirContext ctx) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx);
     }
+
 
     @Bean
     public FhirContext fhirContext() {
@@ -256,8 +265,8 @@ public class TestConfig {
 
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(FhirContext fhirContext, @Value("${torch.profile.dir}") String dir) {
-        return new CdsStructureDefinitionHandler(dir);
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler( @Value("${torch.profile.dir}") String dir, ResourceReader reader) {
+        return new CdsStructureDefinitionHandler(dir, reader);
     }
 
     @Bean

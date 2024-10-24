@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.setup.BaseTestSetup;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
@@ -57,6 +58,8 @@ public class FhirControllerIT {
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
 
     protected static boolean dataImported = false;
+
+    @Autowired ResourceReader resourceReader;
 
     @Autowired
     FhirTestHelper fhirTestHelper;
@@ -410,7 +413,7 @@ public class FhirControllerIT {
         Resource observation = null;
         try {
             //Observation with Consent outside the consent, but inside with encounter within
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -447,7 +450,7 @@ public class FhirControllerIT {
         Resource observation = null;
         try {
             //Observation with Consent outside the consent, but inside with encounter within
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2022-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -481,7 +484,7 @@ public class FhirControllerIT {
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -515,7 +518,7 @@ public class FhirControllerIT {
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux

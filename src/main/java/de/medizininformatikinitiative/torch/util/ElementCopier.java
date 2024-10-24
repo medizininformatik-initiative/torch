@@ -39,10 +39,10 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(CdsStructureDefinitionHandler handler) {
+    public ElementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
         this.handler = handler;
-        this.ctx = ResourceReader.ctx;
-        this.pathBuilder=new FhirPathBuilder(handler);
+        this.ctx = ctx;
+        this.pathBuilder=fhirPathBuilder;
 
     }
 

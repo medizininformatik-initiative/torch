@@ -34,7 +34,7 @@ public class ConsentProcessorIT {
         Arrays.stream(resources).forEach(resource -> {
             assertThrows(ConsentViolatedException.class, () -> {
                 try {
-                    DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
+                    DomainResource resourceSrc = baseTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                     // Transform to extract patient and consent period information
@@ -58,7 +58,7 @@ public class ConsentProcessorIT {
 
         Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourceSrc = (DomainResource) ResourceReader.readResource("src/test/resources/InputResources/Consent/" + resource);
+                DomainResource resourceSrc = baseTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
                 assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                 // Transform to extract patient and consent period information

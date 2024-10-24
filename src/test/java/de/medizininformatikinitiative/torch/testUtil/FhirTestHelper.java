@@ -9,6 +9,7 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -20,17 +21,21 @@ import java.util.Map;
 public class FhirTestHelper {
 
 
+
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
     private final FhirContext fhirContext;
+    private final ResourceReader resourceReader;
 
-    public FhirTestHelper(FhirContext fhirContext) {
+    @Autowired
+    public FhirTestHelper(FhirContext fhirContext, ResourceReader resourceReader) {
         this.fhirContext = fhirContext;
+        this.resourceReader=resourceReader;
     }
 
     public  Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = new HashMap<>();
         for (String filePath : filePaths) {
-            Bundle bundle = (Bundle) ResourceReader.readResource(filePath);
+            Bundle bundle = (Bundle) resourceReader.readResource(filePath);
             String patientId = ResourceUtils.getPatientIdFromBundle(bundle);
             expectedResources.put(patientId, bundle);
         }
