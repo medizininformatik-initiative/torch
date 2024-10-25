@@ -137,7 +137,7 @@ public class Redaction {
                     logger.trace("{} Standard Type {} with cardinality {} ", child.getName(), type, min);
                 } catch (NullPointerException ex) {
 
-                    logger.error(" Child  Type Unknown {}", childID, child.getName());
+                    logger.error(" Child  Type Unknown {} {}", childID, child.getName());
                 }
             }
             if (child.hasValues() && childDefinition != null) {

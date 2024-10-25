@@ -164,7 +164,6 @@ class FhirPathBuilderTest {
     void testBuildConditions_NullPath_NullConditions() {
         String path = null;
         List<String> conditions = null;
-        String expected = null;
 
         String result = fhirPathBuilder.buildConditions(path, conditions);
 
@@ -186,7 +185,6 @@ class FhirPathBuilderTest {
     void testBuildConditions_NullPath_WithConditions() {
         String path = null;
         List<String> conditions = Collections.singletonList("use = 'home'");
-        String expected = null;
 
         String result = fhirPathBuilder.buildConditions(path, conditions);
 

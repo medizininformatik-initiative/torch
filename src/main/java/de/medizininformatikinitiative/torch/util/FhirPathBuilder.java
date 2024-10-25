@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Factory;
@@ -11,8 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.stream.Collectors;
-
-import static java.lang.String.format;
 
 public class FhirPathBuilder {
 
@@ -96,6 +93,9 @@ public class FhirPathBuilder {
                         } catch (FHIRException lowerCaseException) {
                             throw new FHIRException("Unsupported Slicing " + sliceName);
                         }
+                    }
+                    if(element==null){
+                        logger.trace("Valid slicing element for {}",sliceName);
                     }
 
                     // Append the ofType clause

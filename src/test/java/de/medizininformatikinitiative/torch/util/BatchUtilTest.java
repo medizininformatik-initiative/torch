@@ -131,24 +131,4 @@ class BatchUtilTest {
             BatchUtils.splitListIntoBatches(originalList, batchSize);
         }, "A NullPointerException should be thrown when the original list is null.");
     }
-
-    @Test
-    void testSplitListIntoBatches_InvalidBatchSize() {
-        List<String> originalList = Arrays.asList("A", "B", "C");
-        int batchSize = 0;
-
-        // Depending on the intended behavior, this could throw an IllegalArgumentException or another exception.
-        // Since the original method does not handle batchSize <= 0, it will result in an infinite loop or other unexpected behavior.
-        // To prevent the test from hanging, we can set an assumption or skip this test.
-        // Alternatively, if you decide to handle this case in the BatchUtils class, you can update the test accordingly.
-
-        // For demonstration, we'll expect an IllegalArgumentException if you choose to implement it.
-        // Uncomment the following lines if you add validation in BatchUtils.
-
-        /*
-        assertThrows(IllegalArgumentException.class, () -> {
-            BatchUtils.splitListIntoBatches(originalList, batchSize);
-        }, "An IllegalArgumentException should be thrown for batchSize <= 0.");
-        */
-    }
 }

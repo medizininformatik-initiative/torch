@@ -156,7 +156,7 @@ public class Slicing {
 
     List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
         List<String> conditions = new ArrayList<>();
-        if (path != "$this") {
+        if (!path.equals("$this")) {
             elementId += "." + path;
         }
         logger.debug("Getting Conditions {}", elementId);

@@ -22,11 +22,6 @@ public class CopyUtilsTest {
         public void setNames(List<String> names) {
             this.items = names;
         }
-
-        // Non-list setter
-        public void setCount(int count) {
-            // ...
-        }
     }
 
     // Tests for getElementName method
