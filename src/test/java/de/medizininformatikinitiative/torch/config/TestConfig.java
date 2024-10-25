@@ -61,22 +61,6 @@ public class TestConfig {
     private String dseMappingTreeFile;
 
 
-    @Bean
-    public ContainerManager containerManager(){
-        return new ContainerManager();
-    }
-
-    @Bean
-    ResourceReader resourceReader(FhirContext ctx){
-        return new ResourceReader(ctx);
-    }
-
-
-
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 
 
     // Bean for the FHIR WebClient initialized with the dynamically determined URL
@@ -98,6 +82,8 @@ public class TestConfig {
                 .build();
     }
 
+
+
     // Bean for the Flare WebClient initialized with the dynamically determined URL
     @Bean
     @Qualifier("flareClient")
@@ -117,48 +103,30 @@ public class TestConfig {
     }
 
 
-/*   @Bean
-    @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl) {
-        logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
-
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
-                .build();
-        HttpClient httpClient = HttpClient.create(provider);
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .defaultHeader("Accept", "application/fhir+json");
-
-
-
-        return builder.build();
-    }
-
-    @Bean
-    @Qualifier("flareClient")
-    public WebClient flareWebClient(@Value("${torch.flare.url}") String baseUrl) {
-        logger.info("Initializing Flare WebClient with URL: {}", baseUrl);
-
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
-                .build();
-        HttpClient httpClient = HttpClient.create(provider);
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .defaultHeader("Accept", "application/sq+json");
-
-        return builder.build();
-    }*/
-
     @Bean
     FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader){
         return new FhirTestHelper(context,resourceReader);
     }
+
+
+    @Bean
+    public ContainerManager containerManager(){
+        return new ContainerManager();
+    }
+
+    @Bean
+    ResourceReader resourceReader(FhirContext ctx){
+        return new ResourceReader(ctx);
+    }
+
+
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
+
 
 
     @Bean
@@ -229,6 +197,16 @@ public class TestConfig {
 
         return new CqlClient( fhirHelper, dataStore);
     }
+
+
+    @Bean FhirPathBuilder fhirPathBuilder(Slicing slicing){
+        return new FhirPathBuilder(slicing);
+    }
+
+    @Bean Slicing slicing ( CdsStructureDefinitionHandler cds, FhirContext ctx){
+        return  new Slicing(cds,ctx);
+    }
+
 
     @Bean
     public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {

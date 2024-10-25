@@ -1,9 +1,8 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.setup.BaseTestSetup;
+import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
-import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.junit.jupiter.api.BeforeAll;
@@ -24,7 +23,7 @@ public class ResourceTransformationTest {
     private static final Logger logger = LoggerFactory.getLogger(ResourceTransformationTest.class);
 
     // Create an instance of BaseTestSetup
-    private static final BaseTestSetup baseTestSetup = new BaseTestSetup();
+    private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
 
     @Autowired
     private static WebClient webClient;  // Assuming this will be mocked or autowired in the Spring context
@@ -34,7 +33,7 @@ public class ResourceTransformationTest {
     @BeforeAll
     static void setup() {
         // Initialize DataStore with dependencies from baseTestSetup
-        dataStore = new DataStore(webClient, baseTestSetup.getFhirContext(), Clock.systemDefaultZone(), 500);
+        dataStore = new DataStore(webClient, INTEGRATION_TEST_SETUP.getFhirContext(), Clock.systemDefaultZone(), 500);
     }
 
     @Test
@@ -48,23 +47,23 @@ public class ResourceTransformationTest {
                             dataStore,
                             new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"),
                             "src/test/resources/mappings/profile_to_consent.json",
-                            baseTestSetup.getCds(),
-                            baseTestSetup.getFhirContext()
-                    ),baseTestSetup.getCopier(),baseTestSetup.getRedaction()
+                            INTEGRATION_TEST_SETUP.getCds(),
+                            INTEGRATION_TEST_SETUP.getFhirContext()
+                    ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction()
             );
 
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
-            Crtdl crtdl = baseTestSetup.getObjectMapper().readValue(fis, Crtdl.class);
+            Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
 
-            DomainResource resourcesrc = baseTestSetup.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-            DomainResource resourceexpected = baseTestSetup.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
+            DomainResource resourcesrc = INTEGRATION_TEST_SETUP.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
+            DomainResource resourceexpected = INTEGRATION_TEST_SETUP.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
 
             DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, crtdl.getDataExtraction().getAttributeGroups().getFirst());
 
             assertNotNull(tgt);
             assertEquals(
-                    baseTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceexpected),
-                    baseTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt),
+                    INTEGRATION_TEST_SETUP.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceexpected),
+                    INTEGRATION_TEST_SETUP.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt),
                     "Expected not equal to actual output"
             );
             fis.close();

@@ -10,9 +10,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class BaseTestSetup {
+public class IntegrationTestSetup {
 
-    private static final Logger logger = LoggerFactory.getLogger(BaseTestSetup.class);
+    private static final Logger logger = LoggerFactory.getLogger(IntegrationTestSetup.class);
 
     private final FhirContext ctx;
     private final CdsStructureDefinitionHandler cds;
@@ -23,7 +23,7 @@ public class BaseTestSetup {
     private final ResourceReader resourceReader;
 
     // Constructor initializes all fields
-    public BaseTestSetup() {
+    public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
         this.resourceReader=new ResourceReader(ctx);
         this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);

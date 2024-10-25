@@ -68,15 +68,7 @@ public class AppConfig {
     private String dseMappingTreeFile;
 
 
-    @Bean
-    ResourceReader resourceReader(FhirContext ctx){
-        return new ResourceReader(ctx);
-    }
 
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 
     @Bean
     @Qualifier("fhirClient")
@@ -122,6 +114,21 @@ public class AppConfig {
 
         return builder.build();
     }
+
+    @Bean Slicing slicing ( CdsStructureDefinitionHandler cds, FhirContext ctx){
+        return  new Slicing(cds,ctx);
+    }
+
+    @Bean
+    ResourceReader resourceReader(FhirContext ctx){
+        return new ResourceReader(ctx);
+    }
+
+    @Bean
+    public ObjectMapper objectMapper() {
+        return new ObjectMapper();
+    }
+
 
     @Bean
     public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
@@ -190,6 +197,10 @@ public class AppConfig {
             DataStore dataStore) {
 
         return new CqlClient( fhirHelper, dataStore);
+    }
+
+    @Bean FhirPathBuilder fhirPathBuilder(Slicing slicing){
+        return new FhirPathBuilder(slicing);
     }
 
     @Bean

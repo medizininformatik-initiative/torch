@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.setup.BaseTestSetup;
+import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Period;
 import org.junit.jupiter.api.Test;
@@ -17,7 +17,7 @@ public class ConsentProcessorIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(ConsentProcessorIT.class);
 
-    private final BaseTestSetup baseTestSetup = new BaseTestSetup();
+    private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
     private final ConsentCodeMapper consentCodeMapper;
 
     public ConsentProcessorIT() throws IOException {
@@ -28,13 +28,13 @@ public class ConsentProcessorIT {
     @Test
     public void testConsentProcessorFail() throws IOException {
 
-        ConsentProcessor processor=new ConsentProcessor(baseTestSetup.getFhirContext());
+        ConsentProcessor processor=new ConsentProcessor(integrationTestSetup.getFhirContext());
         String[] resources = {"VHF006_Consent_Fail.json"};
 
         Arrays.stream(resources).forEach(resource -> {
             assertThrows(ConsentViolatedException.class, () -> {
                 try {
-                    DomainResource resourceSrc = baseTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
+                    DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
                     assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                     // Transform to extract patient and consent period information
@@ -53,12 +53,12 @@ public class ConsentProcessorIT {
 
     @Test
     public void testConsentProcessor() throws IOException {
-        ConsentProcessor processor = new ConsentProcessor(baseTestSetup.getFhirContext());
+        ConsentProcessor processor = new ConsentProcessor(integrationTestSetup.getFhirContext());
         String[] resources = {"VHF006_Consent.json"};
 
         Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourceSrc = baseTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
+                DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
                 assert (Objects.equals(resourceSrc.getResourceType().toString(), "Consent"));
 
                 // Transform to extract patient and consent period information
