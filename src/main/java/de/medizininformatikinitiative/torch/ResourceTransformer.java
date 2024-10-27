@@ -65,7 +65,9 @@ public class ResourceTransformer {
                     return Mono.error(new RuntimeException(e));
                 } catch (MustHaveViolatedException e) {
                     Patient empty = new Patient();
-                    logger.error("Empty Transformation: {}", empty.isEmpty());
+                    logger.error("Must Have Violated resulting in dropped Resource");
+                    logger.debug("Resource {} dropped with MustHaveViolated ",resource.getId());
+
                     return Mono.just(empty);
                 }
             });
@@ -76,7 +78,8 @@ public class ResourceTransformer {
                     if (handler.checkConsent((DomainResource) resource, consentmap)) {
                         return Mono.just(transform((DomainResource) resource, group));
                     } else {
-                        // Return empty resource when consent is violated
+                        logger.warn("Consent Violated for Resource {}",resource.getId());
+
                         Patient empty = new Patient();
                         return Mono.just(empty);
                     }
@@ -99,7 +102,7 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.trace("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
+            logger.debug("Handling resource {} for patient ",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc));
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -121,6 +124,7 @@ public class ResourceTransformer {
 
 
             redaction.redact(tgt);
+            logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -175,6 +179,7 @@ public class ResourceTransformer {
                 .map(resourceLists -> resourceLists.stream()
                         .flatMap(map -> map.entrySet().stream())
                         .filter(entry -> safeSet.contains(entry.getKey())) // Filter by the safe set
+                        .peek(entry -> logger.debug("Filtering entry with key: {} and value: {}", entry.getKey(), entry.getValue())) // Log each filtered entry
                         .collect(Collectors.toMap(
                                 Map.Entry::getKey,
                                 Map.Entry::getValue,
@@ -186,6 +191,7 @@ public class ResourceTransformer {
                 )
                 .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
+
     }
 
 

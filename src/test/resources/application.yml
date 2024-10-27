@@ -39,7 +39,8 @@ logging:
     org.springframework.web.reactive.function.client: info
     reactor.netty: info
     reactor: info
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:DEBUG}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:DEBUG}
     org.springframework: ${LOG_LEVEL:info}
 
 

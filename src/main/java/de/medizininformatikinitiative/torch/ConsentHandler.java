@@ -77,8 +77,8 @@ public class ConsentHandler {
      * @param consentInfo A map containing consent information structured by patient ID and consent codes.
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
-    public Boolean checkConsent(@NotNull DomainResource resource, Map<String, Map<String, List<Period>>> consentInfo) {
-        logger.trace("Checking Consent for {}", resource.getResourceType());
+    public Boolean checkConsent(DomainResource resource, Map<String, Map<String, List<Period>>> consentInfo) {
+        logger.trace("Checking Consent for {} {}", resource.getResourceType(),resource.getId());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
@@ -100,7 +100,7 @@ public class ConsentHandler {
         }
 
         if (fieldValue == null) {
-            logger.warn("No matching profile found for resource of type: {}", resource.getResourceType());
+            logger.warn("No matching profile found for resource {} of type: {}",resource.getId(), resource.getResourceType());
             return false;
         }
 
@@ -133,7 +133,7 @@ public class ConsentHandler {
                 try {
                     patientID = ResourceUtils.getPatientId(resource);
                 } catch (PatientIdNotFoundException e) {
-                    logger.warn("Resource does not Contain any Patient Reference {}", resource.getIdElement());
+                    logger.warn("Resource {} does not Contain any Patient Reference ", resource.getIdElement());
                     return false;
                 }
 
@@ -163,7 +163,8 @@ public class ConsentHandler {
                     return true;
                 }
             }
-            logger.debug("No valid consent period found for any value.");
+            logger.warn("No valid consent period found for any value.");
+            logger.debug("No valid consent period found for any value in Resource {}",resource.getIdElement());
             return false;  // No matching consent period found
         }
     }
