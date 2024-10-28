@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Attribute;
@@ -33,13 +34,15 @@ public class ResourceTransformer {
     private final Redaction redaction;
     private final ConsentHandler handler;
     private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
-        
+    private final FhirContext context;
+
     @Autowired
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
+    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler, FhirContext context) {
         this.dataStore = dataStore;
         this.copier = new ElementCopier(cds);
         this.redaction = new Redaction(cds);
         this.handler = handler;
+        this.context = context;
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
@@ -78,7 +81,7 @@ public class ResourceTransformer {
                     if (handler.checkConsent((DomainResource) resource, consentmap)) {
                         return Mono.just(transform((DomainResource) resource, group));
                     } else {
-                        logger.warn("Consent Violated for Resource {}",resource.getId());
+                        logger.warn("Consent Violated for Resource {} {}",resource.getResourceType(), resource.getId());
 
                         Patient empty = new Patient();
                         return Mono.just(empty);
@@ -102,7 +105,7 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.debug("Handling resource {} for patient ",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc));
+            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.getGroupReference());
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -121,9 +124,11 @@ public class ResourceTransformer {
             if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
-
+            logger.trace("Resource after Copy {}",context.newJsonParser().encodeResourceToString(tgt));
 
             redaction.redact(tgt);
+            logger.trace("Resource after Redact {}",context.newJsonParser().encodeResourceToString(tgt));
+
             logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
@@ -172,6 +177,7 @@ public class ResourceTransformer {
                                         })
                                         .doOnNext(map -> {
                                             safeSet.retainAll(safeGroup); // Retain only the patients present in both sets
+                                            logger.trace("Retained {}", safeSet);
                                         });
                             });
                 })

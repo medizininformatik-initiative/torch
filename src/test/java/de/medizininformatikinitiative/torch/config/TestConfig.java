@@ -198,9 +198,10 @@ public class TestConfig {
         return new Redaction(cds);
     }
 
+
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler) {
-        return new ResourceTransformer(dataStore, cds, handler);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler, FhirContext context) {
+        return new ResourceTransformer(dataStore, cds, handler,context);
     }
 
     @Bean
