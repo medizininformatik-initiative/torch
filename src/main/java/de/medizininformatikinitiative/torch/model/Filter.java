@@ -1,39 +1,18 @@
 package de.medizininformatikinitiative.torch.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.config.SpringContext;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 public record Filter(
-
-        @JsonProperty("type")
-        String type,
-
-        @JsonProperty("name")
-        String name,
-
-        @JsonProperty("codes")
-        List<Code> codes,
-
-        @JsonProperty("start")
-        String start,
-
-        @JsonProperty("end")
-        String end
-
+        @JsonProperty("type") String type,
+        @JsonProperty("name") String name,
+        @JsonProperty("codes") List<Code> codes,
+        @JsonProperty("start") String start,
+        @JsonProperty("end") String end
 ) {
-
-    public Filter(
-            @JsonProperty("type") String type,
-            @JsonProperty("name") String name,
-            @JsonProperty("codes") List<Code> codes
-    ) {
-        this(type, name, codes, null, null);
-    }
 
     public String getDateFilter() {
         StringBuilder filterString = new StringBuilder();

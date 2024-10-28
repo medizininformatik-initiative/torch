@@ -1,28 +1,30 @@
 package de.medizininformatikinitiative.torch.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
 public record Code(
-
-        @JsonProperty("system")
-        String system,
-
-        @JsonProperty("code")
-        String code,
-
-        @JsonProperty("display")
-        String display
+        @JsonProperty("system") String system,
+        @JsonProperty("code") String code,
+        @JsonProperty("display") String display
 ) {
 
+    @JsonCreator
     public Code(
             @JsonProperty("system") String system,
-            @JsonProperty("code") String code
+            @JsonProperty("code") String code,
+            @JsonProperty("display") String display
     ) {
+        this.system = system;
+        this.code = code;
+        this.display = display;
+    }
+
+    // Additional constructor for other uses, if necessary
+    public Code(String system, String code) {
         this(system, code, null);
     }
 

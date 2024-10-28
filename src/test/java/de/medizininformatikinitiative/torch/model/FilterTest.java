@@ -49,7 +49,7 @@ class FilterTest {
         when(mappingTreeBase.expand(SYSTEM_A, CODE_A_NO_CHILDREN)).thenReturn(Stream.of(CODE_A_NO_CHILDREN));
 
         Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code));
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code),null,null);
 
         var result = filter.getCodeFilter();
 
@@ -63,7 +63,7 @@ class FilterTest {
 
         Code codeA = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
         Code codeB = new Code(SYSTEM_B, CODE_B_NO_CHILDREN);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB));
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB),null,null);
 
         var result = filter.getCodeFilter();
 
@@ -74,7 +74,7 @@ class FilterTest {
         when(mappingTreeBase.expand(SYSTEM_A, CODE_A_TWO_CHILDREN)).thenReturn(Stream.of(CODE_A_TWO_CHILDREN, CODE_A_CHILD_1, CODE_A_CHILD_2));
 
         Code code = new Code(SYSTEM_A, CODE_A_TWO_CHILDREN);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code));
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code),null,null);
 
         var result = filter.getCodeFilter();
 
