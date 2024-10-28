@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.MockitoAnnotations;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.File;
 import java.io.IOException;
@@ -14,6 +16,7 @@ import java.util.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 public class ConsentCodeMapperTest {
 
     private ObjectMapper objectMapperMock;
@@ -37,7 +40,7 @@ public class ConsentCodeMapperTest {
 
     @BeforeEach
     public void setUp() throws IOException {
-        MockitoAnnotations.openMocks(this);
+
 
         // Mock ObjectMapper behavior to read JSON string instead of a file
         objectMapperMock = mock(ObjectMapper.class);
