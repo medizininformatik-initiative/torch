@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
-         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
         <version>3.2.3</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <relativePath /> <!-- lookup parent from repository -->
     </parent>
 
     <groupId>de.medizininformatikinitiative</groupId>
@@ -160,12 +160,13 @@
         </dependency>
 
     </dependencies>
-
     <profiles>
         <profile>
-            <id>download-ontology</id>
+            <id>windows</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
+                <os>
+                    <family>Windows</family>
+                </os>
             </activation>
             <build>
                 <plugins>
@@ -175,8 +176,57 @@
                         <version>3.1.0</version>
                         <executions>
                             <execution>
-                                <id>delete-ontology-directories</id>
+                                <id>create-ontology-directory</id>
                                 <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>powershell</executable>
+                                    <arguments>
+                                        <argument>-Command</argument>
+                                        <argument>if (-Not (Test-Path -Path 'ontology')) { New-Item
+                                            -ItemType Directory -Path 'ontology' }</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+
+        <profile>
+            <id>unix</id>
+            <activation>
+                <os>
+                    <family>unix</family>
+                </os>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
+                            <execution>
+                                <id>create-ontology-directory</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>mkdir</executable>
+                                    <arguments>
+                                        <argument>-p</argument>
+                                        <argument>ontology</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>delete-ontology-directories</id>
+                                <phase>verify</phase>
                                 <goals>
                                     <goal>exec</goal>
                                 </goals>
@@ -188,21 +238,21 @@
                                     </arguments>
                                 </configuration>
                             </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
 
-                            <execution>
-                                <id>create-ontology-directory</id>
-                                <phase>generate-resources</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <executable>mkdir</executable>
-                                    <arguments>
-                                        <argument>ontology</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-
+        <profile>
+            <id>download-ontology</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.1.0</version>
+                        <executions>
                             <execution>
                                 <id>download-ontology-mapping</id>
                                 <phase>generate-resources</phase>
@@ -213,13 +263,13 @@
                                     <executable>curl</executable>
                                     <arguments>
                                         <argument>-L</argument>
-                                        <argument>https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip</argument>
+                                        <argument>
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip</argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
-
                             <execution>
                                 <id>unpack-ontology-mapping</id>
                                 <phase>generate-resources</phase>
@@ -227,25 +277,11 @@
                                     <goal>exec</goal>
                                 </goals>
                                 <configuration>
-                                    <executable>unzip</executable>
+                                    <executable>powershell</executable>
                                     <arguments>
-                                        <argument>-jod</argument>
-                                        <argument>ontology/</argument>
-                                        <argument>ontology/mapping.zip</argument>
-                                    </arguments>
-                                </configuration>
-                            </execution>
-
-                            <execution>
-                                <id>delete-zip-files</id>
-                                <phase>generate-resources</phase>
-                                <goals>
-                                    <goal>exec</goal>
-                                </goals>
-                                <configuration>
-                                    <executable>rm</executable>
-                                    <arguments>
-                                        <argument>ontology/mapping.zip</argument>
+                                        <argument>-Command</argument>
+                                        <argument>Expand-Archive -Path ontology/mapping.zip
+                                            -DestinationPath ontology</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
