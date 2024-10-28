@@ -41,23 +41,15 @@ public class Redaction {
                 CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
                 if(structureDefinition==null){
-                    logger.warn("Unknown Profile {}",profileurl);
+                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
                     return new Patient();
+
                 }
-                if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
+                /*if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
                     logger.warn("Profile Missmatch {} {}", structureDefinition.getUrl(), profileurl.getValue());
-                }
-                // Check if structureDefinition is not null
-                if (structureDefinition != null) {
+                }*/
                     elementID = String.valueOf(resource.getResourceType());
                     return redact(base, elementID, 0, structureDefinition);
-
-                } else {
-                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
-                    // Handle the case where structureDefinition is null
-                    // This could be throwing an exception, setting a default value, or other error handling logic
-                    throw new RuntimeException("No Structure Definition known for " + profileurl.getValue());
-                }
             }
 
         } else {

@@ -12,6 +12,8 @@ import org.slf4j.LoggerFactory;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS) // Required to use @BeforeAll non-static method in instance context
 public class BaseTest {
 
+
+
     protected static final Logger logger = LoggerFactory.getLogger(BaseTest.class);
 
     protected static FhirContext ctx;
@@ -22,6 +24,7 @@ public class BaseTest {
 
     @BeforeAll
     public static void setUp() {
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "debug");
         objectMapper = new ObjectMapper();
         ctx = FhirContext.forR4();
         cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/");
