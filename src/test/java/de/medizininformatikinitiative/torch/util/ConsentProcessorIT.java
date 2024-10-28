@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -22,7 +23,7 @@ public class ConsentProcessorIT {
 
     public ConsentProcessorIT() throws IOException {
         // Initialize the ConsentCodeMapper as before
-        consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json");
+        consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json",new ObjectMapper());
     }
 
     @Test

@@ -98,7 +98,7 @@ public class ResourceTransformer {
 
         try {
             logger.trace("Handling resource {}", ResourceUtils.getPatientId(resourcesrc));
-            for (Attribute attribute : group.getAttributes()) {
+            for (Attribute attribute : group.attributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
 
@@ -143,7 +143,7 @@ public class ResourceTransformer {
                 .flatMap(finalConsentmap -> {
 
                     // Collect the attribute groups for each batch
-                    return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
+                    return Flux.fromIterable(crtdl.dataExtraction().attributeGroups())
                             .flatMap(group -> {
                                 // Set of patient IDs that survived for this group
                                 Set<String> safeGroup = new HashSet<>();

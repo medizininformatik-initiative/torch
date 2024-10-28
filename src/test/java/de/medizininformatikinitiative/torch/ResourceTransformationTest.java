@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.FileInputStream;
@@ -18,6 +20,7 @@ import java.time.Clock;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+
 public class ResourceTransformationTest {
 
     private static final Logger logger = LoggerFactory.getLogger(ResourceTransformationTest.class);
@@ -25,7 +28,6 @@ public class ResourceTransformationTest {
     // Create an instance of BaseTestSetup
     private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
 
-    @Autowired
     private static WebClient webClient;  // Assuming this will be mocked or autowired in the Spring context
 
     private static DataStore dataStore;
@@ -45,7 +47,7 @@ public class ResourceTransformationTest {
                     dataStore,
                     new ConsentHandler(
                             dataStore,
-                            new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json"),
+                            new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json",new ObjectMapper()),
                             "src/test/resources/mappings/profile_to_consent.json",
                             INTEGRATION_TEST_SETUP.getCds(),
                             INTEGRATION_TEST_SETUP.getFhirContext()
@@ -58,7 +60,7 @@ public class ResourceTransformationTest {
             DomainResource resourcesrc = INTEGRATION_TEST_SETUP.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = INTEGRATION_TEST_SETUP.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
 
-            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, crtdl.getDataExtraction().getAttributeGroups().getFirst());
+            DomainResource tgt = (DomainResource) transformer.transform(resourcesrc, crtdl.dataExtraction().attributeGroups().getFirst());
 
             assertNotNull(tgt);
             assertEquals(

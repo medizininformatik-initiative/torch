@@ -12,16 +12,11 @@ import java.util.*;
 @Component
 public class ConsentCodeMapper {
 
-    private Map<String, List<String>> consentMap;
-    private ObjectMapper objectMapper;
+    private final Map<String, List<String>> consentMap;
+    private final ObjectMapper objectMapper;
 
-    // Original constructor that reads from a file
-    public ConsentCodeMapper(String consentFilePath) throws IOException {
-        this(consentFilePath, new ObjectMapper()); // Default to real ObjectMapper
-    }
 
-    // Protected constructor for testing, allows passing a mocked ObjectMapper
-    protected ConsentCodeMapper(String consentFilePath, ObjectMapper objectMapper) throws IOException {
+    public ConsentCodeMapper(String consentFilePath, ObjectMapper objectMapper) throws IOException {
         this.consentMap = new HashMap<>();
         this.objectMapper = objectMapper;
         buildConsentMap(consentFilePath);
@@ -29,9 +24,9 @@ public class ConsentCodeMapper {
 
     // Method to build the map based on the JSON file
     private void buildConsentMap(String filePath) throws IOException {
+        //Class get Resource as Stream
+        //init method
         File file = new File(filePath);
-
-
         JsonNode consentMappingData = objectMapper.readTree(file.getAbsoluteFile());
         for (JsonNode consent : consentMappingData) {
             String keyCode = consent.get("key").get("code").asText();

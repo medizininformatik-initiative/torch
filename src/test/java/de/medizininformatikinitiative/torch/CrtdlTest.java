@@ -23,9 +23,9 @@ public class CrtdlTest {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_date.json")) {
             Crtdl crtdl = integrationTestSetup.getObjectMapper().readValue(fis, Crtdl.class);
             assertNotNull(crtdl);
-            Attribute attribute1 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().getFirst();
-            assertEquals("Condition.code", attribute1.getAttributeRef());
-            assertFalse(attribute1.isMustHave());
+            Attribute attribute1 = crtdl.dataExtraction().attributeGroups().getFirst().attributes().getFirst();
+            assertEquals("Condition.code", attribute1.attributeRef());
+            assertFalse(attribute1.mustHave());
         } catch (Exception e) {
             logger.error(" ", e);
         }
@@ -37,9 +37,9 @@ public class CrtdlTest {
             byte[] bytes = fis.readAllBytes();
             Crtdl crtdl = integrationTestSetup.getObjectMapper().readValue(bytes, Crtdl.class);
             assertNotNull(crtdl);
-            Attribute attribute2 = crtdl.getDataExtraction().getAttributeGroups().getFirst().getAttributes().get(1);
-            assertEquals("Observation.encounter", attribute2.getAttributeRef());
-            assertFalse(attribute2.isMustHave());
+            Attribute attribute2 = crtdl.dataExtraction().attributeGroups().getFirst().attributes().get(1);
+            assertEquals("Observation.encounter", attribute2.attributeRef());
+            assertFalse(attribute2.mustHave());
         } catch (Exception e) {
             logger.error(" ", e);
         }

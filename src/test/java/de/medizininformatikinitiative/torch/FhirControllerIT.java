@@ -187,7 +187,7 @@ public class FhirControllerIT {
         String responseBody = flareClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.getCohortDefinition().toString())
+                .bodyValue(crtdl.cohortDefinition().toString())
                 .retrieve()
                 .onStatus(status -> status.value() == 404, clientResponse -> {
                     logger.error("Received 404 Not Found");
@@ -210,7 +210,7 @@ public class FhirControllerIT {
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
 
-        var ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+        var ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
 
         Mono<List<String>> patientListMono = cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
         List<String> patientList = patientListMono.block();

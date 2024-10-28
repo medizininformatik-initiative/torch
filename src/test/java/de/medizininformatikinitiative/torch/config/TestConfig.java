@@ -130,8 +130,8 @@ public class TestConfig {
 
 
     @Bean
-    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath) throws IOException {
-        return new ConsentCodeMapper(consentFilePath);
+    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath, ObjectMapper objectMapper) throws IOException {
+        return new ConsentCodeMapper(consentFilePath,objectMapper);
     }
 
     @Bean

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -20,6 +21,8 @@ public class CopyTestIT {
     // Create an instance of BaseTestSetup
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
 
+
+    //TODO To be put in another test class
     @Test
     public void testDefinitionIsContained() {
         StructureDefinition definition = integrationTestSetup.getCds().getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
@@ -27,6 +30,9 @@ public class CopyTestIT {
         assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
     }
 
+    //TODO Parameterized Test or no loop
+    //TODO Single Copy with special Data types: mustHave, BackBone, Choice Elements, smaller Tests, mit HAPI aufbauen (deepEquals?)
+    //TODO For future AssertJ
     @Test
     public void testDiagnosis() {
         String[] resources = {"Diagnosis1.json"};

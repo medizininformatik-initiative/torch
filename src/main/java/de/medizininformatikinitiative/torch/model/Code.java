@@ -7,44 +7,31 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public class Code {
+public record Code(
 
-    // No-argument constructor
-    public Code() {
+        @JsonProperty("system")
+        String system,
+
+        @JsonProperty("code")
+        String code,
+
+        @JsonProperty("display")
+        String display
+) {
+
+    public Code(
+            @JsonProperty("system") String system,
+            @JsonProperty("code") String code
+    ) {
+        this(system, code, null);
     }
 
-    public Code(String system, String code) {
-        this.system = system;
-        this.code = code;
-    }
-
-    @JsonProperty("code")
-    private String code;
-
-    @JsonProperty("system")
-    private String system;
-
-    @JsonProperty("display")
-    private String display;
-
-
-    public String getCodeURL(){
-        String encodedString = "";
+    public String getCodeURL() {
         try {
-            encodedString = URLEncoder.encode(system + "|" + code, StandardCharsets.UTF_8.toString());
+            return URLEncoder.encode(system + "|" + code, StandardCharsets.UTF_8);
         } catch (Exception e) {
             e.printStackTrace();
+            return "";
         }
-        return encodedString;
-
-    }
-
-    // Getters and Setters
-    public String getCode() {
-        return code;
-    }
-
-    public String getSystem() {
-        return system;
     }
 }
