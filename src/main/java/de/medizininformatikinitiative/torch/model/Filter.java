@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.config.SpringContext;
 
 import java.util.*;
+import java.util.stream.Stream;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Filter {
@@ -41,6 +42,10 @@ public class Filter {
         return type;
     }
 
+    public String getName() {
+        return name;
+    }
+
     String getDateFilter() {
         String filterString = "";
         if (type.equals("date")) {
@@ -59,20 +64,40 @@ public class Filter {
         return filterString;
     }
 
-    String getCodeFilter() {
+    public String getCodeFilter() {
         String result="";
         if (type.equals("token")) {
             result+=name+"=";
             List<String> codeUrls = new ArrayList<>();
             for (Code code : codes) {
-                String s = code.getSystem();
-                var expandedCodes = SpringContext.getDseMappingTreeBase().expand(s, code.getCode()).map(c -> new Code(s, c));
-
-                codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
+                codeUrls.addAll(List.of(code.getCodeURL()));
             }
             result += String.join(",", codeUrls);
         }
         return result;
+    }
+
+    public Stream<Filter> expandFilter() {
+
+        if (! type.equals("token")){
+            Filter singleFilter = this;
+            return List.of(singleFilter).stream();
+        }
+
+        List<Filter> expandedFilter = new ArrayList<>();
+
+        for (Code code : codes) {
+            String s = code.getSystem();
+            var tempExpandedFilter = SpringContext.getDseMappingTreeBase().expand(s, code.getCode()).map(c ->
+                    new Filter("token", "code", List.of(new Code(s, c))));
+
+
+
+            expandedFilter.addAll(tempExpandedFilter.toList());
+        }
+
+       return expandedFilter.stream();
+
     }
 
 

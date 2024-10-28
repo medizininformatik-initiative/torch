@@ -96,6 +96,17 @@ public class AttributeGroup {
         return String.join("&", filterStrings);
     }
 
+    public String getNonCodeFilterString() {
+        List<String> filterStrings = new ArrayList<>();
+        for (Filter filter : filter) {
+            if ("date".equals(filter.getType())) {
+                // Add the appropriate string for date type filter
+                filterStrings.add(filter.getDateFilter());
+            }
+        }
+        return String.join("&", filterStrings);
+    }
+
     public String getResourceType() {
         return attributes.getFirst().getAttributeRef().split("\\.")[0];
     }

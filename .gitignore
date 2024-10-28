@@ -19,4 +19,5 @@ ontology
 dependencies
 package.json
 fhirpkg.lock.json
+.env
 

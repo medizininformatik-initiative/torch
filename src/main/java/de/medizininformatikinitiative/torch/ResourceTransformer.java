@@ -19,6 +19,7 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
+import de.medizininformatikinitiative.torch.model.Filter;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
@@ -49,6 +50,7 @@ public class ResourceTransformer {
         String resourceType = group.getResourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
+
         Flux<Resource> resources = dataStore.getResources(resourceType, parameters)
                 .subscribeOn(Schedulers.boundedElastic())  // Ensure HTTP requests are offloaded
                 // Error handling in case the HTTP request fails
@@ -63,13 +65,14 @@ public class ResourceTransformer {
             return resources.flatMap(resource -> {
                 try {
                     return Mono.just(transform((DomainResource) resource, group));
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                         InstantiationException e) {
                     logger.error("Transform error: ", e);
                     return Mono.error(new RuntimeException(e));
                 } catch (MustHaveViolatedException e) {
                     Patient empty = new Patient();
                     logger.error("Must Have Violated resulting in dropped Resource");
-                    logger.debug("Resource {} dropped with MustHaveViolated ",resource.getId());
+                    logger.debug("Resource {} dropped with MustHaveViolated ", resource.getId());
 
                     return Mono.just(empty);
                 }
@@ -81,12 +84,13 @@ public class ResourceTransformer {
                     if (handler.checkConsent((DomainResource) resource, consentmap)) {
                         return Mono.just(transform((DomainResource) resource, group));
                     } else {
-                        logger.warn("Consent Violated for Resource {} {}",resource.getResourceType(), resource.getId());
+                        logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
 
                         Patient empty = new Patient();
                         return Mono.just(empty);
                     }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                         InstantiationException e) {
                     logger.error("Transform error: ", e);
                     return Mono.error(new RuntimeException(e));
                 } catch (MustHaveViolatedException e) {
@@ -99,13 +103,12 @@ public class ResourceTransformer {
     }
 
 
-
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.getGroupReference());
+            logger.trace("Handling resource {} for patient {} and attributegroup {}", resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc), group.getGroupReference());
             for (Attribute attribute : group.getAttributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -121,15 +124,15 @@ public class ResourceTransformer {
             if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
             }
-            if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
+            if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
-            logger.trace("Resource after Copy {}",context.newJsonParser().encodeResourceToString(tgt));
+            logger.trace("Resource after Copy {}", context.newJsonParser().encodeResourceToString(tgt));
 
             redaction.redact(tgt);
-            logger.trace("Resource after Redact {}",context.newJsonParser().encodeResourceToString(tgt));
+            logger.trace("Resource after Redact {}", context.newJsonParser().encodeResourceToString(tgt));
 
-            logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
+            logger.debug("Sucessfully transformed and redacted {}", resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -145,7 +148,7 @@ public class ResourceTransformer {
 
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
         Flux<Map<String, Map<String, List<Period>>>> consentmap = key.isEmpty() ?
-                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch),batch);
+                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch), batch);
 
         // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);
@@ -156,25 +159,56 @@ public class ResourceTransformer {
                     // Collect the attribute groups for each batch
                     return Flux.fromIterable(crtdl.getDataExtraction().getAttributeGroups())
                             .flatMap(group -> {
+
                                 // Set of patient IDs that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
                                 if (!group.hasMustHave()) {
                                     safeGroup.addAll(batch); // No constraints, all patients are initially safe
                                 }
 
-                                // Handle each group reactively
-                                return transformResources(searchBuilder.getSearchParam(group, batch), group, finalConsentmap)
-                                        .filter(resource -> !resource.isEmpty())
-                                        .collectMultimap(resource -> {
-                                            try {
-                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
-                                                safeGroup.add(id);
-                                                return id;
-                                            } catch (PatientIdNotFoundException e) {
-                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
-                                                throw new RuntimeException(e);
-                                            }
-                                        })
+                                if (group.getFilter() == null) {
+
+                                    return transformResources(searchBuilder.getSearchParam(group, null, batch), group, finalConsentmap)
+                                            .filter(resource -> !resource.isEmpty())
+                                            .collectMultimap(resource -> {
+                                                try {
+                                                    String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                                    safeGroup.add(id);
+                                                    return id;
+                                                } catch (PatientIdNotFoundException e) {
+                                                    logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                                    throw new RuntimeException(e);
+                                                }
+                                            })
+                                            .doOnNext(map -> {
+                                                safeSet.retainAll(safeGroup); // Retain only the patients present in both sets
+                                                logger.trace("Retained {}", safeSet);
+                                            });
+                                }
+
+                                List<Filter> filters = group.getFilter().stream().filter(filter -> filter.getName().equals("code")).flatMap(Filter::expandFilter).toList();
+
+                                return Flux.fromIterable(filters)
+                                        .filter(filter -> "code".equals(filter.getName()))
+                                        .collectList()
+                                        .flatMapMany(codeFilters ->
+                                                Flux.fromIterable(codeFilters.isEmpty() ?
+                                                                List.of(null) : codeFilters)
+                                                        .flatMap(filter ->
+                                                                transformResources(searchBuilder.getSearchParam(group, filter, batch), group, finalConsentmap)
+                                                                        .filter(resource -> !resource.isEmpty())
+                                                                        .collectMultimap(resource -> {
+                                                                            try {
+                                                                                String id = ResourceUtils.getPatientId((DomainResource) resource);
+                                                                                safeGroup.add(id);
+                                                                                return id;
+                                                                            } catch (PatientIdNotFoundException e) {
+                                                                                logger.error("PatientIdNotFoundException: {}", e.getMessage());
+                                                                                throw new RuntimeException(e);
+                                                                            }
+                                                                        })
+                                                        )
+                                        )
                                         .doOnNext(map -> {
                                             safeSet.retainAll(safeGroup); // Retain only the patients present in both sets
                                             logger.trace("Retained {}", safeSet);
@@ -199,10 +233,6 @@ public class ResourceTransformer {
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
     }
-
-
-
-
 
 
 }
