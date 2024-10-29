@@ -1,12 +1,17 @@
 package de.medizininformatikinitiative.torch.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Method;
 
 public class CopyUtils {
 
 
+    private static final Logger logger = LoggerFactory.getLogger(CopyUtils.class);
+
     /**
-     * Get the name of the element from the path
+     * Get the name of the element from the path by getting the last non empty element after a separator (.)
      *
      * @param path
      * @return
@@ -28,9 +33,9 @@ public class CopyUtils {
         try {
             return clazz.getMethod("set" + capitalizeFirstLetter(fieldName), java.util.List.class);
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            logger.warn(" Class {} does not have the method set{}",clazz.getName(),capitalizeFirstLetter(fieldName));
+            return null;
         }
-        return null;
     }
 
 

@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.context.RuntimeResourceDefinition;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -15,11 +14,12 @@ import java.util.List;
 @Component
 public class CdsStructureDefinitionHandler {
 
-    public FhirContext ctx;
-    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
 
-    public CdsStructureDefinitionHandler(String fileDirectory) {
+    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
+    protected  ResourceReader resourceReader;
+    public CdsStructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
         try {
+            this.resourceReader=resourceReader;
             processDirectory(fileDirectory);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -34,7 +34,7 @@ public class CdsStructureDefinitionHandler {
      * @throws IOException
      */
     public void readStructureDefinition(String filePath) throws IOException {
-        StructureDefinition structureDefinition = (StructureDefinition) ResourceReader.readResource(filePath);
+        StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
         definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
     }
 
@@ -71,10 +71,6 @@ public class CdsStructureDefinitionHandler {
 
     }
 
-    public RuntimeResourceDefinition getStandardDefinition(String url) {
-        return ctx.getResourceDefinition(String.valueOf(definitionsMap.get(url).getResourceType()));
-
-    }
 
     /**
      * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap

@@ -1,27 +1,47 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import ca.uhn.fhir.context.FhirContext;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.DateTimeType;
 
 import java.util.*;
 
-@Component  // This makes the class a Spring bean
+/**
+ * The {@code ConsentProcessor} class is a processing FHIR Consent resources to extract the requested codes i.e. valid codes for the data extraction.
+ */
+@Component
 public class ConsentProcessor {
+
 
     public static final Logger logger = LoggerFactory.getLogger(ConsentProcessor.class);
 
+
     private final FhirContext fhirContext;
 
-    @Autowired  // Autowiring the FhirContext
+
+    @Autowired
     public ConsentProcessor(FhirContext fhirContext) {
         this.fhirContext = fhirContext;
     }
 
+    /**
+     * Extracts the consent provision elements from the given FHIR {@link DomainResource}.
+     *
+     * <p>This method utilizes FHIRPath expressions to evaluate and retrieve the "Consent.provision.provision"
+     * elements from the provided resource.</p>
+     *
+     * @param domainResource the FHIR domain resource containing consent provisions
+     * @return a list of {@link Base} elements representing the extracted consent provisions;
+     * returns an empty list if an error occurs during extraction
+     */
     public List<Base> extractConsentProvisions(DomainResource domainResource) {
         try {
             // Using the autowired FhirContext to extract Encounter.provision.provision elements from the resource
@@ -32,18 +52,40 @@ public class ConsentProcessor {
         }
     }
 
+    /**
+     * Transforms the consent provisions within the provided {@link DomainResource} into a map of consent periods
+     * categorized by their respective codes.
+     *
+     * <p>This method filters the consent provisions based on a set of valid codes and organizes the
+     * periods associated with each valid code. It ensures that each provision has both start and end dates.</p>
+     *
+     * @param domainResource the FHIR domain resource containing consent provisions
+     * @param validCodes     a set of valid codes to filter the consent provisions
+     * @return a {@code Map} where each key is a valid code and the value is a list of {@link Period} objects
+     * associated with that code
+     * @throws ConsentViolatedException if no valid periods are found for the provided codes or if the resource
+     *                                  does not contain valid consents for every requested code
+     */
     public Map<String, List<Period>> transformToConsentPeriodByCode(DomainResource domainResource, Set<String> validCodes) throws ConsentViolatedException {
-        // Map to hold lists of ConsentPeriod for each code
+        // Log each valid code at debug level
         validCodes.forEach(code -> logger.debug("validCode {}", code));
+
+        // Map to hold lists of ConsentPeriod for each code
         Map<String, List<Period>> consentPeriodMap = new HashMap<>();
+
+        // Extract consent provisions from the domain resource
         List<Base> provisionPeriodList = extractConsentProvisions(domainResource);
 
         // Iterate over the provisions to find periods for each valid code
         for (Base provisionBase : provisionPeriodList) {
             try {
-                // Assuming provision has a period with start and end dates
+                // Cast the base provision to Consent.provisionComponent
                 Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
+
+                // Retrieve the period of the provision
                 Period period = provision.getPeriod();
+
+                // Extract the code associated with the provision
                 String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
 
                 logger.debug("Period found {} {} Code {}", period.getStart(), period.getEnd(), code);
@@ -62,9 +104,6 @@ public class ConsentProcessor {
                 // If no start or end period is present, skip to the next provision
                 if (start == null || end == null) continue;
 
-
-
-
                 // Add the new consent period to the map under the corresponding code
                 consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(period);
 
@@ -78,6 +117,7 @@ public class ConsentProcessor {
             throw new ConsentViolatedException("No valid start or end dates found for the provided valid codes");
         }
 
+        // Check if all valid codes have corresponding consent periods
         if (!consentPeriodMap.keySet().equals(validCodes)) {
             throw new ConsentViolatedException("Resource does not have valid consents for every requested code");
         }

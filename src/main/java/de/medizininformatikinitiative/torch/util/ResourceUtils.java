@@ -19,32 +19,6 @@ public class ResourceUtils {
 
 
 
-    private static void extractReferences(DomainResource resource, Set<String> patientReferences, Set<String> encounterReferences, FhirContext context) {
-        RuntimeResourceDefinition def = context.getResourceDefinition(resource);
-
-        // Iterate over all child elements
-        for (BaseRuntimeChildDefinition childDef : def.getChildren()) {
-            List<IBase> values = childDef.getAccessor().getValues(resource);
-            for (IBase value : values) {
-                if (value instanceof Reference) {
-                    String refString = ((Reference) value).getReference();
-                    if (refString != null) {
-                        if (refString.startsWith("Patient/")) {
-                            patientReferences.add(refString);
-                        } else if (refString.startsWith("Encounter/")) {
-                            encounterReferences.add(refString);
-                        }
-                    }
-                } else if (value instanceof DomainResource) {
-                    // Recursively extract references from contained resources
-                    extractReferences((DomainResource) value, patientReferences, encounterReferences,context);
-                }
-            }
-        }
-    }
-
-
-
     public static String getPatientId(DomainResource resource) throws PatientIdNotFoundException {
         // Check if the resource is an instance of Patient
         if (resource instanceof Patient patient) {

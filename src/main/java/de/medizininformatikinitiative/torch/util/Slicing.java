@@ -18,6 +18,7 @@ import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.re
 public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
+    private final FhirContext ctx;
 
 
     CdsStructureDefinitionHandler handler;
@@ -27,9 +28,9 @@ public class Slicing {
      *
      * @param handler CDSStructureDefinitionHandler
      */
-    public Slicing(CdsStructureDefinitionHandler handler) {
+    public Slicing(CdsStructureDefinitionHandler handler, FhirContext ctx) {
         this.handler = handler;
-
+        this.ctx = ctx;
     }
 
     /**
@@ -64,9 +65,9 @@ public class Slicing {
 
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> ElementDefinition = ResourceReader.ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
+        List<ElementDefinition> ElementDefinition = ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
         ElementDefinition.forEach(element -> {
-            logger.trace("Slice to be handled {}",element.getIdElement());
+            logger.trace("Slice to be handled {}", element.getIdElement());
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 //iterate over every discriminator and test if base holds for it
@@ -115,7 +116,7 @@ public class Slicing {
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicing.getDiscriminator()) {
 
                     String path = discriminator.getPath();
-                    logger.trace("Slicing Discriminator {} {}",discriminator.getType(),path);
+                    logger.trace("Slicing Discriminator {} {}", discriminator.getType(), path);
                     // Generate FHIR Path condition based on the discriminator type and path
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
@@ -153,55 +154,54 @@ public class Slicing {
     }
 
 
-    private List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
-        List<String> conditions=new ArrayList<>();
-        if(path!="$this"){
-            elementId+="."+path;
+    List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
+        List<String> conditions = new ArrayList<>();
+        if (!path.equals("$this")) {
+            elementId += "." + path;
         }
-        logger.debug("Getting Conditions {}",elementId);
-        ElementDefinition elementDefinition= snapshot.getElementById(elementId);
-        if(elementDefinition==null){
+        logger.debug("Getting Conditions {}", elementId);
+        ElementDefinition elementDefinition = snapshot.getElementById(elementId);
+        if (elementDefinition == null) {
             //logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
-            logger.debug("Unsupported Element potentially contains Profile reference {}",elementId);
+            logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);
             return conditions;
         }
-        if(elementDefinition.hasFixedOrPattern()){
+        if (elementDefinition.hasFixedOrPattern()) {
             //While deprecated the term pattern describes it better unlike value.
             Element pattern = elementDefinition.getFixedOrPattern();
             logger.debug("Got Pattern ");
-            conditions.addAll(traverseValueRec(elementDefinition.getPath(),pattern));
-        }else{
-            logger.warn("No Pattern found {} in its Pattern/Value slicing",elementId);
+            conditions.addAll(traverseValueRec(elementDefinition.getPath(), pattern));
+        } else {
+            logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);
 
         }
 
         return conditions;
     }
 
-    private List<String> traverseValueRec(String basePath, Element pattern){
+    List<String> traverseValueRec(String basePath, Element pattern) {
 
-        List<String> conditions=new ArrayList<>();
-        if(pattern.isPrimitive()){
-            conditions.add(basePath+"='"+pattern.primitiveValue()+"'");
-        }else{
-        pattern.children().forEach(
-                child ->{
-                    if(child.hasValues()){
-                        child.getValues().forEach(
-                                value->{
-                                    conditions.addAll(traverseValueRec(basePath+"."+child.getName(), (Element) value));
-                                }
-                        );
+        List<String> conditions = new ArrayList<>();
+        if (pattern.isPrimitive()) {
+            conditions.add(basePath + "='" + pattern.primitiveValue() + "'");
+        } else {
+            pattern.children().forEach(
+                    child -> {
+                        if (child.hasValues()) {
+                            child.getValues().forEach(
+                                    value -> {
+                                        conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value));
+                                    }
+                            );
+
+                        }
 
                     }
 
-                }
 
-
-        );
+            );
 
         }
-
 
 
         return conditions;

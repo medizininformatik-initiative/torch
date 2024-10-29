@@ -39,10 +39,10 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(CdsStructureDefinitionHandler handler) {
+    public ElementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
         this.handler = handler;
-        this.ctx = ResourceReader.ctx;
-        this.pathBuilder=new FhirPathBuilder(handler);
+        this.ctx = ctx;
+        this.pathBuilder=fhirPathBuilder;
 
     }
 
@@ -64,28 +64,28 @@ public class ElementCopier {
 
         ctx.newFhirPath().evaluate(structureDefinition, "StructureDefinition.snapshot.element.select(type.profile +'') ", StringType.class).forEach(stringType -> legalExtensions.add(stringType.getValue()));
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition elementDefinition =snapshot.getElementById(attribute.getAttributeRef());
+        ElementDefinition elementDefinition =snapshot.getElementById(attribute.attributeRef());
 
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
         logger.trace("{} TGT set {}",id, tgt.getClass());
-        logger.trace("{} Attribute FHIR PATH {}", id, attribute.getAttributeRef());
+        logger.trace("{} Attribute FHIR PATH {}", id, attribute.attributeRef());
 
 
         try {
-            logger.trace("Attribute Path {}", attribute.getAttributeRef());
+            logger.trace("Attribute Path {}", attribute.attributeRef());
 
-            String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.getAttributeRef(), snapshot);
+            String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
             logger.trace("FHIR PATH {}", fhirPath);
 
             List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
             logger.trace("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
-                if (attribute.isMustHave()) {
-                    logger.debug("Must Have Violated Thrown in Copier for {} {}",attribute.getAttributeRef(),ResourceUtils.getPatientId(src));
-                    throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
+                if (attribute.mustHave()) {
+                    logger.debug("Must Have Violated Thrown in Copier for {} {}",attribute.attributeRef(),ResourceUtils.getPatientId(src));
+                    throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
                 }
             } else {
-                String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.getAttributeRef());
+                String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.attributeRef());
 
                 if (elements.size() == 1) {
 
@@ -128,10 +128,10 @@ public class ElementCopier {
                         //Assume branching before element
                         //TODO Go back in branching
 
-                        int endIndex = attribute.getAttributeRef().lastIndexOf(".");
+                        int endIndex = attribute.attributeRef().lastIndexOf(".");
 
                         if (endIndex != -1) {
-                            String ParentPath = attribute.getAttributeRef().substring(0, endIndex);
+                            String ParentPath = attribute.attributeRef().substring(0, endIndex);
                             logger.trace("ParentPath {}", ParentPath);
                             logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
                             String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
@@ -213,7 +213,7 @@ public class ElementCopier {
      * @throws IllegalAccessException    Recursive Copy error
      */
     public DomainResource copyInit(Attribute attribute, Resource tgt, List<Element> elements, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws InvocationTargetException, IllegalAccessException {
-        String[] IDparts = attribute.getAttributeRef().split("\\.");
+        String[] IDparts = attribute.attributeRef().split("\\.");
         if (IDparts.length < 2) {
             return (DomainResource) tgt;
         }

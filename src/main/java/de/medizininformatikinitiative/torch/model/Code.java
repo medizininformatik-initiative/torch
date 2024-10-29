@@ -1,50 +1,39 @@
 package de.medizininformatikinitiative.torch.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class Code {
+public record Code(
+        @JsonProperty("system") String system,
+        @JsonProperty("code") String code,
+        @JsonProperty("display") String display
+) {
 
-    // No-argument constructor
-    public Code() {
-    }
-
-    public Code(String system, String code) {
+    @JsonCreator
+    public Code(
+            @JsonProperty("system") String system,
+            @JsonProperty("code") String code,
+            @JsonProperty("display") String display
+    ) {
         this.system = system;
         this.code = code;
+        this.display = display;
     }
 
-    @JsonProperty("code")
-    private String code;
+    // Additional constructor for other uses, if necessary
+    public Code(String system, String code) {
+        this(system, code, null);
+    }
 
-    @JsonProperty("system")
-    private String system;
-
-    @JsonProperty("display")
-    private String display;
-
-
-    public String getCodeURL(){
-        String encodedString = "";
+    public String getCodeURL() {
         try {
-            encodedString = URLEncoder.encode(system + "|" + code, StandardCharsets.UTF_8.toString());
+            return URLEncoder.encode(system + "|" + code, StandardCharsets.UTF_8);
         } catch (Exception e) {
             e.printStackTrace();
+            return "";
         }
-        return encodedString;
-
-    }
-
-    // Getters and Setters
-    public String getCode() {
-        return code;
-    }
-
-    public String getSystem() {
-        return system;
     }
 }

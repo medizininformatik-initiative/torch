@@ -7,7 +7,8 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.rest.FhirController;
+import de.medizininformatikinitiative.torch.setup.ContainerManager;
+import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -16,13 +17,19 @@ import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
+import org.springframework.test.annotation.DirtiesContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -33,6 +40,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
@@ -41,8 +49,46 @@ import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
-@SpringBootTest(classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-public class FhirControllerIT extends AbstractIT {
+@ActiveProfiles("test")
+@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+public class FhirControllerIT {
+
+    protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
+
+    protected static boolean dataImported = false;
+
+    @Autowired ResourceReader resourceReader;
+
+    @Autowired
+    FhirTestHelper fhirTestHelper;
+
+    @Autowired
+    @Qualifier("fhirClient")
+    protected WebClient webClient;
+
+    @Autowired
+    ContainerManager manager;
+
+    @Autowired
+    @Qualifier("flareClient")
+    protected WebClient flareClient;
+
+
+    protected final ResourceTransformer transformer;
+    protected final DataStore dataStore;
+    protected final CdsStructureDefinitionHandler cds;
+    protected BundleCreator bundleCreator;
+    protected ObjectMapper objectMapper;
+    protected CqlClient cqlClient;
+    protected Translator cqlQueryTranslator;
+    @Value("${torch.fhir.testPopulation.path}")
+    private String testPopulationPath;
+    protected FhirContext fhirContext;
+
+
+    protected final DseMappingTreeBase dseMappingTreeBase;
+
+
 
     private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
     @LocalServerPort
@@ -53,13 +99,41 @@ public class FhirControllerIT extends AbstractIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(@Qualifier("fhirClient") WebClient webClient,
-                            @Qualifier("flareClient") WebClient flareClient, ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext context, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
+    public FhirControllerIT( ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
                             Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
-        super(webClient, flareClient, transformer, dataStore, cds, context, bundleCreator, objectMapper, cqlClient, cqlQueryTranslator, dseMappingTreeBase);
+        this.transformer = transformer;
+        this.dataStore = dataStore;
+        this.cds = cds;
+        this.fhirContext = fhirContext;
+        this.bundleCreator = bundleCreator;
+        this.objectMapper = objectMapper;
+        this.cqlClient = cqlClient;
+        this.cqlQueryTranslator = cqlQueryTranslator;
+        this.dseMappingTreeBase = dseMappingTreeBase;
+
+
+    }
+
+    @BeforeEach
+    void init() throws IOException {
+        if (!dataImported) {
+        manager.startContainers();
+
+
+            webClient.post()
+                    .bodyValue(Files.readString(Path.of(testPopulationPath)))
+                    .header("Content-Type", "application/fhir+json")
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+            dataImported = true;
+            logger.info("Data Import on {}", webClient.options());
+        }
+        logger.info("Setup Complete");
     }
 
     @Test
+    @DirtiesContext
     public void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
 
@@ -73,6 +147,7 @@ public class FhirControllerIT extends AbstractIT {
     }
 
     @Test
+    @DirtiesContext
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
         HttpHeaders headers = new HttpHeaders();
 
@@ -112,7 +187,7 @@ public class FhirControllerIT extends AbstractIT {
         String responseBody = flareClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.getCohortDefinition().toString())
+                .bodyValue(crtdl.cohortDefinition().toString())
                 .retrieve()
                 .onStatus(status -> status.value() == 404, clientResponse -> {
                     logger.error("Received 404 Not Found");
@@ -135,7 +210,7 @@ public class FhirControllerIT extends AbstractIT {
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
 
-        var ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+        var ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
 
         Mono<List<String>> patientListMono = cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
         List<String> patientList = patientListMono.block();
@@ -174,6 +249,7 @@ public class FhirControllerIT extends AbstractIT {
     }
 
     @Test
+
     public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException {
         executeTest(
                 List.of(
@@ -215,7 +291,7 @@ public class FhirControllerIT extends AbstractIT {
 
 
     private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException {
-        Map<String, Bundle> expectedResources = loadExpectedResources(expectedResourceFilePaths);
+        Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
         List<String> patients = new ArrayList<>(expectedResources.keySet());
 
@@ -232,7 +308,7 @@ public class FhirControllerIT extends AbstractIT {
             StepVerifier.create(collectedResourcesMono)
                     .expectNextMatches(combinedResourcesByPatientId -> {
                         Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                        validateBundles(bundles, expectedResources);
+                        fhirTestHelper.validateBundles(bundles, expectedResources);
                         return true;
                     })
                     .expectComplete()
@@ -244,7 +320,7 @@ public class FhirControllerIT extends AbstractIT {
 
     public void testExecutor(List<String> filePaths, List<String> expectedResourceFilePaths, String url, HttpHeaders headers) throws PatientIdNotFoundException, IOException {
         TestRestTemplate restTemplate = new TestRestTemplate();
-        Map<String, Bundle> expectedResources = loadExpectedResources(expectedResourceFilePaths);
+        Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
         filePaths.forEach(filePath -> {
             try {
@@ -335,7 +411,7 @@ public class FhirControllerIT extends AbstractIT {
         Resource observation = null;
         try {
             //Observation with Consent outside the consent, but inside with encounter within
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -372,7 +448,7 @@ public class FhirControllerIT extends AbstractIT {
         Resource observation = null;
         try {
             //Observation with Consent outside the consent, but inside with encounter within
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2022-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -406,7 +482,7 @@ public class FhirControllerIT extends AbstractIT {
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux
@@ -440,7 +516,7 @@ public class FhirControllerIT extends AbstractIT {
         // Reading resource
         Resource observation = null;
         try {
-            observation = ResourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
+            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation)observation).setEffective(time);
             // Build consent information as a Flux

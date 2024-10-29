@@ -233,7 +233,7 @@ public class FhirController {
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.getCohortDefinition().toString())
+                .bodyValue(crtdl.cohortDefinition().toString())
                 .retrieve()
                 .onStatus(status -> status.value() == 404, clientResponse -> {
                     logger.error("Received 404 Not Found");
@@ -258,7 +258,7 @@ public class FhirController {
     }
 
     public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
-        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.getCohortDefinition(), StructuredQuery.class);
+        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
         return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
     }
 

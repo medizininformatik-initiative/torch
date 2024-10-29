@@ -1,79 +1,50 @@
 package de.medizininformatikinitiative.torch.model;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.config.SpringContext;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
 
-@JsonIgnoreProperties(ignoreUnknown = true)
-public class Filter {
+public record Filter(
+        @JsonProperty("type") String type,
+        @JsonProperty("name") String name,
+        @JsonProperty("codes") List<Code> codes,
+        @JsonProperty("start") String start,
+        @JsonProperty("end") String end
+) {
 
-    // No-argument constructor
-    public Filter() {
-    }
-
-    // Constructor for direct instantiation (for testing)
-    public Filter(String type, String name, List<Code> codes) {
-        this.type = type;
-        this.name = name;
-        this.codes = codes;
-    }
-
-    @JsonProperty("type")
-    private String type;
-
-    @JsonProperty("name")
-    private String name;
-
-    @JsonProperty("codes")
-    private List<Code> codes;
-
-    @JsonProperty("start")
-    private String start;
-
-    @JsonProperty("end")
-    private String end;
-
-    // Getters and Setters
-
-    String getType() {
-        return type;
-    }
-
-    String getDateFilter() {
-        String filterString = "";
-        if (type.equals("date")) {
-
+    public String getDateFilter() {
+        StringBuilder filterString = new StringBuilder();
+        if ("date".equals(type)) {
             if (start != null && !start.trim().isEmpty()) {
-                filterString += name + "=ge" + start;
+                filterString.append(name).append("=ge").append(start);
             }
             if (end != null && !end.trim().isEmpty()) {
-                if (!filterString.isEmpty()) {
-                    filterString += "&";
+                if (filterString.length() > 0) {
+                    filterString.append("&");
                 }
-                filterString += name + "=le" + end;
+                filterString.append(name).append("=le").append(end);
             }
-
         }
-        return filterString;
+        return filterString.toString();
     }
 
-    String getCodeFilter() {
-        String result="";
-        if (type.equals("token")) {
-            result+=name+"=";
-            List<String> codeUrls = new ArrayList<>();
-            for (Code code : codes) {
-                String s = code.getSystem();
-                var expandedCodes = SpringContext.getDseMappingTreeBase().expand(s, code.getCode()).map(c -> new Code(s, c));
-
-                codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
-            }
-            result += String.join(",", codeUrls);
+    public String getCodeFilter() {
+        if (!"token".equals(type)) {
+            return "";
         }
-        return result;
+
+        List<String> codeUrls = new ArrayList<>();
+        for (Code code : codes) {
+            String system = code.system();
+            var expandedCodes = SpringContext.getDseMappingTreeBase()
+                    .expand(system, code.code())
+                    .map(c -> new Code(system, c));
+
+            codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
+        }
+
+        return name + "=" + String.join(",", codeUrls);
     }
-
-
 }

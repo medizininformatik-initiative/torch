@@ -1,6 +1,6 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -9,7 +9,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-public class ConsentCodeMapperTest {
+public class ConsentCodeMapperIT {
 
     private ConsentCodeMapper consentCodeMapper;
 
@@ -17,8 +17,8 @@ public class ConsentCodeMapperTest {
     @BeforeEach
     public void setUp() throws IOException {
         // Use the real JSON file path or load a test JSON file
-        String consentFilePath = "src/test/resources/mappings/consent-mappings.json";  // Replace with actual path if needed
-        consentCodeMapper = new ConsentCodeMapper(consentFilePath);
+        String consentFilePath = "src/test/resources/mappings/consent-mappings.json";
+        consentCodeMapper = new ConsentCodeMapper(consentFilePath,new ObjectMapper());
     }
 
     @Test

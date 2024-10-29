@@ -2,11 +2,9 @@ package de.medizininformatikinitiative.torch.util;
 
 
 import org.hl7.fhir.r4.model.CodeType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Extension;
 
-public class FhirExtensionsUtil {
+public class FhirUtil {
 
     /**
      * Creates an Extension for DataAbsentReason with a predefined reason code.
@@ -20,6 +18,7 @@ public class FhirExtensionsUtil {
                 .setValue(new CodeType(reasonCode));
     }
 
-    //TODO ExtensionFilter
+
+
 
 }
