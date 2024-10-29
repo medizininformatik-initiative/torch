@@ -229,12 +229,10 @@ public class TestConfig {
         return  new ResourceTransformer(dataStore, handler,copier,redaction);
     }
 
-
     @Bean
     ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds,FhirContext ctx) throws IOException {
         return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx);
     }
-
 
     @Bean
     public FhirContext fhirContext() {

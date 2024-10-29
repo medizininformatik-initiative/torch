@@ -70,6 +70,9 @@ public record Crtdl(
                 }
             }
         }
+
+        logger.debug("No valid consent key found in cohortDefinition.");
         return "";
     }
+
 }

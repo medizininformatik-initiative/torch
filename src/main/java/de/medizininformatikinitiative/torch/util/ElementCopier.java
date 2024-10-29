@@ -81,7 +81,8 @@ public class ElementCopier {
             logger.trace("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.mustHave()) {
-                    throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
+                    logger.debug("Must Have Violated Thrown in Copier for {} {}",attribute.getAttributeRef(),ResourceUtils.getPatientId(src));
+                    throw new MustHaveViolatedException("Attribute " + attribute.getAttributeRef() + " must have a value");
                 }
             } else {
                 String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.attributeRef());

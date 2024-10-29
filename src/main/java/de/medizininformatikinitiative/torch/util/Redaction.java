@@ -47,22 +47,16 @@ public class Redaction {
                 structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
                 if (structureDefinition == null) {
                     logger.warn("Unknown Profile {}", profileurl);
+                structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
+                if(structureDefinition==null){
+                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
                     return new Patient();
                 }
-                if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
+                /*if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
                     logger.warn("Profile Missmatch {} {}", structureDefinition.getUrl(), profileurl.getValue());
-                }
-                // Check if structureDefinition is not null
-                if (structureDefinition != null) {
+                }*/
                     elementID = String.valueOf(resource.getResourceType());
                     return redact(base, elementID, 0, structureDefinition);
-
-                } else {
-                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
-                    // Handle the case where structureDefinition is null
-                    // This could be throwing an exception, setting a default value, or other error handling logic
-                    throw new RuntimeException("No Structure Definition known for " + profileurl.getValue());
-                }
             }
 
         } else {
@@ -124,7 +118,7 @@ public class Redaction {
             ElementDefinition childDefinition = null;
             logger.trace("Child to be handled {}", childID);
             String type = "";
-            int min = 0;
+            int min=0;
             try {
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().getFirst().getWorkingCode();
