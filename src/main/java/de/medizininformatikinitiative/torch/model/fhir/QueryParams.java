@@ -1,5 +1,8 @@
 package de.medizininformatikinitiative.torch.model.fhir;
 
+import de.medizininformatikinitiative.torch.model.crtdl.Code;
+import de.medizininformatikinitiative.torch.model.sq.Comparator;
+
 import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
@@ -29,7 +32,25 @@ public record QueryParams(List<Param> params) {
         return new StringValue(requireNonNull(value));
     }
 
+    public static Value dateValue(Comparator comparator, LocalDate value) {
+        return new DateValue(requireNonNull(comparator), requireNonNull(value));
+    }
 
+    public static Value codeValue(Code value) {
+    return new CodeValue(value);
+    };
+
+    private record CodeValue(Code value) implements Value {
+
+        private CodeValue {
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.searchParamValue();
+        }
+    }
     /**
      * Appends a param with {@code name} and {@code value}.
      *
@@ -95,5 +116,21 @@ public record QueryParams(List<Param> params) {
             return value;
         }
     }
+    private record DateValue(Comparator comparator, LocalDate value) implements Value {
+
+        private DateValue {
+            requireNonNull(comparator);
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return comparator.toString() + value;
+        }
+    }
+
+
+
+
 
 }

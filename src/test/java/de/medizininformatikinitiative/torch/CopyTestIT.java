@@ -1,8 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.model.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.hl7.fhir.r4.model.StructureDefinition;

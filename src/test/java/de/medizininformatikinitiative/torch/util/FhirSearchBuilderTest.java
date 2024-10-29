@@ -1,6 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.model.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
@@ -11,45 +11,6 @@ import static org.mockito.Mockito.*;
 
 class FhirSearchBuilderTest {
 
-    @Test
-    void testGetSearchParamWithPatientGroupAndFilter() {
-        AttributeGroup mockGroup = mock(AttributeGroup.class);
-        when(mockGroup.getGroupReferenceURL()).thenReturn("http://example.com/fhir/Group/patient");
-        when(mockGroup.hasFilter()).thenReturn(true);
-        when(mockGroup.getFilterString()).thenReturn("status=active");
-
-        List<String> batch = Arrays.asList("123", "456");
-        String expected = "identifier=123,456&_profile=http://example.com/fhir/Group/patient&status=active";
-
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
-        assertEquals(expected, result);
-    }
-
-    @Test
-    void testGetSearchParamWithPatientGroupWithoutFilter() {
-        AttributeGroup mockGroup = mock(AttributeGroup.class);
-        when(mockGroup.getGroupReferenceURL()).thenReturn("http://example.com/fhir/Group/patient");
-        when(mockGroup.hasFilter()).thenReturn(false);
-
-        List<String> batch = Arrays.asList("789", "101");
-        String expected = "identifier=789,101&_profile=http://example.com/fhir/Group/patient";
-
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
-        assertEquals(expected, result);
-    }
-
-    @Test
-    void testGetSearchParamWithNonPatientGroup() {
-        AttributeGroup mockGroup = mock(AttributeGroup.class);
-        when(mockGroup.getGroupReferenceURL()).thenReturn("http://example.com/fhir/Group/other");
-        when(mockGroup.hasFilter()).thenReturn(false);
-
-        List<String> batch = Arrays.asList("102", "103");
-        String expected = "patient=102,103&_profile=http://example.com/fhir/Group/other";
-
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
-        assertEquals(expected, result);
-    }
 
     @Test
     void testGetConsent() {

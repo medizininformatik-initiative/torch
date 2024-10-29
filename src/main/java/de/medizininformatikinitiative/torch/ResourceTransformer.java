@@ -1,11 +1,13 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
+
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.Attribute;
-import de.medizininformatikinitiative.torch.model.AttributeGroup;
-import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.*;
@@ -43,7 +45,7 @@ public class ResourceTransformer {
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
-        String resourceType = group.getResourceType();
+        String resourceType = group.resourceType();
 
         // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
         Flux<Resource> resources = dataStore.getResources(resourceType, parameters)
@@ -140,6 +142,8 @@ public class ResourceTransformer {
         // Fetch consent key
         String key = crtdl.getConsentKey();
 
+
+
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
         Flux<Map<String, Map<String, List<Period>>>> consentmap = key.isEmpty() ?
                 Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch),batch);
@@ -155,6 +159,7 @@ public class ResourceTransformer {
                             .flatMap(group -> {
                                 // Set of patient IDs that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
+                                List<QueryParams> params=group.queryParams();
                                 if (!group.hasMustHave()) {
                                     safeGroup.addAll(batch); // No constraints, all patients are initially safe
                                 }

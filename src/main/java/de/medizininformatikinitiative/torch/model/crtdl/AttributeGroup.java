@@ -1,7 +1,8 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.crtdl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,17 +54,33 @@ public record AttributeGroup(
         return false;
     }
 
-    public String getFilterString() {
+    public List<QueryParams> queryParams() {
+        // Create a date filter QueryParams if it exists
+        QueryParams dateParams = filter.stream()
+                .filter(f -> "date".equals(f.type()))
+                .findFirst()
+                .map(Filter::dateFilter)
+                .orElse(new QueryParams(List.of()));
+
+
         return filter.stream()
-                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter())
-                .collect(Collectors.joining("&"));
+                .filter(f -> "token".equals(f.type())) // Only process filters of type "token"
+                .map(Filter::codeFilter)
+                .map(code -> {
+                    QueryParams combinedParams = dateParams;
+
+
+                    return combinedParams.appendParams(code);
+                })
+                .collect(Collectors.toList());
     }
 
-    public String getResourceType() {
+
+    public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }
 
-    public String getGroupReferenceURL() {
+    public String groupReferenceURL() {
         try {
             return URLEncoder.encode(groupReference, StandardCharsets.UTF_8);
         } catch (Exception e) {
