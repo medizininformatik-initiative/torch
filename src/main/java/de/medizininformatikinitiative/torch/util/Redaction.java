@@ -43,29 +43,16 @@ public class Redaction {
         if (base instanceof DomainResource resource) {
             if (resource.hasMeta()) {
 
-                CanonicalType profileurl = resource.getMeta().getProfile().getFirst();
                 structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
                 if (structureDefinition == null) {
-                    logger.warn("Unknown Profile {}", profileurl);
-                structureDefinition=CDS.getDefinition(resource.getMeta().getProfile());
-                if(structureDefinition==null){
-                    logger.error("StructureDefinition is null for profile URL: {}", profileurl.getValue());
-                    return new Patient();
+                    logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
+                    throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
                 }
-                /*if (!Objects.equals(profileurl.getValue(), structureDefinition.getUrl())) {
-                    logger.warn("Profile Missmatch {} {}", structureDefinition.getUrl(), profileurl.getValue());
-                }*/
-                    elementID = String.valueOf(resource.getResourceType());
-                    return redact(base, elementID, 0, structureDefinition);
+
+                elementID = String.valueOf(resource.getResourceType());
+                return redact(base, elementID, 0, structureDefinition);
             }
-
-        } else {
-
-            throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
-
         }
-
-
         return null;
     }
 
@@ -118,7 +105,7 @@ public class Redaction {
             ElementDefinition childDefinition = null;
             logger.trace("Child to be handled {}", childID);
             String type = "";
-            int min=0;
+            int min = 0;
             try {
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().getFirst().getWorkingCode();

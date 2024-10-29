@@ -224,9 +224,9 @@ public class TestConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction,FhirContext context) {
 
-        return  new ResourceTransformer(dataStore, handler,copier,redaction);
+        return  new ResourceTransformer(dataStore, handler,copier,redaction,context);
     }
 
     @Bean

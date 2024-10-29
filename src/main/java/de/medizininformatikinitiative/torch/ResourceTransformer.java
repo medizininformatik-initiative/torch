@@ -34,8 +34,7 @@ public class ResourceTransformer {
     private final FhirContext context;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction) {
-    public ResourceTransformer(DataStore dataStore, CdsStructureDefinitionHandler cds, ConsentHandler handler, FhirContext context) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
@@ -103,8 +102,8 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.getGroupReference());
-            for (Attribute attribute : group.getAttributes()) {
+            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.groupReference());
+            for (Attribute attribute : group.attributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
 
@@ -122,10 +121,10 @@ public class ResourceTransformer {
             if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
-            logger.trace("Resource after Copy {}",context.newJsonParser().encodeResourceToString(tgt));
+            logger.trace("Resource after Copy {}", this.context.newJsonParser().encodeResourceToString(tgt));
 
             redaction.redact(tgt);
-            logger.trace("Resource after Redact {}",context.newJsonParser().encodeResourceToString(tgt));
+            logger.trace("Resource after Redact {}", this.context.newJsonParser().encodeResourceToString(tgt));
 
             logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {

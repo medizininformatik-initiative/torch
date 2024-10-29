@@ -10,8 +10,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.FileInputStream;
@@ -51,7 +49,7 @@ public class ResourceTransformationTest {
                             "src/test/resources/mappings/profile_to_consent.json",
                             INTEGRATION_TEST_SETUP.getCds(),
                             INTEGRATION_TEST_SETUP.getFhirContext()
-                    ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction()
+                    ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction(),INTEGRATION_TEST_SETUP.getFhirContext()
             );
 
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
