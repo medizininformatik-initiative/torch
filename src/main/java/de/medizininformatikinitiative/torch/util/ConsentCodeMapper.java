@@ -9,7 +9,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-@Component
+
 public class ConsentCodeMapper {
 
     private final Map<String, List<String>> consentMap;

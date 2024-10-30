@@ -15,6 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.io.FileInputStream;
 import java.time.Clock;
 
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -69,6 +70,7 @@ public class ResourceTransformationTest {
             fis.close();
         } catch (Exception e) {
             logger.error("", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 }

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.setup;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -29,6 +30,8 @@ public class IntegrationTestSetup {
         this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
         Slicing slicing = new Slicing(cds,ctx);
         this.objectMapper = new ObjectMapper();
+        objectMapper.registerModule(new JavaTimeModule());
+
         this.builder=new FhirPathBuilder(slicing);
         this.copier = new ElementCopier(cds,ctx,builder);
         this.redaction = new Redaction(cds,slicing);

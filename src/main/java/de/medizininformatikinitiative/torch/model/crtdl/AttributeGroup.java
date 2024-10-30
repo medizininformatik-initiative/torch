@@ -66,11 +66,10 @@ public record AttributeGroup(
         return filter.stream()
                 .filter(f -> "token".equals(f.type())) // Only process filters of type "token"
                 .map(Filter::codeFilter)
-                .map(code -> {
-                    QueryParams combinedParams = dateParams;
-
-
-                    return combinedParams.appendParams(code);
+                .flatMap(code -> code.params().stream())
+                .map(param -> {
+                    QueryParams invidividualCodeParams = new QueryParams(List.of(param));
+                    return invidividualCodeParams.appendParams(dateParams);
                 })
                 .collect(Collectors.toList());
     }

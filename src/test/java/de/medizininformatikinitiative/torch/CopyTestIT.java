@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
+import static org.assertj.core.api.Fail.fail;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -56,6 +57,7 @@ public class CopyTestIT {
 
             } catch (Exception e) {
                 logger.error("", e);
+                fail("Deserialization failed: " + e.getMessage(), e);
             }
         });
     }
@@ -76,6 +78,7 @@ public class CopyTestIT {
             assertNotNull(tgt);
         } catch (Exception e) {
             logger.error("", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 
@@ -97,6 +100,7 @@ public class CopyTestIT {
             logger.info(integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
             logger.error("", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 
@@ -111,6 +115,7 @@ public class CopyTestIT {
             assertNotNull(tgt);
         } catch (Exception e) {
             logger.error("", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 }

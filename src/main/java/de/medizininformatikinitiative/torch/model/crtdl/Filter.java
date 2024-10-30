@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.sq.Comparator;
 
 import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -22,11 +23,11 @@ public record Filter(
     public QueryParams dateFilter() {
       QueryParams dateParams =  QueryParams.EMPTY;
         if("date".equals(type)){
-            if (start != null && !start.trim().isEmpty()) {
-                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.GREATER_EQUAL, LocalDate.parse(start)));
+            if (start != null ) {
+                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.GREATER_EQUAL, parseLocalDate(start)));
             }
-            if (end != null && !end.trim().isEmpty()) {
-                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.LESS_EQUAL, LocalDate.parse(end)));
+            if (end != null ) {
+                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.LESS_EQUAL, parseLocalDate(end)));
             }
 
         }
@@ -50,6 +51,14 @@ public record Filter(
         }
 
         return codeParams;
+    }
+
+    private LocalDate parseLocalDate(String s) {
+        try {
+            return LocalDate.parse(s);
+        } catch (DateTimeParseException e) {
+            throw new IllegalArgumentException("Invalid value `%s` in time restriction property `%s`.".formatted(s, name));
+        }
     }
 
 

@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
+import static org.assertj.core.api.Fail.fail;
+
 public class RedactTest {
 
     private static final Logger logger = LoggerFactory.getLogger(RedactTest.class);
@@ -36,6 +38,7 @@ public class RedactTest {
                 );
             } catch (Exception e) {
                 logger.error(" ", e);
+                fail("Deserialization failed: " + e.getMessage(), e);
             }
         });
     }
@@ -59,6 +62,7 @@ public class RedactTest {
                 );
             } catch (Exception e) {
                 logger.error(" ", e);
+                fail("Deserialization failed: " + e.getMessage(), e);
             }
         });
     }

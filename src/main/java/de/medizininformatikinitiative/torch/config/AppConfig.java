@@ -54,6 +54,7 @@ import java.util.stream.Stream;
 import static java.util.Map.entry;
 import static org.springframework.security.oauth2.core.AuthorizationGrantType.CLIENT_CREDENTIALS;
 import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 @Configuration
 @Profile("active")
@@ -66,6 +67,9 @@ public class AppConfig {
     private String conceptTreeFile;
     @Value("${torch.dseMappingTreeFile}")
     private String dseMappingTreeFile;
+
+    @Value("${torch.mapping.consent}")
+    private String consentFilePath;
 
 
 
@@ -126,12 +130,15 @@ public class AppConfig {
 
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return  mapper;
     }
 
 
     @Bean
-    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath, ObjectMapper objectMapper) throws IOException {
+    public ConsentCodeMapper consentCodeMapper( ObjectMapper objectMapper) throws IOException {
         return new ConsentCodeMapper(consentFilePath,objectMapper);
     }
 

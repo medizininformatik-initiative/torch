@@ -91,7 +91,7 @@ public record QueryParams(List<Param> params) {
         return params.stream().map(Param::toString).collect(Collectors.joining("&"));
     }
 
-    private record Param(String name, Value value) {
+    public record Param(String name, Value value) {
 
         @Override
         public String toString() {
