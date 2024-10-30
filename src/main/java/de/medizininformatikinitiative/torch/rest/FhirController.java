@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
@@ -49,45 +50,23 @@ public class FhirController {
 
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
-    private final WebClient webClient;
-    private final ResourceTransformer transformer;
-    private final BundleCreator bundleCreator;
     private final ObjectMapper objectMapper;
     private final FhirContext fhirContext;
     private final ResultFileManager resultFileManager;
     private final ExecutorService executorService;
-    private final int batchSize;
-    private final int maxConcurrency;
-    private final CqlClient cqlClient;
-    private final Translator cqlQueryTranslator;
-    private final boolean useCql;
-
+    private final CrtdlProcessingService crtdlProcessingService;
 
     @Autowired
     public FhirController(
-            @Qualifier("flareClient") WebClient webClient,
-            Translator cqlQueryTranslator,
-            CqlClient cqlClient,
             ResultFileManager resultFileManager,
-            ResourceTransformer transformer,
-            BundleCreator bundleCreator,
             FhirContext fhirContext,
-            ExecutorService executorService,
-            @Value("${torch.batchsize:10}") int batchsize,
-            @Value("${torch.maxConcurrency:5}") int maxConcurrency,
-            @Value("${torch.useCql}") boolean useCql) {
-        this.webClient = webClient;
-        this.transformer = transformer;
-        this.bundleCreator = bundleCreator;
+            ExecutorService executorService, CrtdlProcessingService crtdlProcessingService) {
+
         this.objectMapper = new ObjectMapper();
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
         this.executorService = executorService;
-        this.batchSize = batchsize;
-        this.maxConcurrency = maxConcurrency;
-        this.cqlClient = cqlClient;
-        this.useCql = useCql;
-        this.cqlQueryTranslator = cqlQueryTranslator;
+        this.crtdlProcessingService = crtdlProcessingService;
     }
 
 
@@ -146,7 +125,7 @@ public class FhirController {
                                 executorService.submit(() -> {
                                     try {
                                         logger.debug("Processing CRTDL in ExecutorService for jobId: {}", jobId);
-                                        processCrtdl(crtdl, jobId).block(); // Blocking call within the background task
+                                        crtdlProcessingService.processCrtdl(crtdl, jobId).block(); // Blocking call within the background task
                                         resultFileManager.setStatus(jobId, "Completed");
                                     } catch (Exception e) {
                                         logger.error("Error processing CRTDL for jobId: {}", jobId, e);
@@ -176,91 +155,6 @@ public class FhirController {
         return objectMapper.readValue(content, Crtdl.class);
     }
 
-    private Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
-        return fetchPatientList(crtdl)
-                .flatMapMany(patientList -> {
-                    if (patientList.isEmpty()) {
-                        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: ");
-                    }
-                    // Split the patient list into batches
-                    List<List<String>> batches = splitListIntoBatches(patientList, batchSize);
-                    return Flux.fromIterable(batches);
-                })
-                .flatMap(batch -> {
-                    // Log the batch being processed
-                    return transformer.collectResourcesByPatientReference(crtdl, batch)
-                            .onErrorResume(e -> {
-                                resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + e.getMessage());
-                                logger.error("Error in collectResourcesByPatientReference for batch: {}", e.getMessage());
-                                return Mono.empty();
-                            })
-                            .filter(resourceMap -> {
-                                logger.debug("Resource Map empty {}", resourceMap.isEmpty());
-                                return !resourceMap.isEmpty();
-                            }) // Filter out empty maps
-                            .flatMap(resourceMap -> {
-                                Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
-                                logger.debug("Bundles Size {}", bundles.size());
-                                UUID uuid = UUID.randomUUID();
-
-                                // Save each serialized bundle (as an individual line in NDJSON) to the file system
-                                return Flux.fromIterable(bundles.values())
-                                        .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, uuid.toString(), bundle)
-                                                        .subscribeOn(Schedulers.boundedElastic())  // Offload the I/O operation
-                                                        .doOnSuccess(unused -> logger.debug("Bundle appended: {}", uuid)),
-                                                maxConcurrency  // Control the number of concurrent save operations
-                                        )
-                                        .then(); // Ensure Mono completion for each batch
-                            });
-                }, maxConcurrency)  // Control the number of concurrent batches processed
-                .doOnError(error -> {
-                    resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
-                    logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
-                })
-                .then();  // This returns Mono<Void> indicating completion
-    }
-
-    public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
-
-        try {
-            return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
-        } catch (JsonProcessingException e) {
-            return Mono.error(e);
-        }
-    }
-
-    public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
-        return webClient.post()
-                .uri("/query/execute-cohort")
-                .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.cohortDefinition().toString())
-                .retrieve()
-                .onStatus(status -> status.value() == 404, clientResponse -> {
-                    logger.error("Received 404 Not Found");
-                    return clientResponse.createException();
-                })
-                .bodyToMono(String.class)
-                .publishOn(Schedulers.boundedElastic())
-                .flatMap(response -> {
-                    logger.debug("Response Received: {}", response);
-                    try {
-                        List<String> list = objectMapper.readValue(response, new TypeReference<>() {
-                        });
-                        logger.debug("Parsed List: {}", list);
-                        return Mono.just(list);
-                    } catch (JsonProcessingException e) {
-                        logger.error("Error parsing response: {}", e.getMessage());
-                        return Mono.error(new RuntimeException("Error parsing response", e));
-                    }
-                })
-                .doOnSubscribe(subscription -> logger.debug("Fetching patient list from Flare"))
-                .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
-    }
-
-    public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
-        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
-        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
-    }
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
 

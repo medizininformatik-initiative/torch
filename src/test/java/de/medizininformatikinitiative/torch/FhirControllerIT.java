@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.annotation.JsonAutoDetect;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.introspect.JacksonAnnotationIntrospector;
+import com.fasterxml.jackson.databind.introspect.VisibilityChecker;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
@@ -171,7 +175,7 @@ public class FhirControllerIT {
         );
 
         List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
+                "src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
@@ -371,7 +375,7 @@ public class FhirControllerIT {
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
-                    logger.debug("Final Response {}", response.getBody());
+                    logger.info("Final Response {}", response.getBody());
                 }
                 if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());
@@ -422,13 +426,20 @@ public class FhirControllerIT {
             // Collect the Flux into a List of Maps, without altering its structure
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-            assertTrue(consentInfoResult);
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertTrue(consentInfoResult);
+            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -459,13 +470,20 @@ public class FhirControllerIT {
             // Collect the Flux into a List of Maps, without altering its structure
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-            assertTrue(consentInfoResult);
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertTrue(consentInfoResult);
+            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -479,33 +497,38 @@ public class FhirControllerIT {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
-        // Reading resource
         Resource observation = null;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time= new DateTimeType("2026-01-01T00:00:00+01:00");
-            ((Observation)observation).setEffective(time);
+            DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
+            ((Observation) observation).setEffective(time);
+
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
-            // Collect the Flux into a List of Maps, without altering its structure
+            // Collect the Flux into a List of Maps
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            assertFalse(consentInfoResult);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertFalse(consentInfoResult);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
     }
-
 
 
     @Test

@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.*;
@@ -63,6 +64,25 @@ public class TestConfig {
     @Value("${torch.mapping.consent}")
     String consentFilePath;
 
+
+    @Bean
+    public CrtdlProcessingService crtdlProcessingService(
+            @Qualifier("flareClient") WebClient webClient,
+            Translator cqlQueryTranslator,
+            CqlClient cqlClient,
+            ResultFileManager resultFileManager,
+            ResourceTransformer transformer,
+            BundleCreator bundleCreator,
+            FhirContext fhirContext,
+            ExecutorService executorService,
+            @Value("${torch.batchsize:10}") int batchSize,
+            @Value("5") int maxConcurrency,
+            @Value("${torch.useCql}") boolean useCql) {
+
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
+                transformer, bundleCreator, fhirContext, executorService,
+                batchSize, maxConcurrency, useCql);
+    }
 
     // Bean for the FHIR WebClient initialized with the dynamically determined URL
     @Bean

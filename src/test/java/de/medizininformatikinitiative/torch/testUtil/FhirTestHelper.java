@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -69,8 +71,10 @@ public class FhirTestHelper {
                     throw new AssertionError("Missing resource for profile: " + profileKey);
                 }
 
-                Resource actualResource = actualResourceMap.get(profileKey);
 
+
+                Resource actualResource = actualResourceMap.get(profileKey);
+                logger.info("Resulting resource {}",fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
                 // Compare the actual and expected resources as strings after encoding
                 if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
                         .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
@@ -111,6 +115,41 @@ public class FhirTestHelper {
             }
         }
     }
+
+    // Method for checking service health by calling the provided health endpoint
+    public static void checkServiceHealth(String service, String healthEndpoint, String host, int port) {
+        String url = String.format("http://%s:%d%s", host, port, healthEndpoint);
+
+        WebClient webClient = WebClient.create();
+        int attempts = 0;
+        int maxAttempts = 10;
+
+        while (attempts < maxAttempts) {
+            try {
+                Mono<String> responseMono = webClient.get()
+                        .uri(url)
+                        .retrieve()
+                        .bodyToMono(String.class);
+
+                String response = responseMono.block();
+                if (response != null) {
+                    logger.info("Health check passed for service: {} at {}", service, url);
+                    return;
+                }
+            } catch (Exception e) {
+                logger.warn("Health check failed for service: {} at {}. Retrying...", service, url);
+            }
+            attempts++;
+            try {
+                Thread.sleep(5000);  // Wait 5 seconds before retrying
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+        throw new RuntimeException("Health check failed for service: " + service + " at " + url);
+    }
+
 }
 
 

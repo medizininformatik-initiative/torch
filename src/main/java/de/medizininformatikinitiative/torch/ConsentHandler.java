@@ -4,10 +4,11 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.util.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.*;
-import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -19,6 +20,9 @@ import reactor.core.scheduler.Schedulers;
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
+
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 
 /**
  * The {@code ConsentHandler} class is responsible for managing and verifying patient consents
@@ -179,19 +183,22 @@ public class ConsentHandler {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Flux<Map<String, Map<String, List<Period>>>> buildingConsentInfo(String key, @NotNull List<String> batch) {
+    public Flux<Map<String, Map<String, List<Period>>>> buildingConsentInfo(String key,  List<String> batch) {
+        Objects.requireNonNull(batch, "Patient batch cannot be null");
         // Retrieve the relevant codes for the given key
         Set<String> codes = mapper.getRelevantCodes(key);
 
         logger.trace("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
-
+        QueryParams consentParams = EMPTY.appendParam("_profile",stringValue("https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung")) ;
+        consentParams=consentParams.appendParam(BatchUtils.queryElements("Consent"), QueryParams.stringValue(String.join(",",batch)));
         // Fetch resources using a bounded elastic scheduler for offloading blocking HTTP I/O
-        return dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
+        Query query=new Query("Consent",consentParams);
+        return dataStore.getResources(query)
                 .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
                 .doOnSubscribe(subscription -> logger.debug("Fetching resources for batch: {}", batch))
                 .doOnNext(resource -> logger.trace("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))
                 .onErrorResume(e -> {
-                    logger.error("Error fetching resources for parameters: {}", FhirSearchBuilder.getConsent(batch), e);
+                    logger.error("Error fetching resources for parameters: {}", query, e);
                     return Flux.empty();
                 })
 
@@ -245,12 +252,13 @@ public class ConsentHandler {
      * @return A {@link Flux} emitting updated maps of consent information.
      */
     public Flux<Map<String, Map<String, List<Period>>>> updateConsentPeriodsByPatientEncounters(
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux, @NotNull List<String> batch) {
-
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux, List<String> batch) {
+        Objects.requireNonNull(batch, "Patient batch cannot be null");
         logger.info("Starting to update consent info with batch size: {}", batch.size());
-
+        QueryParams encounterParams = EMPTY.appendParam("_profile",stringValue("https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung")) ;
+        encounterParams=encounterParams.appendParam(BatchUtils.queryElements("Encounter"), QueryParams.stringValue(String.join(",",batch)));
         // Step 1: Fetch all encounters for the batch of patients
-        Flux<Encounter> allEncountersFlux = dataStore.getResources("Encounter", FhirSearchBuilder.getEncounter(batch))
+        Flux<Encounter> allEncountersFlux = dataStore.getResources(new Query("Encounter",encounterParams))
                 .subscribeOn(Schedulers.boundedElastic())
                 .cast(Encounter.class)
                 .doOnSubscribe(subscription -> logger.debug("Fetching encounters for batch: {}", batch))
@@ -313,8 +321,8 @@ public class ConsentHandler {
      * @param encounters         A list of {@link Encounter} resources associated with the patient.
      */
     private void updateConsentPeriodsByPatientEncounters(
-            Map<String, List<Period>> patientConsentInfo, @NotNull List<Encounter> encounters) {
-
+            Map<String, List<Period>> patientConsentInfo, List<Encounter> encounters) {
+        Objects.requireNonNull(encounters, "Encounters list cannot be null");
         for (Encounter encounter : encounters) {
             Period encounterPeriod = encounter.getPeriod();
 

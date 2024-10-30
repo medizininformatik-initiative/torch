@@ -46,7 +46,7 @@
         "attributes": [
           {
             "attributeRef": "Condition.code",
-            "mustHave": false
+            "mustHave": true
           }
         ],
         "filter": [
@@ -56,6 +56,11 @@
             "codes": [
               {
                 "code": "45252009",
+                "system": "http://snomed.info/sct",
+                "display": "test"
+              },
+              {
+                "code": "1234",
                 "system": "http://snomed.info/sct",
                 "display": "test"
               }

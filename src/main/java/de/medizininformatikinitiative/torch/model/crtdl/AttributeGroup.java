@@ -2,12 +2,14 @@ package de.medizininformatikinitiative.torch.model.crtdl;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -54,6 +56,13 @@ public record AttributeGroup(
             }
         }
         return false;
+    }
+
+    public List<Query> queries() {
+        List<QueryParams> paramsList = queryParams();
+        return paramsList.stream()
+                .map(x -> new Query(resourceType(), x))
+                .collect(Collectors.toList());
     }
 
     public List<QueryParams> queryParams() {

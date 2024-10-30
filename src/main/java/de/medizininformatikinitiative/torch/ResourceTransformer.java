@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
@@ -22,6 +23,8 @@ import reactor.core.scheduler.Schedulers;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static de.medizininformatikinitiative.torch.util.BatchUtils.queryElements;
 
 @Component
 public class ResourceTransformer {
@@ -44,57 +47,40 @@ public class ResourceTransformer {
         this.context = context;
     }
 
-    public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
-        String resourceType = group.resourceType();
+    public Flux<Resource> transformResources(String batch, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
+        List<Query> queryList = group.queries();  // Assuming 'queries()' method returns a list of queries.
 
-        // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
-        Flux<Resource> resources = dataStore.getResources(resourceType, parameters)
-                .subscribeOn(Schedulers.boundedElastic())  // Ensure HTTP requests are offloaded
-                // Error handling in case the HTTP request fails
-                .onErrorResume(e -> {
-                    logger.error("Error fetching resources for parameters: {}", parameters, e);
-                    return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
+        // Create a Flux from the list of queries and flatMap to handle each one
+        return Flux.fromIterable(queryList)
+                .flatMap(query -> {
+                    // Offload the HTTP call to a bounded elastic scheduler to handle blocking I/O
+                    Query finalQuery=new Query(query.type(),query.params().appendParam(queryElements(query.type()),QueryParams.stringValue(batch)));
+                    Flux<Resource> resources = dataStore.getResources(query)
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .onErrorResume(e -> {
+                                logger.error("Error fetching resources for parameters: {}", finalQuery, e);
+                                return Flux.empty();
+                            });
+
+                    // Transform resources based on consentmap availability
+                    return resources.flatMap(resource -> {
+                        try {
+                            if (consentmap.isEmpty() || handler.checkConsent((DomainResource) resource, consentmap)) {
+                                return Mono.just(transform((DomainResource) resource, group));
+                            } else {
+                                logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+                                return Mono.just(new Patient());  // Return empty patient if consent violated
+                            }
+                        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                            logger.error("Transform error: ", e);
+                            return Mono.error(new RuntimeException(e));
+                        } catch (MustHaveViolatedException e) {
+                            Patient empty = new Patient();
+                            logger.error("Must Have Violated resulting in dropped Resource");
+                            return Mono.just(empty);
+                        }
+                    });
                 });
-
-        // Transform resources based on consentmap availability
-        if (consentmap.isEmpty()) {
-            // No consent map available, process resources without consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    return Mono.just(transform((DomainResource) resource, group));
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Must Have Violated resulting in dropped Resource");
-                    logger.debug("Resource {} dropped with MustHaveViolated ",resource.getId());
-
-                    return Mono.just(empty);
-                }
-            });
-        } else {
-            // Consent map is available, apply consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    if (handler.checkConsent((DomainResource) resource, consentmap)) {
-                        return Mono.just(transform((DomainResource) resource, group));
-                    } else {
-                        logger.warn("Consent Violated for Resource {} {}",resource.getResourceType(), resource.getId());
-
-                        Patient empty = new Patient();
-                        return Mono.just(empty);
-                    }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Empty Transformation: {}", empty.isEmpty());
-                    return Mono.just(empty);
-                }
-            });
-        }
     }
 
 
@@ -165,7 +151,7 @@ public class ResourceTransformer {
                                 }
 
                                 // Handle each group reactively
-                                return transformResources(searchBuilder.getSearchParam(group, batch), group, finalConsentmap)
+                                return transformResources(String.join(",",batch), group, finalConsentmap)
                                         .filter(resource -> !resource.isEmpty())
                                         .collectMultimap(resource -> {
                                             try {
@@ -201,6 +187,8 @@ public class ResourceTransformer {
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
     }
+
+
 
 
 
