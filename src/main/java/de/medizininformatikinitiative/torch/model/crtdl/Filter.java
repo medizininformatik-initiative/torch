@@ -12,8 +12,8 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
 public record Filter(
-        @JsonProperty("type") String type,
-        @JsonProperty("name") String name,
+        @JsonProperty(value = "type", required = true) String type,
+        @JsonProperty(value = "name", required = true) String name,
         @JsonProperty("codes") List<Code> codes,
         @JsonProperty("start") String start,
         @JsonProperty("end") String end

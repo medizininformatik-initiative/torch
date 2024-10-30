@@ -1,7 +1,5 @@
 package de.medizininformatikinitiative.torch.model.crtdl;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,43 +9,26 @@ import org.slf4j.LoggerFactory;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Crtdl(
 
-        @JsonProperty("version")
+        @JsonProperty(value="version", required = true)
         String version,
 
         @JsonProperty("display")
         String display,
 
-        @JsonProperty("cohortDefinition")
+        @JsonProperty(value = "cohortDefinition",required = true)
         JsonNode cohortDefinition,
 
-        @JsonProperty("dataExtraction")
-        DataExtraction dataExtraction,
-
-        @JsonIgnore
-        String sqString
+        @JsonProperty(value = "dataExtraction",required = true)
+        DataExtraction dataExtraction
 ) {
     private static final Logger logger = LoggerFactory.getLogger(Crtdl.class);
 
-    @JsonCreator
-    public Crtdl(
-            @JsonProperty("version") String version,
-            @JsonProperty("display") String display,
-            @JsonProperty("cohortDefinition") JsonNode cohortDefinition,
-            @JsonProperty("dataExtraction") DataExtraction dataExtraction,
-            @JsonProperty("sqString") String sqString
-    ) {
-        this.version = version;
-        this.display = display;
-        this.cohortDefinition = cohortDefinition;
-        this.dataExtraction = dataExtraction;
-        this.sqString = sqString;
-    }
 
-    public String getResourceType() {
+    public String resourceType() {
         return dataExtraction.attributeGroups().get(0).attributes().get(0).attributeRef().split("\\.")[0];
     }
 
-    public String getConsentKey() {
+    public String consentKey() {
         if (cohortDefinition == null) {
             logger.error("cohortDefinition is null");
             return null;

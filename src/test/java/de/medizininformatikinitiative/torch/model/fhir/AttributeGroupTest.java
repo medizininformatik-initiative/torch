@@ -55,10 +55,29 @@ class AttributeGroupTest {
         List<QueryParams> result = attributeGroup.queryParams();
 
         assertEquals(3, result.size(), "Expected one QueryParams object for each token filter");
-        assertTrue(result.get(0).toString().equals("testToken=system1|code1&testDate=ge2023-01-01&testDate=le2023-12-31"));
-        assertTrue(result.get(1).toString().equals("testToken=system1|code1-child1&testDate=ge2023-01-01&testDate=le2023-12-31"));
-        assertTrue(result.get(2).toString().equals("testToken=system1|code1-child2&testDate=ge2023-01-01&testDate=le2023-12-31"));
+        assertTrue(result.get(0).toString().equals("testToken=system1|code1&testDate=ge2023-01-01&testDate=le2023-12-31&_profile=groupRef"));
+        assertTrue(result.get(1).toString().equals("testToken=system1|code1-child1&testDate=ge2023-01-01&testDate=le2023-12-31&_profile=groupRef"));
+        assertTrue(result.get(2).toString().equals("testToken=system1|code1-child2&testDate=ge2023-01-01&testDate=le2023-12-31&_profile=groupRef"));
     }
+
+    @Test
+    void testQueryParamsWithMultiTokenFilter() {
+        when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
+        Code code1 = new Code("system1", "code1");
+        when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
+        Code code2 = new Code("system2", "code2");
+        Filter tokenFilter = new Filter("token", "testToken", List.of(code1,code2), null, null);
+        Filter dateFilter = new Filter("date", "testDate", null, "2023-01-01", "2023-12-31");
+
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(dateFilter, tokenFilter), UUID.randomUUID());
+
+        List<QueryParams> result = attributeGroup.queryParams();
+
+        assertEquals(2, result.size(), "Expected one QueryParams object for each token filter");
+        assertTrue(result.get(0).toString().equals("testToken=system1|code1&testDate=ge2023-01-01&testDate=le2023-12-31&_profile=groupRef"));
+        assertTrue(result.get(1).toString().equals("testToken=system2|code2&testDate=ge2023-01-01&testDate=le2023-12-31&_profile=groupRef"));
+    }
+
 
     @Test
     void testDuplicateDateFiltersThrowsException() {

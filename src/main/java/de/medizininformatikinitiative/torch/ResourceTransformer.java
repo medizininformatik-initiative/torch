@@ -140,7 +140,7 @@ public class ResourceTransformer {
         logger.trace("Patients Received: {}", batch);
 
         // Fetch consent key
-        String key = crtdl.getConsentKey();
+        String key = crtdl.consentKey();
 
 
 

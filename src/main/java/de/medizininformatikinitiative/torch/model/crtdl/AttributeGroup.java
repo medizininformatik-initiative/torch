@@ -12,16 +12,18 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
 
-        @JsonProperty("groupReference")
+        @JsonProperty(value = "groupReference",required = true)
         String groupReference,
 
-        @JsonProperty("attributes")
+        @JsonProperty(value = "attributes",required = true)
         List<Attribute> attributes,
 
-        @JsonProperty("filter")
+        @JsonProperty(value = "filter",required = true)
         List<Filter> filter,
 
         UUID uuid
@@ -55,12 +57,12 @@ public record AttributeGroup(
     }
 
     public List<QueryParams> queryParams() {
-        // Create a date filter QueryParams if it exists
+
         QueryParams dateParams = filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
-                .orElse(new QueryParams(List.of()));
+                .orElse(EMPTY);
 
 
         return filter.stream()
@@ -69,7 +71,7 @@ public record AttributeGroup(
                 .flatMap(code -> code.params().stream())
                 .map(param -> {
                     QueryParams invidividualCodeParams = new QueryParams(List.of(param));
-                    return invidividualCodeParams.appendParams(dateParams);
+                    return invidividualCodeParams.appendParams(dateParams).appendParam("_profile", QueryParams.stringValue(groupReference));
                 })
                 .collect(Collectors.toList());
     }
