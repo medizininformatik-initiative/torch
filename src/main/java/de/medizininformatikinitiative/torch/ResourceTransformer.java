@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.*;
@@ -30,16 +31,17 @@ public class ResourceTransformer {
     private final ElementCopier copier;
     private final Redaction redaction;
     private final ConsentHandler handler;
-    private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
+    private final FhirSearchBuilder searchBuilder;
     private final FhirContext context;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, FhirSearchBuilder searchBuilder) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.context = context;
+        this.searchBuilder = searchBuilder;
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {

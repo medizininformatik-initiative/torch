@@ -45,6 +45,7 @@ public class ConsentHandler {
     private final FhirPathBuilder fhirPathBuilder;
     private final CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
     private final ConsentProcessor consentProcessor;
+    private final FhirSearchBuilder fhirSearchBuilder;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
@@ -56,7 +57,8 @@ public class ConsentHandler {
      * @throws IOException If an error occurs while reading the mapping profile file.
      */
     @Autowired
-    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath,
+                          CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx, FhirSearchBuilder fhirSearchBuilder) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx=ctx;
@@ -65,6 +67,7 @@ public class ConsentHandler {
         this.consentProcessor = new ConsentProcessor(ctx);
         ObjectMapper objectMapper = new ObjectMapper();
         mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
+        this.fhirSearchBuilder = fhirSearchBuilder;
     }
 
     /**
@@ -186,12 +189,12 @@ public class ConsentHandler {
         logger.trace("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
 
         // Fetch resources using a bounded elastic scheduler for offloading blocking HTTP I/O
-        return dataStore.getResources("Consent", FhirSearchBuilder.getConsent(batch))
+        return dataStore.getResources("Consent", fhirSearchBuilder.getConsent(batch))
                 .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
                 .doOnSubscribe(subscription -> logger.debug("Fetching resources for batch: {}", batch))
                 .doOnNext(resource -> logger.trace("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))
                 .onErrorResume(e -> {
-                    logger.error("Error fetching resources for parameters: {}", FhirSearchBuilder.getConsent(batch), e);
+                    logger.error("Error fetching resources for parameters: {}", fhirSearchBuilder.getConsent(batch), e);
                     return Flux.empty();
                 })
 

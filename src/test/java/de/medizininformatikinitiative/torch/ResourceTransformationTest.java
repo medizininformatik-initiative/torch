@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,7 @@ public class ResourceTransformationTest {
     private static WebClient webClient;  // Assuming this will be mocked or autowired in the Spring context
 
     private static DataStore dataStore;
+    private static final FhirSearchBuilder fhirSearchBuilder = new FhirSearchBuilder(null);
 
     @BeforeAll
     static void setup() {
@@ -48,8 +50,10 @@ public class ResourceTransformationTest {
                             new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json",new ObjectMapper()),
                             "src/test/resources/mappings/profile_to_consent.json",
                             INTEGRATION_TEST_SETUP.getCds(),
-                            INTEGRATION_TEST_SETUP.getFhirContext()
-                    ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction(),INTEGRATION_TEST_SETUP.getFhirContext()
+                            INTEGRATION_TEST_SETUP.getFhirContext(),
+                            fhirSearchBuilder
+                    ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction(),INTEGRATION_TEST_SETUP.getFhirContext(),
+                    fhirSearchBuilder
             );
 
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");

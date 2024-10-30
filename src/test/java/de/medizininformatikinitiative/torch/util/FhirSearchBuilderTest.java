@@ -11,17 +11,19 @@ import static org.mockito.Mockito.*;
 
 class FhirSearchBuilderTest {
 
+    private final FhirSearchBuilder fhirSearchBuilder = new FhirSearchBuilder(null);
+
     @Test
     void testGetSearchParamWithPatientGroupAndFilter() {
         AttributeGroup mockGroup = mock(AttributeGroup.class);
         when(mockGroup.getGroupReferenceURL()).thenReturn("http://example.com/fhir/Group/patient");
         when(mockGroup.hasFilter()).thenReturn(true);
-        when(mockGroup.getFilterString()).thenReturn("status=active");
+        when(mockGroup.getFilterString(null)).thenReturn("status=active");
 
         List<String> batch = Arrays.asList("123", "456");
         String expected = "identifier=123,456&_profile=http://example.com/fhir/Group/patient&status=active";
 
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
+        String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
         assertEquals(expected, result);
     }
 
@@ -34,7 +36,7 @@ class FhirSearchBuilderTest {
         List<String> batch = Arrays.asList("789", "101");
         String expected = "identifier=789,101&_profile=http://example.com/fhir/Group/patient";
 
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
+        String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
         assertEquals(expected, result);
     }
 
@@ -47,7 +49,7 @@ class FhirSearchBuilderTest {
         List<String> batch = Arrays.asList("102", "103");
         String expected = "patient=102,103&_profile=http://example.com/fhir/Group/other";
 
-        String result = FhirSearchBuilder.getSearchParam(mockGroup, batch);
+        String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
         assertEquals(expected, result);
     }
 
@@ -55,7 +57,7 @@ class FhirSearchBuilderTest {
     void testGetConsent() {
         List<String> batch = Arrays.asList("111", "222");
         String expected = "patient=111,222&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
-        String result = FhirSearchBuilder.getConsent(batch);
+        String result = fhirSearchBuilder.getConsent(batch);
         assertEquals(expected, result);
     }
 

@@ -1,14 +1,9 @@
 package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.config.SpringContext;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
@@ -31,18 +26,6 @@ class FilterTest {
 
     @Mock
     DseMappingTreeBase mappingTreeBase;
-    MockedStatic<SpringContext> mockedSpringContext;
-
-    @BeforeEach
-    public void setup() {
-        mockedSpringContext = Mockito.mockStatic(SpringContext.class);
-        mockedSpringContext.when(SpringContext::getDseMappingTreeBase).thenReturn(mappingTreeBase);
-    }
-
-    @AfterEach
-    public void close() {
-        mockedSpringContext.close();
-    }
 
     @Test
     void testOneCodeNoChildren() {
@@ -51,7 +34,7 @@ class FilterTest {
         Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code),null,null);
 
-        var result = filter.getCodeFilter();
+        var result = filter.getCodeFilter(mappingTreeBase);
 
         assertThat(result).isEqualTo("name-164612=system-a%7Ccode-no-children-a");
     }
@@ -65,7 +48,7 @@ class FilterTest {
         Code codeB = new Code(SYSTEM_B, CODE_B_NO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB),null,null);
 
-        var result = filter.getCodeFilter();
+        var result = filter.getCodeFilter(mappingTreeBase);
 
         assertThat(result).isEqualTo("name-164612=system-a%7Ccode-no-children-a,system-b%7Ccode-no-children-b");
     }
@@ -76,7 +59,7 @@ class FilterTest {
         Code code = new Code(SYSTEM_A, CODE_A_TWO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code),null,null);
 
-        var result = filter.getCodeFilter();
+        var result = filter.getCodeFilter(mappingTreeBase);
 
         assertThat(result).isEqualTo("name-164612=system-a%7Ccode-a-two-children,system-a%7Ccode-a-child-1,system-a%7Ccode-a-child-2");
     }

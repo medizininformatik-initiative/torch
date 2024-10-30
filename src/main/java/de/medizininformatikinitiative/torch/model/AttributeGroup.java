@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,9 +54,9 @@ public record AttributeGroup(
         return false;
     }
 
-    public String getFilterString() {
+    public String getFilterString(DseMappingTreeBase mappingBase) {
         return filter.stream()
-                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter())
+                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter(mappingBase))
                 .collect(Collectors.joining("&"));
     }
 
