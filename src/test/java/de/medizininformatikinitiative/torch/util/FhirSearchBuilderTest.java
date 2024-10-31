@@ -62,22 +62,4 @@ class FhirSearchBuilderTest {
         assertEquals("subject=102,103&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fother", result);
     }
 
-    @Test
-    void testGetConsent() {
-        List<String> batch = Arrays.asList("111", "222");
-
-        String result = fhirSearchBuilder.getConsent(batch);
-
-        assertEquals("subject=111,222&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", result);
-    }
-
-    @Test
-    void testGetEncounter() {
-        List<String> batch = Arrays.asList("333", "444");
-
-        String result = FhirSearchBuilder.getEncounter(batch);
-
-        assertEquals("subject=333,444&_profile=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", result);
-    }
-
 }
