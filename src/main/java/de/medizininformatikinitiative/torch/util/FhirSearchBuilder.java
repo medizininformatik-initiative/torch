@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,9 +22,9 @@ public class FhirSearchBuilder {
         }
         String parameters;
         if (group.getGroupReferenceURL().contains("patient")) {
-            parameters = "identifier=" + String.join(",",batch);
+            parameters = "_id=" + String.join(",", batch);
         } else {
-            parameters = "patient=" + String.join(",",batch);
+            parameters = "subject=" + String.join(",", batch);
         }
         parameters += "&_profile=" + group.getGroupReferenceURL() + filter;
         return parameters;
@@ -35,7 +34,7 @@ public class FhirSearchBuilder {
     public String getConsent(List<String> batch) {
         String parameters;
 
-        parameters = "patient=" + String.join(",",batch);
+        parameters = "subject=" + String.join(",", batch);
 
         parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
         return parameters;
@@ -45,15 +44,12 @@ public class FhirSearchBuilder {
     public static String getEncounter(List<String> batch) {
         String parameters;
 
-        parameters = "patient=" + String.join(",",batch);
+        parameters = "subject=" + String.join(",", batch);
 
         parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
         return parameters;
 
     }
-
-
-
 
 
 }

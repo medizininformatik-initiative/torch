@@ -15,8 +15,8 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FhirSearchBuilderTest {
@@ -37,7 +37,7 @@ class FhirSearchBuilderTest {
 
         String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
 
-        assertEquals("identifier=123,456&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fpatient&status=%7Cactive", result);
+        assertEquals("_id=123,456&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fpatient&status=%7Cactive", result);
     }
 
     @Test
@@ -48,7 +48,7 @@ class FhirSearchBuilderTest {
 
         String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
 
-        assertEquals("identifier=789,101&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fpatient", result);
+        assertEquals("_id=789,101&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fpatient", result);
     }
 
     @Test
@@ -59,7 +59,7 @@ class FhirSearchBuilderTest {
 
         String result = fhirSearchBuilder.getSearchParam(mockGroup, batch);
 
-        assertEquals("patient=102,103&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fother", result);
+        assertEquals("subject=102,103&_profile=http%3A%2F%2Fexample.com%2Ffhir%2FGroup%2Fother", result);
     }
 
     @Test
@@ -68,7 +68,7 @@ class FhirSearchBuilderTest {
 
         String result = fhirSearchBuilder.getConsent(batch);
 
-        assertEquals("patient=111,222&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", result);
+        assertEquals("subject=111,222&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", result);
     }
 
     @Test
@@ -77,7 +77,7 @@ class FhirSearchBuilderTest {
 
         String result = FhirSearchBuilder.getEncounter(batch);
 
-        assertEquals("patient=333,444&_profile=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", result);
+        assertEquals("subject=333,444&_profile=https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", result);
     }
 
 }
