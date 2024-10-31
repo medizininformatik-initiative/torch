@@ -31,6 +31,7 @@ public class FhirTestHelper {
         this.resourceReader = resourceReader;
     }
 
+
     public Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = new HashMap<>();
         for (String filePath : filePaths) {
@@ -47,6 +48,7 @@ public class FhirTestHelper {
             Bundle bundle = entry.getValue();
             Bundle expectedBundle = expectedResources.get(patientId);
 
+
             // Remove meta.lastUpdated from all contained resources in both bundles
             removeMetaLastUpdated(bundle);
             removeMetaLastUpdated(expectedBundle);
@@ -58,6 +60,10 @@ public class FhirTestHelper {
             // Get resources from both bundles and map them based on their profile
             Map<String, Resource> actualResourceMap = mapResourcesByProfile(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByProfile(expectedBundle);
+
+            logger.debug(" Actual Bundle  \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle));
+            logger.debug(" Expected Bundle \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedBundle));
+
 
             // Compare the two maps
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
