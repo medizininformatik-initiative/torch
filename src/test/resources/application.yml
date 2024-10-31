@@ -12,7 +12,7 @@ torch:
     url: http://localhost:8082/fhir
     pageCount: 500
     testPopulation:
-        path: src/test/resources/BlazeBundle.json
+      path: src/test/resources/BlazeBundle.json
     oauth:
       issuer:
         uri: "https://auth.localhost:444/realms/blaze"
@@ -31,8 +31,8 @@ torch:
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: false
 nginx:
-    servername: localhost:8080
-    filelocation: localhost:8080/output
+  servername: localhost:8080
+  filelocation: localhost:8080/output
 
 logging:
   level:
@@ -40,8 +40,8 @@ logging:
     org.springframework.web.reactive.function.client: INFO
     reactor.netty: INFO
     reactor: INFO
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:INFO}
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:INFO}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:DEBUG}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:DEBUG}
     org.springframework: ${LOG_LEVEL:info}
     ca.uhn.fhir: INFO
     org.hl7.fhir: INFO
