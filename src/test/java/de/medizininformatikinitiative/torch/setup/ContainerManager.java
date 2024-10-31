@@ -33,9 +33,9 @@ public class ContainerManager {
     // Static initialization of the ComposeContainer
     static {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
                 .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     }
 

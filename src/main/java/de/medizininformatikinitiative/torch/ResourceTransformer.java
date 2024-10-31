@@ -6,10 +6,15 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
-import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.*;
-import org.hl7.fhir.r4.model.*;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
+import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -62,14 +67,13 @@ public class ResourceTransformer {
             return resources.flatMap(resource -> {
                 try {
                     return Mono.just(transform((DomainResource) resource, group));
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                         InstantiationException e) {
                     logger.error("Transform error: ", e);
                     return Mono.error(new RuntimeException(e));
                 } catch (MustHaveViolatedException e) {
                     Patient empty = new Patient();
-                    logger.error("Must Have Violated resulting in dropped Resource");
-                    logger.debug("Resource {} dropped with MustHaveViolated ",resource.getId());
-
+                    logger.error("Must Have Violated resulting in dropped Resource {} {}", resource.getResourceType(), resource.getId());
                     return Mono.just(empty);
                 }
             });
@@ -80,12 +84,13 @@ public class ResourceTransformer {
                     if (handler.checkConsent((DomainResource) resource, consentmap)) {
                         return Mono.just(transform((DomainResource) resource, group));
                     } else {
-                        logger.warn("Consent Violated for Resource {} {}",resource.getResourceType(), resource.getId());
+                        logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
 
                         Patient empty = new Patient();
                         return Mono.just(empty);
                     }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
+                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                         InstantiationException e) {
                     logger.error("Transform error: ", e);
                     return Mono.error(new RuntimeException(e));
                 } catch (MustHaveViolatedException e) {
@@ -98,13 +103,12 @@ public class ResourceTransformer {
     }
 
 
-
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
         Class<? extends DomainResource> resourceClass = resourcesrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.groupReference());
+            logger.trace("Handling resource {} for patient {} and attributegroup {}", resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc), group.groupReference());
             for (Attribute attribute : group.attributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -120,7 +124,7 @@ public class ResourceTransformer {
             if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
             }
-            if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
+            if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
             logger.trace("Resource after Copy {}", this.context.newJsonParser().encodeResourceToString(tgt));
@@ -128,7 +132,7 @@ public class ResourceTransformer {
             redaction.redact(tgt);
             logger.trace("Resource after Redact {}", this.context.newJsonParser().encodeResourceToString(tgt));
 
-            logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
+            logger.debug("Sucessfully transformed and redacted {}", resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -144,7 +148,7 @@ public class ResourceTransformer {
 
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
         Flux<Map<String, Map<String, List<Period>>>> consentmap = key.isEmpty() ?
-                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch),batch);
+                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch), batch);
 
         // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);
@@ -198,10 +202,6 @@ public class ResourceTransformer {
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
     }
-
-
-
-
 
 
 }

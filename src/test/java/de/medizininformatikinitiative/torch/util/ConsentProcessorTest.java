@@ -12,7 +12,10 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -39,7 +42,7 @@ public class ConsentProcessorTest {
     public void testExtractConsentProvisionsValid() {
         DomainResource domainResource = mock(DomainResource.class);
         List<Base> mockProvisions = List.of(mock(Consent.provisionComponent.class));
-        when(fhirPath.evaluate(domainResource,"Consent.provision.provision", Base.class))
+        when(fhirPath.evaluate(domainResource, "Consent.provision.provision", Base.class))
                 .thenReturn(mockProvisions);
 
         List<Base> provisions = consentProcessor.extractConsentProvisions(domainResource);

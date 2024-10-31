@@ -7,15 +7,13 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
-import org.hl7.fhir.r4.model.*;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +26,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -55,9 +52,10 @@ public class FhirControllerIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
 
-    protected static boolean dataImported = false;
+    protected static boolean containerInit = false;
 
-    @Autowired ResourceReader resourceReader;
+    @Autowired
+    ResourceReader resourceReader;
 
     @Autowired
     FhirTestHelper fhirTestHelper;
@@ -89,7 +87,6 @@ public class FhirControllerIT {
     protected final DseMappingTreeBase dseMappingTreeBase;
 
 
-
     private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
     @LocalServerPort
     private int port;
@@ -99,7 +96,7 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT( ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
+    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
                             Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
@@ -116,8 +113,8 @@ public class FhirControllerIT {
 
     @BeforeEach
     void init() throws IOException {
-        if (!dataImported) {
-        manager.startContainers();
+        if (!containerInit) {
+            manager.startContainers();
 
 
             webClient.post()
@@ -126,14 +123,14 @@ public class FhirControllerIT {
                     .retrieve()
                     .toBodilessEntity()
                     .block();
-            dataImported = true;
+            containerInit = true;
             logger.info("Data Import on {}", webClient.options());
+            logger.info("Setup Complete");
         }
-        logger.info("Setup Complete");
+
     }
 
     @Test
-    @DirtiesContext
     public void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
 
@@ -147,7 +144,6 @@ public class FhirControllerIT {
     }
 
     @Test
-    @DirtiesContext
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
         HttpHeaders headers = new HttpHeaders();
 
@@ -174,8 +170,6 @@ public class FhirControllerIT {
                 "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
-
-
 
 
     @Test
@@ -412,8 +406,8 @@ public class FhirControllerIT {
         try {
             //Observation with Consent outside the consent, but inside with encounter within
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
-            ((Observation)observation).setEffective(time);
+            DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
+            ((Observation) observation).setEffective(time);
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
@@ -438,7 +432,6 @@ public class FhirControllerIT {
     }
 
 
-
     @Test
     public void testHandlerWithoutUpdate() {
         List<String> strings = new ArrayList<>();
@@ -449,8 +442,8 @@ public class FhirControllerIT {
         try {
             //Observation with Consent outside the consent, but inside with encounter within
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time= new DateTimeType("2022-01-01T00:00:00+01:00");
-            ((Observation)observation).setEffective(time);
+            DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
+            ((Observation) observation).setEffective(time);
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
@@ -483,8 +476,8 @@ public class FhirControllerIT {
         Resource observation = null;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time= new DateTimeType("2026-01-01T00:00:00+01:00");
-            ((Observation)observation).setEffective(time);
+            DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
+            ((Observation) observation).setEffective(time);
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
@@ -507,7 +500,6 @@ public class FhirControllerIT {
     }
 
 
-
     @Test
     public void testHandlerWithoutUpdatingFail() {
         List<String> strings = new ArrayList<>();
@@ -517,8 +509,8 @@ public class FhirControllerIT {
         Resource observation = null;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time= new DateTimeType("2020-01-01T00:00:00+01:00");
-            ((Observation)observation).setEffective(time);
+            DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
+            ((Observation) observation).setEffective(time);
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
