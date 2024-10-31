@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.service;
 
-import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +13,6 @@ import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
@@ -27,7 +25,6 @@ import reactor.core.scheduler.Schedulers;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ExecutorService;
 
 import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
 
@@ -46,9 +43,6 @@ public class CrtdlProcessingService {
     private final CqlClient cqlClient;
     private final Boolean useCql;
     private final Translator cqlQueryTranslator;
-    private final FhirContext fhirContext;
-    private final ExecutorService executorService;
-
 
     public CrtdlProcessingService( @Qualifier("flareClient") WebClient webClient,
                                    Translator cqlQueryTranslator,
@@ -56,8 +50,6 @@ public class CrtdlProcessingService {
                                    ResultFileManager resultFileManager,
                                    ResourceTransformer transformer,
                                    BundleCreator bundleCreator,
-                                   FhirContext fhirContext,
-                                   ExecutorService executorService,
                                    @Value("${torch.batchsize:10}") int batchsize,
                                    @Value("5") int maxConcurrency,
                                    @Value("${torch.useCql}") boolean useCql) {
@@ -65,9 +57,7 @@ public class CrtdlProcessingService {
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
         this.objectMapper = new ObjectMapper();
-        this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
-        this.executorService = executorService;
         this.batchSize = batchsize;
         this.maxConcurrency = maxConcurrency;
         this.cqlClient = cqlClient;

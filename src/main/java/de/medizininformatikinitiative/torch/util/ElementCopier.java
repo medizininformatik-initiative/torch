@@ -56,6 +56,7 @@ public class ElementCopier {
     public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException, PatientIdNotFoundException {
         String id = ResourceUtils.getPatientId(src);
         List<CanonicalType> profileurl = src.getMeta().getProfile();
+        logger.trace("ProfileURL {}",profileurl.getFirst());
         StructureDefinition structureDefinition = handler.getDefinition(profileurl);
         logger.trace("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(),profileurl.getFirst().getValue());
         List<String> legalExtensions = new LinkedList<>();

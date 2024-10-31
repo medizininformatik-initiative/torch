@@ -1,24 +1,25 @@
 package de.medizininformatikinitiative.torch.model.crtdl;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import static java.util.Objects.requireNonNull;
 
 public record Code(
-        @JsonProperty(value = "system",required = true) String system,
-        @JsonProperty(value = "code", required = true)  String code,
-        @JsonProperty(value = "display",required = true) String display
+        @JsonProperty(required = true) String system,
+        @JsonProperty(required = true) String code,
+        @JsonProperty(required = true) String display
 ) {
+    public Code {
+        requireNonNull(system);
+        requireNonNull(code);
+        requireNonNull(display);
+    }
 
-
-    // Additional constructor for other uses, if necessary
     public Code(String system, String code) {
-        this(system, code, null);
+        this(system, code, "");
     }
 
     public String searchParamValue() {
         return system + "|" + code;
     }
-
-
 }

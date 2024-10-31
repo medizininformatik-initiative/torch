@@ -55,7 +55,8 @@
             "codes": [
               {
                 "code": "45252009",
-                "system": "http://snomed.info/sct"
+                "system": "http://snomed.info/sct",
+                "display": "123"
               }
             ]
           },

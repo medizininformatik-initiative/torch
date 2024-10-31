@@ -73,14 +73,12 @@ public class TestConfig {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
-            FhirContext fhirContext,
-            ExecutorService executorService,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
             @Value("${torch.useCql}") boolean useCql) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, bundleCreator, fhirContext, executorService,
+                transformer, bundleCreator,
                 batchSize, maxConcurrency, useCql);
     }
 
@@ -252,8 +250,8 @@ public class TestConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds, FhirContext ctx) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx,objectMapper );
     }
 
     @Bean

@@ -49,7 +49,7 @@ public class ResourceTransformationTest {
                             new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json",new ObjectMapper()),
                             "src/test/resources/mappings/profile_to_consent.json",
                             INTEGRATION_TEST_SETUP.getCds(),
-                            INTEGRATION_TEST_SETUP.getFhirContext()
+                            INTEGRATION_TEST_SETUP.getFhirContext(),INTEGRATION_TEST_SETUP.getObjectMapper()
                     ), INTEGRATION_TEST_SETUP.getCopier(), INTEGRATION_TEST_SETUP.getRedaction(),INTEGRATION_TEST_SETUP.getFhirContext()
             );
 

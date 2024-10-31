@@ -53,21 +53,21 @@ public class ConsentHandler {
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param dataStore                    The {@link DataStore} service for Server Calls.
-     * @param mapper                       The {@link ConsentCodeMapper} for mapping consent codes.
-     * @param profilePath                  The file system path to the consent profile mapping configuration.
+     * @param dataStore                     The {@link DataStore} service for Server Calls.
+     * @param mapper                        The {@link ConsentCodeMapper} for mapping consent codes.
+     * @param profilePath                   The file system path to the consent profile mapping configuration.
      * @param cdsStructureDefinitionHandler The {@link CdsStructureDefinitionHandler} for handling structure definitions.
+     * @param objectMapper
      * @throws IOException If an error occurs while reading the mapping profile file.
      */
     @Autowired
-    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx=ctx;
         this.fhirPathBuilder = new FhirPathBuilder(new Slicing(cdsStructureDefinitionHandler,ctx));
         this.cdsStructureDefinitionHandler = cdsStructureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
-        ObjectMapper objectMapper = new ObjectMapper();
         mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
     }
 

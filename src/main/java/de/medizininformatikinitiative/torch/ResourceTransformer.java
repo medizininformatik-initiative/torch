@@ -76,7 +76,7 @@ public class ResourceTransformer {
                             return Mono.error(new RuntimeException(e));
                         } catch (MustHaveViolatedException e) {
                             Patient empty = new Patient();
-                            logger.error("Must Have Violated resulting in dropped Resource");
+                            logger.error("Must Have Violated resulting in dropped Resource {} {}",resource.getResourceType(),resource.getId());
                             return Mono.just(empty);
                         }
                     });

@@ -16,6 +16,7 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cglib.core.Local;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -60,7 +61,7 @@ class FilterTest {
     @Test
     void testDateFilterWithStartAndEnd() {
         // Both start and end dates are provided
-        Filter filter = new Filter("date", "testDateField", null, "2023-01-01","2023-12-31");
+        Filter filter = new Filter("date", "testDateField", null, LocalDate.parse("2023-01-01"),LocalDate.parse("2023-12-31"));
         QueryParams queryParams = filter.dateFilter();
 
         assertEquals(2, queryParams.params().size(), "Expected 2 params for both start and end dates");
@@ -71,7 +72,7 @@ class FilterTest {
     @Test
     void testDateFilterWithOnlyStart() {
         // Only start date is provided
-        Filter filter = new Filter("date", "testDateField", null,"2023-01-01", null);
+        Filter filter = new Filter("date", "testDateField", null,LocalDate.parse("2023-01-01"), null);
         QueryParams queryParams = filter.dateFilter();
 
         assertEquals(1, queryParams.params().size(), "Expected 1 param for only start date");
@@ -81,7 +82,7 @@ class FilterTest {
     @Test
     void testDateFilterWithOnlyEnd() {
         // Only end date is provided
-        Filter filter = new Filter("date", "testDateField", null, null, "2023-12-31");
+        Filter filter = new Filter("date", "testDateField", null, null, LocalDate.parse("2023-12-31"));
         QueryParams queryParams = filter.dateFilter();
 
         assertEquals(1, queryParams.params().size(), "Expected 1 param for only end date");

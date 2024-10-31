@@ -137,6 +137,8 @@ public class ConsentProcessorTest {
         DateTimeType endDateTime = new DateTimeType("2021-12-31");
         when(validPeriod.getStartElement()).thenReturn(startDateTime);
         when(validPeriod.getEndElement()).thenReturn(endDateTime);
+        when(validPeriod.getStart()).thenReturn(startDateTime.getValue());
+        when(validPeriod.getEnd()).thenReturn(endDateTime.getValue());
 
         // Mock provision for INVALID_CODE
         Consent.provisionComponent invalidProvision = mock(Consent.provisionComponent.class);

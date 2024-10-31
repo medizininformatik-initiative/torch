@@ -6,9 +6,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Attribute(
 
-        @JsonProperty("attributeRef")
         String attributeRef,
-
-        @JsonProperty("mustHave")
         boolean mustHave
 ) {}
