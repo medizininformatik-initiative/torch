@@ -34,7 +34,7 @@ public class FhirSearchBuilder {
     public String getConsent(List<String> batch) {
         String parameters;
 
-        parameters = "subject=" + String.join(",", batch);
+        parameters = "patient=" + String.join(",", batch);
 
         parameters += "&_profile=https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
         return parameters;
