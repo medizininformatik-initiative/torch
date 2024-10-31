@@ -21,7 +21,6 @@ import java.util.Map;
 public class FhirTestHelper {
 
 
-
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
     private final FhirContext fhirContext;
     private final ResourceReader resourceReader;
@@ -29,10 +28,11 @@ public class FhirTestHelper {
     @Autowired
     public FhirTestHelper(FhirContext fhirContext, ResourceReader resourceReader) {
         this.fhirContext = fhirContext;
-        this.resourceReader=resourceReader;
+        this.resourceReader = resourceReader;
     }
 
-    public  Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
+
+    public Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = new HashMap<>();
         for (String filePath : filePaths) {
             Bundle bundle = (Bundle) resourceReader.readResource(filePath);
@@ -42,11 +42,12 @@ public class FhirTestHelper {
         return expectedResources;
     }
 
-    public  void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
+    public void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
         for (Map.Entry<String, Bundle> entry : bundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
             Bundle expectedBundle = expectedResources.get(patientId);
+
 
             // Remove meta.lastUpdated from all contained resources in both bundles
             removeMetaLastUpdated(bundle);
@@ -60,13 +61,17 @@ public class FhirTestHelper {
             Map<String, Resource> actualResourceMap = mapResourcesByProfile(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByProfile(expectedBundle);
 
+            logger.debug(" Actual Bundle  \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle));
+            logger.debug(" Expected Bundle \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedBundle));
+
+
             // Compare the two maps
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
                 String profileKey = expectedEntry.getKey();
                 Resource expectedResource = expectedEntry.getValue();
 
                 if (!actualResourceMap.containsKey(profileKey)) {
-                    throw new AssertionError("Missing resource for profile: " + profileKey);
+                    throw new AssertionError("Missing resource for profile: " + profileKey + " for Patient: " + patientId);
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);
@@ -81,7 +86,7 @@ public class FhirTestHelper {
     }
 
     // Helper static function to map resources by their profile
-    private  Map<String, Resource> mapResourcesByProfile(Bundle bundle) {
+    private Map<String, Resource> mapResourcesByProfile(Bundle bundle) {
         Map<String, Resource> resourceMap = new HashMap<>();
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();

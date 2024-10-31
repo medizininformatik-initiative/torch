@@ -219,14 +219,15 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,Redaction redaction, FhirContext context) {
-
-              return  new ResourceTransformer(dataStore, handler,copier,redaction, context);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,
+                                                   Redaction redaction, FhirContext context, FhirSearchBuilder fhirSearchBuilder) {
+        return  new ResourceTransformer(dataStore, handler,copier,redaction, context, fhirSearchBuilder);
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds,FhirContext ctx) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx);
+    ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath,
+                           CdsStructureDefinitionHandler cds,FhirContext ctx, FhirSearchBuilder fhirSearchBuilder) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx, fhirSearchBuilder);
     }
 
     @Bean

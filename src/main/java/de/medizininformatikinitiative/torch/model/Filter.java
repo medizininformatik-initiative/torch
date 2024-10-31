@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.model;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.torch.config.SpringContext;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,7 +30,7 @@ public record Filter(
         return filterString.toString();
     }
 
-    public String getCodeFilter() {
+    public String getCodeFilter(DseMappingTreeBase mappingBase) {
         if (!"token".equals(type)) {
             return "";
         }
@@ -38,9 +38,7 @@ public record Filter(
         List<String> codeUrls = new ArrayList<>();
         for (Code code : codes) {
             String system = code.system();
-            var expandedCodes = SpringContext.getDseMappingTreeBase()
-                    .expand(system, code.code())
-                    .map(c -> new Code(system, c));
+            var expandedCodes = mappingBase.expand(system, code.code()).map(c -> new Code(system, c));
 
             codeUrls.addAll(expandedCodes.map(Code::getCodeURL).toList());
         }

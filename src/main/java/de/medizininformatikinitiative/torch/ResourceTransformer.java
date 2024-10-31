@@ -7,8 +7,14 @@ import de.medizininformatikinitiative.torch.model.Attribute;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.Crtdl;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.*;
-import org.hl7.fhir.r4.model.*;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirSearchBuilder;
+import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,16 +36,17 @@ public class ResourceTransformer {
     private final ElementCopier copier;
     private final Redaction redaction;
     private final ConsentHandler handler;
-    private final FhirSearchBuilder searchBuilder = new FhirSearchBuilder();
+    private final FhirSearchBuilder searchBuilder;
     private final FhirContext context;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, FhirSearchBuilder searchBuilder) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.context = context;
+        this.searchBuilder = searchBuilder;
     }
 
     public Flux<Resource> transformResources(String parameters, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
@@ -54,47 +61,31 @@ public class ResourceTransformer {
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
 
-        // Transform resources based on consentmap availability
-        if (consentmap.isEmpty()) {
-            // No consent map available, process resources without consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    return Mono.just(transform((DomainResource) resource, group));
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Must Have Violated resulting in dropped Resource");
-                    logger.debug("Resource {} dropped with MustHaveViolated ",resource.getId());
+        // Process resources with or without consent map
+        return resources.flatMap(resource -> {
+            try {
+                DomainResource domainResource = (DomainResource) resource;
 
-                    return Mono.just(empty);
+                // Check if consent map is available and valid for this resource
+                if (!consentmap.isEmpty() && !handler.checkConsent(domainResource, consentmap)) {
+                    logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+                    return Mono.just(new Patient()); // Return empty Patient if consent is violated
                 }
-            });
-        } else {
-            // Consent map is available, apply consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    if (handler.checkConsent((DomainResource) resource, consentmap)) {
-                        return Mono.just(transform((DomainResource) resource, group));
-                    } else {
-                        logger.warn("Consent Violated for Resource {} {}",resource.getResourceType(), resource.getId());
 
-                        Patient empty = new Patient();
-                        return Mono.just(empty);
-                    }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException | InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Empty Transformation: {}", empty.isEmpty());
-                    return Mono.just(empty);
-                }
-            });
-        }
+                // Transform resource as consent map is valid or not required
+                return Mono.just(transform(domainResource, group));
+
+            } catch (MustHaveViolatedException e) {
+                logger.error("Must Have Violated resulting in dropped Resource {} {}", resource.getResourceType(), resource.getId());
+                return Mono.just(new Patient()); // Return empty Patient if MustHave is violated
+
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                     InstantiationException e) {
+                logger.error("Transform error: ", e);
+                return Mono.error(new RuntimeException(e));
+            }
+        });
     }
-
 
 
     public Resource transform(DomainResource resourcesrc, AttributeGroup group) throws NoSuchMethodException, InvocationTargetException, InstantiationException, IllegalAccessException, MustHaveViolatedException {
@@ -102,7 +93,7 @@ public class ResourceTransformer {
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
         try {
-            logger.trace("Handling resource {} for patient {} and attributegroup {}",resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc),group.groupReference());
+            logger.trace("Handling resource {} for patient {} and attributegroup {}", resourcesrc.getId(), ResourceUtils.getPatientId(resourcesrc), group.groupReference());
             for (Attribute attribute : group.attributes()) {
 
                 copier.copy(resourcesrc, tgt, attribute);
@@ -118,7 +109,7 @@ public class ResourceTransformer {
             if (resourcesrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourcesrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("subject.reference", true));
             }
-            if(resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class){
+            if (resourcesrc.getClass() == org.hl7.fhir.r4.model.Consent.class) {
                 copier.copy(resourcesrc, tgt, new Attribute("patient.reference", true));
             }
             logger.trace("Resource after Copy {}", this.context.newJsonParser().encodeResourceToString(tgt));
@@ -126,7 +117,7 @@ public class ResourceTransformer {
             redaction.redact(tgt);
             logger.trace("Resource after Redact {}", this.context.newJsonParser().encodeResourceToString(tgt));
 
-            logger.debug("Sucessfully transformed and redacted {}",resourcesrc.getId());
+            logger.debug("Sucessfully transformed and redacted {}", resourcesrc.getId());
         } catch (PatientIdNotFoundException e) {
             throw new RuntimeException(e);
         }
@@ -142,7 +133,7 @@ public class ResourceTransformer {
 
         // Initialize consentmap: fetch consent information reactively or return empty if no consent is needed
         Flux<Map<String, Map<String, List<Period>>>> consentmap = key.isEmpty() ?
-                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch),batch);
+                Flux.empty() : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch), batch);
 
         // Set of patient IDs that survived so far
         Set<String> safeSet = new HashSet<>(batch);
@@ -196,10 +187,6 @@ public class ResourceTransformer {
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
     }
-
-
-
-
 
 
 }
