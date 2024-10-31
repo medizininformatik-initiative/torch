@@ -3,9 +3,11 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.model.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Component
 public class FhirSearchBuilder {
 
     private final DseMappingTreeBase mappingTreeBase;

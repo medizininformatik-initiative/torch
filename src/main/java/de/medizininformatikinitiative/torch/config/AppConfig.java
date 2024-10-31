@@ -146,11 +146,6 @@ public class AppConfig {
         return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
     }
 
-    @Bean
-    public FhirSearchBuilder fhirSearchBuilder(DseMappingTreeBase dseMappingTreeBase) {
-        return new FhirSearchBuilder(dseMappingTreeBase);
-    }
-
     @Lazy
     @Bean
     Translator createCqlTranslator( ObjectMapper jsonUtil) throws IOException {
