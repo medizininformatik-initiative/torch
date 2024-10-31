@@ -17,6 +17,7 @@ import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -112,7 +113,8 @@ public class FhirControllerIT {
     }
 
     @BeforeEach
-    void init() throws IOException {
+    void init(TestInfo testInfo) throws IOException {
+        logger.info("Starting test: {}", testInfo.getDisplayName());
         if (!containerInit) {
             manager.startContainers();
 
@@ -145,6 +147,8 @@ public class FhirControllerIT {
 
     @Test
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
+
+
         HttpHeaders headers = new HttpHeaders();
 
         headers.add("content-type", "application/fhir+json");
@@ -159,15 +163,15 @@ public class FhirControllerIT {
 
     @Test
     public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
-        HttpHeaders headers = new HttpHeaders();
 
+        HttpHeaders headers = new HttpHeaders();
         headers.add("content-type", "application/fhir+json");
         List<String> expectedResourceFilePaths = List.of(
                 "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
         );
-
         List<String> filePaths = List.of(
                 "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
+
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
@@ -200,6 +204,7 @@ public class FhirControllerIT {
 
     @Test
     public void testCql() throws IOException {
+
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);

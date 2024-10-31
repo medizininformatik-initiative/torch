@@ -61,45 +61,30 @@ public class ResourceTransformer {
                     return Flux.empty();  // Return an empty Flux to continue processing without crashing the pipeline
                 });
 
-        // Transform resources based on consentmap availability
-        if (consentmap.isEmpty()) {
-            // No consent map available, process resources without consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    return Mono.just(transform((DomainResource) resource, group));
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
-                         InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Must Have Violated resulting in dropped Resource {} {}", resource.getResourceType(), resource.getId());
-                    return Mono.just(empty);
-                }
-            });
-        } else {
-            // Consent map is available, apply consent checks
-            return resources.flatMap(resource -> {
-                try {
-                    if (handler.checkConsent((DomainResource) resource, consentmap)) {
-                        return Mono.just(transform((DomainResource) resource, group));
-                    } else {
-                        logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+        // Process resources with or without consent map
+        return resources.flatMap(resource -> {
+            try {
+                DomainResource domainResource = (DomainResource) resource;
 
-                        Patient empty = new Patient();
-                        return Mono.just(empty);
-                    }
-                } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
-                         InstantiationException e) {
-                    logger.error("Transform error: ", e);
-                    return Mono.error(new RuntimeException(e));
-                } catch (MustHaveViolatedException e) {
-                    Patient empty = new Patient();
-                    logger.error("Empty Transformation: {}", empty.isEmpty());
-                    return Mono.just(empty);
+                // Check if consent map is available and valid for this resource
+                if (!consentmap.isEmpty() && !handler.checkConsent(domainResource, consentmap)) {
+                    logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+                    return Mono.just(new Patient()); // Return empty Patient if consent is violated
                 }
-            });
-        }
+
+                // Transform resource as consent map is valid or not required
+                return Mono.just(transform(domainResource, group));
+
+            } catch (MustHaveViolatedException e) {
+                logger.error("Must Have Violated resulting in dropped Resource {} {}", resource.getResourceType(), resource.getId());
+                return Mono.just(new Patient()); // Return empty Patient if MustHave is violated
+
+            } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                     InstantiationException e) {
+                logger.error("Transform error: ", e);
+                return Mono.error(new RuntimeException(e));
+            }
+        });
     }
 
 
