@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -19,13 +18,13 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
 
-        @JsonProperty(value = "groupReference",required = true)
+        @JsonProperty(value = "groupReference", required = true)
         String groupReference,
 
-        @JsonProperty(value = "attributes",required = true)
+        @JsonProperty(value = "attributes", required = true)
         List<Attribute> attributes,
 
-        @JsonProperty(value = "filter",required = true)
+        @JsonProperty(value = "filter", required = true)
         List<Filter> filter,
 
         UUID uuid
@@ -58,6 +57,12 @@ public record AttributeGroup(
         return false;
     }
 
+    /*
+     public String getFilterString(DseMappingTreeBase mappingBase) {
+        return filter.stream()
+                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter(mappingBase))
+                .collect(Collectors.joining("&"));
+     */
     public List<Query> queries() {
         List<QueryParams> paramsList = queryParams();
         return paramsList.stream()

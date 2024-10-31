@@ -1,20 +1,12 @@
 package de.medizininformatikinitiative.torch.model.crtdl;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import de.medizininformatikinitiative.torch.config.SpringContext;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.sq.Comparator;
-import net.sf.saxon.trans.SymbolicName;
-import net.sf.saxon.value.DateValue;
-import org.springframework.cglib.core.Local;
 
 import java.time.LocalDate;
-import java.time.format.DateTimeParseException;
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Objects;
-import java.util.concurrent.atomic.AtomicReference;
 
 import static java.util.Objects.requireNonNull;
 
@@ -33,7 +25,7 @@ public record Filter(
     }
 
     public Filter(String type, String name, List<Code> codes) {
-        this(type, name, codes, null,null);
+        this(type, name, codes, null, null);
     }
 
     public Filter(String type, String name, LocalDate start, LocalDate end) {
@@ -41,26 +33,26 @@ public record Filter(
     }
 
     public QueryParams dateFilter() {
-      QueryParams dateParams =  QueryParams.EMPTY;
-        if("date".equals(type)){
-            if (start != null ) {
-                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.GREATER_EQUAL, start));
+        QueryParams dateParams = QueryParams.EMPTY;
+        if ("date".equals(type)) {
+            if (start != null) {
+                dateParams = dateParams.appendParam(name, QueryParams.dateValue(Comparator.GREATER_EQUAL, start));
             }
-            if (end != null ) {
-                dateParams=dateParams.appendParam(name,QueryParams.dateValue(Comparator.LESS_EQUAL, end));
+            if (end != null) {
+                dateParams = dateParams.appendParam(name, QueryParams.dateValue(Comparator.LESS_EQUAL, end));
             }
 
         }
-        return  dateParams;
+        return dateParams;
     }
 
 
-    public QueryParams codeFilter() {
+    public QueryParams codeFilter(DseMappingTreeBase mappingBase) {
         QueryParams codeParams = QueryParams.EMPTY;
 
         if ("token".equals(type)) {
             codeParams = codes.stream()
-                    .flatMap(code -> SpringContext.getDseMappingTreeBase()
+                    .flatMap(code -> mappingBase
                             .expand(code.system(), code.code())
                             .map(c -> new Code(code.system(), c))
                     )

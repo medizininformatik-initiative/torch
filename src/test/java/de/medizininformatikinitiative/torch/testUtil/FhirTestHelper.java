@@ -23,6 +23,7 @@ import java.util.Map;
 public class FhirTestHelper {
 
 
+
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
     private final FhirContext fhirContext;
     private final ResourceReader resourceReader;
@@ -67,7 +68,7 @@ public class FhirTestHelper {
                 Resource expectedResource = expectedEntry.getValue();
 
                 if (!actualResourceMap.containsKey(profileKey)) {
-                    throw new AssertionError("Missing resource for profile: " + profileKey);
+                    throw new AssertionError("Missing resource for profile: " + profileKey + " for Patient: " + patientId);
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);

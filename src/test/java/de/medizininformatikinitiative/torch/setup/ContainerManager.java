@@ -1,13 +1,10 @@
 package de.medizininformatikinitiative.torch.setup;
 
 
-
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -28,9 +25,9 @@ public class ContainerManager {
     // Static initialization of the ComposeContainer
     static {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(10)))
+                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
                 .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     }
 
@@ -61,7 +58,6 @@ public class ContainerManager {
         environment.stop();
         logger.info("Containers stopped successfully.");
     }
-
 
 
     public String getBlazeBaseUrl() {
