@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
@@ -40,18 +41,20 @@ public class ResourceTransformer {
     private final Redaction redaction;
     private final ConsentHandler handler;
     private final FhirContext context;
+    private final DseMappingTreeBase dseMappingTreeBase;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, DseMappingTreeBase dseMappingTreeBase) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.context = context;
+        this.dseMappingTreeBase = dseMappingTreeBase;
     }
 
     public Flux<Resource> transformResources(String batch, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
-        List<Query> queryList = group.queries();  // Assuming 'queries()' method returns a list of queries.
+        List<Query> queryList = group.queries(dseMappingTreeBase);  // Assuming 'queries()' method returns a list of queries.
 
         // Create a Flux from the list of queries and flatMap to handle each one
         return Flux.fromIterable(queryList)
@@ -147,7 +150,7 @@ public class ResourceTransformer {
                             .flatMap(group -> {
                                 // Set of patient IDs that survived for this group
                                 Set<String> safeGroup = new HashSet<>();
-                                List<QueryParams> params = group.queryParams();
+                                List<QueryParams> params = group.queryParams(dseMappingTreeBase);
                                 if (!group.hasMustHave()) {
                                     safeGroup.addAll(batch); // No constraints, all patients are initially safe
                                 }

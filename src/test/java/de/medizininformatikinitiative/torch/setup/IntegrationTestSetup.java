@@ -26,15 +26,16 @@ public class IntegrationTestSetup {
     // Constructor initializes all fields
     public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
-        this.resourceReader=new ResourceReader(ctx);
+        this.resourceReader = new ResourceReader(ctx);
         this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
-        Slicing slicing = new Slicing(cds,ctx);
+        Slicing slicing = new Slicing(cds, ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        this.builder=new FhirPathBuilder(slicing);
-        this.copier = new ElementCopier(cds,ctx,builder);
-        this.redaction = new Redaction(cds,slicing);
+        this.builder = new FhirPathBuilder(slicing);
+        this.copier = new ElementCopier(cds, ctx, builder);
+        this.redaction = new Redaction(cds, slicing);
+
         logger.info("Base test setup complete with immutable configurations.");
     }
 

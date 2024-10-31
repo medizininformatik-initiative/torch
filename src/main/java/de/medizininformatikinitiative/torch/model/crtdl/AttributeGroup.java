@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -63,14 +64,14 @@ public record AttributeGroup(
                 .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter(mappingBase))
                 .collect(Collectors.joining("&"));
      */
-    public List<Query> queries() {
-        List<QueryParams> paramsList = queryParams();
+    public List<Query> queries(DseMappingTreeBase mappingTreeBase) {
+        List<QueryParams> paramsList = queryParams(mappingTreeBase);
         return paramsList.stream()
                 .map(x -> new Query(resourceType(), x))
                 .collect(Collectors.toList());
     }
 
-    public List<QueryParams> queryParams() {
+    public List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
 
         QueryParams dateParams = filter.stream()
                 .filter(f -> "date".equals(f.type()))
@@ -81,7 +82,7 @@ public record AttributeGroup(
 
         return filter.stream()
                 .filter(f -> "token".equals(f.type())) // Only process filters of type "token"
-                .map(Filter::codeFilter)
+                .map(f -> f.codeFilter(mappingTreeBase))
                 .flatMap(code -> code.params().stream())
                 .map(param -> {
                     QueryParams invidividualCodeParams = new QueryParams(List.of(param));

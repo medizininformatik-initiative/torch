@@ -1,20 +1,12 @@
 package de.medizininformatikinitiative.torch.model.fhir;
 
-import de.medizininformatikinitiative.torch.config.SpringContext;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
-
-import static org.assertj.core.api.Assertions.assertThat;
-
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.net.URLEncoder;
@@ -24,7 +16,9 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.when;
 
@@ -37,18 +31,7 @@ class AttributeGroupTest {
     public static final Code CODE1_CHILD1 = new Code("system1", "code1-child1");
     @Mock
     DseMappingTreeBase mappingTreeBase;
-    MockedStatic<SpringContext> mockedSpringContext;
 
-    @BeforeEach
-    public void setup() {
-        mockedSpringContext = Mockito.mockStatic(SpringContext.class);
-        mockedSpringContext.when(SpringContext::getDseMappingTreeBase).thenReturn(mappingTreeBase);
-    }
-
-    @AfterEach
-    public void tearDown() {
-        mockedSpringContext.close();
-    }
 
     @Test
     void codeWithExpandedTokenFilter() {
@@ -57,7 +40,7 @@ class AttributeGroupTest {
         Filter tokenFilter = new Filter("token", "code", List.of(CODE1), null, null);
         AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter), UUID.randomUUID());
 
-        List<QueryParams> result = attributeGroup.queryParams();
+        List<QueryParams> result = attributeGroup.queryParams(mappingTreeBase);
 
         assertThat(result).containsExactly(
                 QueryParams.of("code", codeValue(CODE1)).appendParam("_profile", stringValue("groupRef")),
@@ -75,7 +58,7 @@ class AttributeGroupTest {
         Filter dateFilter = new Filter("date", "date", null, LocalDate.parse("2023-01-01"), LocalDate.parse("2023-12-31"));
         AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(dateFilter, tokenFilter), UUID.randomUUID());
 
-        List<QueryParams> result = attributeGroup.queryParams();
+        List<QueryParams> result = attributeGroup.queryParams(mappingTreeBase);
 
         assertEquals(2, result.size(), "Expected one QueryParams object for each token filter");
         assertEquals("code=system1|code1&date=ge2023-01-01&date=le2023-12-31&_profile=groupRef", result.get(0).toString());

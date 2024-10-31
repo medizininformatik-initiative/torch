@@ -76,7 +76,7 @@ class FilterTest {
         Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
         logger.debug("Filter Code Size {} ", filter.codes().size());
-        var queryParams = filter.codeFilter();
+        var queryParams = filter.codeFilter(mappingTreeBase);
         assertEquals(1, queryParams.params().size(), "Expected 1 param ");
         assertEquals("name-164612=system-a|code-no-children-a", queryParams.toString());
     }
@@ -90,12 +90,10 @@ class FilterTest {
         Code codeB = new Code(SYSTEM_B, CODE_B_NO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB), null, null);
 
-        var queryParams = filter.codeFilter();
+        QueryParams result = filter.codeFilter(mappingTreeBase);
 
-        assertEquals(2, queryParams.params().size(), "Expected 2 param ");
-        assertEquals("name-164612=system-a|code-no-children-a&name-164612=system-b|code-no-children-b", queryParams.toString());
-
-        assertThat(result).isEqualTo("name-164612=system-a%7Ccode-no-children-a,system-b%7Ccode-no-children-b");
+        assertEquals(2, result.params().size(), "Expected 2 param ");
+        assertEquals("name-164612=system-a|code-no-children-a&name-164612=system-b|code-no-children-b", result.toString());
     }
 
     @Test
@@ -106,7 +104,7 @@ class FilterTest {
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
 
 
-        var queryParams = filter.codeFilter();
+        var queryParams = filter.codeFilter(mappingTreeBase);
 
         assertEquals(3, queryParams.params().size(), "Expected 3 params, one parent + 2 children ");
         assertEquals("name-164612=system-a|code-a-two-children&name-164612=system-a|code-a-child-1&name-164612=system-a|code-a-child-2", queryParams.toString());
