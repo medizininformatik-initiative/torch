@@ -44,7 +44,7 @@ jobs:
           queries: security-and-quality
 
       - name: Download Ontology and Build
-        run: mvn -Pdownload-ontology -B verify -X
+        run: mvn -Pdownload-ontology -B verify
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4
