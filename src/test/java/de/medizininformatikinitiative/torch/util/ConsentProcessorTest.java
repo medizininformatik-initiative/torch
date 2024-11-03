@@ -42,8 +42,7 @@ public class ConsentProcessorTest {
     public void testExtractConsentProvisionsValid() {
         DomainResource domainResource = mock(DomainResource.class);
         List<Base> mockProvisions = List.of(mock(Consent.provisionComponent.class));
-        when(fhirPath.evaluate(domainResource, "Consent.provision.provision", Base.class))
-                .thenReturn(mockProvisions);
+        when(fhirPath.evaluate(domainResource, "Consent.provision.provision", Base.class)).thenReturn(mockProvisions);
 
         List<Base> provisions = consentProcessor.extractConsentProvisions(domainResource);
 
@@ -57,12 +56,12 @@ public class ConsentProcessorTest {
         DomainResource domainResource = mock(DomainResource.class);
 
 
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class)))
-                .thenThrow(new RuntimeException("FHIRPath evaluation error"));
+        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenThrow(new RuntimeException("FHIRPath evaluation error"));
 
         List<Base> provisions = consentProcessor.extractConsentProvisions(domainResource);
-
         assertTrue(provisions.isEmpty(), "Expected an empty list when an exception is thrown");
+
+
     }
 
     @Test
@@ -81,8 +80,7 @@ public class ConsentProcessorTest {
         when(mockProvision.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(mockCoding)));
 
 
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class)))
-                .thenReturn(List.of(mockProvision));
+        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(List.of(mockProvision));
 
 
         when(mockPeriod.hasStart()).thenReturn(true);
@@ -107,56 +105,13 @@ public class ConsentProcessorTest {
         Set<String> validCodes = Set.of("VALID_CODE");
 
         // Mock FhirPath to return an empty provision list
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class)))
-                .thenReturn(Collections.emptyList());
+        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(Collections.emptyList());
 
         ConsentViolatedException exception = assertThrows(ConsentViolatedException.class, () -> {
             consentProcessor.transformToConsentPeriodByCode(domainResource, validCodes);
         });
 
         assertEquals("No valid start or end dates found for the provided valid codes", exception.getMessage());
-    }
-
-    @Test
-    @DisplayName("Test transformToConsentPeriodByCode - partial valid periods throws ConsentViolatedException")
-    public void testTransformToConsentPeriodByCodePartialValid() throws ConsentViolatedException {
-        DomainResource domainResource = mock(DomainResource.class);
-
-        // Assume we are requesting two codes, one valid ("VALID_CODE") and one invalid ("INVALID_CODE")
-        Set<String> validCodes = Set.of("VALID_CODE", "INVALID_CODE");
-
-        // Mock provision for VALID_CODE
-        Consent.provisionComponent validProvision = mock(Consent.provisionComponent.class);
-        Period validPeriod = mock(Period.class);
-        when(validProvision.getPeriod()).thenReturn(validPeriod);
-        when(validProvision.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(new Coding().setCode("VALID_CODE"))));
-
-        // Mock start and end elements for VALID_CODE period
-        when(validPeriod.hasStart()).thenReturn(true);
-        when(validPeriod.hasEnd()).thenReturn(true);
-
-        // Mock getStartElement() and getEndElement() to return DateTimeType objects
-        DateTimeType startDateTime = new DateTimeType("2021-01-01");
-        DateTimeType endDateTime = new DateTimeType("2021-12-31");
-        when(validPeriod.getStartElement()).thenReturn(startDateTime);
-        when(validPeriod.getEndElement()).thenReturn(endDateTime);
-        when(validPeriod.getStart()).thenReturn(startDateTime.getValue());
-        when(validPeriod.getEnd()).thenReturn(endDateTime.getValue());
-
-        // Mock provision for INVALID_CODE
-        Consent.provisionComponent invalidProvision = mock(Consent.provisionComponent.class);
-        when(invalidProvision.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(new Coding().setCode("INVALID_CODE"))));
-
-        // Mock FhirPath to return both valid and invalid provisions
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class)))
-                .thenReturn(List.of(validProvision, invalidProvision));
-
-        // We expect an exception because one valid code is missing (INVALID_CODE is invalid)
-        ConsentViolatedException exception = assertThrows(ConsentViolatedException.class, () -> {
-            consentProcessor.transformToConsentPeriodByCode(domainResource, validCodes);
-        });
-
-        assertEquals("Resource does not have valid consents for every requested code", exception.getMessage());
     }
 
 
@@ -181,8 +136,7 @@ public class ConsentProcessorTest {
         when(validPeriod1.getEndElement()).thenReturn(new DateTimeType("2021-12-31"));
 
         // Only VALID_CODE_1 is provided, VALID_CODE_2 is missing
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class)))
-                .thenReturn(List.of(validProvision1));  // Only one valid provision
+        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(List.of(validProvision1));  // Only one valid provision
 
         // Since VALID_CODE_2 is missing, an exception should be thrown
         ConsentViolatedException exception = assertThrows(ConsentViolatedException.class, () -> {

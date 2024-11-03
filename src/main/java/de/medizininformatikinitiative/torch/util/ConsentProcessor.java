@@ -1,16 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import ca.uhn.fhir.context.FhirContext;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.DateTimeType;
 
 import java.util.*;
 
@@ -79,21 +75,26 @@ public class ConsentProcessor {
         // Iterate over the provisions to find periods for each valid code
         for (Base provisionBase : provisionPeriodList) {
             try {
+
                 // Cast the base provision to Consent.provisionComponent
                 Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
+
+                // Extract the code associated with the provision
+                String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
+                // Check if the code is in the list of valid codes
+                if (!validCodes.contains(code)) {
+                    logger.debug("Invalid Code found {}", code);
+                    continue; // Skip if code is not valid
+                }
+
+                logger.debug("Period found {}", code);
 
                 // Retrieve the period of the provision
                 Period period = provision.getPeriod();
 
-                // Extract the code associated with the provision
-                String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
 
                 logger.debug("Period found {} {} Code {}", period.getStart(), period.getEnd(), code);
 
-                // Check if the code is in the list of valid codes
-                if (!validCodes.contains(code)) {
-                    continue; // Skip if code is not valid
-                }
 
                 logger.debug("Found valid code {}", code);
 

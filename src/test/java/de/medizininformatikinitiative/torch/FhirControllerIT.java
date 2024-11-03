@@ -14,9 +14,7 @@ import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.*;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,7 +24,6 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.*;
-import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -49,11 +46,11 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class FhirControllerIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
-
-    protected static boolean dataImported = false;
+    
 
     @Autowired
     ResourceReader resourceReader;
@@ -97,8 +94,7 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
-                            Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
@@ -112,50 +108,43 @@ public class FhirControllerIT {
 
     }
 
-    @BeforeEach
+    @BeforeAll
     void init() throws IOException {
-        if (!dataImported) {
-            manager.startContainers();
+
+        manager.startContainers();
 
 
-            webClient.post()
-                    .bodyValue(Files.readString(Path.of(testPopulationPath)))
-                    .header("Content-Type", "application/fhir+json")
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-            dataImported = true;
-            logger.info("Data Import on {}", webClient.options());
-        }
-        logger.info("Setup Complete");
+        webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
+        logger.info("Data Import on {}", webClient.options());
+
     }
 
+    @AfterAll
+    void tearDown() {
+        manager.stopContainers();
+        logger.info("Containers stopped after all tests.");
+    }
+
+
     @Test
-    @DirtiesContext
     public void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<String> entity = new HttpEntity<>(null, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                "http://localhost:" + port + "/fhir/metadata",
-                HttpMethod.GET, entity, String.class);
+        ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
         assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
     }
 
     @Test
-    @DirtiesContext
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
         HttpHeaders headers = new HttpHeaders();
 
         headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of(
-                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-        );
+        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
 
-        List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
+        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
@@ -164,12 +153,9 @@ public class FhirControllerIT {
         HttpHeaders headers = new HttpHeaders();
 
         headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of(
-                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-        );
+        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
 
-        List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
+        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
@@ -180,17 +166,10 @@ public class FhirControllerIT {
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
         fis.close();
-        String responseBody = flareClient.post()
-                .uri("/query/execute-cohort")
-                .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.cohortDefinition().toString())
-                .retrieve()
-                .onStatus(status -> status.value() == 404, clientResponse -> {
-                    logger.error("Received 404 Not Found");
-                    return clientResponse.createException();
-                })
-                .bodyToMono(String.class)
-                .block();  // Blocking to get the response synchronously
+        String responseBody = flareClient.post().uri("/query/execute-cohort").contentType(MediaType.parseMediaType("application/sq+json")).bodyValue(crtdl.cohortDefinition().toString()).retrieve().onStatus(status -> status.value() == 404, clientResponse -> {
+            logger.error("Received 404 Not Found");
+            return clientResponse.createException();
+        }).bodyToMono(String.class).block();  // Blocking to get the response synchronously
 
         logger.debug("Response Body: {}", responseBody);
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
@@ -220,53 +199,23 @@ public class FhirControllerIT {
 
     @Test
     public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json",
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json",
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
     }
 
     @Test
     public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"));
     }
 
     @Test
 
     public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
     }
 
     @Test
     public void testAllFields() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
     }
 
 
@@ -301,14 +250,11 @@ public class FhirControllerIT {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
 
-            StepVerifier.create(collectedResourcesMono)
-                    .expectNextMatches(combinedResourcesByPatientId -> {
-                        Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                        fhirTestHelper.validateBundles(bundles, expectedResources);
-                        return true;
-                    })
-                    .expectComplete()
-                    .verify();
+            StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
+                Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                fhirTestHelper.validateBundles(bundles, expectedResources);
+                return true;
+            }).expectComplete().verify();
         } catch (IOException e) {
             logger.error("CRTDL file not found: {}", filePath, e);
         }
@@ -325,9 +271,7 @@ public class FhirControllerIT {
 
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
-                    ResponseEntity<String> response = restTemplate.exchange(
-                            url,
-                            HttpMethod.POST, entity, String.class);
+                    ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
                     logger.info("Got the following response{}", response.toString());
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
 
@@ -355,9 +299,7 @@ public class FhirControllerIT {
                 logger.info("Status URL {}", statusUrl);
 
                 // Perform the exchange and get the response
-                ResponseEntity<String> response = restTemplate.exchange(
-                        statusUrl,
-                        HttpMethod.GET, entity, String.class);
+                ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
 
                 // Log the full call result and response body
                 logger.info("Call result {} {}", i, response);

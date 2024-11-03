@@ -11,6 +11,7 @@ import org.slf4j.LoggerFactory;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -73,22 +74,37 @@ public record AttributeGroup(
 
     public List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
 
+        List<QueryParams> paramsList = filter.stream()
+                .filter(f -> "token".equals(f.type()))
+                .map(f -> f.codeFilter(mappingTreeBase))
+                .filter(Objects::nonNull)
+                .flatMap(code -> code.params().stream())
+                .map(param -> {
+                    QueryParams individualCodeParams = new QueryParams(List.of(param));
+                    return individualCodeParams;
+                })
+                .collect(Collectors.toList());
+
         QueryParams dateParams = filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
                 .orElse(EMPTY);
 
+        if (paramsList.isEmpty()) {
+            // Add a single QueryParams with the date filter (if available) and profile parameter
+            QueryParams defaultParams = EMPTY
+                    .appendParams(dateParams)
+                    .appendParam("_profile", QueryParams.stringValue(groupReference));
+            paramsList.add(defaultParams);
+        } else {
+            paramsList = paramsList.stream()
+                    .map(p -> p.appendParams(dateParams))
+                    .map(p -> p.appendParam("_profile", QueryParams.stringValue(groupReference)))
+                    .collect(Collectors.toList());
+        }
 
-        return filter.stream()
-                .filter(f -> "token".equals(f.type())) // Only process filters of type "token"
-                .map(f -> f.codeFilter(mappingTreeBase))
-                .flatMap(code -> code.params().stream())
-                .map(param -> {
-                    QueryParams invidividualCodeParams = new QueryParams(List.of(param));
-                    return invidividualCodeParams.appendParams(dateParams).appendParam("_profile", QueryParams.stringValue(groupReference));
-                })
-                .collect(Collectors.toList());
+        return paramsList;
     }
 
 

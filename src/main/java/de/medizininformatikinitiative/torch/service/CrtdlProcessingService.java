@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,6 +23,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -44,15 +46,15 @@ public class CrtdlProcessingService {
     private final Boolean useCql;
     private final Translator cqlQueryTranslator;
 
-    public CrtdlProcessingService( @Qualifier("flareClient") WebClient webClient,
-                                   Translator cqlQueryTranslator,
-                                   CqlClient cqlClient,
-                                   ResultFileManager resultFileManager,
-                                   ResourceTransformer transformer,
-                                   BundleCreator bundleCreator,
-                                   @Value("${torch.batchsize:10}") int batchsize,
-                                   @Value("5") int maxConcurrency,
-                                   @Value("${torch.useCql}") boolean useCql) {
+    public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
+                                  Translator cqlQueryTranslator,
+                                  CqlClient cqlClient,
+                                  ResultFileManager resultFileManager,
+                                  ResourceTransformer transformer,
+                                  BundleCreator bundleCreator,
+                                  @Value("${torch.batchsize:10}") int batchsize,
+                                  @Value("5") int maxConcurrency,
+                                  @Value("${torch.useCql}") boolean useCql) {
         this.webClient = webClient;
         this.transformer = transformer;
         this.bundleCreator = bundleCreator;
@@ -68,35 +70,58 @@ public class CrtdlProcessingService {
 
     public Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
         return fetchPatientList(crtdl)
-                .flatMapMany(patientList -> {
+                .flatMap(patientList -> {
                     if (patientList.isEmpty()) {
-                        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: ");
+                        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: No patients found.");
+                        return Mono.empty();
                     }
-                    List<List<String>> batches = splitListIntoBatches(patientList, batchSize);
-                    return Flux.fromIterable(batches);
+                    return Flux.fromIterable(splitListIntoBatches(patientList, batchSize))
+                            .flatMap(batch -> processBatch(crtdl, batch, jobId), maxConcurrency)
+                            .then();
+                });
+    }
+
+    Mono<Void> processBatch(Crtdl crtdl, List<String> batch, String jobId) {
+        logger.info("Processing batch {}", batch);
+        return transformer.collectResourcesByPatientReference(crtdl, batch)
+                .doOnNext(resourceMap -> logger.info("Collected resources: {}", resourceMap))
+                .onErrorResume(error -> {
+                    handleBatchError(jobId, error);
+                    logger.error("Error in collectResourcesByPatientReference: {}", error.getMessage());
+                    return Mono.empty();
                 })
-                .flatMap(batch -> transformer.collectResourcesByPatientReference(crtdl, batch)
-                        .onErrorResume(e -> {
-                            resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + e.getMessage());
-                            logger.error("Error in collectResourcesByPatientReference for batch: {}", e.getMessage());
-                            return Mono.empty();
-                        })
-                        .filter(resourceMap -> !resourceMap.isEmpty())
-                        .flatMap(resourceMap -> {
-                            Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
-                            UUID uuid = UUID.randomUUID();
-                            return Flux.fromIterable(bundles.values())
-                                    .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, uuid.toString(), bundle)
-                                                    .subscribeOn(Schedulers.boundedElastic())
-                                                    .doOnSuccess(unused -> logger.debug("Bundle appended: {}", uuid)),
-                                            maxConcurrency)
-                                    .then();
-                        }), maxConcurrency)
-                .doOnError(error -> {
-                    resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
-                    logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
+                .filter(resourceMap -> {
+                    boolean isNotEmpty = !resourceMap.isEmpty();
+                    logger.debug("Resource map is empty: {}", !isNotEmpty);
+                    return isNotEmpty;
                 })
+                .flatMap(resourceMap -> saveResourcesAsBundles(jobId, resourceMap)
+                        .doOnSuccess(unused -> logger.info("Successfully saved resources for jobId: {}", jobId))
+                        .doOnError(error -> logger.error("Error in saveResourcesAsBundles: {}", error.getMessage()))
+                );
+    }
+
+
+    Mono<Void> saveResourcesAsBundles(String jobId, Map<String, Collection<Resource>> resourceMap) {
+        Map<String, Bundle> bundles = bundleCreator.createBundles(resourceMap);
+        UUID batchId = UUID.randomUUID();
+
+        return Flux.fromIterable(bundles.values())
+                .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle)
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .doOnSuccess(unused -> logger.debug("Bundle appended: {}", batchId)), maxConcurrency)
                 .then();
+    }
+
+    private Mono<Void> handleBatchError(String jobId, Throwable error) {
+        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + error.getMessage());
+        logger.error("Error in collectResourcesByPatientReference for batch: {}", error.getMessage());
+        return Mono.empty();
+    }
+
+    private void handleError(String jobId, Throwable error) {
+        resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
+        logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
     }
 
     public Mono<List<String>> fetchPatientList(Crtdl crtdl) {

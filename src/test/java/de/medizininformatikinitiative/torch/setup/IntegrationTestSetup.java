@@ -40,7 +40,7 @@ public class IntegrationTestSetup {
     }
 
     // Provide getter methods for accessing the initialized objects
-    public FhirContext getFhirContext() {
+    public FhirContext fhirContext() {
         return ctx;
     }
 

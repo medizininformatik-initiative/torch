@@ -39,7 +39,7 @@ public class CopyTestIT {
         Arrays.stream(resources).forEach(resource -> {
             try {
                 DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/CopyTest/expectedOutput/"+resource);
+                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/CopyTest/expectedOutput/" + resource);
                 Class<? extends DomainResource> resourceClass = resourceSrc.getClass().asSubclass(DomainResource.class);
                 DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
@@ -50,8 +50,8 @@ public class CopyTestIT {
 
                 assertNotNull(tgt);
                 assertEquals(
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt),
                         resource + " Expected not equal to actual output"
                 );
 
@@ -72,8 +72,8 @@ public class CopyTestIT {
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
-            integrationTestSetup.getCopier().copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
-            integrationTestSetup.getCopier().copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
+            integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.value[x]:valueCodeableConcept.coding.display", false));
+            integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.value[x]", false));
 
             assertNotNull(tgt);
         } catch (Exception e) {
@@ -93,11 +93,11 @@ public class CopyTestIT {
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.low", false));
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.referenceRange.high", false));
             integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.interpretation", false));
-            integrationTestSetup.getCopier().copy(resourcesrc,tgt,new Attribute("Observation.value[x]:valueCodeableConcept.coding.display",false));
-            integrationTestSetup.getCopier().copy(resourcesrc,tgt,new Attribute("Observation.value[x]",false));
+            integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.value[x]:valueCodeableConcept.coding.display", false));
+            integrationTestSetup.getCopier().copy(resourcesrc, tgt, new Attribute("Observation.value[x]", false));
 
             assertNotNull(tgt);
-            logger.info(integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
+            logger.info(integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
         } catch (Exception e) {
             logger.error("", e);
             fail("Deserialization failed: " + e.getMessage(), e);

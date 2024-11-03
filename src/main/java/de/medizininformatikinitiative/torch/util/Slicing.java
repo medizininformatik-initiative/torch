@@ -99,7 +99,7 @@ public class Slicing {
      */
     public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         List<String> conditions = new ArrayList<>();
-
+        logger.info(" ElementID: {}", elementID);
         // Find the sliced element using the element ID
         ElementDefinition slicedElement = snapshot.getElementById(elementID);
         if (slicedElement == null) {
@@ -167,7 +167,7 @@ public class Slicing {
             return conditions;
         }
         if (elementDefinition.hasFixedOrPattern()) {
-            //While deprecated the term pattern describes it better unlike value.
+
             Element pattern = elementDefinition.getFixedOrPattern();
             logger.debug("Got Pattern ");
             conditions.addAll(traverseValueRec(elementDefinition.getPath(), pattern));
