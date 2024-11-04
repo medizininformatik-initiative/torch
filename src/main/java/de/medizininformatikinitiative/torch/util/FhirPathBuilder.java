@@ -11,6 +11,10 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
+/**
+ * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
+ */
 public class FhirPathBuilder {
 
     Factory factory = new Factory();

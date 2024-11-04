@@ -31,6 +31,9 @@ import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.util.BatchUtils.queryElements;
 
+/**
+ * Transformer class, that handles the collecting of Resources from the datastore and the transformation of them according to the crtdl.
+ */
 @Component
 public class ResourceTransformer {
 

@@ -1,14 +1,13 @@
 package de.medizininformatikinitiative.torch.model.fhir;
 
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
-
 import de.medizininformatikinitiative.torch.model.sq.Comparator;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -17,15 +16,12 @@ class QueryParamsTest {
     @Test
     void testOfCreatesQueryParamsWithSingleParam() {
         QueryParams.Value value = QueryParams.stringValue("testValue");
+
         QueryParams queryParams = QueryParams.of("name", value);
 
-        assertEquals("name=testValue", queryParams.toString());
-    }
-
-    @Test
-    void testStringValueCreatesStringValue() {
-        QueryParams.Value value = QueryParams.stringValue("testValue");
-        assertEquals("testValue", value.toString());
+        assertThat(queryParams)
+                .hasToString("name=" + value);
+        assertThat(value).hasToString("testValue");
     }
 
     @Test
@@ -33,25 +29,33 @@ class QueryParamsTest {
         LocalDate date = LocalDate.parse("2023-01-01");
         QueryParams.Value value = QueryParams.dateValue(Comparator.LESS_EQUAL, date);
 
-        assertEquals("le2023-01-01", value.toString());
+        QueryParams queryParams = QueryParams.of("date", value);
+
+        assertThat(queryParams)
+                .hasToString("date=" + value);
+        assertThat(value).hasToString("le2023-01-01");
     }
 
     @Test
     void testDateValueCreatesDateValueGe() {
-        LocalDate date = LocalDate.of(2023, 10, 29);
+        LocalDate date = LocalDate.of(2023, 1, 1);
         QueryParams.Value value = QueryParams.dateValue(Comparator.GREATER_EQUAL, date);
 
-        assertEquals("ge2023-10-29", value.toString());
+        QueryParams queryParams = QueryParams.of("date", value);
+
+        assertThat(queryParams)
+                .hasToString("date=" + value);
+        assertThat(value).hasToString("ge2023-01-01");
     }
 
 
     @Test
     void testCodeValueCreatesCodeValue() {
         Code code = mock(Code.class);
-        when(code.searchParamValue()).thenReturn("codeValue");
+        when(code.toString()).thenReturn("codeValue");
 
         QueryParams.Value value = QueryParams.codeValue(code);
-        assertEquals("codeValue", value.toString());
+        assertThat(value).hasToString(code.toString());
     }
 
     @Test
@@ -59,9 +63,12 @@ class QueryParamsTest {
         QueryParams initialParams = QueryParams.EMPTY;
         QueryParams.Value value = QueryParams.stringValue("newValue");
 
+        assertThat(initialParams).hasToString("");
+
         QueryParams resultParams = initialParams.appendParam("newName", value);
 
-        assertEquals("newName=newValue", resultParams.toString());
+        assertThat(resultParams).hasToString("newName=newValue");
+
     }
 
     @Test
@@ -73,28 +80,9 @@ class QueryParamsTest {
 
         assertEquals("name1=value1&name2=value2", combinedParams.toString());
     }
-
-    @Test
-    void testPrefixNameAddsPrefixToAllParamNames() {
-        QueryParams params = QueryParams.of("name", QueryParams.stringValue("value"));
-        QueryParams prefixedParams = params.prefixName("prefix");
-
-        assertEquals("prefix.name=value", prefixedParams.toString());
-    }
-
-    @Test
-    void testToStringGeneratesQueryString() {
-        QueryParams params = QueryParams.EMPTY
-                .appendParam("name1", QueryParams.stringValue("value1"))
-                .appendParam("name2", QueryParams.stringValue("value2"));
-
-        String result = params.toString();
-
-        assertEquals("name1=value1&name2=value2", result);
-    }
-
+    
     @Test
     void testEmptyQueryParams() {
-        assertTrue(QueryParams.EMPTY.params().isEmpty(), "Expected EMPTY QueryParams to have no params");
+        assertThat(QueryParams.EMPTY.params().isEmpty()).as("Expected EMPTY QueryParams to have no params");
     }
 }

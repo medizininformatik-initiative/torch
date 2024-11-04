@@ -8,12 +8,14 @@ import java.io.FileNotFoundException;
 import java.io.IOException;
 
 
+/**
+ * Util class for reading FHIR resources from File
+ */
 public class ResourceReader {
 
 
-
-    public ResourceReader(FhirContext ctx){
-    this.ctx=ctx;
+    public ResourceReader(FhirContext ctx) {
+        this.ctx = ctx;
     }
 
     protected FhirContext ctx = null;

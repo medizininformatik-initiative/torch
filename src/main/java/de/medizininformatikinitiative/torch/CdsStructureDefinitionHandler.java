@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.StructureDefinition;
@@ -11,15 +10,20 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 
+/**
+ * Structure for loading and serving the CDS structrue definitions
+ */
+
 @Component
 public class CdsStructureDefinitionHandler {
 
 
     private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
-    protected  ResourceReader resourceReader;
+    protected ResourceReader resourceReader;
+
     public CdsStructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
         try {
-            this.resourceReader=resourceReader;
+            this.resourceReader = resourceReader;
             processDirectory(fileDirectory);
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -66,6 +70,7 @@ public class CdsStructureDefinitionHandler {
         }
         return null;
     }
+
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         return (definitionsMap.get(url)).getSnapshot();
 

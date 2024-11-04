@@ -15,6 +15,9 @@ import java.util.stream.Collectors;
 
 @Component
 
+/**
+ * Bundle creator for collecting Resources by patient into bundles for export
+ */
 
 public class BundleCreator {
     private static final Logger logger = LoggerFactory.getLogger(BundleCreator.class);
@@ -23,7 +26,7 @@ public class BundleCreator {
     @Autowired
     FhirContext context;
 
-    org.hl7.fhir.r4.model.Bundle.HTTPVerb method=Bundle.HTTPVerb.PUT;
+    org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
     public BundleCreator() {
 

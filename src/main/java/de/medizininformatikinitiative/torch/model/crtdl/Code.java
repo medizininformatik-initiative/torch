@@ -20,7 +20,8 @@ public record Code(
         this(system, code, "", "");
     }
 
-    public String searchParamValue() {
+    @Override
+    public String toString() {
         return system + "|" + code;
     }
 }

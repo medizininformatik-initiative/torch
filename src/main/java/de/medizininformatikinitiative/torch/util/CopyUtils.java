@@ -5,9 +5,9 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 
-/*
-Util class for copying and redacting.
-Contains some basic string manipulations and setter reflection
+/**
+ * Util class for copying and redacting.
+ * Contains some basic string manipulations and setter reflection
  */
 public class CopyUtils {
 

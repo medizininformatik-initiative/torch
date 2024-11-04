@@ -37,8 +37,10 @@ public record QueryParams(List<Param> params) {
     }
 
     public static Value codeValue(Code value) {
-    return new CodeValue(value);
-    };
+        return new CodeValue(value);
+    }
+
+    ;
 
     private record CodeValue(Code value) implements Value {
 
@@ -48,9 +50,10 @@ public record QueryParams(List<Param> params) {
 
         @Override
         public String toString() {
-            return value.searchParamValue();
+            return value.toString();
         }
     }
+
     /**
      * Appends a param with {@code name} and {@code value}.
      *
@@ -116,6 +119,7 @@ public record QueryParams(List<Param> params) {
             return value;
         }
     }
+
     private record DateValue(Comparator comparator, LocalDate value) implements Value {
 
         private DateValue {
@@ -128,9 +132,6 @@ public record QueryParams(List<Param> params) {
             return comparator.toString() + value;
         }
     }
-
-
-
 
 
 }

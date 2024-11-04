@@ -22,8 +22,8 @@ import java.util.Objects;
 
 import static de.medizininformatikinitiative.torch.util.CopyUtils.*;
 
-/*
-Copying class using FHIR Path and Terser from Hapi
+/**
+ * Copying class using FHIR Path and Terser from Hapi
  */
 public class ElementCopier {
     private static final Logger logger = LoggerFactory.getLogger(ElementCopier.class);

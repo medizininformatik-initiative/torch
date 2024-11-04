@@ -8,7 +8,8 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Objects;
 
-/*Resolves Slicing Discrminators. Essential for handling slicing
+/**
+ * Resolves Slicing Discriminators. Essential for handling slicing
  */
 public class DiscriminatorResolver {
 

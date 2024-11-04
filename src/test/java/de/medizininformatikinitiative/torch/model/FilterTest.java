@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.model.sq.Comparator;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -15,7 +16,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -24,14 +25,17 @@ class FilterTest {
     private static final Logger logger = LoggerFactory.getLogger(FilterTest.class);
 
     static final String FILTER_TYPE_TOKEN = "token";
-    static final String NAME = "name-164612";
+    static final String NAME = "name";
     static final String SYSTEM_A = "system-a";
     static final String SYSTEM_B = "system-b";
     static final String CODE_A_NO_CHILDREN = "code-no-children-a";
     static final String CODE_B_NO_CHILDREN = "code-no-children-b";
-    static final String CODE_A_TWO_CHILDREN = "code-a-two-children";
+    static final String CODE_A_1_CHILD = "code-a-two-children";
     static final String CODE_A_CHILD_1 = "code-a-child-1";
     static final String CODE_A_CHILD_2 = "code-a-child-2";
+
+    static final LocalDate START_DATE = LocalDate.of(2023, 1, 1);
+    static final LocalDate END_DATE = LocalDate.of(2023, 12, 31);
 
     @Mock
     DseMappingTreeBase mappingTreeBase;
@@ -40,31 +44,34 @@ class FilterTest {
     @Test
     void testDateFilterWithStartAndEnd() {
         // Both start and end dates are provided
-        Filter filter = new Filter("date", "testDateField", null, LocalDate.parse("2023-01-01"), LocalDate.parse("2023-12-31"));
-        QueryParams queryParams = filter.dateFilter();
+        Filter filter = new Filter("date", "date", null, START_DATE, END_DATE);
 
-        assertEquals(2, queryParams.params().size(), "Expected 2 params for both start and end dates");
-        assertEquals("testDateField=ge2023-01-01&testDateField=le2023-12-31", queryParams.toString());
+        QueryParams result = filter.dateFilter();
+
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("date", QueryParams.dateValue(Comparator.GREATER_EQUAL, START_DATE)).appendParam("date", QueryParams.dateValue(Comparator.LESS_EQUAL, END_DATE)));
+        assertThat(result.params().size()).isEqualTo(2);
     }
 
     @Test
     void testDateFilterWithOnlyStart() {
         // Only start date is provided
-        Filter filter = new Filter("date", "testDateField", null, LocalDate.parse("2023-01-01"), null);
-        QueryParams queryParams = filter.dateFilter();
+        Filter filter = new Filter("date", "date", null, START_DATE, null);
 
-        assertEquals(1, queryParams.params().size(), "Expected 1 param for only start date");
-        assertEquals("testDateField=ge2023-01-01", queryParams.toString());
+        QueryParams result = filter.dateFilter();
+
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("date", QueryParams.dateValue(Comparator.GREATER_EQUAL, START_DATE)));
+        assertThat(result.params().size()).isEqualTo(1);
     }
 
     @Test
     void testDateFilterWithOnlyEnd() {
         // Only end date is provided
-        Filter filter = new Filter("date", "testDateField", null, null, LocalDate.parse("2023-12-31"));
-        QueryParams queryParams = filter.dateFilter();
+        Filter filter = new Filter("date", "date", null, null, LocalDate.parse("2023-12-31"));
 
-        assertEquals(1, queryParams.params().size(), "Expected 1 param");
-        assertEquals("testDateField=le2023-12-31", queryParams.toString());
+        QueryParams result = filter.dateFilter();
+
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("date", QueryParams.dateValue(Comparator.LESS_EQUAL, END_DATE)));
+        assertThat(result.params().size()).isEqualTo(1);
     }
 
     @Test
@@ -74,9 +81,11 @@ class FilterTest {
         Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
         logger.debug("Filter Code Size {} ", filter.codes().size());
-        var queryParams = filter.codeFilter(mappingTreeBase);
-        assertEquals(1, queryParams.params().size(), "Expected 1 param ");
-        assertEquals("name-164612=system-a|code-no-children-a", queryParams.toString());
+
+        var result = filter.codeFilter(mappingTreeBase);
+
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("name", QueryParams.codeValue(code)));
+        assertThat(result.params().size()).isEqualTo(1);
     }
 
     @Test
@@ -90,22 +99,23 @@ class FilterTest {
 
         QueryParams result = filter.codeFilter(mappingTreeBase);
 
-        assertEquals(2, result.params().size(), "Expected 2 param ");
-        assertEquals("name-164612=system-a|code-no-children-a&name-164612=system-b|code-no-children-b", result.toString());
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("name", QueryParams.codeValue(codeA)).appendParam("name", QueryParams.codeValue(codeB)));
+        assertThat(result.params().size()).isEqualTo(2);
     }
 
     @Test
     void testOneCodeTwoChildren() {
-        when(mappingTreeBase.expand(SYSTEM_A, CODE_A_TWO_CHILDREN)).thenReturn(Stream.of(CODE_A_TWO_CHILDREN, CODE_A_CHILD_1, CODE_A_CHILD_2));
+        when(mappingTreeBase.expand(SYSTEM_A, CODE_A_1_CHILD)).thenReturn(Stream.of(CODE_A_1_CHILD, CODE_A_CHILD_1));
 
-        Code code = new Code(SYSTEM_A, CODE_A_TWO_CHILDREN);
+        Code code = new Code(SYSTEM_A, CODE_A_1_CHILD);
+        Code code_child = new Code(SYSTEM_A, CODE_A_CHILD_1);
         Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
 
 
-        var queryParams = filter.codeFilter(mappingTreeBase);
+        var result = filter.codeFilter(mappingTreeBase);
 
-        assertEquals(3, queryParams.params().size(), "Expected 3 params, one parent + 2 children ");
-        assertEquals("name-164612=system-a|code-a-two-children&name-164612=system-a|code-a-child-1&name-164612=system-a|code-a-child-2", queryParams.toString());
+        assertThat(result).isEqualTo(QueryParams.EMPTY.appendParam("name", QueryParams.codeValue(code)).appendParam("name", QueryParams.codeValue(code_child)));
+        assertThat(result.params().size()).isEqualTo(2);
 
     }
 }
