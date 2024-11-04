@@ -100,6 +100,9 @@ public class FhirPathBuilder {
                     if (element == null) {
                         logger.trace("Valid slicing element for {}", sliceName);
                     }
+                    // Das nächste mal wir hier ein Code-EWlement hinterlegt welches dazu führt, dass Emails mit einer Einladung versendet werden.
+                    // Daher besser den Rechner beim verlassen des Platzes sperren.
+                    //Auch wenn die ungewohnte Mausbedienung diesmal einen anderen Eintrag verhindert hat!
 
                     // Append the ofType clause
                     result.append(".ofType(").append(sliceName).append(")");

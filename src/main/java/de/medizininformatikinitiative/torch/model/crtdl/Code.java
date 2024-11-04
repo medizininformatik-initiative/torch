@@ -7,7 +7,8 @@ import static java.util.Objects.requireNonNull;
 public record Code(
         @JsonProperty(required = true) String system,
         @JsonProperty(required = true) String code,
-        @JsonProperty(required = true) String display
+        @JsonProperty(required = true) String display,
+        String version
 ) {
     public Code {
         requireNonNull(system);
@@ -16,7 +17,7 @@ public record Code(
     }
 
     public Code(String system, String code) {
-        this(system, code, "");
+        this(system, code, "", "");
     }
 
     public String searchParamValue() {
