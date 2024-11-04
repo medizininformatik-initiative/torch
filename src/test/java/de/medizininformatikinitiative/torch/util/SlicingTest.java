@@ -17,14 +17,12 @@ import static org.junit.jupiter.api.Assertions.*;
 class SlicingTest {
     private static final Logger logger = LoggerFactory.getLogger(SlicingTest.class);
 
-    private FhirContext context;
-    private CdsStructureDefinitionHandler handler;
     private Slicing slicing;
 
     @BeforeEach
     void setUp() {
-        context = FhirContext.forR4();
-        handler = Mockito.mock(CdsStructureDefinitionHandler.class);
+        FhirContext context = FhirContext.forR4();
+        CdsStructureDefinitionHandler handler = Mockito.mock(CdsStructureDefinitionHandler.class);
         slicing = new Slicing(handler, context);
     }
 

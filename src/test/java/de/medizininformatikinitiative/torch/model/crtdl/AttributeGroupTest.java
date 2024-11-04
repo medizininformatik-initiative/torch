@@ -1,9 +1,7 @@
-package de.medizininformatikinitiative.torch.model.fhir;
+package de.medizininformatikinitiative.torch.model.crtdl;
 
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
-import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
-import de.medizininformatikinitiative.torch.model.crtdl.Code;
-import de.medizininformatikinitiative.torch.model.crtdl.Filter;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -9,16 +9,12 @@ import org.slf4j.LoggerFactory;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Crtdl(
 
-        @JsonProperty(value="version", required = true)
+        @JsonProperty(required = true)
         String version,
-
-        @JsonProperty("display")
         String display,
-
-        @JsonProperty(value = "cohortDefinition",required = true)
+        @JsonProperty(required = true)
         JsonNode cohortDefinition,
-
-        @JsonProperty(value = "dataExtraction",required = true)
+        @JsonProperty(required = true)
         DataExtraction dataExtraction
 ) {
     private static final Logger logger = LoggerFactory.getLogger(Crtdl.class);

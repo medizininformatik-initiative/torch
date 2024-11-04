@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Objects;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 
@@ -41,7 +40,7 @@ public class Redaction {
          * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
          */
         StructureDefinition structureDefinition;
-        String elementID = "";
+        String elementID;
         if (base instanceof DomainResource resource) {
             if (resource.hasMeta()) {
 
@@ -65,12 +64,11 @@ public class Redaction {
      * @param base                Base to be redacted (e.g. a Ressource or an Element)
      * @param elementID           "Element ID of parent currently handled initially empty String"
      * @param recursion           "Resurcion depth (for debug purposes)
-     * @param structureDefinition
+     * @param structureDefinition Structure definition of the Resource.
      * @return redacted Base
      */
     public Base redact(Base base, String elementID, int recursion, StructureDefinition structureDefinition) {
 
-        AtomicBoolean childrenEmpty = new AtomicBoolean(true);
         recursion++;
 
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
@@ -124,10 +122,7 @@ public class Redaction {
                 }
             }
             if (child.hasValues() && childDefinition != null) {
-                childrenEmpty.set(false);
 
-
-                String finalChildID = childID;
                 String finalType = type;
                 //List Handling
                 int finalMin = min;
@@ -138,7 +133,7 @@ public class Redaction {
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
 
-                        redact(value, finalChildID, finalRecursion, structureDefinition);
+                        redact(value, childID, finalRecursion, structureDefinition);
                     }
                 });
 

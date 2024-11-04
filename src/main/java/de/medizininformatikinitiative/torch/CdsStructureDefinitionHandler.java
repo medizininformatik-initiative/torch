@@ -18,7 +18,7 @@ import java.util.List;
 public class CdsStructureDefinitionHandler {
 
 
-    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
+    private final HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
     protected ResourceReader resourceReader;
 
     public CdsStructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
@@ -33,9 +33,6 @@ public class CdsStructureDefinitionHandler {
 
     /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
-     *
-     * @param filePath
-     * @throws IOException
      */
     public void readStructureDefinition(String filePath) throws IOException {
         StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
@@ -79,9 +76,6 @@ public class CdsStructureDefinitionHandler {
 
     /**
      * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap
-     *
-     * @param directoryPath the path to the directory containing JSON files
-     * @throws IOException
      */
     private void processDirectory(String directoryPath) throws IOException {
         File directory = new File(directoryPath);

@@ -8,6 +8,7 @@ import java.util.List;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record DataExtraction(
 
-        @JsonProperty(value ="attributeGroups", required = true)
+        @JsonProperty(required = true)
         List<AttributeGroup> attributeGroups
-) {}
+) {
+}

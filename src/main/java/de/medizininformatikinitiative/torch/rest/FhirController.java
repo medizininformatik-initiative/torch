@@ -158,7 +158,7 @@ public class FhirController {
             String requestUrl = request.uri().toString();
             String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
 
-            return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, requestUrl, transactionTime))
+            return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, transactionTime))
                     .flatMap(bundleMap -> {
                         if (bundleMap == null) {
                             return ServerResponse.notFound().build();

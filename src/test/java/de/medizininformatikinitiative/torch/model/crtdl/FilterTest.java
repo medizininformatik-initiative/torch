@@ -1,7 +1,5 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.crtdl;
 
-import de.medizininformatikinitiative.torch.model.crtdl.Code;
-import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.sq.Comparator;

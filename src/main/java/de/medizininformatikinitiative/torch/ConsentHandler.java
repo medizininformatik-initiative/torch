@@ -11,7 +11,6 @@ import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -57,10 +56,8 @@ public class ConsentHandler {
      * @param mapper                        The {@link ConsentCodeMapper} for mapping consent codes.
      * @param profilePath                   The file system path to the consent profile mapping configuration.
      * @param cdsStructureDefinitionHandler The {@link CdsStructureDefinitionHandler} for handling structure definitions.
-     * @param objectMapper
      * @throws IOException If an error occurs while reading the mapping profile file.
      */
-    @Autowired
     public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
@@ -133,7 +130,7 @@ public class ConsentHandler {
                     throw new IllegalArgumentException("No valid Date Time Value found");
                 }
 
-                String patientID = null;
+                String patientID;
                 try {
                     patientID = ResourceUtils.getPatientId(resource);
                 } catch (PatientIdNotFoundException e) {
@@ -202,7 +199,7 @@ public class ConsentHandler {
                     return Flux.empty();
                 })
 
-                .map(resource -> {
+                .<Map<String, Map<String, List<Period>>>>handle((resource, sink) -> {
                     try {
                         DomainResource domainResource = (DomainResource) resource;
                         String patient = ResourceUtils.getPatientId(domainResource);
@@ -227,10 +224,10 @@ public class ConsentHandler {
                         logger.trace("Consent periods updated for patient: {} with {} codes", patient, consents.size());
 
                         // Return the map containing the patient's consent periods
-                        return patientConsentMap;
+                        sink.next(patientConsentMap);
                     } catch (Exception e) {
                         logger.error("Error processing resource", e);
-                        throw new RuntimeException(e);
+                        sink.error(new RuntimeException(e));
                     }
                 })
 

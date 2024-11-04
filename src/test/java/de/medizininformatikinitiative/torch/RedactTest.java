@@ -25,8 +25,8 @@ public class RedactTest {
         Arrays.stream(resources).forEach(resource -> {
             try {
                 logger.info("Resource Handled {}", resource);
-                DomainResource resourceSrc = (DomainResource) integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceExpected = (DomainResource) integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+                DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
                 // Use redaction from BaseTestSetup
                 resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);
@@ -49,8 +49,8 @@ public class RedactTest {
 
         Arrays.stream(resources).forEach(resource -> {
             try {
-                DomainResource resourceSrc = (DomainResource) integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
-                DomainResource resourceExpected = (DomainResource) integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+                DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
+                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
                 // Use redaction from BaseTestSetup
                 resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);

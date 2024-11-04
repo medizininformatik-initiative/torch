@@ -39,9 +39,9 @@ public class Slicing {
     /**
      * Checks if the given element is a sliced element and returns the sliced element.
      *
-     * @param base
-     * @param elementID
-     * @param structureDefinition
+     * @param base                Hapi Base (Element) which should be checked
+     * @param elementID           Element ID of the above element.
+     * @param structureDefinition Struturedefinition of the Ressource to which the element belongs
      * @return
      */
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
@@ -143,14 +143,9 @@ public class Slicing {
             }
 
             // TODO : Future handling for ordered and rules if needed
-            /*
-            if (slicing.hasOrdered()) {
-                // Add conditions related to ordered slicing
-            }
-            if (slicing.hasRules()) {
-                // Add conditions related to slicing rules
-            }
-            */
+            // TODO (slicing.hasOrdered())
+            // TODO (slicing.hasRules()) {
+
         }
 
         return conditions;

@@ -21,17 +21,13 @@ public class DiscriminatorResolver {
      * @param base          Element to be sliced
      * @param slice         ElementDefinition of the slice
      * @param discriminator Discriminator to be resolved
-     * @param elementID     path to the element
      * @param snapshot      Snapshot of the StructureDefinition
-     * @return
+     * @return true if Discriminator could be resolved, false otherwise
      */
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        //System.out.println("Discriminator "+discriminator);
         return switch (discriminator.getType().toCode()) {
-            case "exists" -> false;
             case "pattern", "value" ->
                     resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
-            case "profile" -> false;  //
             case "type" -> resolveType(base, slice, discriminator, snapshot);
             default -> false;
         };
@@ -66,8 +62,6 @@ public class DiscriminatorResolver {
     private static Boolean resolvePattern(Base base, ElementDefinition slice,
                                           ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        // Resolve the element containing the fixed or pattern information.
-        //logger.debug("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         // Resolve the base element along the path specified by the discriminator.
@@ -217,7 +211,7 @@ public class DiscriminatorResolver {
      * @param base     Element to be sliced
      * @param slice    ElementDefinition of the slice
      * @param snapshot Snapshot of the StructureDefinition
-     * @return
+     * @return true if type can be resolved and false if not
      */
     private static Boolean resolveType(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);

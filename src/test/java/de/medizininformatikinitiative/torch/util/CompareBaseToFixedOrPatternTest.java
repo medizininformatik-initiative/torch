@@ -6,7 +6,8 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class CompareBaseToFixedOrPatternTest {
 
@@ -210,14 +211,9 @@ class CompareBaseToFixedOrPatternTest {
      */
     @Test
     void testCompareBaseToFixedOrPattern_BothNull_ReturnsFalse() {
-        // Arrange
-        Base resolvedBase = null;
-        Base fixedOrPatternValue = null;
 
-        // Act
-        boolean result = invokeCompareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
+        boolean result = invokeCompareBaseToFixedOrPattern(null, null);
 
-        // Assert
         assertFalse(result, "Passing both null should return false");
     }
 
@@ -226,14 +222,10 @@ class CompareBaseToFixedOrPatternTest {
      */
     @Test
     void testCompareBaseToFixedOrPattern_ResolvedBaseNull_ReturnsFalse() {
-        // Arrange
-        Base resolvedBase = null;
         Base fixedOrPatternValue = new StringType("testValue");
 
-        // Act
-        boolean result = invokeCompareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
+        boolean result = invokeCompareBaseToFixedOrPattern(null, fixedOrPatternValue);
 
-        // Assert
         assertFalse(result, "Passing null resolvedBase should return false");
     }
 
@@ -242,14 +234,11 @@ class CompareBaseToFixedOrPatternTest {
      */
     @Test
     void testCompareBaseToFixedOrPattern_FixedOrPatternValueNull_ReturnsFalse() {
-        // Arrange
+
         Base resolvedBase = new StringType("testValue");
-        Base fixedOrPatternValue = null;
 
-        // Act
-        boolean result = invokeCompareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
+        boolean result = invokeCompareBaseToFixedOrPattern(resolvedBase, null);
 
-        // Assert
         assertFalse(result, "Passing null fixedOrPatternValue should return false");
     }
 

@@ -15,10 +15,9 @@ import java.util.stream.Collectors;
 
 @Component
 
-/**
+/*
  * Bundle creator for collecting Resources by patient into bundles for export
  */
-
 public class BundleCreator {
     private static final Logger logger = LoggerFactory.getLogger(BundleCreator.class);
 

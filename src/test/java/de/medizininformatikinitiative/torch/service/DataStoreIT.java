@@ -2,8 +2,6 @@ package de.medizininformatikinitiative.torch.service;
 
 
 import ca.uhn.fhir.context.FhirContext;
-
-import de.medizininformatikinitiative.torch.FhirControllerIT;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import org.junit.jupiter.api.BeforeEach;
@@ -43,7 +41,7 @@ class DataStoreIT {
 
     private static final Instant FIXED_INSTANT = Instant.ofEpochSecond(104152);
 
-    private static FhirContext fhirContext= FhirContext.forR4();
+    private static final FhirContext fhirContext = FhirContext.forR4();
     @Container
     @SuppressWarnings("resource")
     private final GenericContainer<?> blaze = new GenericContainer<>("samply/blaze:0.29")
@@ -53,7 +51,6 @@ class DataStoreIT {
             .waitingFor(Wait.forHttp("/health").forStatusCode(200))
             .withLogConsumer(new Slf4jLogConsumer(logger));
 
-    private WebClient client;
     private DataStore dataStore;
 
     @SuppressWarnings("HttpUrlsUsage")
@@ -65,27 +62,26 @@ class DataStoreIT {
                 .maxConnections(4)
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
-        client = WebClient.builder()
+        WebClient client = WebClient.builder()
                 .baseUrl("http://%s/fhir".formatted(host))
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/fhir+json")
                 .defaultHeader("X-Forwarded-Host", host)
                 .build();
-        dataStore = new DataStore(client,fhirContext, Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC), 1000);
+        dataStore = new DataStore(client, fhirContext, Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC), 1000);
 
 
-            if (!dataImported) {
+        if (!dataImported) {
 
 
-
-                client.post()
-                        .bodyValue(Files.readString(Path.of("src/test/resources/BlazeBundle.json")))
-                        .header("Content-Type", "application/fhir+json")
-                        .retrieve()
-                        .toBodilessEntity()
-                        .block();
-                dataImported = true;
-                logger.info("Data Import on {}", client.options());
+            client.post()
+                    .bodyValue(Files.readString(Path.of("src/test/resources/BlazeBundle.json")))
+                    .header("Content-Type", "application/fhir+json")
+                    .retrieve()
+                    .toBodilessEntity()
+                    .block();
+            dataImported = true;
+            logger.info("Data Import on {}", client.options());
 
         }
 
@@ -96,16 +92,9 @@ class DataStoreIT {
         var result = dataStore.getResources(Query.ofType("Observation"));
 
         StepVerifier.create(result.doOnNext(obs -> logger.info("Emitted Observation: {}", obs.getId())))
-                .expectNextCount(5) // Expect exactly 5 observations
+                .expectNextCount(5)
                 .verifyComplete();
     }
-
-
-
-
-
-
-
 
 
 }

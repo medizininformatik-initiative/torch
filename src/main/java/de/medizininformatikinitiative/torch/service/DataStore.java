@@ -36,16 +36,14 @@ public class DataStore {
 
     private final WebClient client;
     private final FhirContext fhirContext;
-    private final Clock clock;
     private final int pageCount;
 
 
     @Autowired
-    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,  @Qualifier("systemDefaultZone") Clock clock,
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext, @Qualifier("systemDefaultZone") Clock clock,
                      @Value("${torch.fhir.pageCount}") int pageCount) {
         this.client = client;
         this.fhirContext = fhirContext;
-        this.clock = clock;
         this.pageCount = pageCount;
     }
 
@@ -53,7 +51,7 @@ public class DataStore {
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
-     * @param parameters the fhir search query parameters defining the patient resources to be fetched
+     * @param Query the fhir search query defined by the attribute group
      * @return the resources found with the {@param FHIRSearchQuery}
      */
     public Flux<Resource> getResources(Query query) {
@@ -61,7 +59,7 @@ public class DataStore {
         logger.debug("Execute resource query: {}", query);
 
         return client.post()
-                .uri("/"+query.type()+"/_search")
+                .uri("/" + query.type() + "/_search")
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .bodyValue(query.params().toString())
                 .retrieve()
@@ -158,14 +156,10 @@ public class DataStore {
     }
 
 
-
-
-
-
     /**
-     * Get the {@link MeasureReport} for a previously transmitted {@link Measure}
+     * Get the {@link MeasureReport} for a previously transmitted Measure
      *
-     * @param params the Parameters for the evaluation of the {@link Measure}
+     * @param params the Parameters for the evaluation of the Measure
      * @return the retrieved {@link MeasureReport} from the server
      */
     public Mono<MeasureReport> evaluateMeasure(Parameters params) {

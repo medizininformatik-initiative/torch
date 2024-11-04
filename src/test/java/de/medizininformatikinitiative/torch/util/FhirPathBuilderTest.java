@@ -102,15 +102,11 @@ class FhirPathBuilderTest {
 
     @Test
     void testHandleSlicingForTerser_NullInput() {
-        String input = null;
-
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForTerser(null);
 
         assertNull(result, "The method should return null when input is null.");
     }
 
-
-    // --- buildConditions Tests ---
 
     @Test
     void testBuildConditions_NoConditions() {
@@ -158,10 +154,7 @@ class FhirPathBuilderTest {
 
     @Test
     void testBuildConditions_NullPath_NullConditions() {
-        String path = null;
-        List<String> conditions = null;
-
-        String result = fhirPathBuilder.buildConditions(path, conditions);
+        String result = fhirPathBuilder.buildConditions(null, null);
 
         assertNull(result, "When both path and conditions are null, the method should return null.");
     }
@@ -179,10 +172,9 @@ class FhirPathBuilderTest {
 
     @Test
     void testBuildConditions_NullPath_WithConditions() {
-        String path = null;
         List<String> conditions = Collections.singletonList("use = 'home'");
 
-        String result = fhirPathBuilder.buildConditions(path, conditions);
+        String result = fhirPathBuilder.buildConditions(null, conditions);
 
         assertNull(result, "When path is null, the method should return null regardless of conditions.");
     }
@@ -225,7 +217,7 @@ class FhirPathBuilderTest {
             fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
         }, "An FHIRException should be thrown for unsupported slicing.");
 
-        assertEquals("Unsupported Slicing unknownSlice", exception.getMessage(),
+        assertEquals("Unsupported Choice Slicing unknownSlice", exception.getMessage(),
                 "The exception message should match the expected message.");
 
 
@@ -310,10 +302,7 @@ class FhirPathBuilderTest {
 
     @Test
     void testHandleSlicingForFhirPath_NullInput() {
-        String input = null;
-        String expected = null;
-
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(null, snapshot);
 
         assertNull(result, "The method should return null when input is null.");
 

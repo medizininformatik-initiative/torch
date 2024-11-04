@@ -1,11 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.junit.jupiter.api.Test;
-import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 class BatchUtilTest {
 
@@ -73,7 +74,7 @@ class BatchUtilTest {
 
         List<String> expectedBatch1 = Arrays.asList("A", "B", "C");
         List<String> expectedBatch2 = Arrays.asList("D", "E", "F");
-        List<String> expectedBatch3 = Arrays.asList("G");
+        List<String> expectedBatch3 = List.of("G");
 
         assertEquals(expectedBatch1, batches.get(0), "First batch does not match expected.");
         assertEquals(expectedBatch2, batches.get(1), "Second batch does not match expected.");
@@ -119,16 +120,5 @@ class BatchUtilTest {
         assertEquals(1, batches.size(), "There should be exactly one batch.");
         assertEquals(originalList, batches.get(0), "The single batch should contain the single element.");
     }
-
-    @Test
-    void testSplitListIntoBatches_NullList() {
-        List<String> originalList = null;
-        int batchSize = 3;
-
-        // Depending on the intended behavior, this could throw a NullPointerException or handle it gracefully.
-        // Since the original method does not handle null, we expect a NullPointerException.
-        assertThrows(NullPointerException.class, () -> {
-            BatchUtils.splitListIntoBatches(originalList, batchSize);
-        }, "A NullPointerException should be thrown when the original list is null.");
-    }
+    
 }

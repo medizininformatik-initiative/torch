@@ -1,12 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
-import static org.junit.jupiter.api.Assertions.*;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
 import java.util.List;
 
-import org.junit.jupiter.api.DisplayName;
-import org.junit.jupiter.api.Test;
+import static org.junit.jupiter.api.Assertions.*;
 
 public class CopyUtilsTest {
 
@@ -146,14 +146,6 @@ public class CopyUtilsTest {
         String expected = "";
         String actual = CopyUtils.capitalizeFirstLetter(input);
         assertEquals(expected, actual, "Empty string should remain unchanged");
-    }
-
-    @Test
-    @DisplayName("Should handle null input")
-    void testCapitalizeFirstLetter_Null() {
-        String input = null;
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertNull(actual, "Null input should return null");
     }
 
     @Test

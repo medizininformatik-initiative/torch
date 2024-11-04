@@ -13,12 +13,11 @@ public class ConsentCodeMapperIT {
 
     private ConsentCodeMapper consentCodeMapper;
 
-    // Setup the test by loading the actual consent-mappings JSON data
     @BeforeEach
     public void setUp() throws IOException {
         // Use the real JSON file path or load a test JSON file
         String consentFilePath = "src/test/resources/mappings/consent-mappings.json";
-        consentCodeMapper = new ConsentCodeMapper(consentFilePath,new ObjectMapper());
+        consentCodeMapper = new ConsentCodeMapper(consentFilePath, new ObjectMapper());
     }
 
     @Test

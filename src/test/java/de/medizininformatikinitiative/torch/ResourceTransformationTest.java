@@ -123,7 +123,7 @@ public class ResourceTransformationTest {
             Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, List.of("1", "2", "4", "VHF00006"));
 
             StepVerifier.create(result)
-                    .expectNextMatches(map -> map.keySet().contains("1")) // Patient1 is in consent info
+                    .expectNextMatches(map -> map.containsKey("1")) // Patient1 is in consent info
                     .verifyComplete();
 
         } catch (Exception e) {

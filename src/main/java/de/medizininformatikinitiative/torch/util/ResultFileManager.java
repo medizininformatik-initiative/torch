@@ -19,6 +19,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Stream;
 
 /**
  * Manager for the Job processing
@@ -31,23 +32,21 @@ public class ResultFileManager {
 
     private final Path resultsDirPath;
     private final FhirContext fhirContext;
-    private Duration duration;
-    private String hostname;
-    private String fileserverName;
+    private final String hostname;
+    private final String fileServerName;
     public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
-
-    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileserverName) {
+    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.fhirContext = fhirContext;
 
 
-        this.duration = Duration.parse(duration);
+        Duration duration1 = Duration.parse(duration);
         this.hostname = hostname;
-        this.fileserverName = fileserverName;
+        this.fileServerName = fileServerName;
 
 
-        logger.debug(" Duration of persistence{}", this.duration);
+        logger.debug(" Duration of persistence{}", duration1);
         // Ensure the directory exists
         if (!Files.exists(resultsDirPath)) {
             try {
@@ -60,20 +59,17 @@ public class ResultFileManager {
     }
 
     public void loadExistingResults() {
-        try {
-            Files.list(resultsDirPath)
-                    .filter(Files::isDirectory)
+        try (Stream<Path> jobDirs = Files.list(resultsDirPath)) {
+            jobDirs.filter(Files::isDirectory)
                     .forEach(jobDir -> {
                         String jobId = jobDir.getFileName().toString();
-                        try {
+                        try (Stream<Path> files = Files.list(jobDir)) {
                             // Find any .ndjson files in the job directory
-                            boolean ndjsonExists = Files.list(jobDir)
-                                    .anyMatch(file -> file.toString().endsWith(".ndjson"));
+                            boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(".ndjson"));
 
                             if (ndjsonExists) {
                                 logger.debug("Loaded existing job with jobId: {}", jobId);
                                 jobStatusMap.put(jobId, "Completed");
-
                                 logger.debug("Status set {}", jobStatusMap.get(jobId));
                             } else {
                                 logger.warn("No .ndjson file found for jobId: {}", jobId);
@@ -150,7 +146,7 @@ public class ResultFileManager {
     }
 
 
-    public Map<String, Object> loadBundleFromFileSystem(String jobId, String requestUrl, String transactionTime) {
+    public Map<String, Object> loadBundleFromFileSystem(String jobId, String transactionTime) {
         Map<String, Object> response = new HashMap<>();
         try {
             Path jobDir = resultsDirPath.resolve(jobId);
@@ -161,7 +157,7 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = fileserverName + "/" + jobId + "/" + fileName;
+                    String url = fileServerName + "/" + jobId + "/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
@@ -179,7 +175,6 @@ public class ResultFileManager {
                     }
                 });
 
-                // Set the transactionTime and requestUrl into the response
                 response.put("transactionTime", transactionTime);
                 response.put("request", hostname + "/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
@@ -209,6 +204,6 @@ public class ResultFileManager {
             return "Observation";
         }
         // Add more logic as needed to handle other types
-        return "Bundle"; // Default type if none matched
+        return "Bundle";
     }
 }

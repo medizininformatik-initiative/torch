@@ -20,7 +20,6 @@ public class IntegrationTestSetup {
     private final ElementCopier copier;
     private final ObjectMapper objectMapper;
     private final Redaction redaction;
-    private final FhirPathBuilder builder;
     private final ResourceReader resourceReader;
 
     // Constructor initializes all fields
@@ -32,7 +31,7 @@ public class IntegrationTestSetup {
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        this.builder = new FhirPathBuilder(slicing);
+        FhirPathBuilder builder = new FhirPathBuilder(slicing);
         this.copier = new ElementCopier(cds, ctx, builder);
         this.redaction = new Redaction(cds, slicing);
 

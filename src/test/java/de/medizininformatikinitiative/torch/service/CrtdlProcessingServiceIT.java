@@ -30,6 +30,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -52,8 +53,8 @@ class CrtdlProcessingServiceIT {
     private Crtdl CRTDL_ALL_OBSERVATIONS;
     private Crtdl CRTDL_NO_PATIENTS;
 
-    private String jobId;
-    private Path jobDir;
+    private final String jobId;
+    private final Path jobDir;
 
     @Autowired
     public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
@@ -105,18 +106,21 @@ class CrtdlProcessingServiceIT {
     @AfterEach
     void cleanUp() throws IOException {
         if (Files.exists(jobDir)) {
-            Files.walk(jobDir)
-                    .map(Path::toFile)
-                    .forEach(file -> {
-                        if (!file.delete()) {
-                            System.err.println("Failed to delete file: " + file.getAbsolutePath());
-                        }
-                    });
+            // Use try-with-resources for the stream from Files.walk
+            try (Stream<Path> paths = Files.walk(jobDir)) {
+                paths.map(Path::toFile)
+                        .forEach(file -> {
+                            if (!file.delete()) {
+                                System.err.println("Failed to delete file: " + file.getAbsolutePath());
+                            }
+                        });
+            }
             Files.deleteIfExists(jobDir); // Delete the main job directory
         }
     }
 
     private boolean isDirectoryEmpty(Path directory) throws IOException {
+        // Try-with-resources for DirectoryStream
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
             return !stream.iterator().hasNext();
         }
@@ -130,6 +134,7 @@ class CrtdlProcessingServiceIT {
 
         List<String> patientList1 = listMono1.block();
         List<String> patientList2 = listMono2.block();
+        assert patientList1 != null;
         assertEquals(4, patientList1.size());
         assertEquals(patientList2, patientList1);
 
@@ -143,6 +148,7 @@ class CrtdlProcessingServiceIT {
 
         List<String> patientList1 = listMono1.block();
         List<String> patientList2 = listMono2.block();
+        assert patientList1 != null;
         assertEquals(0, patientList1.size());
         assertEquals(patientList2, patientList1);
 
@@ -192,10 +198,9 @@ class CrtdlProcessingServiceIT {
             boolean filesExist = stream.iterator().hasNext();
             assertTrue(filesExist, "Job directory should contain files.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-
     }
 
     @Test
@@ -220,7 +225,7 @@ class CrtdlProcessingServiceIT {
             boolean filesExist = stream.iterator().hasNext();
             assertTrue(filesExist, "Job directory should contain files.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
 

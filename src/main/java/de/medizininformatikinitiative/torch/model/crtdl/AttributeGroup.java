@@ -18,15 +18,11 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
 
-        @JsonProperty(value = "groupReference", required = true)
+        @JsonProperty(required = true)
         String groupReference,
-
-        @JsonProperty(value = "attributes", required = true)
+        @JsonProperty(required = true)
         List<Attribute> attributes,
-
-        @JsonProperty(value = "filter", required = true)
         List<Filter> filter,
-
         UUID uuid
 ) {
     private static final Logger logger = LoggerFactory.getLogger(AttributeGroup.class);
@@ -56,13 +52,7 @@ public record AttributeGroup(
         }
         return false;
     }
-
-    /*
-     public String getFilterString(DseMappingTreeBase mappingBase) {
-        return filter.stream()
-                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter(mappingBase))
-                .collect(Collectors.joining("&"));
-     */
+    
     public List<Query> queries(DseMappingTreeBase mappingTreeBase) {
         List<QueryParams> paramsList = queryParams(mappingTreeBase);
         return paramsList.stream()

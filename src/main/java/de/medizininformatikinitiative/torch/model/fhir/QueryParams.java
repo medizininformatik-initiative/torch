@@ -40,8 +40,6 @@ public record QueryParams(List<Param> params) {
         return new CodeValue(value);
     }
 
-    ;
-
     private record CodeValue(Code value) implements Value {
 
         private CodeValue {

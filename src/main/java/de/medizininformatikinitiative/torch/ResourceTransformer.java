@@ -157,6 +157,7 @@ public class ResourceTransformer {
     private Flux<Map<String, Map<String, List<Period>>>> fetchConsentMap(Crtdl crtdl, List<String> batch) {
         String key = crtdl.consentKey();
         logger.trace("Consent key: {}", key);
+        assert key != null;
         return key.isEmpty() ? Flux.empty()
                 : handler.updateConsentPeriodsByPatientEncounters(handler.buildingConsentInfo(key, batch), batch);
     }

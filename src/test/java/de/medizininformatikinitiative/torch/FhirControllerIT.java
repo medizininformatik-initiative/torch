@@ -42,8 +42,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
@@ -188,6 +186,7 @@ public class FhirControllerIT {
         List<String> patientList = patientListMono.block();
 
         List<String> expectedPatientList = Arrays.asList("1", "2", "4", "VHF00006");
+        assert patientList != null;
         assertEquals(expectedPatientList.size(), patientList.size(), "Patient list size mismatch");
         assertIterableEquals(expectedPatientList, patientList, "Patient list contents mismatch");
         fis.close();
@@ -294,15 +293,11 @@ public class FhirControllerIT {
                 i++;
                 HttpEntity<String> entity = new HttpEntity<>(null, headers);
                 logger.info("Status URL {}", statusUrl);
-
-                // Perform the exchange and get the response
                 ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
 
-                // Log the full call result and response body
                 logger.info("Call result {} {}", i, response);
                 logger.info("Response Body: {}", response.getBody());
 
-                // Check the status code
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
@@ -317,7 +312,6 @@ public class FhirControllerIT {
                     Assertions.fail("Polling status endpoint failed running out of calls.");
                 }
             } catch (HttpStatusCodeException e) {
-                // Log the HTTP error and response body (if available)
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                 logger.error("Response Body: {}", e.getResponseBodyAsString());
 
@@ -341,23 +335,18 @@ public class FhirControllerIT {
     public void testHandlerWithUpdate() {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
-
-        // Reading resource
-        Resource observation = null;
+        Resource observation;
         try {
-            //Observation with Consent outside the consent, but inside with encounter within
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            // Build consent information as a Flux
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
             consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
 
-            // Collect the Flux into a List of Maps, without altering its structure
-            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            Assertions.assertNotNull(consentInfoList);
             for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
                 // Log the consentInfo map (optional)
                 System.out.println("Evaluating consentInfo: " + consentInfo);
@@ -369,7 +358,7 @@ public class FhirControllerIT {
                 System.out.println("Consent Check Result: " + consentInfoResult);
 
                 // Example assertion (modify as needed for your test requirements)
-                assertTrue(consentInfoResult);
+                Assertions.assertTrue(consentInfoResult);
             }
 
         } catch (IOException e) {
@@ -385,34 +374,27 @@ public class FhirControllerIT {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
-        // Reading resource
-        Resource observation = null;
+        Resource observation;
         try {
-            //Observation with Consent outside the consent, but inside with encounter within
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
             consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
 
-            // Collect the Flux into a List of Maps, without altering its structure
+
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Iterate through each consentInfo map in the list and evaluate checkConsent
-            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
-                // Log the consentInfo map (optional)
-                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-                // Check consent for each map
+            Assertions.assertNotNull(consentInfoList);
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+
+
                 Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-                // Log the result of checkConsent (optional)
                 System.out.println("Consent Check Result: " + consentInfoResult);
-
-                // Example assertion (modify as needed for your test requirements)
-                assertTrue(consentInfoResult);
+                Assertions.assertTrue(consentInfoResult);
             }
 
         } catch (IOException e) {
@@ -427,33 +409,24 @@ public class FhirControllerIT {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
-        Resource observation = null;
+        Resource observation;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
 
-            // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
-            // Collect the Flux into a List of Maps
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
 
-            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            Assertions.assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
+
+
             for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
-                // Log the consentInfo map (optional)
                 System.out.println("Evaluating consentInfo: " + consentInfo);
-
-                // Check consent for each map
                 Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-
-                // Log the result of checkConsent (optional)
-                System.out.println("Consent Check Result: " + consentInfoResult);
-
-                // Example assertion (modify as needed for your test requirements)
-                assertFalse(consentInfoResult);
+                Assertions.assertFalse(consentInfoResult);
             }
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -466,24 +439,20 @@ public class FhirControllerIT {
         strings.add("VHF00006");
 
         // Reading resource
-        Resource observation = null;
+        Resource observation;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
-            // Collect the Flux into a List of Maps, without altering its structure
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            Assertions.assertNotNull(consentInfoList);
+            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.getFirst();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
-
-            // Now pass the Map (instead of the Flux) to checkConsent
             Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-            assertFalse(consentInfoResult);
+            Assertions.assertFalse(consentInfoResult);
 
         } catch (IOException e) {
             throw new RuntimeException(e);
