@@ -6,7 +6,6 @@ import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -50,15 +49,11 @@ class CrtdlProcessingServiceIT {
 
 
     protected WebClient webClient;
-    private DomainResource resourcesrc;
-    private DomainResource resourceexpected;
     private Crtdl CRTDL_ALL_OBSERVATIONS;
     private Crtdl CRTDL_NO_PATIENTS;
 
     private String jobId;
     private Path jobDir;
-    // Directory where files are saved
-    // Directory where files are saved
 
     @Autowired
     public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
@@ -94,11 +89,6 @@ class CrtdlProcessingServiceIT {
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
         CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
         fis.close();
-
-        resourcesrc = INTEGRATION_TEST_SETUP.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
-        resourceexpected = INTEGRATION_TEST_SETUP.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
-
-
         manager.startContainers();
 
 
@@ -215,7 +205,6 @@ class CrtdlProcessingServiceIT {
                 "Patient", List.of(new Patient()), // Replace with actual test FHIR resources
                 "Observation", List.of(new Observation())
         );// Populate with test resources
-        UUID batchId = UUID.randomUUID();
 
         // Act
         Mono<Void> result = service.saveResourcesAsBundles(jobId, resourceMap);
