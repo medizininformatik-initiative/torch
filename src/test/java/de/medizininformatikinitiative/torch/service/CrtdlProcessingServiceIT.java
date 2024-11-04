@@ -132,7 +132,6 @@ class CrtdlProcessingServiceIT {
         }
     }
 
-
     @Test
     void fetchPatientLists() {
         Mono<List<String>> listMono1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
@@ -190,7 +189,6 @@ class CrtdlProcessingServiceIT {
         // Verify that files were created in the job directory
         assertTrue(Files.exists(jobDir), "Job directory should exist.");
         assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be empty after processing.");
-
     }
 
 
@@ -242,7 +240,6 @@ class CrtdlProcessingServiceIT {
 
     @Test
     void processCrtdl_EmptyPatientList_ShouldUpdateStatus() throws IOException {
-        String jobId = "123456";
 
         Mono<Void> result = service.processCrtdl(CRTDL_NO_PATIENTS, jobId);
 

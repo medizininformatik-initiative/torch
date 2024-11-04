@@ -16,7 +16,6 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -45,8 +44,7 @@ class FilterTest {
         QueryParams queryParams = filter.dateFilter();
 
         assertEquals(2, queryParams.params().size(), "Expected 2 params for both start and end dates");
-        assertTrue(queryParams.toString().contains("testDateField=ge2023-01-01"));
-        assertTrue(queryParams.toString().contains("testDateField=le2023-12-31"));
+        assertEquals("testDateField=ge2023-01-01&testDateField=le2023-12-31", queryParams.toString());
     }
 
     @Test
@@ -65,7 +63,7 @@ class FilterTest {
         Filter filter = new Filter("date", "testDateField", null, null, LocalDate.parse("2023-12-31"));
         QueryParams queryParams = filter.dateFilter();
 
-        assertEquals(1, queryParams.params().size(), "Expected 1 param for only end date");
+        assertEquals(1, queryParams.params().size(), "Expected 1 param");
         assertEquals("testDateField=le2023-12-31", queryParams.toString());
     }
 

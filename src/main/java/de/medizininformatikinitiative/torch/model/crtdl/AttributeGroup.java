@@ -8,8 +8,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -103,22 +101,12 @@ public record AttributeGroup(
                     .map(p -> p.appendParam("_profile", QueryParams.stringValue(groupReference)))
                     .collect(Collectors.toList());
         }
-
         return paramsList;
     }
 
 
     public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
-    }
-
-    public String groupReferenceURL() {
-        try {
-            return URLEncoder.encode(groupReference, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            logger.error("Group Reference Error", e);
-            return "";
-        }
     }
 
     public boolean hasMustHave() {

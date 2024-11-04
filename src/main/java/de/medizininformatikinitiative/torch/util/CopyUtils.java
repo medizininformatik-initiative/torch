@@ -5,6 +5,10 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.Method;
 
+/*
+Util class for copying and redacting.
+Contains some basic string manipulations and setter reflection
+ */
 public class CopyUtils {
 
 
@@ -33,7 +37,7 @@ public class CopyUtils {
         try {
             return clazz.getMethod("set" + capitalizeFirstLetter(fieldName), java.util.List.class);
         } catch (NoSuchMethodException e) {
-            logger.warn(" Class {} does not have the method set{}",clazz.getName(),capitalizeFirstLetter(fieldName));
+            logger.warn(" Class {} does not have the method set{}", clazz.getName(), capitalizeFirstLetter(fieldName));
             return null;
         }
     }
