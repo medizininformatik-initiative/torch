@@ -126,12 +126,6 @@ class CrtdlProcessingServiceIT {
         }
     }
 
-    @AfterAll
-    void tearDown() {
-        manager.stopContainers();
-        logger.info("Containers stopped after all tests.");
-    }
-
     private boolean isDirectoryEmpty(Path directory) throws IOException {
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
             return !stream.iterator().hasNext();

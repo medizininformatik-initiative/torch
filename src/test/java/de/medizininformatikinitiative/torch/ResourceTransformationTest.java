@@ -10,7 +10,6 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
-import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -64,7 +63,6 @@ public class ResourceTransformationTest {
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
 
-    @Autowired
     ContainerManager manager;
 
     @Autowired
@@ -72,7 +70,7 @@ public class ResourceTransformationTest {
 
     @BeforeAll
     void init() throws IOException {
-
+        manager = new ContainerManager();
         manager.startContainers();
 
 
@@ -85,12 +83,6 @@ public class ResourceTransformationTest {
 
         logger.info("Data Import on {}", webClient.options());
 
-    }
-
-    @AfterAll
-    void tearDown() {
-        manager.stopContainers();
-        logger.info("Containers stopped after all tests.");
     }
 
     @Test

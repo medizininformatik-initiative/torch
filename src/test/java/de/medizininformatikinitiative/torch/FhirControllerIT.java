@@ -14,7 +14,10 @@ import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.*;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,7 +53,7 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 public class FhirControllerIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
-    
+
 
     @Autowired
     ResourceReader resourceReader;
@@ -62,7 +65,6 @@ public class FhirControllerIT {
     @Qualifier("fhirClient")
     protected WebClient webClient;
 
-    @Autowired
     ContainerManager manager;
 
     @Autowired
@@ -104,6 +106,7 @@ public class FhirControllerIT {
         this.cqlClient = cqlClient;
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.dseMappingTreeBase = dseMappingTreeBase;
+        this.manager = new ContainerManager();
 
 
     }
@@ -117,12 +120,6 @@ public class FhirControllerIT {
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
         logger.info("Data Import on {}", webClient.options());
 
-    }
-
-    @AfterAll
-    void tearDown() {
-        manager.stopContainers();
-        logger.info("Containers stopped after all tests.");
     }
 
 

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.setup;
 
 
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
+import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,9 +26,9 @@ public class ContainerManager {
     // Static initialization of the ComposeContainer
     static {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
+                .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
-                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(30)))
+                .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     }
 
@@ -51,6 +52,11 @@ public class ContainerManager {
     public void startContainers() {
         environment.start();
         logger.info("Containers started successfully.");
+    }
+
+    @PreDestroy
+    public void cleanup() {
+        stopContainers();
     }
 
     // Method to stop the containers
