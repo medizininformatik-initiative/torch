@@ -6,8 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
-import de.medizininformatikinitiative.torch.util.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -64,8 +64,8 @@ public class ConsentHandler {
     public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
-        this.ctx=ctx;
-        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(cdsStructureDefinitionHandler,ctx));
+        this.ctx = ctx;
+        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(cdsStructureDefinitionHandler, ctx));
         this.cdsStructureDefinitionHandler = cdsStructureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
         mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
@@ -82,7 +82,7 @@ public class ConsentHandler {
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
     public Boolean checkConsent(DomainResource resource, Map<String, Map<String, List<Period>>> consentInfo) {
-        logger.trace("Checking Consent for {} {}", resource.getResourceType(),resource.getId());
+        logger.trace("Checking Consent for {} {}", resource.getResourceType(), resource.getId());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
@@ -104,7 +104,7 @@ public class ConsentHandler {
         }
 
         if (fieldValue == null) {
-            logger.warn("No matching profile found for resource {} of type: {}",resource.getId(), resource.getResourceType());
+            logger.warn("No matching profile found for resource {} of type: {}", resource.getId(), resource.getResourceType());
             return false;
         }
 
@@ -168,7 +168,7 @@ public class ConsentHandler {
                 }
             }
             logger.warn("No valid consent period found for any value.");
-            logger.debug("No valid consent period found for any value in Resource {}",resource.getIdElement());
+            logger.debug("No valid consent period found for any value in Resource {}", resource.getIdElement());
             return false;  // No matching consent period found
         }
     }
@@ -183,16 +183,16 @@ public class ConsentHandler {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Flux<Map<String, Map<String, List<Period>>>> buildingConsentInfo(String key,  List<String> batch) {
+    public Flux<Map<String, Map<String, List<Period>>>> buildingConsentInfo(String key, List<String> batch) {
         Objects.requireNonNull(batch, "Patient batch cannot be null");
         // Retrieve the relevant codes for the given key
         Set<String> codes = mapper.getRelevantCodes(key);
 
         logger.trace("Starting to build consent info for key: {} with batch size: {}", key, batch.size());
-        QueryParams consentParams = EMPTY.appendParam("_profile",stringValue("https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung")) ;
-        consentParams=consentParams.appendParam(BatchUtils.queryElements("Consent"), QueryParams.stringValue(String.join(",",batch)));
+        QueryParams consentParams = EMPTY.appendParam("_profile", stringValue("https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"));
+        consentParams = consentParams.appendParam(BatchUtils.queryElements("Consent"), QueryParams.stringValue(String.join(",", batch)));
         // Fetch resources using a bounded elastic scheduler for offloading blocking HTTP I/O
-        Query query=new Query("Consent",consentParams);
+        Query query = new Query("Consent", consentParams);
         return dataStore.getResources(query)
                 .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
                 .doOnSubscribe(subscription -> logger.debug("Fetching resources for batch: {}", batch))
@@ -254,11 +254,11 @@ public class ConsentHandler {
     public Flux<Map<String, Map<String, List<Period>>>> updateConsentPeriodsByPatientEncounters(
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux, List<String> batch) {
         Objects.requireNonNull(batch, "Patient batch cannot be null");
-        logger.info("Starting to update consent info with batch size: {}", batch.size());
-        QueryParams encounterParams = EMPTY.appendParam("_profile",stringValue("https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung")) ;
-        encounterParams=encounterParams.appendParam(BatchUtils.queryElements("Encounter"), QueryParams.stringValue(String.join(",",batch)));
+        logger.debug("Starting to update consent info with batch size: {}", batch.size());
+        QueryParams encounterParams = EMPTY.appendParam("_profile", stringValue("https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"));
+        encounterParams = encounterParams.appendParam(BatchUtils.queryElements("Encounter"), QueryParams.stringValue(String.join(",", batch)));
         // Step 1: Fetch all encounters for the batch of patients
-        Flux<Encounter> allEncountersFlux = dataStore.getResources(new Query("Encounter",encounterParams))
+        Flux<Encounter> allEncountersFlux = dataStore.getResources(new Query("Encounter", encounterParams))
                 .subscribeOn(Schedulers.boundedElastic())
                 .cast(Encounter.class)
                 .doOnSubscribe(subscription -> logger.debug("Fetching encounters for batch: {}", batch))
@@ -298,7 +298,7 @@ public class ConsentHandler {
                     List<Encounter> patientEncounters = (List<Encounter>) encountersByPatientMap.get(patientId);
 
                     if (patientEncounters == null || patientEncounters.isEmpty()) {
-                        logger.info("No encounters found for patient {}", patientId);
+                        logger.warn("No encounters found for patient {}", patientId);
                         // No encounters for this patient, return the consent info as is
                         return Mono.just(patientConsentInfo);
                     }

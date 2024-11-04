@@ -84,7 +84,7 @@ public class CrtdlProcessingService {
     Mono<Void> processBatch(Crtdl crtdl, List<String> batch, String jobId) {
         logger.info("Processing batch {}", batch);
         return transformer.collectResourcesByPatientReference(crtdl, batch)
-                .doOnNext(resourceMap -> logger.info("Collected resources: {}", resourceMap))
+                .doOnNext(resourceMap -> logger.debug("Collected resources: {}", resourceMap))
                 .onErrorResume(error -> {
                     handleBatchError(jobId, error);
                     logger.error("Error in collectResourcesByPatientReference: {}", error.getMessage());

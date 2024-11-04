@@ -65,7 +65,7 @@ public class ResourceTransformer {
     // Step 1: Execute Query with Batch Parameter
     Flux<Resource> executeQueryWithBatch(String batch, Query query) {
         Query finalQuery = new Query(query.type(), query.params().appendParam(queryElements(query.type()), QueryParams.stringValue(batch)));
-        logger.info("Query for Patients {}", finalQuery);
+        logger.debug("Query for Patients {}", finalQuery);
 
         return dataStore.getResources(finalQuery)
                 .subscribeOn(Schedulers.boundedElastic())

@@ -99,7 +99,7 @@ public class Slicing {
      */
     public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         List<String> conditions = new ArrayList<>();
-        logger.info(" ElementID: {}", elementID);
+        logger.info("Generating Slicing Conditions for ElementID: {}", elementID);
         // Find the sliced element using the element ID
         ElementDefinition slicedElement = snapshot.getElementById(elementID);
         if (slicedElement == null) {
