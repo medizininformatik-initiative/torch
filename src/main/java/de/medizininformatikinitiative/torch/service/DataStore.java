@@ -49,28 +49,37 @@ public class DataStore {
         this.pageCount = pageCount;
     }
 
+
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
      * @param parameters the fhir search query parameters defining the patient resources to be fetched
      * @return the resources found with the {@param FHIRSearchQuery}
      */
-    public Flux<Resource> getResources(String resourceType,String parameters) {
-        //logger.debug("Search Parameters{}", parameters);
+    public Flux<Resource> getResources(Query query) {
+        var startNanoTime = System.nanoTime();
+        logger.debug("Execute resource query: {}", query);
 
         return client.post()
-                .uri("/"+resourceType+"/_search")
-                .bodyValue(parameters)
-                .header("Content-Type", "application/x-www-form-urlencoded")
+                .uri("/"+query.type()+"/_search")
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .bodyValue(query.params().toString())
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .doOnNext(response -> logger.debug("getResources Response: {}", response))
                 .flatMap(response -> Mono.just(fhirContext.newJsonParser().parseResource(Bundle.class, response)))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(client, link.getUrl()))
                         .orElse(Mono.empty()))
-                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)));
+                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
+                .doOnNext(p -> logger.debug("Finished query `{}` returning ressource {} in {} seconds.", query, p.getIdElement(),
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
+                .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
+
 
     private Mono<Bundle> fetchPage(WebClient client, String url) {
         //logger.debug("Fetch Page {}", url);
@@ -175,4 +184,5 @@ public class DataStore {
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure and received MeasureReport."))
                 .doOnError(error -> logger.error("Error occurred while evaluating Measure: {}", error.getMessage()));
     }
+
 }

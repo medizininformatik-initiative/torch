@@ -9,6 +9,7 @@ public record Query(String type, QueryParams params) {
         requireNonNull(params);
     }
 
+
     public static Query of(String type, QueryParams params) {
         return new Query(type, params);
     }

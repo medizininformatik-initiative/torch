@@ -24,7 +24,28 @@
         <ontology-tag>v3.0.0-alpha</ontology-tag>
     </properties>
 
+
+
     <dependencies>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/hapi-fhir-base -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
@@ -37,6 +58,11 @@
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>org.hl7.fhir.r4</artifactId>
             <version>${Hapi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <dependency>

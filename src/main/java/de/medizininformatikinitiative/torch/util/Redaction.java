@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -11,6 +10,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 
+/**
+ * Redaction operations on copied Ressources based on the Structuredefinition
+ */
 public class Redaction {
 
 

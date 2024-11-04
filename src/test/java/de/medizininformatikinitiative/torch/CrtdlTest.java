@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.model.Attribute;
-import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -27,7 +27,7 @@ public class CrtdlTest {
             assertEquals("Condition.code", attribute1.attributeRef());
             assertFalse(attribute1.mustHave());
         } catch (Exception e) {
-            logger.error(" ", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 
@@ -41,7 +41,7 @@ public class CrtdlTest {
             assertEquals("Observation.encounter", attribute2.attributeRef());
             assertFalse(attribute2.mustHave());
         } catch (Exception e) {
-            logger.error(" ", e);
+            fail("Deserialization failed: " + e.getMessage(), e);
         }
     }
 }

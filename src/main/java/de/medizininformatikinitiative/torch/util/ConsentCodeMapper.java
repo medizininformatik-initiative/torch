@@ -2,14 +2,15 @@ package de.medizininformatikinitiative.torch.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-@Component
+
+/**
+ * Provides a Map of all consent codes belonging to a Consent key e.g. "yes-yes-yes-yes"
+ */
 public class ConsentCodeMapper {
 
     private final Map<String, List<String>> consentMap;

@@ -11,6 +11,10 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.stream.Collectors;
 
+
+/**
+ * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
+ */
 public class FhirPathBuilder {
 
     Factory factory = new Factory();
@@ -19,13 +23,14 @@ public class FhirPathBuilder {
     Slicing slicing;
 
     private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
+
     /**
      * Constructor for Slicing
      *
      * @param handler CDSStructureDefinitionHandler
      */
     public FhirPathBuilder(Slicing slicing) {
-    this.slicing=slicing;
+        this.slicing = slicing;
     }
 
     /**
@@ -34,12 +39,12 @@ public class FhirPathBuilder {
      * - `condition.onset[x]` will not be modified as the method does not handle square brackets.
      * - `Observation.identifier:analyseBefundCode.type.coding` becomes `Observation.identifier.type.coding`.
      *
-     * @param input the input string representing the path with potential slicing
+     * @param input   the input string representing the path with potential slicing
      * @param factory an instance of ElementFactory (not currently used in the method)
      * @return a string with slicing removed according to the Terser base path rules
      */
-    public  String handleSlicingForTerser(String input) {
-        if(input == null){
+    public String handleSlicingForTerser(String input) {
+        if (input == null) {
             return null;
         }
         // Remove anything after colons (:) until the next dot (.) or end of the string
@@ -68,17 +73,19 @@ public class FhirPathBuilder {
                 isFirstElement = false;
             }
 
-            // Check if the segment is a choice element (contains [x])
+            // Append `e` directly to `elementIDSoFar`, keeping choice and slicing indicators
+            elementIDSoFar.append(e);
+
+            // Handle choice elements (contains [x]) and slicing elements (contains :)
             if (e.contains("[x]")) {
-                String[] sliceParts = e.split(":");
-                String path = sliceParts[0].replace("[x]", "");  // Remove [x] from the path
+                String path = e.split("\\[x\\]")[0];  // Remove [x] for FHIRPath expression
 
-                // Append the base path
+                // Append the base path to result without [x]
                 result.append(path);
-                elementIDSoFar.append(path);
 
-                // Handle slicing if present
-                if (sliceParts.length > 1) {
+                // Check if slicing is present in the choice element
+                if (e.contains(":")) {
+                    String[] sliceParts = e.split(":");
                     String sliceName = sliceParts[1].replace(path, "").trim();
 
                     // Attempt to create the slice using the factory
@@ -94,38 +101,32 @@ public class FhirPathBuilder {
                             throw new FHIRException("Unsupported Slicing " + sliceName);
                         }
                     }
-                    if(element==null){
-                        logger.trace("Valid slicing element for {}",sliceName);
+                    if (element == null) {
+                        logger.trace("Valid slicing element for {}", sliceName);
                     }
+                    // Das nächste mal wir hier ein Code-EWlement hinterlegt welches dazu führt, dass Emails mit einer Einladung versendet werden.
+                    // Daher besser den Rechner beim verlassen des Platzes sperren.
+                    //Auch wenn die ungewohnte Mausbedienung diesmal einen anderen Eintrag verhindert hat!
 
                     // Append the ofType clause
                     result.append(".ofType(").append(sliceName).append(")");
                 }
-            } else {
-                // Check if the segment contains a slicing indicator (:)
-                if (e.contains(":")) {
-                    String[] sliceParts = e.split(":");
-                    String basePath = sliceParts[0].trim();
-                    String slice = sliceParts[1].trim();
+            } else if (e.contains(":")) { // Handle slicing indicator in non-choice elements
+                String basePath = e.substring(0, e.indexOf(":")).trim();
+                // Append the base path without slicing
+                result.append(basePath);
 
-                    // Append the base path without slicing
-                    result.append(basePath);
-                    elementIDSoFar.append(basePath);
+                // Generate conditions using the complete slicing path
+                List<String> conditions = slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
 
-                    // Generate slicing conditions for the current path segment
-                    String slicingPath = elementIDSoFar.toString() + ":" + slice;
-                    List<String> conditions = slicing.generateConditionsForFHIRPath(slicingPath, snapshot);
-
-                    // Append the where clause with combined conditions
-                    if (!conditions.isEmpty()) {
-                        String combinedConditions = String.join(" and ", conditions);
-                        result.append(".where(").append(combinedConditions).append(")");
-                    }
-                } else {
-                    // Append the segment as-is if no slicing is present
-                    result.append(e);
-                    elementIDSoFar.append(e);
+                // Append the where clause with combined conditions
+                if (!conditions.isEmpty()) {
+                    String combinedConditions = String.join(" and ", conditions);
+                    result.append(".where(").append(combinedConditions).append(")");
                 }
+            } else {
+                // Append the segment as-is if no choice or slicing is present
+                result.append(e);
             }
         }
 
@@ -136,13 +137,13 @@ public class FhirPathBuilder {
     /**
      * Builds a FHIRPath expression with a list of where conditions
      *
-     * @param path path to be handled
+     * @param path       path to be handled
      * @param conditions list of condition strings
      * @return FHIRPath with combined where conditions
      */
-    public String buildConditions(String path,  List<String> conditions) {
-        if(path == null) return null;
-        if(conditions == null || conditions.isEmpty()){
+    public String buildConditions(String path, List<String> conditions) {
+        if (path == null) return null;
+        if (conditions == null || conditions.isEmpty()) {
             return path;
         }
         String combinedCondition = conditions.stream()

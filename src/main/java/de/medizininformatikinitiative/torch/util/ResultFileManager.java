@@ -14,10 +14,17 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-//TODO: documentation
+/**
+ * Manager for the Job processing
+ */
+
+
 public class ResultFileManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ResultFileManager.class);
@@ -36,8 +43,8 @@ public class ResultFileManager {
 
 
         this.duration = Duration.parse(duration);
-        this.hostname=hostname;
-        this.fileserverName=fileserverName;
+        this.hostname = hostname;
+        this.fileserverName = fileserverName;
 
 
         logger.debug(" Duration of persistence{}", this.duration);
@@ -154,7 +161,7 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = fileserverName+"/"+jobId+"/" + fileName;
+                    String url = fileserverName + "/" + jobId + "/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
@@ -177,7 +184,7 @@ public class ResultFileManager {
                 response.put("request", hostname + "/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
-                logger.debug("OutputFiles size {}",outputFiles.size());
+                logger.debug("OutputFiles size {}", outputFiles.size());
                 response.put("deleted", deletedFiles);
                 response.put("error", errorFiles);
             } else {

@@ -10,7 +10,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 import static org.junit.Assert.assertThrows;
 
@@ -23,13 +26,13 @@ public class ConsentProcessorIT {
 
     public ConsentProcessorIT() throws IOException {
         // Initialize the ConsentCodeMapper as before
-        consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json",new ObjectMapper());
+        consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json", new ObjectMapper());
     }
 
     @Test
     public void testConsentProcessorFail() throws IOException {
 
-        ConsentProcessor processor=new ConsentProcessor(integrationTestSetup.getFhirContext());
+        ConsentProcessor processor = new ConsentProcessor(integrationTestSetup.fhirContext());
         String[] resources = {"VHF006_Consent_Fail.json"};
 
         Arrays.stream(resources).forEach(resource -> {
@@ -54,7 +57,7 @@ public class ConsentProcessorIT {
 
     @Test
     public void testConsentProcessor() throws IOException {
-        ConsentProcessor processor = new ConsentProcessor(integrationTestSetup.getFhirContext());
+        ConsentProcessor processor = new ConsentProcessor(integrationTestSetup.fhirContext());
         String[] resources = {"VHF006_Consent.json"};
 
         Arrays.stream(resources).forEach(resource -> {

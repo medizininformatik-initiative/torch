@@ -25,4 +25,12 @@ public class BatchUtils {
         return batches;
     }
 
+    public static String queryElements(String type) {
+        return switch (type) {
+            case "Patient" -> "_id";
+            case "Immunization", "Consent" -> "patient";
+            default -> "subject";
+        };
+    }
+
 }

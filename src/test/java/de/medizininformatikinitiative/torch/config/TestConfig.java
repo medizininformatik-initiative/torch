@@ -3,20 +3,22 @@ package de.medizininformatikinitiative.torch.config;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.ConsentHandler;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
-import de.medizininformatikinitiative.torch.*;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
+import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.*;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
 import de.numcodex.sq2cql.model.MappingContext;
@@ -59,9 +61,26 @@ public class TestConfig {
     private String conceptTreeFile;
     @Value("${torch.dseMappingTreeFile}")
     private String dseMappingTreeFile;
+    @Value("${torch.mapping.consent}")
+    String consentFilePath;
 
 
+    @Bean
+    public CrtdlProcessingService crtdlProcessingService(
+            @Qualifier("flareClient") WebClient webClient,
+            Translator cqlQueryTranslator,
+            CqlClient cqlClient,
+            ResultFileManager resultFileManager,
+            ResourceTransformer transformer,
+            BundleCreator bundleCreator,
+            @Value("${torch.batchsize:10}") int batchSize,
+            @Value("5") int maxConcurrency,
+            @Value("${torch.useCql}") boolean useCql) {
 
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
+                transformer, bundleCreator,
+                batchSize, maxConcurrency, useCql);
+    }
 
     // Bean for the FHIR WebClient initialized with the dynamically determined URL
     @Bean
@@ -81,7 +100,6 @@ public class TestConfig {
                 .defaultHeader("Accept", "application/fhir+json")
                 .build();
     }
-
 
 
     // Bean for the Flare WebClient initialized with the dynamically determined URL
@@ -104,34 +122,34 @@ public class TestConfig {
 
 
     @Bean
-    FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader){
-        return new FhirTestHelper(context,resourceReader);
+    FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader) {
+        return new FhirTestHelper(context, resourceReader);
     }
 
 
     @Bean
-    public ContainerManager containerManager(){
+    public ContainerManager containerManager() {
         return new ContainerManager();
     }
 
     @Bean
-    ResourceReader resourceReader(FhirContext ctx){
+    ResourceReader resourceReader(FhirContext ctx) {
         return new ResourceReader(ctx);
     }
 
 
-
     @Bean
     public ObjectMapper objectMapper() {
-        return new ObjectMapper();
+
+        ObjectMapper mapper = new ObjectMapper();
+        mapper.registerModule(new JavaTimeModule());
+        return mapper;
     }
 
 
-
-
     @Bean
-    public ConsentCodeMapper consentCodeMapper(  @Value("${torch.mapping.consent}") String consentFilePath, ObjectMapper objectMapper) throws IOException {
-        return new ConsentCodeMapper(consentFilePath,objectMapper);
+    public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
+        return new ConsentCodeMapper(consentFilePath, objectMapper);
     }
 
     @Bean
@@ -147,7 +165,7 @@ public class TestConfig {
 
     @Lazy
     @Bean
-    Translator createCqlTranslator( ObjectMapper jsonUtil) throws IOException {
+    Translator createCqlTranslator(ObjectMapper jsonUtil) throws IOException {
         var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
         var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
 
@@ -195,22 +213,24 @@ public class TestConfig {
             FhirHelper fhirHelper,
             DataStore dataStore) {
 
-        return new CqlClient( fhirHelper, dataStore);
+        return new CqlClient(fhirHelper, dataStore);
     }
 
 
-    @Bean FhirPathBuilder fhirPathBuilder(Slicing slicing){
+    @Bean
+    FhirPathBuilder fhirPathBuilder(Slicing slicing) {
         return new FhirPathBuilder(slicing);
     }
 
-    @Bean Slicing slicing ( CdsStructureDefinitionHandler cds, FhirContext ctx){
-        return  new Slicing(cds,ctx);
+    @Bean
+    Slicing slicing(CdsStructureDefinitionHandler cds, FhirContext ctx) {
+        return new Slicing(cds, ctx);
     }
 
 
     @Bean
     public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
-        return new ElementCopier(handler,ctx,fhirPathBuilder);
+        return new ElementCopier(handler, ctx, fhirPathBuilder);
     }
 
     @Bean
@@ -219,26 +239,19 @@ public class TestConfig {
     }
 
     @Bean
-    public Redaction redaction(CdsStructureDefinitionHandler cds,Slicing slicing) {
-        return new Redaction(cds,slicing);
+    public Redaction redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
+        return new Redaction(cds, slicing);
     }
 
     @Bean
-    public FhirSearchBuilder fhirSearchBuilder(DseMappingTreeBase dseMappingTreeBase) {
-        return new FhirSearchBuilder(dseMappingTreeBase);
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, DseMappingTreeBase dseMappingTreeBase) {
+
+        return new ResourceTransformer(dataStore, handler, copier, redaction, context, dseMappingTreeBase);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier,
-                                                   Redaction redaction,FhirContext context, FhirSearchBuilder fhirSearchBuilder) {
-
-        return  new ResourceTransformer(dataStore, handler,copier,redaction,context, fhirSearchBuilder);
-    }
-
-    @Bean
-    ConsentHandler handler(DataStore dataStore,  ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath,
-                           CdsStructureDefinitionHandler cds,FhirContext ctx, FhirSearchBuilder fhirSearchBuilder) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentFilePath,cds, ctx, fhirSearchBuilder);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx, objectMapper);
     }
 
     @Bean
@@ -248,7 +261,7 @@ public class TestConfig {
 
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler( @Value("${torch.profile.dir}") String dir, ResourceReader reader) {
+    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader reader) {
         return new CdsStructureDefinitionHandler(dir, reader);
     }
 
@@ -277,7 +290,6 @@ public class TestConfig {
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
     }
-
 
 
 }

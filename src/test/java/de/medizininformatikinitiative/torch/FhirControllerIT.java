@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
@@ -15,9 +15,9 @@ import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInfo;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,11 +49,11 @@ import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public class FhirControllerIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
 
-    protected static boolean containerInit = false;
 
     @Autowired
     ResourceReader resourceReader;
@@ -65,7 +65,6 @@ public class FhirControllerIT {
     @Qualifier("fhirClient")
     protected WebClient webClient;
 
-    @Autowired
     ContainerManager manager;
 
     @Autowired
@@ -97,8 +96,7 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient,
-                            Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
@@ -108,29 +106,22 @@ public class FhirControllerIT {
         this.cqlClient = cqlClient;
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.dseMappingTreeBase = dseMappingTreeBase;
+        this.manager = new ContainerManager();
 
 
     }
 
-    @BeforeEach
-    void init(TestInfo testInfo) throws IOException {
-        logger.info("Starting test: {}", testInfo.getDisplayName());
-        if (!containerInit) {
-            manager.startContainers();
+    @BeforeAll
+    void init() throws IOException {
+
+        manager.startContainers();
 
 
-            webClient.post()
-                    .bodyValue(Files.readString(Path.of(testPopulationPath)))
-                    .header("Content-Type", "application/fhir+json")
-                    .retrieve()
-                    .toBodilessEntity()
-                    .block();
-            containerInit = true;
-            logger.info("Data Import on {}", webClient.options());
-            logger.info("Setup Complete");
-        }
+        webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
+        logger.info("Data Import on {}", webClient.options());
 
     }
+
 
     @Test
     public void testCapability() {
@@ -139,39 +130,29 @@ public class FhirControllerIT {
         HttpHeaders headers = new HttpHeaders();
         HttpEntity<String> entity = new HttpEntity<>(null, headers);
 
-        ResponseEntity<String> response = restTemplate.exchange(
-                "http://localhost:" + port + "/fhir/metadata",
-                HttpMethod.GET, entity, String.class);
+        ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
         assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
     }
 
     @Test
     public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
-
-
         HttpHeaders headers = new HttpHeaders();
 
         headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of(
-                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-        );
+        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
 
-        List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
+        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
     @Test
     public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
-
         HttpHeaders headers = new HttpHeaders();
-        headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of(
-                "src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-        );
-        List<String> filePaths = List.of(
-                "src/test/resources/CRTDL_Parameters/Paremeters_all_fields_consent.json");
 
+        headers.add("content-type", "application/fhir+json");
+        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
+
+        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
         testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
     }
 
@@ -182,17 +163,10 @@ public class FhirControllerIT {
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
         fis.close();
-        String responseBody = flareClient.post()
-                .uri("/query/execute-cohort")
-                .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.cohortDefinition().toString())
-                .retrieve()
-                .onStatus(status -> status.value() == 404, clientResponse -> {
-                    logger.error("Received 404 Not Found");
-                    return clientResponse.createException();
-                })
-                .bodyToMono(String.class)
-                .block();  // Blocking to get the response synchronously
+        String responseBody = flareClient.post().uri("/query/execute-cohort").contentType(MediaType.parseMediaType("application/sq+json")).bodyValue(crtdl.cohortDefinition().toString()).retrieve().onStatus(status -> status.value() == 404, clientResponse -> {
+            logger.error("Received 404 Not Found");
+            return clientResponse.createException();
+        }).bodyToMono(String.class).block();  // Blocking to get the response synchronously
 
         logger.debug("Response Body: {}", responseBody);
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
@@ -204,7 +178,6 @@ public class FhirControllerIT {
 
     @Test
     public void testCql() throws IOException {
-
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
@@ -223,53 +196,23 @@ public class FhirControllerIT {
 
     @Test
     public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json",
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json",
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
     }
 
     @Test
     public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"));
     }
 
     @Test
 
     public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
     }
 
     @Test
     public void testAllFields() throws IOException, PatientIdNotFoundException {
-        executeTest(
-                List.of(
-                        RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"
-                ),
-                List.of(
-                        RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"
-                )
-        );
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
     }
 
 
@@ -278,7 +221,7 @@ public class FhirControllerIT {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        logger.info("ResourceType {}", crtdl.getResourceType());
+        logger.info("ResourceType {}", crtdl.resourceType());
         List<String> patients = new ArrayList<>();
         patients.add("3");
         Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
@@ -304,14 +247,11 @@ public class FhirControllerIT {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
 
-            StepVerifier.create(collectedResourcesMono)
-                    .expectNextMatches(combinedResourcesByPatientId -> {
-                        Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                        fhirTestHelper.validateBundles(bundles, expectedResources);
-                        return true;
-                    })
-                    .expectComplete()
-                    .verify();
+            StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
+                Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                fhirTestHelper.validateBundles(bundles, expectedResources);
+                return true;
+            }).expectComplete().verify();
         } catch (IOException e) {
             logger.error("CRTDL file not found: {}", filePath, e);
         }
@@ -328,9 +268,7 @@ public class FhirControllerIT {
 
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
-                    ResponseEntity<String> response = restTemplate.exchange(
-                            url,
-                            HttpMethod.POST, entity, String.class);
+                    ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
                     logger.info("Got the following response{}", response.toString());
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
 
@@ -358,9 +296,7 @@ public class FhirControllerIT {
                 logger.info("Status URL {}", statusUrl);
 
                 // Perform the exchange and get the response
-                ResponseEntity<String> response = restTemplate.exchange(
-                        statusUrl,
-                        HttpMethod.GET, entity, String.class);
+                ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
 
                 // Log the full call result and response body
                 logger.info("Call result {} {}", i, response);
@@ -370,7 +306,7 @@ public class FhirControllerIT {
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
-                    logger.debug("Final Response {}", response.getBody());
+                    logger.info("Final Response {}", response.getBody());
                 }
                 if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());
@@ -421,13 +357,20 @@ public class FhirControllerIT {
             // Collect the Flux into a List of Maps, without altering its structure
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-            assertTrue(consentInfoResult);
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertTrue(consentInfoResult);
+            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -457,13 +400,20 @@ public class FhirControllerIT {
             // Collect the Flux into a List of Maps, without altering its structure
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
-            assertTrue(consentInfoResult);
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertTrue(consentInfoResult);
+            }
 
         } catch (IOException e) {
             throw new RuntimeException(e);
@@ -477,33 +427,38 @@ public class FhirControllerIT {
         List<String> strings = new ArrayList<>();
         strings.add("VHF00006");
 
-        // Reading resource
         Resource observation = null;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
+
             // Build consent information as a Flux
             Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
 
-            // Collect the Flux into a List of Maps, without altering its structure
+            // Collect the Flux into a List of Maps
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
-            // Assuming you need the first element from the list
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.get(0);
+            assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
 
-            // Now pass the Map (instead of the Flux) to checkConsent
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
+            // Iterate through each consentInfo map in the list and evaluate checkConsent
+            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+                // Log the consentInfo map (optional)
+                System.out.println("Evaluating consentInfo: " + consentInfo);
 
-            assertFalse(consentInfoResult);
+                // Check consent for each map
+                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
+                // Log the result of checkConsent (optional)
+                System.out.println("Consent Check Result: " + consentInfoResult);
+
+                // Example assertion (modify as needed for your test requirements)
+                assertFalse(consentInfoResult);
+            }
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
-
-
     }
-
 
     @Test
     public void testHandlerWithoutUpdatingFail() {

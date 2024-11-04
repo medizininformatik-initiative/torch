@@ -1,43 +1,44 @@
 {
   "version": "http://json-schema.org/to-be-done/schema#",
-  "display": "","cohortDefinition": {
-  "version": "http://to_be_decided.com/draft-1/schema#",
   "display": "",
-  "inclusionCriteria": [
-    [
-      {
-        "termCodes": [
-          {
-            "code": "263495000",
-            "system": "http://snomed.info/sct",
-            "display": "Geschlecht"
-          }
-        ],
-        "context": {
-          "code": "Patient",
-          "system": "fdpg.mii.cds",
-          "version": "1.0.0",
-          "display": "Patient"
-        },
-        "valueFilter": {
-          "selectedConcepts": [
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
             {
-              "code": "female",
-              "display": "Female",
-              "system": "http://hl7.org/fhir/administrative-gender"
-            },
-            {
-              "code": "male",
-              "display": "Male",
-              "system": "http://hl7.org/fhir/administrative-gender"
+              "code": "263495000",
+              "system": "http://snomed.info/sct",
+              "display": "Geschlecht"
             }
           ],
-          "type": "concept"
+          "context": {
+            "code": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0",
+            "display": "Patient"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              },
+              {
+                "code": "male",
+                "display": "Male",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              }
+            ],
+            "type": "concept"
+          }
         }
-      }
+      ]
     ]
-  ]
-},
+  },
   "dataExtraction": {
     "attributeGroups": [
       {
@@ -45,7 +46,7 @@
         "attributes": [
           {
             "attributeRef": "Condition.code",
-            "mustHave": false
+            "mustHave": true
           }
         ],
         "filter": [
@@ -55,7 +56,13 @@
             "codes": [
               {
                 "code": "45252009",
-                "system": "http://snomed.info/sct"
+                "system": "http://snomed.info/sct",
+                "display": "test"
+              },
+              {
+                "code": "1234",
+                "system": "http://snomed.info/sct",
+                "display": "test"
               }
             ]
           }

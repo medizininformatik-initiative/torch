@@ -9,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
 
+import static org.assertj.core.api.Fail.fail;
+
 public class RedactTest {
 
     private static final Logger logger = LoggerFactory.getLogger(RedactTest.class);
@@ -30,12 +32,13 @@ public class RedactTest {
                 resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);
 
                 Assertions.assertEquals(
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
                         "Expected not equal to actual output"
                 );
             } catch (Exception e) {
                 logger.error(" ", e);
+                fail("Deserialization failed: " + e.getMessage(), e);
             }
         });
     }
@@ -53,12 +56,13 @@ public class RedactTest {
                 resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);
 
                 Assertions.assertEquals(
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
-                        integrationTestSetup.getFhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
+                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
                         "Expected not equal to actual output"
                 );
             } catch (Exception e) {
                 logger.error(" ", e);
+                fail("Deserialization failed: " + e.getMessage(), e);
             }
         });
     }

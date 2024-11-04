@@ -8,6 +8,9 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Resolves Slicing Discriminators. Essential for handling slicing
+ */
 public class DiscriminatorResolver {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscriminatorResolver.class);
@@ -160,7 +163,6 @@ public class DiscriminatorResolver {
     }
 
 
-
     /**
      * Resolves the element based on the given path from a discriminator
      *
@@ -199,7 +201,7 @@ public class DiscriminatorResolver {
                 // Move to the next element in the path
                 currentElement = nextElements.get(0);
             }
-        }catch (FHIRException e){
+        } catch (FHIRException e) {
             logger.error("In Slicing Base  {} contains no valid children", currentElement.getIdBase());
             return null;
         }
@@ -228,7 +230,6 @@ public class DiscriminatorResolver {
         // Proceed with the type comparison
         return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().get(0).getCode());
     }
-
 
 
 }

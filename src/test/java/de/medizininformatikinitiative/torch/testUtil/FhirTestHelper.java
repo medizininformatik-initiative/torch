@@ -11,6 +11,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.HashMap;
@@ -19,6 +21,7 @@ import java.util.Map;
 
 @Component
 public class FhirTestHelper {
+
 
 
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
@@ -31,7 +34,6 @@ public class FhirTestHelper {
         this.resourceReader = resourceReader;
     }
 
-
     public Map<String, Bundle> loadExpectedResources(List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = new HashMap<>();
         for (String filePath : filePaths) {
@@ -42,30 +44,25 @@ public class FhirTestHelper {
         return expectedResources;
     }
 
-    public void validateBundles(Map<String, Bundle> bundles, Map<String, Bundle> expectedResources) {
-        for (Map.Entry<String, Bundle> entry : bundles.entrySet()) {
+    /**
+     * Equals on Entry level to ensure bundle content is correct, while ignoring dynamic metadata such as "Last Updated"
+     *
+     * @param actualBundles   Resulting bundles indexed by PatID after internal extracting operations e.g. after ResourceTransform
+     * @param expectedBundles Expected Bundles indexed by PatID
+     */
+    public void validateBundles(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+        for (Map.Entry<String, Bundle> entry : actualBundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
-            Bundle expectedBundle = expectedResources.get(patientId);
+            Bundle expectedBundle = expectedBundles.get(patientId);
 
+            removeMetaLastUpdatedFromEntries(bundle);
+            removeMetaLastUpdatedFromEntries(expectedBundle);
 
-            // Remove meta.lastUpdated from all contained resources in both bundles
-            removeMetaLastUpdated(bundle);
-            removeMetaLastUpdated(expectedBundle);
-
-            if (expectedBundle == null) {
-                throw new AssertionError("No expected bundle found for patientId " + patientId);
-            }
-
-            // Get resources from both bundles and map them based on their profile
             Map<String, Resource> actualResourceMap = mapResourcesByProfile(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByProfile(expectedBundle);
 
-            logger.debug(" Actual Bundle  \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle));
-            logger.debug(" Expected Bundle \n {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedBundle));
 
-
-            // Compare the two maps
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
                 String profileKey = expectedEntry.getKey();
                 Resource expectedResource = expectedEntry.getValue();
@@ -75,8 +72,8 @@ public class FhirTestHelper {
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);
+                logger.info("Resulting resource {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
 
-                // Compare the actual and expected resources as strings after encoding
                 if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
                         .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
                     throw new AssertionError("Expected resource for profile " + profileKey + " does not match actual resource.");
@@ -107,7 +104,7 @@ public class FhirTestHelper {
         return null;  // Return null if no profile is found
     }
 
-    private void removeMetaLastUpdated(Bundle bundle) {
+    private void removeMetaLastUpdatedFromEntries(Bundle bundle) {
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
             if (resource != null && resource.hasMeta() && resource.getMeta().hasLastUpdated()) {
@@ -116,6 +113,41 @@ public class FhirTestHelper {
             }
         }
     }
+
+    // Method for checking service health by calling the provided health endpoint
+    public static void checkServiceHealth(String service, String healthEndpoint, String host, int port) {
+        String url = String.format("http://%s:%d%s", host, port, healthEndpoint);
+
+        WebClient webClient = WebClient.create();
+        int attempts = 0;
+        int maxAttempts = 10;
+
+        while (attempts < maxAttempts) {
+            try {
+                Mono<String> responseMono = webClient.get()
+                        .uri(url)
+                        .retrieve()
+                        .bodyToMono(String.class);
+
+                String response = responseMono.block();
+                if (response != null) {
+                    logger.info("Health check passed for service: {} at {}", service, url);
+                    return;
+                }
+            } catch (Exception e) {
+                logger.warn("Health check failed for service: {} at {}. Retrying...", service, url);
+            }
+            attempts++;
+            try {
+                Thread.sleep(5000);  // Wait 5 seconds before retrying
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
+        throw new RuntimeException("Health check failed for service: " + service + " at " + url);
+    }
+
 }
 
 

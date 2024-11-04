@@ -15,6 +15,9 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
 
+/**
+ * Class for resolving and checking Slicing
+ */
 public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
@@ -99,7 +102,7 @@ public class Slicing {
      */
     public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         List<String> conditions = new ArrayList<>();
-
+        logger.info("Generating Slicing Conditions for ElementID: {}", elementID);
         // Find the sliced element using the element ID
         ElementDefinition slicedElement = snapshot.getElementById(elementID);
         if (slicedElement == null) {
@@ -139,7 +142,7 @@ public class Slicing {
                 }
             }
 
-            // Future handling for ordered and rules if needed
+            // TODO : Future handling for ordered and rules if needed
             /*
             if (slicing.hasOrdered()) {
                 // Add conditions related to ordered slicing
@@ -167,7 +170,7 @@ public class Slicing {
             return conditions;
         }
         if (elementDefinition.hasFixedOrPattern()) {
-            //While deprecated the term pattern describes it better unlike value.
+
             Element pattern = elementDefinition.getFixedOrPattern();
             logger.debug("Got Pattern ");
             conditions.addAll(traverseValueRec(elementDefinition.getPath(), pattern));

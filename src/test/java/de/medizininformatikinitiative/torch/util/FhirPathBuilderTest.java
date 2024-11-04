@@ -1,31 +1,28 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.StructureDefinition;
-import org.hl7.fhir.r4.model.Type;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.*;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the FhirPathBuilder class.
  */
 @ExtendWith(MockitoExtension.class)
 class FhirPathBuilderTest {
-
 
 
     @Mock
@@ -111,7 +108,6 @@ class FhirPathBuilderTest {
 
         assertNull(result, "The method should return null when input is null.");
     }
-
 
 
     // --- buildConditions Tests ---
@@ -210,7 +206,6 @@ class FhirPathBuilderTest {
         String expected = "Observation.value.ofType(Quantity).code";
 
 
-
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 
         assertEquals(expected, result, "The slicing should be handled correctly with known slice and conditions appended.");
@@ -220,7 +215,6 @@ class FhirPathBuilderTest {
     @Test
     void testHandleSlicingForFhirPath_SlicingWithUnknownSlice() throws FHIRException {
         String input = "Observation.value[x]:unknownSlice.code";
-
 
 
         // Mock factory.create to throw FHIRException for unknown slice
@@ -260,7 +254,7 @@ class FhirPathBuilderTest {
 
         // When slicing.generateConditionsForFHIRPath is called with different paths
         when(slicing.generateConditionsForFHIRPath("Patient.contact:home", snapshot)).thenReturn(mockConditions1);
-        when(slicing.generateConditionsForFHIRPath("Patient.contact.telecom:phone", snapshot)).thenReturn(mockConditions2);
+        when(slicing.generateConditionsForFHIRPath("Patient.contact:home.telecom:phone", snapshot)).thenReturn(mockConditions2);
 
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 
@@ -281,14 +275,13 @@ class FhirPathBuilderTest {
         String expected = "Condition.code.coding.where(system = 'icd10-gm').extension.where(url = 'http://example.org/fhir/StructureDefinition/Mehrfachcodierungs-Kennzeichen')";
 
 
-
         // Mocking conditions for slicing 'coding:icd10-gm'
         List<String> mockConditionsCoding = Collections.singletonList("system = 'icd10-gm'");
         when(slicing.generateConditionsForFHIRPath("Condition.code.coding:icd10-gm", snapshot)).thenReturn(mockConditionsCoding);
 
         // Mocking conditions for slicing 'extension:Mehrfachcodierungs-Kennzeichen'
         List<String> mockConditionsExtension = Collections.singletonList("url = 'http://example.org/fhir/StructureDefinition/Mehrfachcodierungs-Kennzeichen'");
-        when(slicing.generateConditionsForFHIRPath("Condition.code.coding.extension:Mehrfachcodierungs-Kennzeichen", snapshot)).thenReturn(mockConditionsExtension);
+        when(slicing.generateConditionsForFHIRPath("Condition.code.coding:icd10-gm.extension:Mehrfachcodierungs-Kennzeichen", snapshot)).thenReturn(mockConditionsExtension);
 
 
         // Call the method under test

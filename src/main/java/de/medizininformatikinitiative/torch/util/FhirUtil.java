@@ -4,6 +4,9 @@ package de.medizininformatikinitiative.torch.util;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.Extension;
 
+/**
+ * Util class for fhir specific Operations currently only holds createAbsentReason
+ */
 public class FhirUtil {
 
     /**
@@ -17,8 +20,6 @@ public class FhirUtil {
                 .setUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason")
                 .setValue(new CodeType(reasonCode));
     }
-
-
 
 
 }
