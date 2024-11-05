@@ -23,7 +23,7 @@ class SlicingTest {
     void setUp() {
         FhirContext context = FhirContext.forR4();
         CdsStructureDefinitionHandler handler = Mockito.mock(CdsStructureDefinitionHandler.class);
-        slicing = new Slicing(handler, context);
+        slicing = new Slicing(context);
     }
 
     @Test

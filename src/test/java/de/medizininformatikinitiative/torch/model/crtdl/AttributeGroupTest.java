@@ -12,7 +12,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
@@ -42,7 +41,7 @@ class AttributeGroupTest {
         //Code Handling im DSE Mapping Tree
         when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1", "code1-child1"));
         Filter tokenFilter = new Filter("token", "code", List.of(CODE1), null, null);
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter));
 
         List<QueryParams> result = attributeGroup.queryParams(mappingTreeBase);
 
@@ -57,7 +56,7 @@ class AttributeGroupTest {
         when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
         when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
         Filter tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2), null, null);
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter));
 
         List<QueryParams> result = attributeGroup.queryParams(mappingTreeBase);
 
@@ -74,7 +73,7 @@ class AttributeGroupTest {
         when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
         Code code2 = new Code("system2", "code2");
         Filter tokenFilter = new Filter("token", "code", List.of(code1, code2), null, null);
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
         List<Query> result = attributeGroup.queries(mappingTreeBase);
 
@@ -88,7 +87,7 @@ class AttributeGroupTest {
     @Test
     void testQueriesWithoutCode() {
         Filter dateFilter = new Filter("date", "date", null, DATE_START, DATE_END);
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter));
 
         List<Query> result = attributeGroup.queries(mappingTreeBase);
 
@@ -103,7 +102,7 @@ class AttributeGroupTest {
     void testResourceType() {
         Filter tokenFilter = new Filter("token", "code", List.of(CODE1), null, null);
         String expectedResourceType = "Patient";
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
         String result = attributeGroup.resourceType();
 
@@ -117,7 +116,7 @@ class AttributeGroupTest {
         Filter dateFilter2 = new Filter("date", "dateField2", null, DATE_START, DATE_END);
 
         Exception exception = assertThrows(IllegalArgumentException.class, () ->
-                new AttributeGroup("groupRef", List.of(), List.of(dateFilter1, dateFilter2), UUID.randomUUID())
+                new AttributeGroup("groupRef", List.of(), List.of(dateFilter1, dateFilter2))
         );
 
         assertThat(exception.getMessage()).isEqualTo("Duplicate date type filter found");
@@ -126,7 +125,7 @@ class AttributeGroupTest {
     @Test
     void testHasFilterWithFilters() {
         Filter tokenFilter = new Filter("token", "code", List.of(), null, null);
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(tokenFilter));
 
         assertThat(attributeGroup.hasFilter())
                 .as("Expected hasFilter() to return true when filters are present")
@@ -135,7 +134,7 @@ class AttributeGroupTest {
 
     @Test
     void testHasFilterWithoutFilters() {
-        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of(), UUID.randomUUID());
+        AttributeGroup attributeGroup = new AttributeGroup("groupRef", List.of(), List.of());
 
         assertThat(attributeGroup.hasFilter())
                 .as("Expected hasFilter() to return false when no filters are present")

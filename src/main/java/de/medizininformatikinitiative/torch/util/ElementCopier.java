@@ -25,9 +25,9 @@ public class ElementCopier {
 
     private final FhirContext ctx;
 
-    CdsStructureDefinitionHandler handler;
+    private final CdsStructureDefinitionHandler handler;
 
-    FhirPathBuilder pathBuilder;
+    private final FhirPathBuilder pathBuilder;
 
 
     /**

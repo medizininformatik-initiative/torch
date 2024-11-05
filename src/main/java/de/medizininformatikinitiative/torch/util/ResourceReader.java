@@ -18,7 +18,7 @@ public class ResourceReader {
         this.ctx = ctx;
     }
 
-    protected FhirContext ctx;
+    private final FhirContext ctx;
 
     public Resource readResource(String path) throws IOException {
         FileInputStream fis;

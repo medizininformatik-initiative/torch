@@ -136,8 +136,8 @@ public class AppConfig {
 
 
     @Bean
-    Slicing slicing(CdsStructureDefinitionHandler cds, FhirContext ctx) {
-        return new Slicing(cds, ctx);
+    Slicing slicing(FhirContext ctx) {
+        return new Slicing(ctx);
     }
 
     @Bean

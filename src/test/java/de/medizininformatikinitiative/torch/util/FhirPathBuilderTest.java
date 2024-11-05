@@ -43,9 +43,6 @@ class FhirPathBuilderTest {
     void setUp() {
         // Initialize the FhirPathBuilder with the mocked handler
         fhirPathBuilder = new FhirPathBuilder(slicing);
-
-        // Inject the mocked Factory and Slicing directly
-        fhirPathBuilder.factory = factory;
     }
 
     // --- handleSlicingForTerser Tests ---
@@ -89,6 +86,7 @@ class FhirPathBuilderTest {
 
         assertEquals(expected, result, "Slicing at the end should be removed correctly.");
     }
+
 
     @Test
     void testHandleSlicingForTerser_EmptyString() {
@@ -208,11 +206,6 @@ class FhirPathBuilderTest {
     void testHandleSlicingForFhirPath_SlicingWithUnknownSlice() throws FHIRException {
         String input = "Observation.value[x]:unknownSlice.code";
 
-
-        // Mock factory.create to throw FHIRException for unknown slice
-        when(factory.create("unknownSlice")).thenThrow(new FHIRException("Unsupported Slicing unknownSlice"));
-
-        // Expecting FHIRException to be thrown
         FHIRException exception = assertThrows(FHIRException.class, () -> {
             fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
         }, "An FHIRException should be thrown for unsupported slicing.");
@@ -227,8 +220,7 @@ class FhirPathBuilderTest {
     void testHandleSlicingForFhirPath_HandlingChoiceElements() throws FHIRException {
         String input = "Observation.value[x]:valueString.code";
         String expected = "Observation.value.ofType(String).code";
-
-
+        
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 
         assertEquals(expected, result, "Choice elements should be handled correctly with conditions appended.");

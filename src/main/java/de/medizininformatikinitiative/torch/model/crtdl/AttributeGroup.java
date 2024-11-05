@@ -8,7 +8,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
@@ -20,8 +19,7 @@ public record AttributeGroup(
         String groupReference,
         @JsonProperty(required = true)
         List<Attribute> attributes,
-        List<Filter> filter,
-        UUID uuid
+        List<Filter> filter
 ) {
 
 
@@ -30,7 +28,6 @@ public record AttributeGroup(
         if (containsDuplicateDateType(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
         }
-        uuid = uuid != null ? uuid : UUID.randomUUID();
     }
 
     public boolean hasFilter() {

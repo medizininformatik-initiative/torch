@@ -22,7 +22,7 @@ public class BundleCreator {
     @Autowired
     FhirContext context;
 
-    org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
+    final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
     public BundleCreator() {
 

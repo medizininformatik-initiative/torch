@@ -27,7 +27,7 @@ public class IntegrationTestSetup {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
         this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
-        Slicing slicing = new Slicing(cds, ctx);
+        Slicing slicing = new Slicing(ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 

@@ -18,7 +18,7 @@ import static java.util.Objects.requireNonNull;
  */
 public record QueryParams(List<Param> params) {
 
-    public static QueryParams EMPTY = new QueryParams(List.of());
+    public static final QueryParams EMPTY = new QueryParams(List.of());
 
     public QueryParams {
         params = List.copyOf(params);

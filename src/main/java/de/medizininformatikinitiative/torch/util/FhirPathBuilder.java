@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
+import static de.medizininformatikinitiative.torch.util.CopyUtils.capitalizeFirstLetter;
+
 
 /**
  * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
@@ -94,7 +96,7 @@ public class FhirPathBuilder {
                     if (element == null) {
                         logger.trace("Valid slicing element for {}", sliceName);
                     }
-                    result.append(".ofType(").append(sliceName).append(")");
+                    result.append(".ofType(").append(capitalizeFirstLetter(sliceName)).append(")");
                 }
             } else if (e.contains(":")) {
                 String basePath = e.substring(0, e.indexOf(":")).trim();

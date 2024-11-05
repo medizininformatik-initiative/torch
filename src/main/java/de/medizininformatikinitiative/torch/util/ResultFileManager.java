@@ -34,7 +34,7 @@ public class ResultFileManager {
     private final FhirContext fhirContext;
     private final String hostname;
     private final String fileServerName;
-    public ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
+    public final ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
 
     public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();

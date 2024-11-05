@@ -18,7 +18,7 @@ public class Redaction {
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
     private final Factory factory;
     private final CdsStructureDefinitionHandler CDS;
-    Slicing slicing;
+    private final Slicing slicing;
 
     /**
      * Constructor for Redaction

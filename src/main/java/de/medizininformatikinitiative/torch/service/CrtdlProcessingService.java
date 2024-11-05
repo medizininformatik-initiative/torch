@@ -113,10 +113,9 @@ public class CrtdlProcessingService {
                 .then();
     }
 
-    private Mono<Void> handleBatchError(String jobId, Throwable error) {
+    private void handleBatchError(String jobId, Throwable error) {
         resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + error.getMessage());
         logger.error("Error in collectResourcesByPatientReference for batch: {}", error.getMessage());
-        return Mono.empty();
     }
 
 

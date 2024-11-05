@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -24,15 +23,11 @@ public class Slicing {
     private final FhirContext ctx;
 
 
-    CdsStructureDefinitionHandler handler;
-
     /**
      * Constructor for Slicing
-     *
-     * @param handler CDSStructureDefinitionHandler
      */
-    public Slicing(CdsStructureDefinitionHandler handler, FhirContext ctx) {
-        this.handler = handler;
+    public Slicing(FhirContext ctx) {
+
         this.ctx = ctx;
     }
 

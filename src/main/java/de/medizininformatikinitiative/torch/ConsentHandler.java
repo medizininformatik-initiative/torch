@@ -62,7 +62,7 @@ public class ConsentHandler {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx = ctx;
-        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(cdsStructureDefinitionHandler, ctx));
+        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(ctx));
         this.cdsStructureDefinitionHandler = cdsStructureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
         mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
