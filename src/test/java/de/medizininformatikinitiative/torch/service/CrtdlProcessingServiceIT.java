@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
@@ -128,28 +129,28 @@ class CrtdlProcessingServiceIT {
 
     @Test
     void fetchPatientLists() {
-        Mono<List<String>> listMono1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+        Mono<PatientBatch> listMono1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
 
-        Mono<List<String>> listMono2 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+        Mono<PatientBatch> listMono2 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
 
-        List<String> patientList1 = listMono1.block();
-        List<String> patientList2 = listMono2.block();
+        PatientBatch patientList1 = listMono1.block();
+        PatientBatch patientList2 = listMono2.block();
         assert patientList1 != null;
-        assertEquals(4, patientList1.size());
+        assertEquals(4, patientList1.ids().size());
         assertEquals(patientList2, patientList1);
 
     }
 
     @Test
     void fetchEmptyPatientLists() {
-        Mono<List<String>> listMono1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
+        Mono<PatientBatch> listMono1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
 
-        Mono<List<String>> listMono2 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
+        Mono<PatientBatch> listMono2 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
 
-        List<String> patientList1 = listMono1.block();
-        List<String> patientList2 = listMono2.block();
+        PatientBatch patientList1 = listMono1.block();
+        PatientBatch patientList2 = listMono2.block();
         assert patientList1 != null;
-        assertEquals(0, patientList1.size());
+        assertEquals(0, patientList1.ids().size());
         assertEquals(patientList2, patientList1);
 
     }
@@ -173,7 +174,7 @@ class CrtdlProcessingServiceIT {
     @Test
     void testProcessBatchWritesFiles() throws IOException {
 
-        List<String> batch = List.of("1", "2"); // Sample batch with patient references
+        PatientBatch batch = PatientBatch.of("1", "2"); // Sample batch with patient references
 
         // Act
         Mono<Void> result = service.processBatch(CRTDL_ALL_OBSERVATIONS, batch, jobId);

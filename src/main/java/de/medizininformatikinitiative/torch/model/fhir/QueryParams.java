@@ -33,6 +33,21 @@ public record QueryParams(List<Param> params) {
         return new StringValue(requireNonNull(value));
     }
 
+    public static Value multiStringValue(List<String> values) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Empty Values for MultiString");
+        }
+        return new MultiStringValue(requireNonNull(values));
+    }
+
+    public static Value multiStringValue(String v1) {
+        return new MultiStringValue(List.of(v1));
+    }
+
+    public static Value multiStringValue(String v1, String v2e) {
+        return new MultiStringValue(List.of(v1, v2e));
+    }
+
     public static Value dateValue(Comparator comparator, LocalDate value) {
         return new DateValue(requireNonNull(comparator), requireNonNull(value));
     }
@@ -125,6 +140,17 @@ public record QueryParams(List<Param> params) {
         @Override
         public String toString() {
             return value;
+        }
+    }
+
+    private record MultiStringValue(List<String> values) implements Value {
+        private MultiStringValue {
+            values = List.copyOf(values);
+        }
+
+        @Override
+        public String toString() {
+            return String.join(",", values);
         }
     }
 

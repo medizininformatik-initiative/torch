@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
@@ -120,7 +121,7 @@ public class ResourceTransformationTest {
             Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
             fis.close();
 
-            Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, List.of("1", "2", "4", "VHF00006"));
+            Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, new PatientBatch(List.of("1", "2", "4", "VHF00006")));
 
             StepVerifier.create(result)
                     .expectNextMatches(map -> map.containsKey("1")) // Patient1 is in consent info
@@ -135,7 +136,7 @@ public class ResourceTransformationTest {
 
     @Test
     void testExecuteQueryWithBatchAllPatients() {
-        String batch = "1,2";
+        PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Patient", EMPTY); // Basic query setup
 
 
@@ -157,14 +158,14 @@ public class ResourceTransformationTest {
         fis.close();
 
 
-        String batch = "1,2";
+        PatientBatch batch = PatientBatch.of("1", "2");
 
 
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().size());
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().getFirst().attributes().size());
-        List<Query> queries = crtdl.dataExtraction().attributeGroups().get(0).queries(base);
+        List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(base);
         logger.info("Queries size {}", queries.size());
-        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().get(0).queries(base).stream().map(Query::params).toList();
+        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().getFirst().queries(base).stream().map(Query::params).toList();
         queries.forEach(x -> logger.info("Query: {}", x.toString())
         );
         logger.info("Queries size {}", params.size());

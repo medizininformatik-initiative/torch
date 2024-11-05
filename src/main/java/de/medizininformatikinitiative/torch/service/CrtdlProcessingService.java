@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
@@ -18,6 +19,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -27,8 +29,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-
-import static de.medizininformatikinitiative.torch.util.BatchUtils.splitListIntoBatches;
 
 @Service
 public class CrtdlProcessingService {
@@ -75,13 +75,13 @@ public class CrtdlProcessingService {
                         resultFileManager.setStatus(jobId, "Failed at collectResources for batch: No patients found.");
                         return Mono.empty();
                     }
-                    return Flux.fromIterable(splitListIntoBatches(patientList, batchSize))
+                    return Flux.fromIterable(patientList.split(batchSize))
                             .flatMap(batch -> processBatch(crtdl, batch, jobId), maxConcurrency)
                             .then();
                 });
     }
 
-    Mono<Void> processBatch(Crtdl crtdl, List<String> batch, String jobId) {
+    Mono<Void> processBatch(Crtdl crtdl, PatientBatch batch, String jobId) {
         logger.info("Processing batch {}", batch);
         return transformer.collectResourcesByPatientReference(crtdl, batch)
                 .doOnNext(resourceMap -> logger.debug("Collected resources: {}", resourceMap))
@@ -119,8 +119,7 @@ public class CrtdlProcessingService {
     }
 
 
-    public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
-
+    public Mono<PatientBatch> fetchPatientList(Crtdl crtdl) {
         try {
             return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
         } catch (JsonProcessingException e) {
@@ -128,25 +127,21 @@ public class CrtdlProcessingService {
         }
     }
 
-    public Mono<List<String>> fetchPatientListFromFlare(Crtdl crtdl) {
+    public Mono<PatientBatch> fetchPatientListFromFlare(Crtdl crtdl) {
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
                 .bodyValue(crtdl.cohortDefinition().toString())
                 .retrieve()
-                .onStatus(status -> status.value() == 404, clientResponse -> {
-                    logger.error("Received 404 Not Found");
-                    return clientResponse.createException();
-                })
+                .onStatus(status -> status.value() >= 400, ClientResponse::createException)
                 .bodyToMono(String.class)
                 .publishOn(Schedulers.boundedElastic())
                 .flatMap(response -> {
-                    logger.debug("Response Received: {}", response);
                     try {
                         List<String> list = objectMapper.readValue(response, new TypeReference<>() {
                         });
-                        logger.debug("Parsed List: {}", list);
-                        return Mono.just(list);
+                        logger.debug("Got  {} patient IDs", list.size());
+                        return Mono.just(PatientBatch.of(list));
                     } catch (JsonProcessingException e) {
                         logger.error("Error parsing response: {}", e.getMessage());
                         return Mono.error(new RuntimeException("Error parsing response", e));
@@ -156,9 +151,9 @@ public class CrtdlProcessingService {
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Mono<List<String>> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
+    public Mono<PatientBatch> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
         StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
-        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
+        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print()).map(PatientBatch::of);
     }
 
 

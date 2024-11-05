@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -220,8 +221,7 @@ public class FhirControllerIT {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        List<String> patients = new ArrayList<>();
-        patients.add("3");
+        PatientBatch patients = PatientBatch.of("3");
         Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
         Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
@@ -233,14 +233,14 @@ public class FhirControllerIT {
     private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
-        List<String> patients = new ArrayList<>(expectedResources.keySet());
+        PatientBatch patients = new PatientBatch(expectedResources.keySet().stream().toList());
 
         for (String filePath : filePaths) {
             processFile(filePath, patients, expectedResources);
         }
     }
 
-    private void processFile(String filePath, List<String> patients, Map<String, Bundle> expectedResources) {
+    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) {
         try (FileInputStream fis = new FileInputStream(filePath)) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
@@ -332,16 +332,15 @@ public class FhirControllerIT {
 
     @Test
     public void testHandlerWithUpdate() {
-        List<String> strings = new ArrayList<>();
-        strings.add("VHF00006");
+        PatientBatch batch = PatientBatch.of("VHF00006");
         Resource observation;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
 
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
-            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
 
 
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
@@ -370,17 +369,15 @@ public class FhirControllerIT {
 
     @Test
     public void testHandlerWithoutUpdate() {
-        List<String> strings = new ArrayList<>();
-        strings.add("VHF00006");
-
+        PatientBatch batch = PatientBatch.of("VHF00006");
         Resource observation;
         try {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
-            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, strings);
+            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
 
 
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
@@ -405,8 +402,7 @@ public class FhirControllerIT {
 
     @Test
     public void testHandlerWithUpdatingFail() {
-        List<String> strings = new ArrayList<>();
-        strings.add("VHF00006");
+        PatientBatch batch = PatientBatch.of("VHF00006");
 
         Resource observation;
         try {
@@ -414,7 +410,7 @@ public class FhirControllerIT {
             DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
 
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
 
@@ -434,8 +430,7 @@ public class FhirControllerIT {
 
     @Test
     public void testHandlerWithoutUpdatingFail() {
-        List<String> strings = new ArrayList<>();
-        strings.add("VHF00006");
+        PatientBatch batch = PatientBatch.of("VHF00006");
 
         // Reading resource
         Resource observation;
@@ -443,7 +438,7 @@ public class FhirControllerIT {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", strings);
+            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
             List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
             Assertions.assertNotNull(consentInfoList);
