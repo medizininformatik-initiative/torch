@@ -42,7 +42,7 @@ public class Slicing {
      * @param base                Hapi Base (Element) which should be checked
      * @param elementID           Element ID of the above element.
      * @param structureDefinition Struturedefinition of the Ressource to which the element belongs
-     * @return
+     * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
      */
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
 
@@ -187,9 +187,7 @@ public class Slicing {
                     child -> {
                         if (child.hasValues()) {
                             child.getValues().forEach(
-                                    value -> {
-                                        conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value));
-                                    }
+                                    value -> conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value))
                             );
 
                         }

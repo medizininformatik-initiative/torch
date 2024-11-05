@@ -155,7 +155,6 @@ public class FhirController {
         }
         if ("Completed".equals(status)) {
             // Capture the full request URL and transaction time
-            String requestUrl = request.uri().toString();
             String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
 
             return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, transactionTime))

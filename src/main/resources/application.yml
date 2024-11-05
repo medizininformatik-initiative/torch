@@ -13,10 +13,10 @@ torch:
     password: ""
     oauth:
       issuer:
-        uri:
+        uri: ""
       client:
-        id:
-        secret:
+        id: ""
+        secret: ""
 
     url: http://localhost:8081/fhir
     pageCount: 500

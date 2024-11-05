@@ -25,8 +25,6 @@ public class ElementCopier {
 
     private final FhirContext ctx;
 
-    private static final ElementFactory factory = new ElementFactory();
-
     CdsStructureDefinitionHandler handler;
 
     FhirPathBuilder pathBuilder;

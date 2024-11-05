@@ -140,8 +140,8 @@ public class DiscriminatorResolver {
                 }
 
                 // Compare the first value of each child
-                Base resolvedChildValue = resolvedChild.getValues().get(0);
-                Base fixedChildValue = fixedChild.getValues().get(0);
+                Base resolvedChildValue = resolvedChild.getValues().getFirst();
+                Base fixedChildValue = fixedChild.getValues().getFirst();
 
                 // Recursive comparison
                 boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
@@ -193,7 +193,7 @@ public class DiscriminatorResolver {
                 }
 
                 // Move to the next element in the path
-                currentElement = nextElements.get(0);
+                currentElement = nextElements.getFirst();
             }
         } catch (FHIRException e) {
             logger.error("In Slicing Base  {} contains no valid children", currentElement.getIdBase());
@@ -222,7 +222,7 @@ public class DiscriminatorResolver {
         }
 
         // Proceed with the type comparison
-        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().get(0).getCode());
+        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().getFirst().getCode());
     }
 
 

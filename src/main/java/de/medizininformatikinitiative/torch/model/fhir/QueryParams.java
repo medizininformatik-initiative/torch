@@ -103,7 +103,7 @@ public record QueryParams(List<Param> params) {
     /**
      * A value of a query param.
      */
-    interface Value {
+    public interface Value {
     }
 
     private record StringValue(String value) implements Value {

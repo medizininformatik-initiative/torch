@@ -51,7 +51,7 @@ public class DataStore {
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
-     * @param Query the fhir search query defined by the attribute group
+     * @param query the fhir search query defined by the attribute group
      * @return the resources found with the {@param FHIRSearchQuery}
      */
     public Flux<Resource> getResources(Query query) {

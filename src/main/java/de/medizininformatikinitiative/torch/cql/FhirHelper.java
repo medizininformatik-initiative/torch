@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.cql;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Library;
@@ -97,7 +96,7 @@ public class FhirHelper {
                 getResourceFileAsString("Measure.json"))
                 .setUrl(measureUri)
                 .addLibrary(libraryUri);
-        logger.debug("Measure {}",measure);
+        logger.debug("Measure {}", measure);
         return bundleLibraryAndMeasure(library, measure);
     }
 

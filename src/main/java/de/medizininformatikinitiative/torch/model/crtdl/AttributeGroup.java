@@ -5,8 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Objects;
@@ -25,7 +23,7 @@ public record AttributeGroup(
         List<Filter> filter,
         UUID uuid
 ) {
-    private static final Logger logger = LoggerFactory.getLogger(AttributeGroup.class);
+
 
     // Canonical Constructor with validation for filter duplicates and UUID generation
     public AttributeGroup {
@@ -52,7 +50,7 @@ public record AttributeGroup(
         }
         return false;
     }
-    
+
     public List<Query> queries(DseMappingTreeBase mappingTreeBase) {
         List<QueryParams> paramsList = queryParams(mappingTreeBase);
         return paramsList.stream()

@@ -215,11 +215,9 @@ public class ConsentHandler {
                         logger.trace("Transformed resource into {} consent periods for patient: {}", consents.size(), patient);
 
                         // Iterate over the consent periods and add them to the patient's map
-                        consents.forEach((code, newConsentPeriods) -> {
-                            patientConsentMap.get(patient)
-                                    .computeIfAbsent(code, k -> new ArrayList<>())
-                                    .addAll(newConsentPeriods);
-                        });
+                        consents.forEach((code, newConsentPeriods) -> patientConsentMap.get(patient)
+                                .computeIfAbsent(code, k -> new ArrayList<>())
+                                .addAll(newConsentPeriods));
 
                         logger.trace("Consent periods updated for patient: {} with {} codes", patient, consents.size());
 

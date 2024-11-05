@@ -21,7 +21,7 @@ public record Crtdl(
 
 
     public String resourceType() {
-        return dataExtraction.attributeGroups().get(0).attributes().get(0).attributeRef().split("\\.")[0];
+        return dataExtraction.attributeGroups().getFirst().attributes().getFirst().attributeRef().split("\\.")[0];
     }
 
     public String consentKey() {

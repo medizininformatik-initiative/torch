@@ -119,10 +119,6 @@ public class CrtdlProcessingService {
         return Mono.empty();
     }
 
-    private void handleError(String jobId, Throwable error) {
-        resultFileManager.setStatus(jobId, "Failed: " + error.getMessage());
-        logger.error("Error processing CRTDL for jobId: {}: {}", jobId, error.getMessage());
-    }
 
     public Mono<List<String>> fetchPatientList(Crtdl crtdl) {
 

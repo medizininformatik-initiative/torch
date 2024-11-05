@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.List;
 
 /**
- * Structure for loading and serving the CDS structrue definitions
+ * Structure for loading and serving the CDS structure definitions
  */
 
 @Component
