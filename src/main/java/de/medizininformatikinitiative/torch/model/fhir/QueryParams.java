@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -87,6 +88,15 @@ public record QueryParams(List<Param> params) {
         return new QueryParams(params.stream().map(param -> new Param(name + "." + param.name, param.value)).toList());
     }
 
+    /**
+     * Splits this QueryParams in to a list of QueryParams instances with one param each.
+     *
+     * @return a list of QueryParams instances with one param each
+     */
+    public Stream<QueryParams> split() {
+        return params.stream().map(p -> new QueryParams(List.of(p)));
+    }
+
     @Override
     public String toString() {
         return params.stream().map(Param::toString).collect(Collectors.joining("&"));
@@ -130,6 +140,4 @@ public record QueryParams(List<Param> params) {
             return comparator.toString() + value;
         }
     }
-
-
 }

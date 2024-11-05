@@ -162,10 +162,9 @@ public class ResourceTransformationTest {
 
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().size());
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().getFirst().attributes().size());
-        logger.info("Attribute Group Resource Type {}", crtdl.dataExtraction().attributeGroups().getFirst().resourceType());
         List<Query> queries = crtdl.dataExtraction().attributeGroups().get(0).queries(base);
         logger.info("Queries size {}", queries.size());
-        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().get(0).queryParams(base);
+        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().get(0).queries(base).stream().map(Query::params).toList();
         queries.forEach(x -> logger.info("Query: {}", x.toString())
         );
         logger.info("Queries size {}", params.size());
