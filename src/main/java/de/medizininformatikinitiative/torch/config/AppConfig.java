@@ -9,7 +9,6 @@ import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.ConsentHandler;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
@@ -205,11 +204,6 @@ public class AppConfig {
                         entry("http://hl7.org/fhir/consent-provision-type", "provisiontype"))));
     }
 
-
-    @Bean
-    FhirConnector createFhirConnector(@Value("${torch.fhir.url}") String fhirUrl) {
-        return new FhirConnector(fhirContext().newRestfulGenericClient(fhirUrl));
-    }
 
     @Bean
     FhirHelper createFhirHelper(FhirContext fhirContext) {
