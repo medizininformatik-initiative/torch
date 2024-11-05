@@ -30,8 +30,8 @@ class AttributeGroupTest {
 
     @Test
     void testDuplicateDateFiltersThrowsException() {
-        var dateFilter1 = new Filter("date", "dateField1", null, DATE_START, DATE_END);
-        var dateFilter2 = new Filter("date", "dateField2", null, DATE_START, DATE_END);
+        var dateFilter1 = new Filter("date", "dateField1", DATE_START, DATE_END);
+        var dateFilter2 = new Filter("date", "dateField2", DATE_START, DATE_END);
 
         assertThatThrownBy(() -> new AttributeGroup("groupRef", List.of(), List.of(dateFilter1, dateFilter2)))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -47,7 +47,7 @@ class AttributeGroupTest {
         @Test
         void oneCode() {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
-            var tokenFilter = new Filter("token", "code", List.of(CODE1), null, null);
+            var tokenFilter = new Filter("token", "code", List.of(CODE1));
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase);
@@ -61,7 +61,7 @@ class AttributeGroupTest {
         void twoCodes() {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
-            var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2), null, null);
+            var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2));
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase);
@@ -74,7 +74,7 @@ class AttributeGroupTest {
 
         @Test
         void dateFilter() {
-            var dateFilter = new Filter("date", "date", null, DATE_START, DATE_END);
+            var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter));
 
             var result = attributeGroup.queries(mappingTreeBase);

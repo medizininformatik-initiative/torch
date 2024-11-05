@@ -63,7 +63,7 @@ public record AttributeGroup(
         }
     }
 
-    private String resourceType() {
+    public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }
 

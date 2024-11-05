@@ -6,12 +6,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import static java.util.Objects.requireNonNull;
+
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Crtdl(
-
-        @JsonProperty(required = true)
-        String version,
-        String display,
         @JsonProperty(required = true)
         JsonNode cohortDefinition,
         @JsonProperty(required = true)
@@ -19,9 +17,9 @@ public record Crtdl(
 ) {
     private static final Logger logger = LoggerFactory.getLogger(Crtdl.class);
 
-
-    public String resourceType() {
-        return dataExtraction.attributeGroups().getFirst().attributes().getFirst().attributeRef().split("\\.")[0];
+    public Crtdl {
+        requireNonNull(cohortDefinition);
+        requireNonNull(dataExtraction);
     }
 
     public String consentKey() {

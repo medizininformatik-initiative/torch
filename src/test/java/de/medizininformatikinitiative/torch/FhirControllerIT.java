@@ -220,7 +220,6 @@ public class FhirControllerIT {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        logger.info("ResourceType {}", crtdl.resourceType());
         List<String> patients = new ArrayList<>();
         patients.add("3");
         Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);

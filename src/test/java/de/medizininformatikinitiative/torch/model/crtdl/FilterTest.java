@@ -7,8 +7,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -20,8 +18,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class FilterTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(FilterTest.class);
-
     static final String FILTER_TYPE_TOKEN = "token";
     static final String NAME = "name";
     static final String SYSTEM_A = "system-a";
@@ -30,7 +26,6 @@ class FilterTest {
     static final String CODE_B_NO_CHILDREN = "code-no-children-b";
     static final String CODE_A_1_CHILD = "code-a-two-children";
     static final String CODE_A_CHILD_1 = "code-a-child-1";
-    static final String CODE_A_CHILD_2 = "code-a-child-2";
 
     static final LocalDate START_DATE = LocalDate.of(2023, 1, 1);
     static final LocalDate END_DATE = LocalDate.of(2023, 12, 31);
@@ -42,7 +37,7 @@ class FilterTest {
     @Test
     void testDateFilterWithStartAndEnd() {
         // Both start and end dates are provided
-        Filter filter = new Filter("date", "date", null, START_DATE, END_DATE);
+        Filter filter = new Filter("date", "date", START_DATE, END_DATE);
 
         QueryParams result = filter.dateFilter();
 
@@ -53,7 +48,7 @@ class FilterTest {
     @Test
     void testDateFilterWithOnlyStart() {
         // Only start date is provided
-        Filter filter = new Filter("date", "date", null, START_DATE, null);
+        Filter filter = new Filter("date", "date", START_DATE, null);
 
         QueryParams result = filter.dateFilter();
 
@@ -64,7 +59,7 @@ class FilterTest {
     @Test
     void testDateFilterWithOnlyEnd() {
         // Only end date is provided
-        Filter filter = new Filter("date", "date", null, null, LocalDate.parse("2023-12-31"));
+        Filter filter = new Filter("date", "date", null, LocalDate.parse("2023-12-31"));
 
         QueryParams result = filter.dateFilter();
 
@@ -77,8 +72,7 @@ class FilterTest {
         when(mappingTreeBase.expand(SYSTEM_A, CODE_A_NO_CHILDREN)).thenReturn(Stream.of(CODE_A_NO_CHILDREN));
 
         Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
-        logger.debug("Filter Code Size {} ", filter.codes().size());
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code));
 
         var result = filter.codeFilter(mappingTreeBase);
 
@@ -93,7 +87,7 @@ class FilterTest {
 
         Code codeA = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
         Code codeB = new Code(SYSTEM_B, CODE_B_NO_CHILDREN);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB), null, null);
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB));
 
         QueryParams result = filter.codeFilter(mappingTreeBase);
 
@@ -107,7 +101,7 @@ class FilterTest {
 
         Code code = new Code(SYSTEM_A, CODE_A_1_CHILD);
         Code code_child = new Code(SYSTEM_A, CODE_A_CHILD_1);
-        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code), null, null);
+        Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code));
 
 
         var result = filter.codeFilter(mappingTreeBase);
