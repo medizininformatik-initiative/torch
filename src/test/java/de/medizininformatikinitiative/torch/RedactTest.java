@@ -29,7 +29,7 @@ public class RedactTest {
                 DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
                 // Use redaction from BaseTestSetup
-                resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);
+                resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
                 Assertions.assertEquals(
                         integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
@@ -53,7 +53,7 @@ public class RedactTest {
                 DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
                 // Use redaction from BaseTestSetup
-                resourceSrc = (DomainResource) integrationTestSetup.getRedaction().redact(resourceSrc);
+                resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
                 Assertions.assertEquals(
                         integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),

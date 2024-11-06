@@ -23,7 +23,6 @@ import java.util.Map;
 public class FhirTestHelper {
 
 
-
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
     private final FhirContext fhirContext;
     private final ResourceReader resourceReader;
@@ -50,7 +49,7 @@ public class FhirTestHelper {
      * @param actualBundles   Resulting bundles indexed by PatID after internal extracting operations e.g. after ResourceTransform
      * @param expectedBundles Expected Bundles indexed by PatID
      */
-    public void validateBundles(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+    public void validate(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
         for (Map.Entry<String, Bundle> entry : actualBundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();

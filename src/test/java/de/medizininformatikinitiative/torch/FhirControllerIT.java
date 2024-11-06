@@ -44,7 +44,6 @@ import java.nio.file.Paths;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertIterableEquals;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -177,22 +176,20 @@ public class FhirControllerIT {
 
     @Test
     public void testCql() throws IOException {
-        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
-        String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
-        Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
+        try (FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json")) {
+            String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
+            Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
 
-        var ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
+            var ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
 
-        Mono<List<String>> patientListMono = cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print());
-        List<String> patientList = patientListMono.block();
+            Flux<String> patientIds = cqlClient.fetchPatientIds(cqlQueryTranslator.toCql(ccdl).print());
 
-        List<String> expectedPatientList = Arrays.asList("1", "2", "4", "VHF00006");
-        assert patientList != null;
-        assertEquals(expectedPatientList.size(), patientList.size(), "Patient list size mismatch");
-        assertIterableEquals(expectedPatientList, patientList, "Patient list contents mismatch");
-        fis.close();
+            StepVerifier.create(patientIds).
+                    expectNext("1", "2", "4", "VHF00006")
+                    .verifyComplete();
+
+        }
     }
-
 
     @Test
     public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException {
@@ -247,7 +244,7 @@ public class FhirControllerIT {
 
             StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
                 Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                fhirTestHelper.validateBundles(bundles, expectedResources);
+                fhirTestHelper.validate(bundles, expectedResources);
                 return true;
             }).expectComplete().verify();
         } catch (IOException e) {

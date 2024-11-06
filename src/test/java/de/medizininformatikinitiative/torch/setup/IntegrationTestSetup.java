@@ -21,6 +21,7 @@ public class IntegrationTestSetup {
     private final ObjectMapper objectMapper;
     private final Redaction redaction;
     private final ResourceReader resourceReader;
+    private final FhirPathBuilder builder;
 
     // Constructor initializes all fields
     public IntegrationTestSetup() {
@@ -31,11 +32,16 @@ public class IntegrationTestSetup {
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        FhirPathBuilder builder = new FhirPathBuilder(slicing);
+
+        builder = new FhirPathBuilder(slicing);
         this.copier = new ElementCopier(cds, ctx, builder);
         this.redaction = new Redaction(cds, slicing);
 
         logger.info("Base test setup complete with immutable configurations.");
+    }
+
+    public FhirPathBuilder fhirPathBuilder() {
+        return builder;
     }
 
     // Provide getter methods for accessing the initialized objects
@@ -47,15 +53,15 @@ public class IntegrationTestSetup {
         return cds;
     }
 
-    public ElementCopier getCopier() {
+    public ElementCopier copier() {
         return copier;
     }
 
-    public ObjectMapper getObjectMapper() {
+    public ObjectMapper objectMapper() {
         return objectMapper;
     }
 
-    public Redaction getRedaction() {
+    public Redaction redaction() {
         return redaction;
     }
 

@@ -89,7 +89,7 @@ class DataStoreIT {
 
     @Test
     void getRenameEmpty() {
-        var result = dataStore.getResources(Query.ofType("Observation"));
+        var result = dataStore.search(Query.ofType("Observation"));
 
         StepVerifier.create(result.doOnNext(obs -> logger.info("Emitted Observation: {}", obs.getId())))
                 .expectNextCount(5)

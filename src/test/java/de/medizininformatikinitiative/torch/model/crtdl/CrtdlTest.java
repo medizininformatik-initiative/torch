@@ -41,5 +41,23 @@ public class CrtdlTest {
         }
     }
 
-    // TODO: test consentKey()
+    @Test
+    public void consentKeyEmpty() throws Exception {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+
+            assertThat(crtdl.consentKey()).isEqualTo("");
+        }
+
+    }
+
+
+    @Test
+    public void consentKeyPopulated() throws Exception {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_all_fields_consent.json")) {
+            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+            assertThat(crtdl.consentKey()).isEqualTo("yes-yes-no-yes");
+        }
+    }
+
 }

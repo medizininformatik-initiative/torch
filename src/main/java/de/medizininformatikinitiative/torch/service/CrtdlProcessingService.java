@@ -69,17 +69,11 @@ public class CrtdlProcessingService {
 
 
     public Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
-        return fetchPatientList(crtdl)
-                .flatMap(patientList -> {
-                    if (patientList.isEmpty()) {
-                        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: No patients found.");
-                        return Mono.empty();
-                    }
-                    return Flux.fromIterable(patientList.split(batchSize))
-                            .flatMap(batch -> processBatch(crtdl, batch, jobId), maxConcurrency)
-                            .then();
-                });
+        return fetchPatientBatches(crtdl)
+                .flatMap(batch -> processBatch(crtdl, batch, jobId), maxConcurrency)
+                .then();
     }
+
 
     Mono<Void> processBatch(Crtdl crtdl, PatientBatch batch, String jobId) {
         logger.info("Processing batch {}", batch);
@@ -119,41 +113,44 @@ public class CrtdlProcessingService {
     }
 
 
-    public Mono<PatientBatch> fetchPatientList(Crtdl crtdl) {
+    public Flux<PatientBatch> fetchPatientBatches(Crtdl crtdl) {
         try {
             return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
         } catch (JsonProcessingException e) {
-            return Mono.error(e);
+            return Flux.error(e);
         }
     }
 
-    public Mono<PatientBatch> fetchPatientListFromFlare(Crtdl crtdl) {
+    public Flux<PatientBatch> fetchPatientListFromFlare(Crtdl crtdl) {
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
                 .bodyValue(crtdl.cohortDefinition().toString())
                 .retrieve()
                 .onStatus(status -> status.value() >= 400, ClientResponse::createException)
-                .bodyToMono(String.class)
+                .bodyToFlux(String.class)
                 .publishOn(Schedulers.boundedElastic())
                 .flatMap(response -> {
                     try {
                         List<String> list = objectMapper.readValue(response, new TypeReference<>() {
                         });
                         logger.debug("Got  {} patient IDs", list.size());
-                        return Mono.just(PatientBatch.of(list));
+                        return Flux.fromIterable(PatientBatch.of(list).split(batchSize));
                     } catch (JsonProcessingException e) {
                         logger.error("Error parsing response: {}", e.getMessage());
-                        return Mono.error(new RuntimeException("Error parsing response", e));
+                        return Flux.error(new RuntimeException("Error parsing response", e));
                     }
                 })
                 .doOnSubscribe(subscription -> logger.debug("Fetching patient list from Flare"))
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Mono<PatientBatch> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
+    public Flux<PatientBatch> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
         StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
-        return this.cqlClient.getPatientListByCql(cqlQueryTranslator.toCql(ccdl).print()).map(PatientBatch::of);
+        return cqlClient.fetchPatientIds(cqlQueryTranslator.toCql(ccdl).print())
+                .window(batchSize)
+                .flatMap(Flux::collectList)
+                .map(PatientBatch::of);
     }
 
 

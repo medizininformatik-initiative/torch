@@ -3,13 +3,15 @@ package de.medizininformatikinitiative.torch.cql;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.util.List;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
@@ -29,7 +31,7 @@ public class CqlClient {
     }
 
 
-    public Mono<List<String>> getPatientListByCql(String cqlQuery) {
+    public Flux<String> fetchPatientIds(String cqlQuery) {
         var libraryUri = "urn:uuid:" + UUID.randomUUID();
         var measureUri = "urn:uuid:" + UUID.randomUUID();
         Parameters params;
@@ -44,36 +46,31 @@ public class CqlClient {
         params.setParameter("measure", measureUri);
         Parameters finalParams = params;
 
-        return Mono.fromCallable(() -> fhirHelper.createBundle(cqlQuery, libraryUri, measureUri))
-                .doOnError(e -> logger.error("Error creating FHIR bundle with CQL query: {}. Library URI: {}, Measure URI: {}. Error: {}",
-                        cqlQuery, libraryUri, measureUri, e.getMessage(), e))
-                .flatMap(bundle -> dataStore.transmitBundle(bundle)  // transmitBundle returns Mono<Void>
-                        .doOnSuccess(aVoid -> logger.info("Successfully transmitted FHIR bundle."))
-                        .doOnError(e -> logger.error("Error transmitting FHIR bundle to the server. Bundle: {}. Error: {}",
-                                bundle, e.getMessage(), e))
-                        .then(Mono.defer(() -> {
-                            logger.info("Proceeding to measure evaluation.");
-                            return dataStore.evaluateMeasure(finalParams)
-                                    .doOnError(e -> logger.error("Error evaluating measure for measureUri: {}. Parameters: {}. Error: {}",
-                                            measureUri, finalParams, e.getMessage(), e));
-                        }))
-                )
-                .flatMap(measureReport -> {
-                    var subjectListId = measureReport.getGroupFirstRep()
-                            .getPopulationFirstRep()
-                            .getSubjectResults()
-                            .getReferenceElement()
-                            .getIdPart();
+        Bundle measureLibraryBundle = null;
+        measureLibraryBundle = fhirHelper.createBundle(cqlQuery, libraryUri, measureUri);
 
-                    QueryParams queryParams = QueryParams.of("_list", stringValue(subjectListId));
-                    Query fhirQuery = new Query("Patient", queryParams);
+        return dataStore.transact(measureLibraryBundle)
+                .then(Mono.defer(() -> dataStore.evaluateMeasure(finalParams)))
+                .map(CqlClient::extractSubjectListId)
+                .map(CqlClient::createPatientQuery)
+                .flux()
+                .flatMap(dataStore::search)
+                .flatMap(resource -> {
+                    var id = resource.getIdPart();
+                    return id == null ? Flux.error(new RuntimeException("Encountered Patient Resource without ID")) : Flux.just(id);
+                });
+    }
 
-                    return dataStore.executeCollectPatientIds(fhirQuery)
-                            .doOnError(e -> logger.error("Error executing FHIR query for patient list. Query: {}. Error: {}",
-                                    fhirQuery, e.getMessage(), e));
-                })
-                .doOnError(error -> logger.error("An unexpected error occurred during the patient list retrieval process. CQL query: {}, Library URI: {}, Measure URI: {}. Error: {}",
-                        cqlQuery, libraryUri, measureUri, error.getMessage(), error));
+    private static Query createPatientQuery(String subjectListId) {
+        return new Query("Patient", QueryParams.of("_list", stringValue(subjectListId)));
+    }
+
+    private static String extractSubjectListId(MeasureReport measureReport) {
+        return measureReport.getGroupFirstRep()
+                .getPopulationFirstRep()
+                .getSubjectResults()
+                .getReferenceElement()
+                .getIdPart();
     }
 
 

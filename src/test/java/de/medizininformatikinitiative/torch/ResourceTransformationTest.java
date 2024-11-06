@@ -91,7 +91,7 @@ public class ResourceTransformationTest {
 
         try {
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
-            Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+            Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
 
             DomainResource resourcesrc = INTEGRATION_TEST_SETUP.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = INTEGRATION_TEST_SETUP.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
@@ -118,7 +118,7 @@ public class ResourceTransformationTest {
 
         try {
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-            Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+            Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
             fis.close();
 
             Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, new PatientBatch(List.of("1", "2", "4", "VHF00006")));
@@ -154,7 +154,7 @@ public class ResourceTransformationTest {
     @Test
     void testExecuteQueryWithBatch_Success() throws IOException {
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
 
 

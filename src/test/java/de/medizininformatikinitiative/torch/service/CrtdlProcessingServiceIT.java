@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
@@ -19,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -33,7 +35,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Stream;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ActiveProfiles("test")
@@ -56,6 +59,8 @@ class CrtdlProcessingServiceIT {
 
     private final String jobId;
     private final Path jobDir;
+
+    private static final int BATCH_SIZE = 100;
 
     @Autowired
     public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
@@ -86,10 +91,10 @@ class CrtdlProcessingServiceIT {
 
 
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
-        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
         manager.startContainers();
 
@@ -127,49 +132,29 @@ class CrtdlProcessingServiceIT {
         }
     }
 
-    @Test
-    void fetchPatientLists() {
-        Mono<PatientBatch> listMono1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+    @Nested
+    class FetchPatientList {
 
-        Mono<PatientBatch> listMono2 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+        @Test
+        void nonEmpty() throws JsonProcessingException {
+            Mono<List<PatientBatch>> batches1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS).collectList();
+            Mono<List<PatientBatch>> batches2 = service.fetchPatientListUsingCql(CRTDL_ALL_OBSERVATIONS).collectList();
 
-        PatientBatch patientList1 = listMono1.block();
-        PatientBatch patientList2 = listMono2.block();
-        assert patientList1 != null;
-        assertEquals(4, patientList1.ids().size());
-        assertEquals(patientList2, patientList1);
+            StepVerifier.create(Mono.zip(batches1, batches2))
+                    .expectNextMatches(t -> t.getT1().equals(t.getT2()) && !t.getT1().isEmpty())
+                    .verifyComplete();
+        }
 
+        @Test
+        void empty() throws JsonProcessingException {
+            Flux<PatientBatch> batches1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
+            Flux<PatientBatch> batches2 = service.fetchPatientListUsingCql(CRTDL_NO_PATIENTS);
+
+            StepVerifier.create(batches1).verifyComplete();
+            StepVerifier.create(batches2).verifyComplete();
+        }
     }
 
-    @Test
-    void fetchEmptyPatientLists() {
-        Mono<PatientBatch> listMono1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
-
-        Mono<PatientBatch> listMono2 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
-
-        PatientBatch patientList1 = listMono1.block();
-        PatientBatch patientList2 = listMono2.block();
-        assert patientList1 != null;
-        assertEquals(0, patientList1.ids().size());
-        assertEquals(patientList2, patientList1);
-
-    }
-
-
-    @Test
-    void testFetchAndProcessBatches_EmptyPatientList() {
-        Mono<Void> result = service.processCrtdl(CRTDL_NO_PATIENTS, jobId);
-
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify the Mono completes without emitting any items
-
-        // Assert that the status was set correctly in ResultFileManager
-        String expectedStatus = "Failed at collectResources for batch: No patients found.";
-        String actualStatus = resultFileManager.getStatus(jobId); // Assuming getStatus is available
-        assertEquals(expectedStatus, actualStatus, "Status message should indicate failure due to empty patient list.");
-
-    }
 
     @Test
     void testProcessBatchWritesFiles() throws IOException {
@@ -229,23 +214,6 @@ class CrtdlProcessingServiceIT {
             logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-
-    }
-
-
-    @Test
-    void processCrtdl_EmptyPatientList_ShouldUpdateStatus() throws IOException {
-
-        Mono<Void> result = service.processCrtdl(CRTDL_NO_PATIENTS, jobId);
-
-        StepVerifier.create(result)
-                .verifyComplete();
-
-        // Assert that the status was set correctly in ResultFileManager
-        String expectedStatus = "Failed at collectResources for batch: No patients found.";
-        String actualStatus = resultFileManager.getStatus(jobId); // Assuming getStatus is available
-        assertEquals(expectedStatus, actualStatus, "Status message should indicate failure due to empty patient list.");
-        assertTrue(isDirectoryEmpty(jobDir), "Job directory should be empty after cleanup.");
 
     }
 

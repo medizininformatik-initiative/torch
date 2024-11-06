@@ -5,12 +5,7 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
-
-import org.hl7.fhir.r4.model.Bundle;
 import org.junit.jupiter.api.*;
-
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.test.StepVerifier;
@@ -20,26 +15,33 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 
+import static org.hl7.fhir.r4.model.ResourceType.Patient;
+
 class DataStoreTest {
 
     private static final Instant FIXED_INSTANT = Instant.ofEpochSecond(104152);
-    private static MockWebServer mockStore;
+    public static final String PATIENT_BUNDLE = """
+            {
+              "resourceType": "Bundle",
+              "type": "searchset",
+              "entry": [
+                {
+                  "resource": {
+                    "resourceType": "Patient"
+                  }
+                }
+              ]
+            }
+            """;
+    private MockWebServer mockStore;
 
     private DataStore dataStore;
 
-    @BeforeAll
-    static void setUp() throws IOException {
-        mockStore = new MockWebServer();
-        mockStore.start();
-    }
-
-    @AfterAll
-    static void tearDown() throws IOException {
-        mockStore.shutdown();
-    }
 
     @BeforeEach
-    void initialize() {
+    void initialize() throws IOException {
+        mockStore = new MockWebServer();
+        mockStore.start();
         FhirContext ctx = FhirContext.forR4();
         WebClient client = WebClient.builder()
                 .baseUrl("http://localhost:%d/fhir".formatted(mockStore.getPort()))
@@ -48,28 +50,59 @@ class DataStoreTest {
         dataStore = new DataStore(client, ctx, Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC), 1000);
     }
 
-
-    @Test
-    @DisplayName("fails after 3 unsuccessful retries")
-    void execute_retry_fails() {
-        mockStore.enqueue(new MockResponse().setResponseCode(500));
-        mockStore.enqueue(new MockResponse().setResponseCode(500));
-        mockStore.enqueue(new MockResponse().setResponseCode(500));
-        mockStore.enqueue(new MockResponse().setResponseCode(500));
-        mockStore.enqueue(new MockResponse().setResponseCode(200));
-
-        var result = dataStore.getResources(Query.ofType("Observation"));
-
-        StepVerifier.create(result).expectErrorMessage("Retries exhausted: 3/3").verify();
+    @AfterEach
+    void tearDown() throws IOException {
+        mockStore.shutdown();
     }
 
-    @Test
-    @DisplayName("doesn't retry a 400")
-    void execute_retry_400() {
-        mockStore.enqueue(new MockResponse().setResponseCode(400));
 
-        var result = dataStore.getResources(Query.ofType("Observation"));
+    @Nested
+    class Search {
 
-        StepVerifier.create(result).expectError(WebClientResponseException.BadRequest.class).verify();
+        @Test
+        @DisplayName("fails after 3 unsuccessful retries")
+        void retryFails() {
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(200));
+
+            var result = dataStore.search(Query.ofType("Observation"));
+
+            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 3/3");
+        }
+
+        @Test
+        @DisplayName("doesn't retry a 400")
+        void errorNoRetry() {
+            mockStore.enqueue(new MockResponse().setResponseCode(400));
+
+            var result = dataStore.search(Query.ofType("Observation"));
+
+            StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
+        }
+
+        @Test
+        void emptyResult() {
+            mockStore.enqueue(new MockResponse().setResponseCode(200));
+
+            var result = dataStore.search(Query.ofType("Observation"));
+
+            StepVerifier.create(result).verifyComplete();
+        }
+
+        @Test
+        void fullResult() {
+            mockStore.enqueue(new MockResponse().setResponseCode(200).setBody(PATIENT_BUNDLE));
+
+            var result = dataStore.search(Query.ofType("Patient"));
+
+            StepVerifier.create(result).expectNextMatches(resource -> resource.getResourceType() == Patient).verifyComplete();
+        }
+
+
     }
+
+
 }

@@ -23,11 +23,6 @@ public record Crtdl(
     }
 
     public String consentKey() {
-        if (cohortDefinition == null) {
-            logger.error("cohortDefinition is null");
-            return null;
-        }
-
         JsonNode inclusionCriteria = cohortDefinition.get("inclusionCriteria");
         if (inclusionCriteria != null && inclusionCriteria.isArray()) {
             for (JsonNode criteriaGroup : inclusionCriteria) {

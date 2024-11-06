@@ -55,17 +55,16 @@ public class ResourceTransformer {
     }
 
     /**
-     * @param patientIdBatch Batch of PatIDs
-     * @param group          Attribute Group
-     * @param consentmap     Map of Codes for Consent Processor
+     * @param batch      Batch of PatIDs
+     * @param group      Attribute Group
+     * @param consentmap Map of Codes for Consent Processor
      * @return Flux of transformed Resources with attribute, consent and batch conditions applied
      */
-    public Flux<Resource> fetchAndTransformResources(PatientBatch patientIdBatch, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
+    public Flux<Resource> fetchAndTransformResources(PatientBatch batch, AttributeGroup group, Map<String, Map<String, List<Period>>> consentmap) {
         List<Query> queryList = group.queries(dseMappingTreeBase);
 
-
         return Flux.fromIterable(queryList)
-                .flatMap(query -> executeQueryWithBatch(patientIdBatch, query)
+                .flatMap(query -> executeQueryWithBatch(batch, query)
                         .flatMap(resource -> applyConsentAndTransform(resource, group, consentmap)));
     }
 
@@ -74,7 +73,7 @@ public class ResourceTransformer {
         Query finalQuery = Query.of(query.type(), query.params().appendParams(batch.compartmentSearchParam(query.type())));
         logger.debug("Query for Patients {}", finalQuery);
 
-        return dataStore.getResources(finalQuery)
+        return dataStore.search(finalQuery)
                 .subscribeOn(Schedulers.boundedElastic())
                 .onErrorResume(e -> {
                     logger.error("Error fetching resources for parameters: {}", finalQuery, e);
