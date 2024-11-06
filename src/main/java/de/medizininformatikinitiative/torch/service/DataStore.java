@@ -21,7 +21,6 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
-import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 
@@ -38,7 +37,7 @@ public class DataStore {
 
 
     @Autowired
-    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext, @Qualifier("systemDefaultZone") Clock clock,
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
                      @Value("${torch.fhir.pageCount}") int pageCount) {
         this.client = client;
         this.fhirContext = fhirContext;

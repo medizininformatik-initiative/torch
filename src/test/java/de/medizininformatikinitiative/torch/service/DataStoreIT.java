@@ -24,9 +24,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 
 @Testcontainers
 class DataStoreIT {
@@ -68,7 +66,7 @@ class DataStoreIT {
                 .defaultHeader("Accept", "application/fhir+json")
                 .defaultHeader("X-Forwarded-Host", host)
                 .build();
-        dataStore = new DataStore(client, fhirContext, Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC), 1000);
+        dataStore = new DataStore(client, fhirContext, 1000);
 
 
         if (!dataImported) {

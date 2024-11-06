@@ -162,7 +162,7 @@ public class AppConfig {
     @Bean
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
                                @Value("${torch.fhir.pageCount}") int pageCount) {
-        return new DataStore(client, context, clock, pageCount);
+        return new DataStore(client, context, pageCount);
     }
 
     @Bean

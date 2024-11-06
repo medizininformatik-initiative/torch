@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +21,6 @@ class SlicingTest {
     @BeforeEach
     void setUp() {
         FhirContext context = FhirContext.forR4();
-        CdsStructureDefinitionHandler handler = Mockito.mock(CdsStructureDefinitionHandler.class);
         slicing = new Slicing(context);
     }
 
@@ -84,7 +82,7 @@ class SlicingTest {
         List<String> conditions = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertFalse(conditions.isEmpty());
-        assertTrue(conditions.get(0).contains("Patient.contact.relationship"));
+        assertTrue(conditions.getFirst().contains("Patient.contact.relationship"));
     }
 
     @Test
@@ -118,7 +116,7 @@ class SlicingTest {
         List<String> conditions = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertFalse(conditions.isEmpty());
-        assertTrue(conditions.get(0).contains("conformsTo"));
+        assertTrue(conditions.getFirst().contains("conformsTo"));
     }
 
     @Test
@@ -146,7 +144,7 @@ class SlicingTest {
 
         assertFalse(conditions.isEmpty());
         logger.info("{}", conditions.getFirst());
-        assertTrue(conditions.get(0).contains("Patient.contact.relationship.coding.system"));
+        assertTrue(conditions.getFirst().contains("Patient.contact.relationship.coding.system"));
     }
 
     @Test

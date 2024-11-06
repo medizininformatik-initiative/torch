@@ -11,9 +11,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneOffset;
 
 import static org.hl7.fhir.r4.model.ResourceType.Patient;
 
@@ -47,7 +45,7 @@ class DataStoreTest {
                 .baseUrl("http://localhost:%d/fhir".formatted(mockStore.getPort()))
                 .defaultHeader("Accept", "application/fhir+json")
                 .build();
-        dataStore = new DataStore(client, ctx, Clock.fixed(FIXED_INSTANT, ZoneOffset.UTC), 1000);
+        dataStore = new DataStore(client, ctx, 1000);
     }
 
     @AfterEach
