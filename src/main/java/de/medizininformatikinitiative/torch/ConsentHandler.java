@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -12,10 +13,10 @@ import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
+import reactor.util.function.Tuple2;
+import reactor.util.function.Tuples;
 
 import java.io.File;
 import java.io.IOException;
@@ -37,7 +38,6 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.string
  * @see ConsentCodeMapper
  * @see ConsentProcessor
  */
-@Component
 public class ConsentHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsentHandler.class);
@@ -80,7 +80,7 @@ public class ConsentHandler {
      * @param consentInfo A map containing consent information structured by patient ID and consent codes.
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
-    public Boolean checkConsent(DomainResource resource, Map<String, Map<String, List<Period>>> consentInfo) {
+    public boolean checkConsent(DomainResource resource, Map<String, Map<String, ConsentInfo.NonContinousPeriod>> consentInfo) {
         logger.trace("Checking Consent for {} {}", resource.getResourceType(), resource.getId());
         Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
@@ -106,7 +106,6 @@ public class ConsentHandler {
             logger.warn("No matching profile found for resource {} of type: {}", resource.getId(), resource.getResourceType());
             return false;
         }
-
         if (fieldValue.asText().isEmpty()) {
             logger.trace("Field value is empty, consent is automatically granted if patient has consents in general.");
             return true;
@@ -116,58 +115,32 @@ public class ConsentHandler {
             logger.trace("Evaluated FHIRPath expression, found {} values.", values.size());
 
             for (Base value : values) {
-                DateTimeType resourceStart;
-                DateTimeType resourceEnd;
-
-                if (value instanceof DateTimeType) {
-                    resourceStart = (DateTimeType) value;
-                    resourceEnd = (DateTimeType) value;
-                    logger.trace("Evaluated value is DateTimeType: start {}, end {}", resourceStart, resourceEnd);
-                } else if (value instanceof Period) {
-                    resourceStart = ((Period) value).getStartElement();
-                    resourceEnd = ((Period) value).getEndElement();
-                    logger.trace("Evaluated value is Period: start {}, end {}", resourceStart, resourceEnd);
+                ConsentInfo.Period period;
+                if (value instanceof Period) {
+                    period = ConsentInfo.Period.fromHapi((Period) value);
+                } else if (value instanceof DateTimeType) {
+                    period = ConsentInfo.Period.fromHapi((DateTimeType) value);
                 } else {
-                    logger.error("No valid Date Time Value found. Value: {}", value);
                     throw new IllegalArgumentException("No valid Date Time Value found");
                 }
-
                 String patientID;
                 try {
-                    patientID = ResourceUtils.getPatientId(resource);
+                    patientID = ResourceUtils.patientId(resource);
                 } catch (PatientIdNotFoundException e) {
-                    logger.warn("Resource {} does not Contain any Patient Reference ", resource.getIdElement());
                     return false;
                 }
-
-                logger.trace("Patient ID {} and Set {} ", patientID, consentInfo.keySet());
-                logger.trace("Get Result {}", consentInfo.get(patientID));
 
                 boolean hasValidConsent = Optional.ofNullable(consentInfo.get(patientID))
                         .map(consentPeriodMap -> consentPeriodMap.entrySet().stream()
                                 .allMatch(innerEntry -> {
-                                    String code = innerEntry.getKey();
-                                    List<Period> consentPeriods = innerEntry.getValue();
-                                    logger.debug("Checking {} consent periods for code: {}", consentPeriods.size(), code);
-
-                                    // Check if at least one consent period is valid for the current code
-                                    return consentPeriods.stream()
-                                            .anyMatch(period -> {
-                                                logger.trace("Evaluating ConsentPeriod: start {}, end {} vs {} and {}",
-                                                        resourceStart, resourceEnd, period.getStart(), period.getEnd());
-                                                logger.debug("Result: {}", resourceStart.after(period.getStartElement()) && resourceEnd.before(period.getEndElement()));
-                                                return resourceStart.after(period.getStartElement()) && resourceEnd.before(period.getEndElement());
-                                            });
+                                    ConsentInfo.NonContinousPeriod consentPeriods = innerEntry.getValue();
+                                    return consentPeriods.within(period);
                                 }))
                         .orElse(false);
-
                 if (hasValidConsent) {
-                    logger.debug("Valid consent period found for evaluated values.");
                     return true;
                 }
             }
-            logger.warn("No valid consent period found for any value.");
-            logger.debug("No valid consent period found for any value in Resource {}", resource.getIdElement());
             return false;  // No matching consent period found
         }
     }
@@ -182,7 +155,7 @@ public class ConsentHandler {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Flux<Map<String, Map<String, List<Period>>>> buildingConsentInfo(String key, PatientBatch batch) {
+    public Flux<ConsentInfo> buildingConsentInfo(String key, PatientBatch batch) {
         Objects.requireNonNull(batch, "Patient batch cannot be null");
         // Retrieve the relevant codes for the given key
         Set<String> codes = mapper.getRelevantCodes(key);
@@ -193,48 +166,19 @@ public class ConsentHandler {
                 .appendParams(batch.compartmentSearchParam(type)));
 
         return dataStore.search(query)
-                .subscribeOn(Schedulers.boundedElastic())  // Offload the HTTP requests
+                .cast(Consent.class)
                 .doOnSubscribe(subscription -> logger.debug("Fetching resources for batch: {}", batch.ids()))
-                .doOnNext(resource -> logger.trace("Resource fetched for ConsentBuild: {}", resource.getIdElement().getIdPart()))
-                .onErrorResume(e -> {
-                    logger.error("Error fetching resources for parameters: {}", query, e);
-                    return Flux.empty();
-                })
-
-                .<Map<String, Map<String, List<Period>>>>handle((resource, sink) -> {
+                .doOnNext(resource -> logger.trace("Consent resource with id {} fetched for ConsentBuild", resource.getIdPart()))
+                .flatMap(consent -> {
                     try {
-                        DomainResource domainResource = (DomainResource) resource;
-                        String patient = ResourceUtils.getPatientId(domainResource);
-
-                        logger.trace("Processing resource for patient: {} {}", patient, resource.getResourceType());
-
-                        Map<String, List<Period>> consents = consentProcessor.transformToConsentPeriodByCode(domainResource, codes);
-
-                        Map<String, Map<String, List<Period>>> patientConsentMap = new HashMap<>();
-                        patientConsentMap.put(patient, new HashMap<>());
-
-                        // Log consent periods transformation
-                        logger.trace("Transformed resource into {} consent periods for patient: {}", consents.size(), patient);
-
-                        // Iterate over the consent periods and add them to the patient's map
-                        consents.forEach((code, newConsentPeriods) -> patientConsentMap.get(patient)
-                                .computeIfAbsent(code, k -> new ArrayList<>())
-                                .addAll(newConsentPeriods));
-
-                        logger.trace("Consent periods updated for patient: {} with {} codes", patient, consents.size());
-
-                        // Return the map containing the patient's consent periods
-                        sink.next(patientConsentMap);
-                    } catch (Exception e) {
-                        logger.error("Error processing resource", e);
-                        sink.error(new RuntimeException(e));
+                        String patientId = ResourceUtils.patientId(consent);
+                        logger.trace("Processing Consent for patient {}", patientId);
+                        Map<String, ConsentInfo.NonContinousPeriod> consents = consentProcessor.transformToConsentPeriodByCode(consent, codes);
+                        return Mono.just(new ConsentInfo(patientId, consents));
+                    } catch (ConsentViolatedException | PatientIdNotFoundException e) {
+                        return Mono.error(e);
                     }
-                })
-
-                .collectList()
-                .doOnSuccess(list -> logger.trace("Successfully processed {} resources for buildingConsentInfo", list.size()))
-
-                .flatMapMany(Flux::fromIterable);
+                });
     }
 
     /**
@@ -244,12 +188,12 @@ public class ConsentHandler {
      * their consent periods accordingly. It ensures that consents are valid in the context of the
      * patient's encounters.
      *
-     * @param consentInfoFlux A {@link Flux} emitting maps of consent information structured by patient ID and consent codes.
-     * @param batch           A list of patient IDs to process in this batch.
+     * @param consentInfos A {@link Flux} emitting maps of consent information structured by patient ID and consent codes.
+     * @param batch        A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting updated maps of consent information.
      */
-    public Flux<Map<String, Map<String, List<Period>>>> updateConsentPeriodsByPatientEncounters(
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux, PatientBatch batch) {
+    public Mono<List<ConsentInfo>> updateConsentPeriodsByPatientEncounters(
+            Mono<List<ConsentInfo>> consentInfos, PatientBatch batch) {
         Objects.requireNonNull(batch, "Patient batch cannot be null");
         logger.debug("Starting to update consent info with batch size: {}", batch.ids().size());
         String type = "Encounter";
@@ -257,83 +201,42 @@ public class ConsentHandler {
         Query query = Query.of(type, QueryParams.of("_profile", stringValue(CDS_ENCOUNTER_PROFILE_URL))
                 .appendParams(batch.compartmentSearchParam(type)));
         Flux<Encounter> allEncountersFlux = dataStore.search(query)
-                .subscribeOn(Schedulers.boundedElastic())
                 .cast(Encounter.class)
                 .doOnSubscribe(subscription -> logger.debug("Fetching encounters for batch: {}", batch.ids()))
-                .doOnNext(encounter -> logger.trace("Encounter fetched: {}", encounter.getIdElement().getIdPart()))
-                .onErrorResume(e -> {
-                    logger.error("Error fetching encounters for batch: {}", batch, e);
-                    return Flux.empty();
-                });
+                .doOnNext(encounter -> logger.trace("Encounter fetched: {}", encounter.getIdElement().getIdPart()));
 
         // Step 2: Group the encounters by patient ID
-        Mono<Map<String, Collection<Encounter>>> encountersByPatientMono = allEncountersFlux
-                .flatMap(encounter -> {
-                    try {
-                        String patientId = ResourceUtils.getPatientId(encounter);
-                        return Mono.just(new AbstractMap.SimpleEntry<>(patientId, encounter));
-                    } catch (PatientIdNotFoundException e) {
-                        logger.error("Patient ID not found in encounter resource", e);
-                        return Mono.empty();
-                    }
-                })
-                .collectMultimap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue
-                );
+        Mono<Map<String, Collection<Encounter>>> encountersByPatientMono = groupEncounterByPatient(allEncountersFlux);
 
         // Step 3: Process each patient's consent info individually
-        return encountersByPatientMono.flatMapMany(encountersByPatientMap ->
-                consentInfoFlux.flatMap(patientConsentInfo -> {
+        return encountersByPatientMono.flatMap(encountersByPatientMap ->
+                consentInfos.map(patientConsentInfos ->
+                        patientConsentInfos.stream().map(
+                                consentInfo -> {
+                                    Collection<Encounter> patientEncounters = encountersByPatientMap.get(consentInfo.patientId());
+                                    if (patientEncounters == null || patientEncounters.isEmpty()) {
+                                        logger.warn("No encounters found for patient {}", consentInfo.patientId());
+                                        return consentInfo;
+                                    }
+                                    return consentInfo.updateConsentPeriodsByPatientEncounters(patientEncounters);
+                                }
+                        ).toList()
 
-                    String patientId = patientConsentInfo.keySet().stream().findFirst().orElse(null);
-
-                    if (patientId == null) {
-                        logger.warn("Patient ID not found in consent info");
-                        return Mono.just(patientConsentInfo); // Or handle as appropriate
-                    }
-
-                    List<Encounter> patientEncounters = (List<Encounter>) encountersByPatientMap.get(patientId);
-
-                    if (patientEncounters == null || patientEncounters.isEmpty()) {
-                        logger.warn("No encounters found for patient {}", patientId);
-                        // No encounters for this patient, return the consent info as is
-                        return Mono.just(patientConsentInfo);
-                    }
-
-                    return Mono.fromCallable(() -> {
-                        updateConsentPeriodsByPatientEncounters(patientConsentInfo.get(patientId), patientEncounters);
-                        return patientConsentInfo;
-                    }).subscribeOn(Schedulers.boundedElastic());
-                })
+                )
         );
     }
 
-    /**
-     * Helper method to update consent periods for a patient based on their encounters.
-     *
-     * <p>This method adjusts the start dates of consent periods to align with the start dates of the patient's
-     * encounters, ensuring that consents are valid during the periods of active encounters.
-     *
-     * @param patientConsentInfo A map of consent codes to their corresponding periods for a specific patient.
-     * @param encounters         A list of {@link Encounter} resources associated with the patient.
-     */
-    private void updateConsentPeriodsByPatientEncounters(
-            Map<String, List<Period>> patientConsentInfo, List<Encounter> encounters) {
-        Objects.requireNonNull(encounters, "Encounters list cannot be null");
-        for (Encounter encounter : encounters) {
-            Period encounterPeriod = encounter.getPeriod();
-
-            for (Map.Entry<String, List<Period>> entry : patientConsentInfo.entrySet()) {
-                List<Period> consentPeriods = entry.getValue();
-
-                for (Period consentPeriod : consentPeriods) {
-                    if (encounterPeriod.getStartElement().before(consentPeriod.getStartElement()) &&
-                            encounterPeriod.getEndElement().after(consentPeriod.getStartElement())) {
-                        consentPeriod.setStartElement(encounterPeriod.getStartElement());
+    private static Mono<Map<String, Collection<Encounter>>> groupEncounterByPatient(Flux<Encounter> allEncountersFlux) {
+        return allEncountersFlux
+                .flatMap(encounter -> {
+                    try {
+                        String patientId = ResourceUtils.patientId(encounter);
+                        return Mono.just(Tuples.of(patientId, encounter));
+                    } catch (PatientIdNotFoundException e) {
+                        return Mono.error(e);
                     }
-                }
-            }
-        }
+                }).collectMultimap(Tuple2::getT1, Tuple2::getT2);
     }
+
+
 }

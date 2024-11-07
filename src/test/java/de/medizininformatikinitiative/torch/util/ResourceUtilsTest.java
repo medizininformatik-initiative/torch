@@ -1,31 +1,31 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
-import org.junit.jupiter.api.BeforeEach;
+import org.hl7.fhir.r4.model.*;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
-import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ResourceUtilsTest {
 
 
+    @Nested
+    class getPatientId {
+
+
+    }
 
     @Test
     void testGetPatientId_PatientResource() throws PatientIdNotFoundException {
         Patient patient = new Patient();
         patient.setId("123");
 
-        String patientId = ResourceUtils.getPatientId(patient);
-        assertEquals("123", patientId);
+        String patientId = ResourceUtils.patientId(patient);
+
+        assertThat(patientId).isEqualTo("123");
     }
 
     @Test
@@ -33,7 +33,7 @@ class ResourceUtilsTest {
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
 
-        String patientId = ResourceUtils.getPatientId(consent);
+        String patientId = ResourceUtils.patientId(consent);
         assertEquals("123", patientId);
     }
 
@@ -43,21 +43,23 @@ class ResourceUtilsTest {
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
 
-        String patientId = ResourceUtils.getPatientId(consent);
+        String patientId = ResourceUtils.patientId(consent);
         assertEquals("123", patientId);
     }
 
     @Test
     void testGetPatientId_ThrowsExceptionWhenNoPatientId() {
         DomainResource resource = new Consent(); // No patient reference
-        assertThrows(PatientIdNotFoundException.class, () -> ResourceUtils.getPatientId(resource));
+        assertThrows(PatientIdNotFoundException.class, () -> ResourceUtils.patientId(resource));
     }
 
     @Test
     void testGetPatientReference_ValidReference() throws PatientIdNotFoundException {
         String reference = "Patient/123";
-        String patientId = ResourceUtils.getPatientReference(reference);
-        assertEquals("123", patientId);
+
+        String result = ResourceUtils.getPatientReference(reference);
+
+        assertThat(result).isEqualTo("123");
     }
 
     @Test

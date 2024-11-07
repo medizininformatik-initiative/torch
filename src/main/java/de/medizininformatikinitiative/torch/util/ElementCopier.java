@@ -5,7 +5,6 @@ import ca.uhn.fhir.util.TerserUtil;
 import ca.uhn.fhir.util.TerserUtilHelper;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.instance.model.api.IBase;
@@ -49,8 +48,7 @@ public class ElementCopier {
      * @param attribute Attribute to copy containing ElementID and if it is a mandatory element.
      * @throws MustHaveViolatedException if mandatory element is missing
      */
-    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException, PatientIdNotFoundException {
-        String id = ResourceUtils.getPatientId(src);
+    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException {
         List<CanonicalType> profileurl = src.getMeta().getProfile();
         logger.trace("ProfileURL {}", profileurl.getFirst());
         StructureDefinition structureDefinition = handler.getDefinition(profileurl);
@@ -61,9 +59,6 @@ public class ElementCopier {
         ElementDefinition elementDefinition = snapshot.getElementById(attribute.attributeRef());
 
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
-        logger.trace("{} TGT set {}", id, tgt.getClass());
-        logger.trace("{} Attribute FHIR PATH {}", id, attribute.attributeRef());
-
 
         try {
             logger.trace("Attribute Path {}", attribute.attributeRef());
@@ -75,7 +70,6 @@ public class ElementCopier {
             logger.trace("Elements received {}", fhirPath);
             if (elements.isEmpty()) {
                 if (attribute.mustHave()) {
-                    logger.debug("Must Have Violated Thrown in Copier for {} {}", attribute.attributeRef(), ResourceUtils.getPatientId(src));
                     throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
                 }
             } else {
@@ -112,7 +106,7 @@ public class ElementCopier {
 
                     logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
                     String[] elementParts = terserFHIRPATH.split("\\.");
-                    //check if fieldname or deeper in the branch
+                    
                     if (elementParts.length > 2) {
 
 

@@ -15,33 +15,31 @@ public class ResourceUtils {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtils.class);
 
 
-    public static String getPatientId(DomainResource resource) throws PatientIdNotFoundException {
+    public static String patientId(DomainResource resource) throws PatientIdNotFoundException {
+        //TODO 1 FHIRPATH expresion
+
         // Check if the resource is an instance of Patient
         if (resource instanceof Patient patient) {
-            return patient.getId();
+            return patient.getIdPart();
         }
-
         try {
+            //TODO Check all Base Resources
             if (resource instanceof Consent consent) {
                 if (consent.hasPatient()) {
                     return getPatientReference(consent.getPatient().getReference());
                 }
             } else {
-                // Use reflection to check if the method 'hasSubject' exists
                 Method hasSubjectMethod = resource.getClass().getMethod("hasSubject");
                 boolean hasSubject = (Boolean) hasSubjectMethod.invoke(resource);
 
                 if (hasSubject) {
-                    // Use reflection to check if the method 'getSubject' exists
                     Method getSubjectMethod = resource.getClass().getMethod("getSubject");
                     Object subject = getSubjectMethod.invoke(resource);
 
-                    // Use reflection to check if the 'subject' has the method 'hasReference'
                     Method hasReferenceMethod = subject.getClass().getMethod("hasReference");
                     boolean hasReference = (Boolean) hasReferenceMethod.invoke(subject);
 
                     if (hasReference) {
-                        // Use reflection to get the 'getReference' method from 'subject'
                         Method getReferenceMethod = subject.getClass().getMethod("getReference");
                         String reference = (String) getReferenceMethod.invoke(subject);
                         return getPatientReference(reference);
@@ -59,7 +57,6 @@ public class ResourceUtils {
         throw new PatientIdNotFoundException("Patient ID not found in the given resource");
     }
 
-
     public static String getPatientReference(String reference) throws PatientIdNotFoundException {
         if (reference != null && reference.startsWith("Patient/")) {
             return reference.substring("Patient/".length());
@@ -74,7 +71,7 @@ public class ResourceUtils {
         }
         Resource resource = bundle.getEntryFirstRep().getResource();
         if (resource instanceof DomainResource) {
-            return getPatientId((DomainResource) resource);
+            return patientId((DomainResource) resource);
         }
         throw new PatientIdNotFoundException("First entry in bundle is not a DomainResource");
     }

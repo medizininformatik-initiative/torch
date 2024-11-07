@@ -24,7 +24,6 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
 
 @Testcontainers
 class DataStoreIT {
@@ -35,9 +34,6 @@ class DataStoreIT {
     protected static final Logger logger = LoggerFactory.getLogger(DataStoreIT.class);
 
     protected static boolean dataImported = false;
-
-
-    private static final Instant FIXED_INSTANT = Instant.ofEpochSecond(104152);
 
     private static final FhirContext fhirContext = FhirContext.forR4();
     @Container
@@ -67,13 +63,11 @@ class DataStoreIT {
                 .defaultHeader("X-Forwarded-Host", host)
                 .build();
         dataStore = new DataStore(client, fhirContext, 1000);
-
-
+        
         if (!dataImported) {
 
-
             client.post()
-                    .bodyValue(Files.readString(Path.of("src/test/resources/BlazeBundle.json")))
+                    .bodyValue(Files.readString(Path.of(testPopulationPath)))
                     .header("Content-Type", "application/fhir+json")
                     .retrieve()
                     .toBodilessEntity()

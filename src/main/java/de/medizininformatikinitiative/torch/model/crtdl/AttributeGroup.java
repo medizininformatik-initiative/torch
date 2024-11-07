@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.DomainResource;
 
 import java.util.List;
 
@@ -61,6 +62,25 @@ public record AttributeGroup(
                     .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
                     .toList();
         }
+    }
+
+    public AttributeGroup addStandardAttributes(DomainResource resource) {
+        List<Attribute> tempAttributes = List.copyOf(attributes);
+        
+        tempAttributes.add(new Attribute("id", true));
+        tempAttributes.add(new Attribute("meta.profile", true));
+
+        if (resource.getClass() != org.hl7.fhir.r4.model.Patient.class && resource.getClass() != org.hl7.fhir.r4.model.Consent.class) {
+            tempAttributes.add(new Attribute("subject.reference", true));
+        }
+        if (resource.getClass() == org.hl7.fhir.r4.model.Consent.class) {
+            tempAttributes.add(new Attribute("patient.reference", true));
+        }
+        //TODO Can be removed when modifier elements are always copied
+        if (resource.getClass() == org.hl7.fhir.r4.model.Observation.class) {
+            tempAttributes.add(new Attribute("status", true));
+        }
+        return new AttributeGroup(groupReference, tempAttributes, filter);
     }
 
     public String resourceType() {

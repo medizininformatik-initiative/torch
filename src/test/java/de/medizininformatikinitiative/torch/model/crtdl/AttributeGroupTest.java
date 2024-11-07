@@ -102,4 +102,23 @@ class AttributeGroupTest {
             assertThat(attributeGroup.hasMustHave()).isFalse();
         }
     }
+
+    @Nested
+    class addAttributes {
+        @Test
+        void consent() {
+
+        }
+
+        @Test
+        void patient() {
+
+        }
+
+        @Test
+        void baseCase() {
+
+        }
+
+    }
 }

@@ -71,8 +71,6 @@ public class FhirTestHelper {
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);
-                logger.info("Resulting resource {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
-
                 if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
                         .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
                     throw new AssertionError("Expected resource for profile " + profileKey + " does not match actual resource.");
@@ -107,7 +105,6 @@ public class FhirTestHelper {
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
             if (resource != null && resource.hasMeta() && resource.getMeta().hasLastUpdated()) {
-                logger.info("Removed lastUpdated ");
                 resource.getMeta().setLastUpdated(null);
             }
         }

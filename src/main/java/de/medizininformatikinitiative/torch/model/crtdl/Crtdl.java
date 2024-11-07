@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Optional;
+
 import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -22,7 +24,7 @@ public record Crtdl(
         requireNonNull(dataExtraction);
     }
 
-    public String consentKey() {
+    public Optional<String> consentKey() {
         JsonNode inclusionCriteria = cohortDefinition.get("inclusionCriteria");
         if (inclusionCriteria != null && inclusionCriteria.isArray()) {
             for (JsonNode criteriaGroup : inclusionCriteria) {
@@ -33,16 +35,14 @@ public record Crtdl(
                         if (termcodes != null && termcodes.isArray()) {
                             JsonNode firstTermcode = termcodes.get(0);
                             if (firstTermcode != null && firstTermcode.has("code")) {
-                                return firstTermcode.get("code").asText();
+                                return Optional.of(firstTermcode.get("code").asText());
                             }
                         }
                     }
                 }
             }
         }
-
-        logger.debug("No valid consent key found in cohortDefinition.");
-        return "";
+        return Optional.empty();
     }
 
 }

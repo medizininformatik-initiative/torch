@@ -336,13 +336,13 @@ public class FhirControllerIT {
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
 
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
             consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
 
 
-            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
             Assertions.assertNotNull(consentInfoList);
-            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+            for (ConsentInfo consentInfo : consentInfoList) {
                 // Log the consentInfo map (optional)
                 System.out.println("Evaluating consentInfo: " + consentInfo);
 
@@ -372,16 +372,16 @@ public class FhirControllerIT {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
             consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
 
 
-            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
 
 
             Assertions.assertNotNull(consentInfoList);
-            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+            for (ConsentInfo consentInfo : consentInfoList) {
 
 
                 Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
@@ -407,15 +407,15 @@ public class FhirControllerIT {
             DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
 
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
-            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
 
 
             Assertions.assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
 
 
-            for (Map<String, Map<String, List<Period>>> consentInfo : consentInfoList) {
+            for (ConsentInfo consentInfo : consentInfoList) {
                 System.out.println("Evaluating consentInfo: " + consentInfo);
                 Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
                 Assertions.assertFalse(consentInfoResult);
@@ -435,11 +435,11 @@ public class FhirControllerIT {
             observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
             DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
             ((Observation) observation).setEffective(time);
-            Flux<Map<String, Map<String, List<Period>>>> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
 
-            List<Map<String, Map<String, List<Period>>>> consentInfoList = consentInfoFlux.collectList().block();
+            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
             Assertions.assertNotNull(consentInfoList);
-            Map<String, Map<String, List<Period>>> consentInfo = consentInfoList.getFirst();
+            ConsentInfo consentInfo = consentInfoList.getFirst();
 
             Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
 
