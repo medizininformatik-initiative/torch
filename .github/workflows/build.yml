@@ -74,8 +74,52 @@ jobs:
           name: torch-image
           path: /tmp/torch.tar
 
-  image-scan:
+  integration-test:
     needs: build
+    strategy:
+      matrix:
+        test:
+          - no-auth
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Install Blazectl
+        run: .github/scripts/install-blazectl.sh
+
+      - name: Download torch Image
+        uses: actions/download-artifact@v4
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Load torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Create Output Directory
+        run: mkdir -p .github/integration-test/output && chmod 777 .github/integration-test/output
+
+      - name: Run Blaze, Flare, Proxy and Torch
+        run: docker compose -f .github/integration-test/${{ matrix.test }}/docker-compose.yml up -d
+
+      - name: Wait for Flare
+        run: .github/scripts/wait-for-url.sh  http://localhost:8083/cache/stats
+
+      - name: Wait for Blaze
+        run: .github/scripts/wait-for-url.sh http://localhost:8082/health
+
+      - name: Load Data
+        run: .github/integration-test/${{ matrix.test }}/load-data.sh .github/integration-test/test-single-output/testdata
+
+      - name: Run Integration Test that Tests a Single Output Bundle From Torch
+        run: .github/integration-test/test-single-output/test-single-output.sh
+
+  image-scan:
+    needs:
+      - build
+      - integration-test
     runs-on: ubuntu-22.04
 
     steps:
@@ -112,6 +156,7 @@ jobs:
   push-image:
     needs:
       - build
+      - integration-test
       - image-scan
     runs-on: ubuntu-22.04
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
