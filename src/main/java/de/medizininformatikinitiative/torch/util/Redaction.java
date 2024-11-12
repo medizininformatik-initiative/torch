@@ -62,7 +62,7 @@ public class Redaction {
      * Executes redaction operation on the given base element recursively.
      *
      * @param base                Base to be redacted (e.g. a Ressource or an Element)
-     * @param elementID           "Element ID of parent currently handled initially empty String"
+     * @param elementID           "Element ID of parent currently handled initially isEmpty String"
      * @param recursion           "Resurcion depth (for debug purposes)
      * @param structureDefinition Structure definition of the Resource.
      * @return redacted Base

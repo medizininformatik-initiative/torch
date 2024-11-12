@@ -45,12 +45,12 @@ public class CopyUtilsTest {
     }
 
     @Test
-    @DisplayName("Should handle empty string")
+    @DisplayName("Should handle isEmpty string")
     void testGetElementName_EmptyString() {
         String path = "";
         String expected = "";
         String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return empty string when input is empty");
+        assertEquals(expected, actual, "Should return isEmpty string when input is isEmpty");
     }
 
     @Test
@@ -59,7 +59,7 @@ public class CopyUtilsTest {
         String path = "com.example.";
         String expected = "example";
         String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return empty string when path ends with a dot");
+        assertEquals(expected, actual, "Should return isEmpty string when path ends with a dot");
     }
 
     @Test
@@ -104,10 +104,10 @@ public class CopyUtilsTest {
     }
 
     @Test
-    @DisplayName("Should handle empty field name gracefully")
+    @DisplayName("Should handle isEmpty field name gracefully")
     void testReflectListSetter_EmptyFieldName() {
         Method method = CopyUtils.reflectListSetter(SampleClass.class, "");
-        assertNull(method, "Setter method should be null when field name is empty");
+        assertNull(method, "Setter method should be null when field name is isEmpty");
     }
 
     // Tests for capitalizeFirstLetter method
@@ -140,7 +140,7 @@ public class CopyUtilsTest {
     }
 
     @Test
-    @DisplayName("Should handle empty string")
+    @DisplayName("Should handle isEmpty string")
     void testCapitalizeFirstLetter_EmptyString() {
         String input = "";
         String expected = "";

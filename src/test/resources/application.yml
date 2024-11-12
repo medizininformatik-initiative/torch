@@ -40,9 +40,9 @@ logging:
     org.springframework.web.reactive.function.client: INFO
     reactor.netty: INFO
     reactor: INFO
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:INFO}
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:INFO}
-    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:INFO}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:TRACE}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:TRACE}
+    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:TRACE}
     org.springframework: ${LOG_LEVEL:info}
     ca.uhn.fhir: INFO
     org.hl7.fhir: INFO

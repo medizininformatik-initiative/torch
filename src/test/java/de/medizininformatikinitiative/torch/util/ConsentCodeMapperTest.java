@@ -6,12 +6,14 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.MockitoAnnotations;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -23,20 +25,20 @@ public class ConsentCodeMapperTest {
     private ConsentCodeMapper consentCodeMapper;
 
     private static final String EXAMPLE_JSON = """
-        [
-            {
-                "key": { "code": "CONSENT_KEY_1" },
-                "fixedCriteria": [
-                    {
-                        "value": [
-                            { "code": "CODE_1" },
-                            { "code": "CODE_2" }
-                        ]
-                    }
-                ]
-            }
-        ]
-        """;
+            [
+                {
+                    "key": { "code": "CONSENT_KEY_1" },
+                    "fixedCriteria": [
+                        {
+                            "value": [
+                                { "code": "CODE_1" },
+                                { "code": "CODE_2" }
+                            ]
+                        }
+                    ]
+                }
+            ]
+            """;
 
     @BeforeEach
     public void setUp() throws IOException {
@@ -48,7 +50,7 @@ public class ConsentCodeMapperTest {
         when(objectMapperMock.readTree(any(File.class))).thenReturn(rootNode);
 
 
-        consentCodeMapper = new ConsentCodeMapper("/dummy/path",objectMapperMock);
+        consentCodeMapper = new ConsentCodeMapper("/dummy/path", objectMapperMock);
     }
 
     // Positive Tests
@@ -63,11 +65,11 @@ public class ConsentCodeMapperTest {
 
     // Negative Tests
     @Test
-    @DisplayName("Test getRelevantCodes returns empty set for non-existent key")
+    @DisplayName("Test getRelevantCodes returns isEmpty set for non-existent key")
     public void testGetRelevantCodesForNonExistentKey() {
         Set<String> relevantCodes = consentCodeMapper.getRelevantCodes("NON_EXISTENT_KEY");
 
-        assertTrue(relevantCodes.isEmpty(), "Expected an empty set for a non-existent key");
+        assertTrue(relevantCodes.isEmpty(), "Expected an isEmpty set for a non-existent key");
     }
 
     @Test
@@ -84,9 +86,9 @@ public class ConsentCodeMapperTest {
     }
 
     @Test
-    @DisplayName("Test invalid JSON structure returns empty set")
+    @DisplayName("Test invalid JSON structure returns isEmpty set")
     public void testInvalidJsonStructure() throws IOException {
-        // Simulate an invalid JSON by returning an empty root node
+        // Simulate an invalid JSON by returning an isEmpty root node
         JsonNode invalidNode = mock(JsonNode.class);
         when(objectMapperMock.readTree(any(File.class))).thenReturn(invalidNode);
         when(invalidNode.iterator()).thenReturn(Collections.emptyIterator());
@@ -94,6 +96,6 @@ public class ConsentCodeMapperTest {
         // Reinitialize with the mocked ObjectMapper
         consentCodeMapper = new ConsentCodeMapper("/dummy/path", objectMapperMock);
 
-        assertTrue(consentCodeMapper.getRelevantCodes("ANY_KEY").isEmpty(), "Expected empty set for invalid JSON structure");
+        assertTrue(consentCodeMapper.getRelevantCodes("ANY_KEY").isEmpty(), "Expected isEmpty set for invalid JSON structure");
     }
 }

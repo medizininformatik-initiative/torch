@@ -107,7 +107,7 @@ class AttributeGroupTest {
     class addAttributes {
         @Test
         void consent() {
-
+            var attributeGroup = new AttributeGroup("groupRef", List.of(), List.of());
         }
 
         @Test

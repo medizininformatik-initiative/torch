@@ -16,7 +16,7 @@ public class ResourceUtils {
 
 
     public static String patientId(DomainResource resource) throws PatientIdNotFoundException {
-        //TODO 1 FHIRPATH expresion
+
 
         // Check if the resource is an instance of Patient
         if (resource instanceof Patient patient) {
@@ -67,7 +67,7 @@ public class ResourceUtils {
 
     public static String getPatientIdFromBundle(Bundle bundle) throws PatientIdNotFoundException {
         if (bundle == null || bundle.getEntry().isEmpty()) {
-            throw new PatientIdNotFoundException("Bundle is empty or null");
+            throw new PatientIdNotFoundException("Bundle is isEmpty or null");
         }
         Resource resource = bundle.getEntryFirstRep().getResource();
         if (resource instanceof DomainResource) {

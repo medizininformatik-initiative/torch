@@ -170,7 +170,7 @@ class CrtdlProcessingServiceIT {
 
         // Verify that files were created in the job directory
         assertTrue(Files.exists(jobDir), "Job directory should exist.");
-        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be empty after processing.");
+        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be isEmpty after processing.");
     }
 
 

@@ -95,7 +95,7 @@ class FhirPathBuilderTest {
 
         String result = fhirPathBuilder.handleSlicingForTerser(input);
 
-        assertEquals(expected, result, "The method should return an empty string when input is empty.");
+        assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
     }
 
     @Test
@@ -147,7 +147,7 @@ class FhirPathBuilderTest {
 
         String result = fhirPathBuilder.buildConditions(path, conditions);
 
-        assertEquals(expected, result, "When both path and conditions are empty, the method should return an empty string.");
+        assertEquals(expected, result, "When both path and conditions are isEmpty, the method should return an isEmpty string.");
     }
 
     @Test
@@ -220,7 +220,7 @@ class FhirPathBuilderTest {
     void testHandleSlicingForFhirPath_HandlingChoiceElements() throws FHIRException {
         String input = "Observation.value[x]:valueString.code";
         String expected = "Observation.value.ofType(String).code";
-        
+
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 
         assertEquals(expected, result, "Choice elements should be handled correctly with conditions appended.");
@@ -286,7 +286,7 @@ class FhirPathBuilderTest {
 
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 
-        assertEquals(expected, result, "The method should return an empty string when input is empty.");
+        assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
 
         // Verify that slicing and factory are not interacted with
         verifyNoInteractions(slicing, factory);

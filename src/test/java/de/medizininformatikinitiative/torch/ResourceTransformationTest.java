@@ -2,12 +2,14 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
@@ -69,6 +71,21 @@ public class ResourceTransformationTest {
         }
 
         @Test
+        void successAttributeCopyStandardFields() throws Exception {
+            Observation src = new Observation();
+            src.setSubject(new Reference("Patient/123"));
+            src.setMeta(new Meta().addProfile("Test"));
+            Attribute effective = new Attribute("Observation.effective", false);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(effective), List.of());
+            group.addStandardAttributes(Observation.class);
+
+            Observation result = transformer.transform(src, group, Observation.class);
+
+            Mockito.verify(copier).copy(src, result, effective);
+        }
+
+
+        @Test
         void successAttributeCopy() throws Exception {
             Observation src = new Observation();
             src.setSubject(new Reference("Patient/123"));
@@ -85,11 +102,21 @@ public class ResourceTransformationTest {
             Observation src = new Observation();
             src.setSubject(new Reference("Patient/123"));
             Attribute id = new Attribute("id", true);
-            AttributeGroup group = new AttributeGroup("GroupRef", List.of(), List.of());
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(id), List.of());
             doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id));
 
             assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(MustHaveViolatedException.class);
         }
+
+        @Test
+        void failWithPatientIdException() throws Exception {
+            Observation src = new Observation();
+            Attribute id = new Attribute("id", true);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(id), List.of());
+
+            assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(PatientIdNotFoundException.class);
+        }
+
 
     }
 

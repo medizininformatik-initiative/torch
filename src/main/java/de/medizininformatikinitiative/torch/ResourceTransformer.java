@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
+import de.medizininformatikinitiative.torch.model.consent.ConsentInfo;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -24,7 +24,7 @@ import reactor.core.publisher.Mono;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
-import java.util.function.Function;
+import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
 /**
@@ -39,22 +39,20 @@ public class ResourceTransformer {
     private final ElementCopier copier;
     private final Redaction redaction;
     private final ConsentHandler handler;
-    private final FhirContext context;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
-        this.context = context;
         this.dseMappingTreeBase = dseMappingTreeBase;
     }
 
     /**
-     * @param crtdl
+     * @param crtdl CRTDL to be applied on batch
      * @param batch Batch of PatIDs
      * @return extracted Resources grouped by PatientID
      */
@@ -62,55 +60,20 @@ public class ResourceTransformer {
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
         Optional<String> key = crtdl.consentKey();
-        if (key.isPresent()) {
-            return fetchConsentMap(key.get(), batch)
-                    .flatMap(consentMap -> foo(crtdl, consentMap));
-        } else {
-            return foo(crtdl, batch.ids().stream().collect(
-                    Collectors.toMap(Function.identity(),
-                            id -> Map.of()
-                    )
-            ));
-        }
+        return key.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
+                        .flatMap(consentInfo -> processBatchWithConsent(crtdl, consentInfo)))
+                .orElseGet(() -> processBatchWithConsent(crtdl, ConsentInfo.fromBatch(batch)));
     }
 
-    private Mono<Map<String, Collection<Resource>>> foo(Crtdl crtdl, Map<String, Map<String, ConsentInfo.NonContinousPeriod>> consentMap) {
+    private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(Crtdl crtdl, ConsentInfo consentInfo) {
 
-        Set<String> safeSet = new HashSet<>(consentMap.keySet());
-
-        return processAttributeGroups(crtdl, consentMap, safeSet).collectList()
+        Set<String> safeSet = new ConcurrentSkipListSet<>(consentInfo.patientBatch().ids());
+        return processAttributeGroups(crtdl, consentInfo, safeSet).collectList()
                 .map(resourceLists -> flattenAndFilterResourceLists(resourceLists, safeSet))
                 .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
 
-    }
-
-    private Mono<Map<String, Map<String, ConsentInfo.NonContinousPeriod>>> fetchConsentMap(String key, PatientBatch batch) {
-        Flux<ConsentInfo> consentInfoFlux = handler.buildingConsentInfo(key, batch);
-        Mono<List<ConsentInfo>> collectedConsentinfo = collectConsentInfo(consentInfoFlux);
-        return handler.updateConsentPeriodsByPatientEncounters(collectedConsentinfo, batch).map(consentInfos -> consentInfos.stream().collect(
-                Collectors.toMap(ConsentInfo::patientId, ConsentInfo::periods)
-        ));
-    }
-
-    private Mono<List<ConsentInfo>> collectConsentInfo(Flux<ConsentInfo> consentInfoFlux) {
-        return consentInfoFlux.collectMultimap(ConsentInfo::patientId, ConsentInfo::periods)
-                .map(map ->
-                        map.entrySet().stream().map(
-                                entry -> new ConsentInfo(entry.getKey(), merge(entry.getValue()))
-                        ).toList()
-                );
-    }
-
-    private static Map<String, ConsentInfo.NonContinousPeriod> merge(Collection<Map<String, ConsentInfo.NonContinousPeriod>> values) {
-        return values.stream().flatMap(map -> map.entrySet().stream()).collect(
-                Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        ConsentInfo.NonContinousPeriod::merge
-                )
-        );
     }
 
 
@@ -119,14 +82,13 @@ public class ResourceTransformer {
      * {@code group}, checking them for consent using the {@code consentmap} and applying
      * the transformation according to all attributes defined in the {@code group}.
      *
-     * @param batch      Batch of PatIDs
-     * @param group      Attribute Group
-     * @param consentmap Map of Codes for Consent Processor
+     * @param batch Batch of PatIDs
+     * @param group Attribute Group
      * @return Flux of transformed Resources with attribute, consent and batch conditions applied
      */
-    public Flux<Resource> fetchAndTransformResources(Map<String, Map<String, ConsentInfo.NonContinousPeriod>> batch, AttributeGroup group) {
+    public Flux<Resource> fetchAndTransformResources(ConsentInfo batch, AttributeGroup group) {
         List<Query> queries = group.queries(dseMappingTreeBase);
-        PatientBatch queryBatch = PatientBatch.of(batch.keySet().stream().toList());
+        PatientBatch queryBatch = batch.patientBatch();
 
         return Flux.fromIterable(queries)
                 .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
@@ -141,13 +103,13 @@ public class ResourceTransformer {
         return dataStore.search(finalQuery);
     }
 
-    private Mono<Resource> applyConsentAndTransform(DomainResource resource, AttributeGroup group, Map<String, Map<String, ConsentInfo.NonContinousPeriod>> consentmap) {
+    private Mono<Resource> applyConsentAndTransform(DomainResource resource, AttributeGroup group, ConsentInfo consentInfo) {
         try {
-            if (consentmap.isEmpty() || handler.checkConsent(resource, consentmap)) {
+            if (!consentInfo.applyConsent() || handler.checkConsent(resource, consentInfo)) {
                 return Mono.just(transform(resource, group, resource.getClass().asSubclass(DomainResource.class)));
             } else {
-                logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-                return Mono.empty();  // Return empty patient if consent violated
+                logger.warn("consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+                return Mono.empty();  // Return isEmpty patient if consent violated
             }
         } catch (PatientIdNotFoundException | TargetClassCreationException e) {
             return Mono.error(e);
@@ -157,22 +119,22 @@ public class ResourceTransformer {
         }
     }
 
-    //TODO Auslagern
     public <T extends DomainResource> T transform(T resourceSrc, AttributeGroup group, Class<T> resourceClass) throws MustHaveViolatedException, TargetClassCreationException, PatientIdNotFoundException {
+
         T tgt = createTargetResource(resourceClass);
         logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
-
-        //TODO define technically required in all Ressources/extract
+        
         copier.copy(resourceSrc, tgt, new Attribute("id", true));
         copier.copy(resourceSrc, tgt, new Attribute("meta.profile", true));
-        if (resourceSrc.getClass() != org.hl7.fhir.r4.model.Patient.class && resourceSrc.getClass() != org.hl7.fhir.r4.model.Consent.class) {
+
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Patient.class) && resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
             copier.copy(resourceSrc, tgt, new Attribute("subject.reference", true));
         }
-        if (resourceSrc.getClass() == org.hl7.fhir.r4.model.Consent.class) {
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
             copier.copy(resourceSrc, tgt, new Attribute("patient.reference", true));
         }
         //TODO Can be removed when modifier elements are always copied
-        if (resourceSrc.getClass() == org.hl7.fhir.r4.model.Observation.class) {
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Observation.class)) {
             copier.copy(resourceSrc, tgt, new Attribute("status", true));
         }
 
@@ -198,27 +160,27 @@ public class ResourceTransformer {
 
 
     private Flux<Map<String, Collection<Resource>>> processAttributeGroups(Crtdl crtdl,
-                                                                           Map<String, Map<String, ConsentInfo.NonContinousPeriod>> batch,
+                                                                           ConsentInfo batch,
                                                                            Set<String> safeSet) {
         return Flux.fromIterable(crtdl.dataExtraction().attributeGroups())
                 .flatMap(group -> processSingleAttributeGroup(group, batch, safeSet));
     }
 
     private Mono<Map<String, Collection<Resource>>> processSingleAttributeGroup(AttributeGroup group,
-                                                                                Map<String, Map<String, ConsentInfo.NonContinousPeriod>> batch,
+                                                                                ConsentInfo batch,
                                                                                 Set<String> safeSet) {
         logger.trace("Processing attribute group: {}", group);
 
         Set<String> safeGroup = new HashSet<>();
         if (!group.hasMustHave()) {
-            safeGroup.addAll(batch.keySet());
+            safeGroup.addAll(batch.patientBatch().ids());
             logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
         }
 
         return fetchAndTransformResources(batch, group)
                 .filter(resource -> {
                     boolean isNonEmpty = !resource.isEmpty();
-                    logger.trace("Resource is non-empty: {}", isNonEmpty);
+                    logger.trace("Resource is non-isEmpty: {}", isNonEmpty);
                     return isNonEmpty;
                 })
                 .collectMultimap(resource -> {
@@ -228,7 +190,6 @@ public class ResourceTransformer {
                         logger.trace("Adding patient ID to safe group: {}", id);
                         return id;
                     } catch (PatientIdNotFoundException e) {
-                        logger.error("PatientIdNotFoundException: {}", e.getMessage());
                         throw new RuntimeException(e);
                     }
                 })

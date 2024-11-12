@@ -5,7 +5,6 @@ import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -13,7 +12,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.File;
 import java.time.Duration;
 
-@Component
+
 public class ContainerManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ContainerManager.class);

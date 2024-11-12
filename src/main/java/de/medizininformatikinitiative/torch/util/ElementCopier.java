@@ -48,7 +48,7 @@ public class ElementCopier {
      * @param attribute Attribute to copy containing ElementID and if it is a mandatory element.
      * @throws MustHaveViolatedException if mandatory element is missing
      */
-    public void copy(DomainResource src, DomainResource tgt, Attribute attribute) throws MustHaveViolatedException {
+    public <T extends DomainResource> void copy(T src, T tgt, Attribute attribute) throws MustHaveViolatedException {
         List<CanonicalType> profileurl = src.getMeta().getProfile();
         logger.trace("ProfileURL {}", profileurl.getFirst());
         StructureDefinition structureDefinition = handler.getDefinition(profileurl);
@@ -106,7 +106,7 @@ public class ElementCopier {
 
                     logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
                     String[] elementParts = terserFHIRPATH.split("\\.");
-                    
+
                     if (elementParts.length > 2) {
 
 

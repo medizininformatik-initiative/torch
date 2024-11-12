@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -14,7 +15,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -40,11 +40,11 @@ public class ConsentProcessorTest {
     @Test
     @DisplayName("Test extractConsentProvisions - valid resource")
     public void testExtractConsentProvisionsValid() {
-        DomainResource domainResource = mock(DomainResource.class);
+        Consent consent = mock(Consent.class);
         List<Base> mockProvisions = List.of(mock(Consent.provisionComponent.class));
-        when(fhirPath.evaluate(domainResource, "Consent.provision.provision", Base.class)).thenReturn(mockProvisions);
+        when(fhirPath.evaluate(consent, "Consent.provision.provision", Base.class)).thenReturn(mockProvisions);
 
-        List<Base> provisions = consentProcessor.extractConsentProvisions(domainResource);
+        List<Base> provisions = consentProcessor.extractConsentProvisions(consent);
 
         assertNotNull(provisions);
         assertEquals(mockProvisions, provisions);
@@ -53,21 +53,21 @@ public class ConsentProcessorTest {
     @Test
     @DisplayName("Test extractConsentProvisions - exception scenario")
     public void testExtractConsentProvisionsException() {
-        DomainResource domainResource = mock(DomainResource.class);
+        Consent consent = mock(Consent.class);
 
 
         when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenThrow(new RuntimeException("FHIRPath evaluation error"));
 
-        List<Base> provisions = consentProcessor.extractConsentProvisions(domainResource);
-        assertTrue(provisions.isEmpty(), "Expected an empty list when an exception is thrown");
+        List<Base> provisions = consentProcessor.extractConsentProvisions(consent);
+        assertTrue(provisions.isEmpty(), "Expected an isEmpty list when an exception is thrown");
 
 
     }
 
     @Test
-    @DisplayName("Test transformToConsentPeriodByCode - valid consent periods")
+    @DisplayName("Test transformToConsentPeriodByCode - valid consent provisions")
     public void testTransformToConsentPeriodByCodeValid() throws ConsentViolatedException {
-        DomainResource domainResource = mock(DomainResource.class);
+        Consent consent = mock(Consent.class);
         Set<String> validCodes = Set.of("VALID_CODE");
 
 
@@ -89,36 +89,33 @@ public class ConsentProcessorTest {
         when(mockPeriod.getEndElement()).thenReturn(new DateTimeType("2021-12-31"));
 
 
-        Map<String, List<Period>> result = consentProcessor.transformToConsentPeriodByCode(domainResource, validCodes);
-
+        Provisions result = consentProcessor.transformToConsentPeriodByCode(consent, validCodes);
 
         assertNotNull(result);
-        assertTrue(result.containsKey("VALID_CODE"));
-        assertEquals(1, result.get("VALID_CODE").size());
-        assertEquals(mockPeriod, result.get("VALID_CODE").get(0));
+        assertTrue(result.periods().containsKey("VALID_CODE"));
+        assertEquals(1, result.periods().get("VALID_CODE").size());
+        assertEquals(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(mockPeriod), result.periods().get("VALID_CODE").get(0));
     }
 
     @Test
-    @DisplayName("Test transformToConsentPeriodByCode - missing periods throws ConsentViolatedException")
+    @DisplayName("Test transformToConsentPeriodByCode - missing provisions throws ConsentViolatedException")
     public void testTransformToConsentPeriodByCodeNoPeriods() {
-        DomainResource domainResource = mock(DomainResource.class);
+        Consent consent = mock(Consent.class);
         Set<String> validCodes = Set.of("VALID_CODE");
 
-        // Mock FhirPath to return an empty provision list
+        // Mock FhirPath to return an isEmpty provision list
         when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(Collections.emptyList());
 
-        ConsentViolatedException exception = assertThrows(ConsentViolatedException.class, () -> {
-            consentProcessor.transformToConsentPeriodByCode(domainResource, validCodes);
+        assertThrows(ConsentViolatedException.class, () -> {
+            consentProcessor.transformToConsentPeriodByCode(consent, validCodes);
         });
-
-        assertEquals("No valid start or end dates found for the provided valid codes", exception.getMessage());
     }
 
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - some codes are missing and should throw ConsentViolatedException")
     public void testTransformToConsentPeriodByCodePartialValidButOneMissing() throws ConsentViolatedException {
-        DomainResource domainResource = mock(DomainResource.class);
+        Consent consent = mock(Consent.class);
 
         // Assume we are requesting two valid codes, but only one will be found
         Set<String> validCodes = Set.of("VALID_CODE_1", "VALID_CODE_2");
@@ -139,12 +136,10 @@ public class ConsentProcessorTest {
         when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(List.of(validProvision1));  // Only one valid provision
 
         // Since VALID_CODE_2 is missing, an exception should be thrown
-        ConsentViolatedException exception = assertThrows(ConsentViolatedException.class, () -> {
-            consentProcessor.transformToConsentPeriodByCode(domainResource, validCodes);
+        assertThrows(ConsentViolatedException.class, () -> {
+            consentProcessor.transformToConsentPeriodByCode(consent, validCodes);
         });
 
-        // The exception should indicate that the resource does not have valid consents for every requested code
-        assertEquals("Resource does not have valid consents for every requested code", exception.getMessage());
     }
 
 

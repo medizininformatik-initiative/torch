@@ -135,7 +135,7 @@ public class DiscriminatorResolver {
 
                 // If the resolved base doesn't have this child, return false
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
-                    logger.warn("Missing or empty child '{}' in resolvedBase", childName);
+                    logger.warn("Missing or isEmpty child '{}' in resolvedBase", childName);
                     return false;
                 }
 

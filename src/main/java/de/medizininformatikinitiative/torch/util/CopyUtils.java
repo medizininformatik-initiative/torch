@@ -15,7 +15,7 @@ public class CopyUtils {
     private static final Logger logger = LoggerFactory.getLogger(CopyUtils.class);
 
     /**
-     * Get the name of the element from the path by getting the last non-empty element after a separator (.)
+     * Get the name of the element from the path by getting the last non-isEmpty element after a separator (.)
      */
     public static String getElementName(String path) {
         String[] parts = path.split("\\.");

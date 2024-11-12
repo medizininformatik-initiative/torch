@@ -238,9 +238,9 @@ public class TestConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, context, dseMappingTreeBase);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase);
     }
 
     @Bean

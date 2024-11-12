@@ -86,7 +86,7 @@ public class CrtdlProcessingService {
                 })
                 .filter(resourceMap -> {
                     boolean isNotEmpty = !resourceMap.isEmpty();
-                    logger.debug("Resource map is empty: {}", !isNotEmpty);
+                    logger.debug("Resource map is isEmpty: {}", !isNotEmpty);
                     return isNotEmpty;
                 })
                 .flatMap(resourceMap -> saveResourcesAsBundles(jobId, resourceMap)

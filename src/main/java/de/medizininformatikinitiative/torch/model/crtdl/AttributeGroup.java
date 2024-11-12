@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.hl7.fhir.r4.model.DomainResource;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
@@ -64,20 +65,20 @@ public record AttributeGroup(
         }
     }
 
-    public AttributeGroup addStandardAttributes(DomainResource resource) {
-        List<Attribute> tempAttributes = List.copyOf(attributes);
-        
+    public <T extends DomainResource> AttributeGroup addStandardAttributes(Class<T> resourceClass) {
+        List<Attribute> tempAttributes = new ArrayList<>(attributes);
+
         tempAttributes.add(new Attribute("id", true));
         tempAttributes.add(new Attribute("meta.profile", true));
 
-        if (resource.getClass() != org.hl7.fhir.r4.model.Patient.class && resource.getClass() != org.hl7.fhir.r4.model.Consent.class) {
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Patient.class) && resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
             tempAttributes.add(new Attribute("subject.reference", true));
         }
-        if (resource.getClass() == org.hl7.fhir.r4.model.Consent.class) {
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
             tempAttributes.add(new Attribute("patient.reference", true));
         }
         //TODO Can be removed when modifier elements are always copied
-        if (resource.getClass() == org.hl7.fhir.r4.model.Observation.class) {
+        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Observation.class)) {
             tempAttributes.add(new Attribute("status", true));
         }
         return new AttributeGroup(groupReference, tempAttributes, filter);

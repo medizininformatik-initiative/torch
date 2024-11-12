@@ -21,6 +21,7 @@ public class ResourceReader {
     private final FhirContext ctx;
 
     public Resource readResource(String path) throws IOException {
+        ResourceReader.class.getResourceAsStream(path);
         FileInputStream fis;
         try {
             fis = new FileInputStream(path);

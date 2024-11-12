@@ -112,7 +112,7 @@ public class DataStore {
     private static String queryElements(String type) {
         return switch (type) {
             case "Patient" -> "id";
-            case "Immunization", "Consent" -> "patient";
+            case "Immunization", "consent" -> "patient";
             default -> "subject";
         };
     }

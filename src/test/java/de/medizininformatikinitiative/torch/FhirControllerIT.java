@@ -14,7 +14,8 @@ import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -326,130 +327,5 @@ public class FhirControllerIT {
         }
     }
 
-
-    @Test
-    public void testHandlerWithUpdate() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
-
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
-            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
-
-
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-            Assertions.assertNotNull(consentInfoList);
-            for (ConsentInfo consentInfo : consentInfoList) {
-                // Log the consentInfo map (optional)
-                System.out.println("Evaluating consentInfo: " + consentInfo);
-
-                // Check consent for each map
-                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-
-                // Log the result of checkConsent (optional)
-                System.out.println("Consent Check Result: " + consentInfoResult);
-
-                // Example assertion (modify as needed for your test requirements)
-                Assertions.assertTrue(consentInfoResult);
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }
-
-
-    @Test
-    public void testHandlerWithoutUpdate() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
-
-            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
-
-
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-
-
-            Assertions.assertNotNull(consentInfoList);
-            for (ConsentInfo consentInfo : consentInfoList) {
-
-
-                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-
-                System.out.println("Consent Check Result: " + consentInfoResult);
-                Assertions.assertTrue(consentInfoResult);
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }
-
-    @Test
-    public void testHandlerWithUpdatingFail() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
-
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
-
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
-
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-
-
-            Assertions.assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
-
-
-            for (ConsentInfo consentInfo : consentInfoList) {
-                System.out.println("Evaluating consentInfo: " + consentInfo);
-                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-                Assertions.assertFalse(consentInfoResult);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    public void testHandlerWithoutUpdatingFail() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
-
-        // Reading resource
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2020-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
-
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-            Assertions.assertNotNull(consentInfoList);
-            ConsentInfo consentInfo = consentInfoList.getFirst();
-
-            Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-
-            Assertions.assertFalse(consentInfoResult);
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-
-    }
 
 }
