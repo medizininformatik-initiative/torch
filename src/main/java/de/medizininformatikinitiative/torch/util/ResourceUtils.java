@@ -49,7 +49,7 @@ public class ResourceUtils {
             }
             throw new PatientIdNotFoundException("Patient Reference not found ");
         } catch (Exception e) {
-            // Handle reflection exceptions
+            logger.trace("ResourceType {}", resource.getClass().getName());
             logger.error("Patient ID not Found ", e);
         }
 

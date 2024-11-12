@@ -84,7 +84,6 @@ public class ResourceTransformationTest {
             Mockito.verify(copier).copy(src, result, effective);
         }
 
-
         @Test
         void successAttributeCopy() throws Exception {
             Observation src = new Observation();

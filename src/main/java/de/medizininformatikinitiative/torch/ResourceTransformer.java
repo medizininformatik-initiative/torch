@@ -114,7 +114,7 @@ public class ResourceTransformer {
         } catch (PatientIdNotFoundException | TargetClassCreationException e) {
             return Mono.error(e);
         } catch (MustHaveViolatedException e) {
-            logger.warn("Must Have Violated resulting in dropped Resource {} {}", resource.getResourceType(), resource.getId());
+            logger.warn("Must Have Violated resulting in dropped Resource {} {} {}", resource.getResourceType(), resource.getId(), e.getMessage());
             return Mono.empty();
         }
     }
@@ -123,20 +123,8 @@ public class ResourceTransformer {
 
         T tgt = createTargetResource(resourceClass);
         logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
-        
-        copier.copy(resourceSrc, tgt, new Attribute("id", true));
-        copier.copy(resourceSrc, tgt, new Attribute("meta.profile", true));
 
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Patient.class) && resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
-            copier.copy(resourceSrc, tgt, new Attribute("subject.reference", true));
-        }
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
-            copier.copy(resourceSrc, tgt, new Attribute("patient.reference", true));
-        }
-        //TODO Can be removed when modifier elements are always copied
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Observation.class)) {
-            copier.copy(resourceSrc, tgt, new Attribute("status", true));
-        }
+        group = group.addStandardAttributes(resourceClass);
 
         for (Attribute attribute : group.attributes()) {
             copier.copy(resourceSrc, tgt, attribute);
@@ -203,8 +191,6 @@ public class ResourceTransformer {
 
     private Map<String, Collection<Resource>> flattenAndFilterResourceLists(
             List<Map<String, Collection<Resource>>> resourceLists, Set<String> safeSet) {
-        logger.trace("Collected resource lists: {}", resourceLists);
-
         return resourceLists.stream()
                 .flatMap(map -> map.entrySet().stream())
                 .filter(entry -> {

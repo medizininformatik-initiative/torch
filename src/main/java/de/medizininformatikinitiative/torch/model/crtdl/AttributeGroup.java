@@ -27,10 +27,10 @@ public record AttributeGroup(
     public AttributeGroup {
         requireNonNull(groupReference);
         attributes = List.copyOf(attributes);
+        filter = filter == null ? List.of() : List.copyOf(filter);
         if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
         }
-        filter = List.copyOf(filter);
     }
 
     private static boolean containsDuplicateDateFilters(List<Filter> filters) {
@@ -49,7 +49,7 @@ public record AttributeGroup(
                 .flatMap(f -> f.codeFilter(mappingTreeBase).split())
                 .toList();
 
-        QueryParams dateParams = filter.stream()
+        QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
@@ -68,22 +68,22 @@ public record AttributeGroup(
     public <T extends DomainResource> AttributeGroup addStandardAttributes(Class<T> resourceClass) {
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
 
-        tempAttributes.add(new Attribute("id", true));
-        tempAttributes.add(new Attribute("meta.profile", true));
+        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".id", true));
+        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".meta.profile", true));
 
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Patient.class) && resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
-            tempAttributes.add(new Attribute("subject.reference", true));
+        if (!org.hl7.fhir.r4.model.Patient.class.equals(resourceClass) && !org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".subject.reference", true));
         }
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Consent.class)) {
-            tempAttributes.add(new Attribute("patient.reference", true));
+        if (org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".patient.reference", true));
         }
-        //TODO Can be removed when modifier elements are always copied
-        if (resourceClass.isInstance(org.hl7.fhir.r4.model.Observation.class)) {
-            tempAttributes.add(new Attribute("status", true));
+        if (org.hl7.fhir.r4.model.Observation.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".status", true));
         }
         return new AttributeGroup(groupReference, tempAttributes, filter);
     }
 
+    //TODO Should be extracted from StructureDef Type attribute.
     public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }

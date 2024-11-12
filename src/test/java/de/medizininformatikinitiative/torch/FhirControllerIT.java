@@ -238,7 +238,7 @@ public class FhirControllerIT {
         }
     }
 
-    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) {
+    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException {
         try (FileInputStream fis = new FileInputStream(filePath)) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
@@ -248,8 +248,6 @@ public class FhirControllerIT {
                 fhirTestHelper.validate(bundles, expectedResources);
                 return true;
             }).expectComplete().verify();
-        } catch (IOException e) {
-            logger.error("CRTDL file not found: {}", filePath, e);
         }
     }
 
