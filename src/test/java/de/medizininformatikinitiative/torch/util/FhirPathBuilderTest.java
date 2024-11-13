@@ -52,7 +52,8 @@ class FhirPathBuilderTest {
         String input = "Observation.identifier.type.coding";
         String expected = "Observation.identifier.type.coding";
 
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
+        ;
 
         assertEquals(expected, result, "The FHIRPath should remain unchanged when no slicing is present.");
     }
@@ -62,7 +63,7 @@ class FhirPathBuilderTest {
         String input = "Observation.identifier:slice.type.coding";
         String expected = "Observation.identifier.type.coding";
 
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
 
         assertEquals(expected, result, "The slicing should be removed from the FHIRPath.");
     }
@@ -72,7 +73,7 @@ class FhirPathBuilderTest {
         String input = "Patient.contact:home.telecom:phone.value";
         String expected = "Patient.contact.telecom.value";
 
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
 
         assertEquals(expected, result, "All slicing indicators should be removed from the FHIRPath.");
     }
@@ -82,7 +83,8 @@ class FhirPathBuilderTest {
         String input = "Encounter.participant:practitioner";
         String expected = "Encounter.participant";
 
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
+        ;
 
         assertEquals(expected, result, "Slicing at the end should be removed correctly.");
     }
@@ -93,14 +95,15 @@ class FhirPathBuilderTest {
         String input = "";
         String expected = "";
 
-        String result = fhirPathBuilder.handleSlicingForTerser(input);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
+        ;
 
         assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
     }
 
     @Test
     void testHandleSlicingForTerser_NullInput() {
-        String result = fhirPathBuilder.handleSlicingForTerser(null);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[1];
 
         assertNull(result, "The method should return null when input is null.");
     }
@@ -184,7 +187,7 @@ class FhirPathBuilderTest {
         String input = "Patient.name.family";
         String expected = "Patient.name.family";
 
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "When no slicing is present, the input should remain unchanged.");
 
@@ -193,10 +196,10 @@ class FhirPathBuilderTest {
     @Test
     void testHandleSlicingForFhirPath_SlicingWithKnownSlice() throws FHIRException {
         String input = "Observation.value[x]:valueQuantity.code";
-        String expected = "Observation.valueQuantity.code";
+        String expected = "Observation.value.ofType(Quantity).code";
 
 
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "The slicing should be handled correctly with known slice and conditions appended.");
 
@@ -219,9 +222,9 @@ class FhirPathBuilderTest {
     @Test
     void testHandleSlicingForFhirPath_HandlingChoiceElements() throws FHIRException {
         String input = "Observation.value[x]:valueString.code";
-        String expected = "Observation.valueString.code";
+        String expected = "Observation.value.ofType(string).code";
 
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "Choice elements should be handled correctly with conditions appended.");
 
@@ -240,7 +243,7 @@ class FhirPathBuilderTest {
         when(slicing.generateConditionsForFHIRPath("Patient.contact:home", snapshot)).thenReturn(mockConditions1);
         when(slicing.generateConditionsForFHIRPath("Patient.contact:home.telecom:phone", snapshot)).thenReturn(mockConditions2);
 
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         // The buildConditions method combines conditions with 'and'
         String expectedCombined = "Patient.contact.where(use = 'home' and system = 'test').telecom.where(system = 'phone')";
@@ -269,7 +272,7 @@ class FhirPathBuilderTest {
 
 
         // Call the method under test
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         // Assert the final result
         assertEquals(expected, result, "The FHIRPath should correctly handle slicing on 'coding' and 'extension' with URL conditions.");
@@ -284,7 +287,7 @@ class FhirPathBuilderTest {
         String input = "";
         String expected = "";
 
-        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
 
@@ -294,7 +297,7 @@ class FhirPathBuilderTest {
 
     @Test
     void testHandleSlicingForFhirPath_NullInput() {
-        String result = fhirPathBuilder.handleSlicingForFhirPath(null, snapshot);
+        String result = fhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[0];
 
         assertNull(result, "The method should return null when input is null.");
 

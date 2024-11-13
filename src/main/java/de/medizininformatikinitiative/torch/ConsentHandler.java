@@ -133,7 +133,10 @@ public class ConsentHandler {
             return true;
         } else {
             logger.trace("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
-            List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(), snapshot), Base.class);
+
+            String fhirPath = fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(), snapshot)[0];
+            List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPath, Base.class);
+
             logger.trace("Evaluated FHIRPath expression, found {} values.", values.size());
 
             for (Base value : values) {

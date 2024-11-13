@@ -92,13 +92,13 @@ public class DiscriminatorResolver {
     private static boolean compareBaseToFixedOrPattern(Base resolvedBase, Base fixedOrPatternValue) {
         // Handle null inputs
         if (resolvedBase == null || fixedOrPatternValue == null) {
-            logger.warn("One or both inputs are null: resolvedBase={}, fixedOrPatternValue={}", resolvedBase, fixedOrPatternValue);
+            logger.trace("One or both inputs are null: resolvedBase={}, fixedOrPatternValue={}", resolvedBase, fixedOrPatternValue);
             return false;
         }
 
         // Check if FHIR types match
         if (!Objects.equals(resolvedBase.fhirType(), fixedOrPatternValue.fhirType())) {
-            logger.warn("Incompatible Data types when comparing {} {}", resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
+            logger.trace("Incompatible Data types when comparing {} {}", resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
             return false;
         }
 
@@ -121,7 +121,7 @@ public class DiscriminatorResolver {
 
             // Check if the number of children matches
             if (fixedChildren.size() > resolvedChildren.size()) {
-                logger.warn("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
+                logger.trace("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
                         fixedChildren.size(), resolvedChildren.size());
                 return false;
             }
@@ -135,7 +135,7 @@ public class DiscriminatorResolver {
 
                 // If the resolved base doesn't have this child, return false
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
-                    logger.warn("Missing or isEmpty child '{}' in resolvedBase", childName);
+                    logger.trace("Missing or isEmpty child '{}' in resolvedBase", childName);
                     return false;
                 }
 
@@ -146,7 +146,7 @@ public class DiscriminatorResolver {
                 // Recursive comparison
                 boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
                 if (!childComparison) {
-                    logger.warn("Mismatch found in child '{}'", childName);
+                    logger.trace("Mismatch found in child '{}'", childName);
                     return false;
                 }
             }

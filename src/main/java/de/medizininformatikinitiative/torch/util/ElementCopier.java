@@ -8,7 +8,11 @@ import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import org.hl7.fhir.instance.model.api.IBase;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -65,26 +69,22 @@ public class ElementCopier {
 
         logger.trace("Attribute Path {}", attribute.attributeRef());
 
-        String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
+        String[] fhirPaths = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
+        String fhirPath = fhirPaths[0];
         logger.trace("FHIR PATH {}", fhirPath);
 
-        List<Base> elements = List.of();
+        List<Base> elements;
+        elements = fhirPathEngine.evaluate(src, fhirPath, Base.class);
 
-
-        try {
-            elements = fhirPathEngine.evaluate(src, fhirPath, Base.class);
-        } catch (NullPointerException e) {
-            logger.error("FHIR Search returned null for attribute {} \n and FhirPAth {}", attribute.attributeRef(), fhirPath, e);
-            //FHIR Search Returns Null, if not result found
-        }
         logger.trace("Elements received {}", fhirPath);
         if (elements.isEmpty()) {
+            logger.trace("Elements empty {}", fhirPath);
             if (attribute.mustHave()) {
                 throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
             }
         } else {
-            String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.attributeRef());
-
+            String terserFHIRPATH = fhirPaths[1];
+            logger.trace("Terser FhirPath {}", terserFHIRPATH);
             if (elements.size() == 1) {
 
                 if (terserFHIRPATH.endsWith("[x]")) {
@@ -125,8 +125,8 @@ public class ElementCopier {
                         String ParentPath = attribute.attributeRef().substring(0, endIndex);
                         logger.trace("ParentPath {}", ParentPath);
                         logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
-                        String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
-                        elements.forEach(element -> helper.setField(ParentPath, type, element));
+                        //String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
+                        elements.forEach(element -> helper.setField(ParentPath, element.fhirType(), element));
                     }
                 } else {
                     logger.trace("Base Field to be Set {} ", elementParts.length);

@@ -1,0 +1,21 @@
+{
+  "resourceType": "Encounter",
+  "diagnosis": [
+    {
+      "use": {
+        "coding": [
+          {
+            "system": "http://fhir.de/CodeSystem/KontaktDiagnoseProzedur",
+            "code": "treatment-diagnosis",
+            "display": "Behandlungsrelevante Diagnosen"
+          },
+          {
+            "system": "http://fhir.de/CodeSystem/KontaktDiagnoseProzedur",
+            "code": "department-main-diagnosis",
+            "display": "Abteilung Hauptdiagnose"
+          }
+        ]
+      }
+    }
+  ]
+}

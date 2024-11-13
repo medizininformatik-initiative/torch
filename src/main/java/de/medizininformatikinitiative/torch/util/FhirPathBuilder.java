@@ -10,8 +10,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-import static de.medizininformatikinitiative.torch.util.CopyUtils.capitalizeFirstLetter;
-
 
 /**
  * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
@@ -51,21 +49,23 @@ public class FhirPathBuilder {
         return input.replaceAll(":[^.]*", "");
     }
 
-    public String handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
+    public String[] handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
         if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
-            return input;
+            return new String[]{input, input};
         }
 
         String[] elementIDParts = input.split("\\.");
-        StringBuilder result = new StringBuilder();
+        StringBuilder fhirPath = new StringBuilder();
+        StringBuilder terserPath = new StringBuilder();
         StringBuilder elementIDSoFar = new StringBuilder();
 
         boolean isFirstElement = true;
 
         for (String e : elementIDParts) {
             if (!isFirstElement) {
-                result.append(".");
+                fhirPath.append(".");
                 elementIDSoFar.append(".");
+                terserPath.append(".");
             } else {
                 isFirstElement = false;
             }
@@ -75,7 +75,7 @@ public class FhirPathBuilder {
             if (e.contains("[x]")) {
                 String path = e.split("\\[x\\]")[0];  // Remove [x] for FHIRPath expression
 
-                result.append(path);
+                fhirPath.append(path);
 
                 // Check if slicing is present in the choice element
                 if (e.contains(":")) {
@@ -97,23 +97,28 @@ public class FhirPathBuilder {
                         logger.trace("Valid slicing element for {}", sliceName);
                     }
 
-                    result.append(capitalizeFirstLetter(sliceName));
+                    fhirPath.append(".ofType(").append(sliceName).append(")");
+                    terserPath.append(sliceParts[1]);
 
+                } else {
+                    terserPath.append(e);
                 }
             } else if (e.contains(":")) {
                 String basePath = e.substring(0, e.indexOf(":")).trim();
-                result.append(basePath);
+                fhirPath.append(basePath);
+                terserPath.append(basePath);
                 List<String> conditions = slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
                 if (!conditions.isEmpty()) {
                     String combinedConditions = String.join(" and ", conditions);
-                    result.append(".where(").append(combinedConditions).append(")");
+                    fhirPath.append(".where(").append(combinedConditions).append(")");
                 }
             } else {
-                result.append(e);
+                fhirPath.append(e);
+                terserPath.append(e);
             }
         }
 
-        return result.toString();
+        return new String[]{String.valueOf(fhirPath), String.valueOf(terserPath)};
     }
 
 
