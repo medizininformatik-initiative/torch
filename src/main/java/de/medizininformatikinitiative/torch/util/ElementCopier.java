@@ -105,7 +105,7 @@ public class ElementCopier {
                             TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
                         } catch (Exception casterException) {
                             logger.warn("Element not recognized and cast unsupported currently  {} {} ", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                            logger.warn("Caster Exception: ", casterException);
+                            logger.trace("Caster Exception: ", casterException);
                         }
                     } else {
                         logger.warn("Element has no known type {}", terserFHIRPATH);

@@ -1,15 +1,16 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Arrays;
+import java.io.IOException;
 
-import static org.assertj.core.api.Fail.fail;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class RedactTest {
 
@@ -18,52 +19,30 @@ public class RedactTest {
     // Create an instance of BaseTestSetup
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
 
-    @Test
-    public void testDiagnosis() {
-        String[] resources = {"Diagnosis1.json", "Diagnosis2.json"};
+    private final FhirContext fhirContext = FhirContext.forR4();
 
-        Arrays.stream(resources).forEach(resource -> {
-            try {
-                logger.info("Resource Handled {}", resource);
-                DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
-                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+    @ParameterizedTest
+    @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
+    public void testDiagnosis(String resource) throws IOException {
+        logger.info("Resource Handled {}", resource);
+        DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+        DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
-                // Use redaction from BaseTestSetup
-                resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
+        resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
-                Assertions.assertEquals(
-                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
-                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
-                        "Expected not equal to actual output"
-                );
-            } catch (Exception e) {
-                logger.error(" ", e);
-                fail("Deserialization failed: " + e.getMessage(), e);
-            }
-        });
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceExpected)).
+                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceSrc));
     }
 
-    @Test
-    public void testObservation() {
-        String[] resources = {"Observation_lab_missing_Elements.json"};
+    @ParameterizedTest
+    @ValueSource(strings = {"Observation_lab_missing_Elements.json"})
+    public void testObservation(String resource) throws IOException {
+        DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
+        DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
-        Arrays.stream(resources).forEach(resource -> {
-            try {
-                DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
-                DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+        resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
-                // Use redaction from BaseTestSetup
-                resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
-
-                Assertions.assertEquals(
-                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceExpected),
-                        integrationTestSetup.fhirContext().newJsonParser().setPrettyPrint(true).encodeResourceToString(resourceSrc),
-                        "Expected not equal to actual output"
-                );
-            } catch (Exception e) {
-                logger.error(" ", e);
-                fail("Deserialization failed: " + e.getMessage(), e);
-            }
-        });
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceExpected)).
+                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceSrc));
     }
 }

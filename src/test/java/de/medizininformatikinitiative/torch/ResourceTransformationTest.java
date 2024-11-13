@@ -119,17 +119,13 @@ public class ResourceTransformationTest {
 
     }
 
-    @Nested
-    class CollectResourcesByPatId {
-
-    }
 
 
     /* TODO extract to integration test
     @Test
     public void testObservation() {
 
-        try {
+
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
             Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
 
@@ -146,17 +142,14 @@ public class ResourceTransformationTest {
                     "Expected not equal to actual output"
             );
             fis.close();
-        } catch (Exception e) {
-            logger.error("", e);
-            fail("Deserialization failed: " + e.getMessage(), e);
-        }
+
     }
 
 
     @Test
     public void collectPatientsbyResource() {
 
-        try {
+
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
             Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
             fis.close();
@@ -167,10 +160,7 @@ public class ResourceTransformationTest {
                     .expectNextMatches(map -> map.containsKey("1")) // Patient1 is in consent info
                     .verifyComplete();
 
-        } catch (Exception e) {
-            logger.error("", e);
-            fail("Deserialization failed: " + e.getMessage(), e);
-        }
+
     }
 
     @Test

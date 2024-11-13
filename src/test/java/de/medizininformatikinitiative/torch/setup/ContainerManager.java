@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.setup;
 
 
-import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,19 +30,12 @@ public class ContainerManager {
                 .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
     }
 
-    // Constructor starts containers and performs health checks
     public ContainerManager() {
         startContainers();
-
-        // Retrieve host and port after container start
         this.blazeHost = environment.getServiceHost("blaze", 8080);
         this.blazePort = environment.getServicePort("blaze", 8080);
-        FhirTestHelper.checkServiceHealth("blaze", "/health", blazeHost, blazePort);
-
         this.flareHost = environment.getServiceHost("flare", 8080);
         this.flarePort = environment.getServicePort("flare", 8080);
-        FhirTestHelper.checkServiceHealth("flare", "/cache/stats", flareHost, flarePort);
-
         logger.info("Blaze available at {}:{} and Flare available at {}:{}", blazeHost, blazePort, flareHost, flarePort);
     }
 

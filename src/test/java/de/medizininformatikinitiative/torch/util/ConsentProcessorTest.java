@@ -62,20 +62,7 @@ public class ConsentProcessorTest {
         assertNotNull(provisions);
         assertEquals(mockProvisions, provisions);
     }
-
-    @Test
-    @DisplayName("Test extractConsentProvisions - exception scenario")
-    public void testExtractConsentProvisionsException() {
-        Consent consent = mock(Consent.class);
-
-
-        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenThrow(new RuntimeException("FHIRPath evaluation error"));
-
-        List<Base> provisions = consentProcessor.extractConsentProvisions(consent);
-        assertTrue(provisions.isEmpty(), "Expected an isEmpty list when an exception is thrown");
-
-
-    }
+    
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - valid consent provisions")

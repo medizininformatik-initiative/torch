@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,13 +50,7 @@ public class ConsentProcessor {
      * returns an isEmpty list if an error occurs during extraction
      */
     public List<Base> extractConsentProvisions(DomainResource domainResource) {
-        try {
-            // Using the autowired FhirContext to extract Encounter.provision.provision elements from the resource
-            return fhirContext.newFhirPath().evaluate(domainResource, "Consent.provision.provision", Base.class);
-        } catch (Exception e) {
-            logger.error("Error extracting provisions with FHIRPath", e);
-            return Collections.emptyList();  // Return an isEmpty list in case of errors
-        }
+        return fhirContext.newFhirPath().evaluate(domainResource, "Consent.provision.provision", Base.class);
     }
 
     /**
@@ -78,24 +71,20 @@ public class ConsentProcessor {
         Map<String, List<de.medizininformatikinitiative.torch.model.consent.Period>> consentPeriodMap = new HashMap<>();
         List<Base> provisionPeriodList = extractConsentProvisions(consent);
         for (Base provisionBase : provisionPeriodList) {
-            try {
-
-                Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
-                String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
-                if (!requiredCodes.contains(code)) {
-                    continue; // Skip if code is not valid
-                }
-                Period period = provision.getPeriod();
-                DateTimeType start = period.hasStart() ? period.getStartElement() : null;
-                DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
-
-                // If no start or end period is present, skip to the next provision
-                if (start == null || end == null) continue;
-                // Add the new consent period to the map under the corresponding code
-                consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
-            } catch (Exception e) {
-                logger.error("Error processing provision period", e);
+            Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
+            String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
+            if (!requiredCodes.contains(code)) {
+                continue; // Skip if code is not valid
             }
+            Period period = provision.getPeriod();
+            DateTimeType start = period.hasStart() ? period.getStartElement() : null;
+            DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
+
+            // If no start or end period is present, skip to the next provision
+            if (start == null || end == null) continue;
+            // Add the new consent period to the map under the corresponding code
+            consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
+
         }
         if (!consentPeriodMap.keySet().equals(requiredCodes)) {
             throw new ConsentViolatedException("Resource does not have valid consents for every requested code");

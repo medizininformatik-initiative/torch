@@ -130,11 +130,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .doOnNext(response -> {
-                    try {
-                        logger.trace("Received response: {}", response);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error processing the response", e);
-                    }
+                    logger.trace("Received response: {}", response);
                 })
                 .doOnSuccess(response -> logger.debug("Successfully transmitted Bundle"))
                 .doOnError(error -> logger.error("Error occurred while transmitting Bundle: {}", error.getMessage()))
