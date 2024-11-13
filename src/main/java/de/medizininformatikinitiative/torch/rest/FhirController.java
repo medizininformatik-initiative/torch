@@ -25,9 +25,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
-import static org.springframework.web.reactive.function.server.ServerResponse.*;
+import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
+import static org.springframework.web.reactive.function.server.ServerResponse.badRequest;
+import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
+import static org.springframework.web.reactive.function.server.ServerResponse.status;
 
 @RestController
 public class FhirController {
@@ -52,7 +57,6 @@ public class FhirController {
         this.executorService = executorService;
         this.crtdlProcessingService = crtdlProcessingService;
     }
-
 
     private static byte[] decodeCrtdlContent(Parameters parameters) {
         for (var parameter : parameters.getParameter()) {
@@ -81,7 +85,6 @@ public class FhirController {
             throw new IllegalArgumentException("Empty Parameters");
         }
 
-        // Decode and parse CRTDL content
         try {
             return Mono.just(parseCrtdlContent(decodeCrtdlContent(parameters)));
         } catch (IOException e) {
@@ -91,7 +94,6 @@ public class FhirController {
     }
 
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
-        // Read the body asynchronously and process it
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)

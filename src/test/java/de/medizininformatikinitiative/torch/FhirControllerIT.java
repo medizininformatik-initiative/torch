@@ -28,7 +28,11 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -42,7 +46,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Scanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -227,7 +235,6 @@ public class FhirControllerIT {
         fis.close();
     }
 
-
     private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException {
         Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
@@ -258,7 +265,6 @@ public class FhirControllerIT {
         filePaths.forEach(filePath -> {
             try {
                 String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
-                // Read the JSON file into a JsonNode
 
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {

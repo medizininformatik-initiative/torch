@@ -78,7 +78,6 @@ public class CrtdlProcessingService {
     Mono<Void> processBatch(Crtdl crtdl, PatientBatch batch, String jobId) {
         logger.info("Processing batch {}", batch);
         return transformer.collectResourcesByPatientReference(crtdl, batch)
-                .doOnNext(resourceMap -> logger.debug("Collected resources: {}", resourceMap))
                 .onErrorResume(error -> {
                     handleBatchError(jobId, error);
                     logger.error("Error in collectResourcesByPatientReference: {}", error.getMessage());
@@ -103,7 +102,7 @@ public class CrtdlProcessingService {
         return Flux.fromIterable(bundles.values())
                 .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle)
                         .subscribeOn(Schedulers.boundedElastic())
-                        .doOnSuccess(unused -> logger.debug("Bundle appended: {}", batchId)), maxConcurrency)
+                        .doOnSuccess(unused -> logger.trace("Bundle appended: {}", batchId)), maxConcurrency)
                 .then();
     }
 

@@ -23,7 +23,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.stream.Collectors;
 
@@ -70,7 +76,7 @@ public class ResourceTransformer {
         Set<String> safeSet = new ConcurrentSkipListSet<>(consentInfo.patientBatch().ids());
         return processAttributeGroups(crtdl, consentInfo, safeSet).collectList()
                 .map(resourceLists -> flattenAndFilterResourceLists(resourceLists, safeSet))
-                .doOnSuccess(result -> logger.debug("Successfully collected resources {}", result))
+                .doOnSuccess(result -> logger.trace("Successfully collected resources {}", result.size()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
 
 
@@ -195,7 +201,7 @@ public class ResourceTransformer {
                 .flatMap(map -> map.entrySet().stream())
                 .filter(entry -> {
                     boolean isInSafeSet = safeSet.contains(entry.getKey());
-                    logger.debug("Filtering entry with key: {} (in safe set: {}) and value: {}", entry.getKey(), isInSafeSet, entry.getValue());
+                    logger.trace("Filtering entry with key: {} (in safe set: {}) and value: {}", entry.getKey(), isInSafeSet, entry.getValue());
                     return isInSafeSet;
                 })
                 .collect(Collectors.toMap(
