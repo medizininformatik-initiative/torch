@@ -76,22 +76,12 @@ public class CrtdlProcessingService {
 
 
     Mono<Void> processBatch(Crtdl crtdl, PatientBatch batch, String jobId) {
-        logger.info("Processing batch {}", batch);
+        logger.trace("Processing batch {}", batch);
         return transformer.collectResourcesByPatientReference(crtdl, batch)
-                .onErrorResume(error -> {
-                    handleBatchError(jobId, error);
-                    logger.error("Error in collectResourcesByPatientReference: {}", error.getMessage());
-                    return Mono.empty();
-                })
-                .filter(resourceMap -> {
-                    boolean isNotEmpty = !resourceMap.isEmpty();
-                    logger.debug("Resource map is isEmpty: {}", !isNotEmpty);
-                    return isNotEmpty;
-                })
-                .flatMap(resourceMap -> saveResourcesAsBundles(jobId, resourceMap)
-                        .doOnSuccess(unused -> logger.info("Successfully saved resources for jobId: {}", jobId))
-                        .doOnError(error -> logger.error("Error in saveResourcesAsBundles: {}", error.getMessage()))
-                );
+                .filter(resourceMap -> !resourceMap.isEmpty())
+                .flatMap(resourceMap -> saveResourcesAsBundles(jobId, resourceMap))
+                .doOnError(error -> logger.error("Error in saveResourcesAsBundles: {}", error.getMessage()))
+                .doOnSuccess(unused -> logger.debug("Successfully saved resources for jobId: {}", jobId));
     }
 
 

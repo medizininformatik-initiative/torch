@@ -16,6 +16,7 @@ import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.Method;
 import java.util.List;
 
 import static de.medizininformatikinitiative.torch.util.CopyUtils.capitalizeFirstLetter;
@@ -116,21 +117,26 @@ public class ElementCopier {
 
                 logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
                 String[] elementParts = terserFHIRPATH.split("\\.");
+                int endIndex = terserFHIRPATH.lastIndexOf(".");
 
                 if (elementParts.length > 2) {
 
-                    int endIndex = attribute.attributeRef().lastIndexOf(".");
 
                     if (endIndex != -1) {
-                        String ParentPath = attribute.attributeRef().substring(0, endIndex);
-                        logger.trace("ParentPath {}", ParentPath);
-                        logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
-                        //String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
-                        elements.forEach(element -> helper.setField(ParentPath, element.fhirType(), element));
+                        String parentPath = terserFHIRPATH.substring(0, endIndex);
+                        logger.trace("ParentPath {}", parentPath);
+                        logger.trace("Elemente {}", snapshot.getElementByPath(parentPath));
+
+                        IBase parentField = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
+
+                        logger.trace("parentField Type {}", parentField.fhirType());
+
+                        setListOnParentField(parentField, terserFHIRPATH.substring(endIndex + 1), elements);
                     }
                 } else {
+
                     logger.trace("Base Field to be Set {} ", elementParts.length);
-                    // Convert the list to an array
+
                     IBase[] elementsArray = elements.toArray(new IBase[0]);
                     logger.trace("elementsArray {} ", elementsArray.length);
                     // Now pass the array as varargs
@@ -143,6 +149,35 @@ public class ElementCopier {
 
 
     }
+
+    public void setListOnParentField(IBase parentField, String childPath, List<?> list) {
+        try {
+            // Build the setter name for the childPath
+            String setterName = "set" + Character.toUpperCase(childPath.charAt(0)) + childPath.substring(1);
+
+            // Find the setter method that takes a List as parameter
+            Method setterMethod = null;
+            for (Method method : parentField.getClass().getMethods()) {
+                if (method.getName().equals(setterName) && method.getParameterCount() == 1 &&
+                        List.class.isAssignableFrom(method.getParameterTypes()[0])) {
+                    setterMethod = method;
+                    break;
+                }
+            }
+
+            if (setterMethod == null) {
+                throw new NoSuchMethodException("No setter method found for child path " + childPath + " with a List parameter.");
+            }
+
+            // Invoke the setter method with the list argument
+            setterMethod.invoke(parentField, list);
+            logger.trace("Successfully set the list on parentField {} using setter {}", parentField.fhirType(), setterName);
+
+        } catch (Exception e) {
+            logger.error("Failed to set list on parent field {} for child path {}", parentField.fhirType(), childPath, e);
+        }
+    }
+
 
 }
 
