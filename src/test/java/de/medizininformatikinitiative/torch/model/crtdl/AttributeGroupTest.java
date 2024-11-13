@@ -251,11 +251,12 @@ class AttributeGroupTest {
 
         @Test
         void patient() {
-            var patient = new Patient();
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of()).addStandardAttributes(patient.getClass());
+            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
-            assertThat(attributeGroup.hasMustHave()).isTrue();
-            assertThat(attributeGroup.attributes()).containsExactly(
+            var standardAddedGroup = attributeGroup.addStandardAttributes(Patient.class);
+
+            assertThat(standardAddedGroup.hasMustHave()).isTrue();
+            assertThat(standardAddedGroup.attributes()).containsExactly(
                     new Attribute("Patient.name", false),
                     new Attribute("Patient.id", true),
                     new Attribute("Patient.meta.profile", true))
@@ -265,11 +266,12 @@ class AttributeGroupTest {
 
         @Test
         void consent() {
-            var consent = new Consent();
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Consent.identifier", false)), List.of()).addStandardAttributes(consent.getClass());
+            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
 
-            assertThat(attributeGroup.hasMustHave()).isTrue();
-            assertThat(attributeGroup.attributes()).containsExactly(
+            var standardAddedGroup = attributeGroup.addStandardAttributes(Consent.class);
+
+            assertThat(standardAddedGroup.hasMustHave()).isTrue();
+            assertThat(standardAddedGroup.attributes()).containsExactly(
                     new Attribute("Consent.identifier", false),
                     new Attribute("Consent.id", true),
                     new Attribute("Consent.meta.profile", true),
@@ -280,11 +282,12 @@ class AttributeGroupTest {
 
         @Test
         void observation() {
-            var observation = new Observation();
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.identifier", false)), List.of()).addStandardAttributes(observation.getClass());
+            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
 
-            assertThat(attributeGroup.hasMustHave()).isTrue();
-            assertThat(attributeGroup.attributes()).containsExactly(
+            var standardAddedGroup = attributeGroup.addStandardAttributes(Observation.class);
+
+            assertThat(standardAddedGroup.hasMustHave()).isTrue();
+            assertThat(standardAddedGroup.attributes()).containsExactly(
                     new Attribute("Observation.identifier", false),
                     new Attribute("Observation.id", true),
                     new Attribute("Observation.meta.profile", true),
@@ -296,11 +299,12 @@ class AttributeGroupTest {
 
         @Test
         void defaultCase() {
-            var defaultCase = new Condition();
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Condition.code", false)), List.of()).addStandardAttributes(defaultCase.getClass());
+            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Condition.code", false)), List.of());
 
-            assertThat(attributeGroup.hasMustHave()).isTrue();
-            assertThat(attributeGroup.attributes()).containsExactly(
+            var standardAddedGroup = attributeGroup.addStandardAttributes(Condition.class);
+
+            assertThat(standardAddedGroup.hasMustHave()).isTrue();
+            assertThat(standardAddedGroup.attributes()).containsExactly(
                     new Attribute("Condition.code", false),
                     new Attribute("Condition.id", true),
                     new Attribute("Condition.meta.profile", true),

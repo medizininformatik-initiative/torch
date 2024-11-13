@@ -10,6 +10,6 @@
     </root>
 
     <logger name="de.medizininformatikinitiative" level="TRACE"/>
-    <logger name="org.testcontainers" level="INFO"/>
-    <logger name="com.github.dockerjava" level="WARN"/>
+    <logger name="org.testcontainers" level="TRACE"/>
+    <logger name="com.github.dockerjava" level="TRACE"/>
 </configuration>

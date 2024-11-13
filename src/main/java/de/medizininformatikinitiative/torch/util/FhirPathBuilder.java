@@ -96,7 +96,9 @@ public class FhirPathBuilder {
                     if (element == null) {
                         logger.trace("Valid slicing element for {}", sliceName);
                     }
-                    result.append(".ofType(").append(capitalizeFirstLetter(sliceName)).append(")");
+
+                    result.append(capitalizeFirstLetter(sliceName));
+
                 }
             } else if (e.contains(":")) {
                 String basePath = e.substring(0, e.indexOf(":")).trim();

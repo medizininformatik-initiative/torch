@@ -70,10 +70,10 @@ class SlicingTest {
         List<String> result = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertThat(result).containsExactly(
-                "Patient.contact.relationship.coding.system='System'",
-                "Patient.contact.relationship.coding.code='code1'",
-                "Patient.contact.relationship.coding.display='Display'",
-                "Patient.contact.relationship.text='Test'"
+                "relationship.coding.system='System'",
+                "relationship.coding.code='code1'",
+                "relationship.coding.display='Display'",
+                "relationship.text='Test'"
         );
 
     }
@@ -104,7 +104,7 @@ class SlicingTest {
 
         List<String> result = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
-        assertThat(result).containsExactly("Patient.contact.unknown.conformsTo({profile})");
+        assertThat(result).containsExactly("unknown.conformsTo({profile})");
     }
 
     @Test
@@ -127,10 +127,10 @@ class SlicingTest {
         List<String> result = slicing.collectConditionsfromPattern("Patient.contact", snapshot, "relationship");
 
         assertThat(result).containsExactly(
-                "Patient.contact.relationship.coding.system='System'",
-                "Patient.contact.relationship.coding.code='code1'",
-                "Patient.contact.relationship.coding.display='Display'",
-                "Patient.contact.relationship.text='Test'"
+                "relationship.coding.system='System'",
+                "relationship.coding.code='code1'",
+                "relationship.coding.display='Display'",
+                "relationship.text='Test'"
         );
     }
 
@@ -139,11 +139,11 @@ class SlicingTest {
         CodeableConcept pattern = new CodeableConcept();
         pattern.setCoding(Collections.singletonList(new Coding("System", "code1", "Display")));
 
-        List<String> result = slicing.traverseValueRec("Patient.contact.relationship", pattern);
+        List<String> result = slicing.traverseValueRec("relationship", pattern);
 
         assertThat(result).containsOnly(
-                "Patient.contact.relationship.coding.system='System'",
-                "Patient.contact.relationship.coding.code='code1'",
-                "Patient.contact.relationship.coding.display='Display'");
+                "relationship.coding.system='System'",
+                "relationship.coding.code='code1'",
+                "relationship.coding.display='Display'");
     }
 }

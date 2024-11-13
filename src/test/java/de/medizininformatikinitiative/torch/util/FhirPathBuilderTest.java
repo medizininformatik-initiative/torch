@@ -193,7 +193,7 @@ class FhirPathBuilderTest {
     @Test
     void testHandleSlicingForFhirPath_SlicingWithKnownSlice() throws FHIRException {
         String input = "Observation.value[x]:valueQuantity.code";
-        String expected = "Observation.value.ofType(Quantity).code";
+        String expected = "Observation.valueQuantity.code";
 
 
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
@@ -219,7 +219,7 @@ class FhirPathBuilderTest {
     @Test
     void testHandleSlicingForFhirPath_HandlingChoiceElements() throws FHIRException {
         String input = "Observation.value[x]:valueString.code";
-        String expected = "Observation.value.ofType(String).code";
+        String expected = "Observation.valueString.code";
 
         String result = fhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
 

@@ -122,14 +122,14 @@ public class Slicing {
                             conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
-                            conditions.add(slicedElement.getPath() + "." + path + ".exists()");
+                            conditions.add(path + ".exists()");
                             break;
                         case TYPE:
                             logger.trace("Type discriminator found");
-                            conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
+                            conditions.add(path + ".ofType({type})");
                             break;
                         case PROFILE:
-                            conditions.add(slicedElement.getPath() + "." + path + ".conformsTo({profile})");
+                            conditions.add(path + ".conformsTo({profile})");
                             break;
                         default:
                             throw new UnsupportedOperationException("Unsupported discriminator type: " + discriminator.getType());
@@ -155,7 +155,7 @@ public class Slicing {
         logger.debug("Getting Conditions {}", elementId);
         ElementDefinition elementDefinition = snapshot.getElementById(elementId);
         if (elementDefinition == null) {
-            //logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
+
             logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);
             return conditions;
         }
@@ -163,7 +163,7 @@ public class Slicing {
 
             Element pattern = elementDefinition.getFixedOrPattern();
             logger.debug("Got Pattern ");
-            conditions.addAll(traverseValueRec(elementDefinition.getPath(), pattern));
+            conditions.addAll(traverseValueRec(path, pattern));
         } else {
             logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);
 

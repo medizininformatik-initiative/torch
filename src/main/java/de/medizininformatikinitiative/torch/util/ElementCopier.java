@@ -1,12 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.util.TerserUtil;
 import ca.uhn.fhir.util.TerserUtilHelper;
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
-import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -27,6 +27,7 @@ public class ElementCopier {
     private final CdsStructureDefinitionHandler handler;
 
     private final FhirPathBuilder pathBuilder;
+    private final IFhirPath fhirPathEngine;
 
 
     /**
@@ -38,6 +39,7 @@ public class ElementCopier {
         this.handler = handler;
         this.ctx = ctx;
         this.pathBuilder = fhirPathBuilder;
+        this.fhirPathEngine = ctx.newFhirPath();
 
     }
 
@@ -60,87 +62,85 @@ public class ElementCopier {
 
         TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
 
+
+        logger.trace("Attribute Path {}", attribute.attributeRef());
+
+        String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
+        logger.trace("FHIR PATH {}", fhirPath);
+
+        List<Base> elements = List.of();
+
+
         try {
-            logger.trace("Attribute Path {}", attribute.attributeRef());
+            elements = fhirPathEngine.evaluate(src, fhirPath, Base.class);
+        } catch (NullPointerException e) {
+            logger.error("FHIR Search returned null for attribute {} \n and FhirPAth {}", attribute.attributeRef(), fhirPath, e);
+            //FHIR Search Returns Null, if not result found
+        }
+        logger.trace("Elements received {}", fhirPath);
+        if (elements.isEmpty()) {
+            if (attribute.mustHave()) {
+                throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
+            }
+        } else {
+            String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.attributeRef());
 
-            String fhirPath = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
-            logger.trace("FHIR PATH {}", fhirPath);
+            if (elements.size() == 1) {
 
-            List<Base> elements = ctx.newFhirPath().evaluate(src, fhirPath, Base.class);
-            logger.trace("Elements received {}", fhirPath);
-            if (elements.isEmpty()) {
-                if (attribute.mustHave()) {
-                    throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
+                if (terserFHIRPATH.endsWith("[x]")) {
+                    logger.trace("Tersertobehandled {}", terserFHIRPATH);
+                    String type = capitalizeFirstLetter(elements.getFirst().fhirType());
+                    terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
                 }
-            } else {
-                String terserFHIRPATH = pathBuilder.handleSlicingForTerser(attribute.attributeRef());
-
-                if (elements.size() == 1) {
-
-                    if (terserFHIRPATH.endsWith("[x]")) {
-                        logger.trace("Tersertobehandled {}", terserFHIRPATH);
-                        String type = capitalizeFirstLetter(elements.getFirst().fhirType());
-                        terserFHIRPATH = terserFHIRPATH.replace("[x]", type);
-                    }
-                    logger.trace("Setting {} {}", terserFHIRPATH, elements.getFirst().fhirType());
-                    try {
-                        TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
-                    } catch (Exception e) {
-                        if (elementDefinition.hasType()) {
-                            elementDefinition.getType().getFirst().getWorkingCode();
-                            logger.trace("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                            try {
-                                Base casted = ElementFactory.stringtoPrimitive(elements.getFirst().toString(), elementDefinition.getType().getFirst().getWorkingCode());
-                                logger.trace("Casted {}", casted.fhirType());
-                                TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
-                            } catch (Exception casterException) {
-                                logger.warn("Element not recognized and cast unsupported currently  {} {} ", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                                logger.warn("Caster Exception: ", casterException);
-                            }
-                        } else {
-                            logger.warn("Element has no known type {}", terserFHIRPATH);
-                        }
-                    }
-
-                } else {
-
-                    logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
-                    String[] elementParts = terserFHIRPATH.split("\\.");
-
-                    if (elementParts.length > 2) {
-
-
-                        //Assume branching before element
-                        //TODO Go back in branching
-
-                        int endIndex = attribute.attributeRef().lastIndexOf(".");
-
-                        if (endIndex != -1) {
-                            String ParentPath = attribute.attributeRef().substring(0, endIndex);
-                            logger.trace("ParentPath {}", ParentPath);
-                            logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
-                            String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
-                            elements.forEach(element -> helper.setField(ParentPath, type, element));
+                logger.trace("Setting {} {}", terserFHIRPATH, elements.getFirst().fhirType());
+                try {
+                    TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
+                } catch (Exception e) {
+                    if (elementDefinition.hasType()) {
+                        elementDefinition.getType().getFirst().getWorkingCode();
+                        logger.trace("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
+                        try {
+                            Base casted = ElementFactory.stringtoPrimitive(elements.getFirst().toString(), elementDefinition.getType().getFirst().getWorkingCode());
+                            logger.trace("Casted {}", casted.fhirType());
+                            TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
+                        } catch (Exception casterException) {
+                            logger.warn("Element not recognized and cast unsupported currently  {} {} ", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
+                            logger.warn("Caster Exception: ", casterException);
                         }
                     } else {
-                        logger.trace("Base Field to be Set {} ", elementParts.length);
-                        // Convert the list to an array
-                        IBase[] elementsArray = elements.toArray(new IBase[0]);
-                        logger.trace("elementsArray {} ", elementsArray.length);
-                        // Now pass the array as varargs
-                        TerserUtil.setField(ctx, elementParts[1], tgt, elementsArray);
+                        logger.warn("Element has no known type {}", terserFHIRPATH);
                     }
-
-
                 }
-            }
-        } catch (NullPointerException e) {
-            logger.trace("FHIR Search returned null", e);
-            //FHIR Search Returns Null, if not result found
-        } catch (FHIRException e) {
-            logger.error("Unsupported Type", e);
 
+            } else {
+
+                logger.trace("terserFHIRPATH {} ", terserFHIRPATH);
+                String[] elementParts = terserFHIRPATH.split("\\.");
+
+                if (elementParts.length > 2) {
+
+                    int endIndex = attribute.attributeRef().lastIndexOf(".");
+
+                    if (endIndex != -1) {
+                        String ParentPath = attribute.attributeRef().substring(0, endIndex);
+                        logger.trace("ParentPath {}", ParentPath);
+                        logger.trace("Elemente {}", snapshot.getElementByPath(ParentPath));
+                        String type = snapshot.getElementByPath(ParentPath).getType().getFirst().getWorkingCode();
+                        elements.forEach(element -> helper.setField(ParentPath, type, element));
+                    }
+                } else {
+                    logger.trace("Base Field to be Set {} ", elementParts.length);
+                    // Convert the list to an array
+                    IBase[] elementsArray = elements.toArray(new IBase[0]);
+                    logger.trace("elementsArray {} ", elementsArray.length);
+                    // Now pass the array as varargs
+                    TerserUtil.setField(ctx, elementParts[1], tgt, elementsArray);
+                }
+
+
+            }
         }
+
 
     }
 
