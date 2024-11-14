@@ -4,19 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [UNRELEASED] - yyyy-mm-dd
+## [v1.0.0-alpha.2] - 2024-11-14
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
+- **Removing of Unknown Slices and Profiles**
 
 ### Fixed
 
-### Security
+- **Diverse Bug Fixes in extraction process and reactive chain **
+- **Fixed Search Params in Queries**
 
 ## [v1.0.0-alpha.1] - 2024-10-21
 
