@@ -30,7 +30,7 @@ services:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
     ports:
-      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
+      - ${PORT_TORCH_NGINX:-127.0.0.1:8085}:8080
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template
       - ./start-nginx.sh:/start-nginx.sh
