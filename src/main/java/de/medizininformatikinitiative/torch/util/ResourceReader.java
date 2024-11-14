@@ -7,13 +7,22 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 
+
+/**
+ * Util class for reading FHIR resources from File
+ */
 public class ResourceReader {
 
-    // TODO: the FhirContext should be given via dependency injection
-    public static FhirContext ctx = FhirContext.forR4();
 
-    public static Resource readResource(String path) throws IOException {
-        FileInputStream fis = null;
+    public ResourceReader(FhirContext ctx) {
+        this.ctx = ctx;
+    }
+
+    private final FhirContext ctx;
+
+    public Resource readResource(String path) throws IOException {
+        ResourceReader.class.getResourceAsStream(path);
+        FileInputStream fis;
         try {
             fis = new FileInputStream(path);
         } catch (FileNotFoundException e) {

@@ -1,0 +1,10 @@
+{
+  "resourceType": "Observation",
+  "valueCodeableConcept": {
+    "coding": [
+      {
+        "display": "Normal"
+      }
+    ]
+  }
+}

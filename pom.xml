@@ -7,24 +7,44 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.3</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>3.3.5</version>
+        <relativePath/>
     </parent>
 
     <groupId>de.medizininformatikinitiative</groupId>
     <artifactId>torch</artifactId>
-    <version>1.0.0-alpha.1</version>
+    <version>1.0.0-alpha.2</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <Hapi.version>6.2.5</Hapi.version>
+        <Hapi.version>7.4.5</Hapi.version>
         <ontology-tag>v3.0.0-alpha</ontology-tag>
     </properties>
 
+
     <dependencies>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>mockwebserver</artifactId>
+            <scope>test</scope>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/hapi-fhir-base -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
@@ -32,11 +52,10 @@
             <version>${Hapi.version}</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/org.hl7.fhir.r4 -->
+
         <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>org.hl7.fhir.r4</artifactId>
-            <version>${Hapi.version}</version>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
         </dependency>
 
         <dependency>
@@ -58,6 +77,12 @@
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-validation</artifactId>
+            <version>${Hapi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-caching-caffeine</artifactId>
             <version>${Hapi.version}</version>
         </dependency>
 
@@ -97,6 +122,8 @@
             <groupId>org.slf4j</groupId>
             <artifactId>slf4j-api</artifactId>
         </dependency>
+
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-autoconfigure</artifactId>
@@ -152,11 +179,31 @@
             <artifactId>spring-security-oauth2-client</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+        </dependency>
+
         <!-- https://mvnrepository.com/artifact/org.codehaus.mojo/exec-maven-plugin -->
         <dependency>
             <groupId>org.codehaus.mojo</groupId>
             <artifactId>exec-maven-plugin</artifactId>
             <version>3.1.0</version>
+        </dependency>
+
+        <!-- Mockito Core -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-core</artifactId>
+
+            <scope>test</scope>
+        </dependency>
+
+        <!-- Mockito JUnit Jupiter Extension -->
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
         </dependency>
 
     </dependencies>
@@ -213,7 +260,9 @@
                                     <executable>curl</executable>
                                     <arguments>
                                         <argument>-L</argument>
-                                        <argument>https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip</argument>
+                                        <argument>
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip
+                                        </argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
                                     </arguments>

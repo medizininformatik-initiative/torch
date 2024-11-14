@@ -2,9 +2,9 @@ services:
   torch-data-store:
     image: "samply/blaze:0.30"
     environment:
-      BASE_URL: "http://torch-data-store:8080"
+      BASE_URL: ${TORCH_BASE_URL:-http://torch-data-store:8080}
       JAVA_TOOL_OPTIONS: "-Xmx2g"
-      LOG_LEVEL: "info"
+      LOG_LEVEL: ${TORCH_LOG_LEVEL:-info}
     ports:
       - "8082:8080"
     volumes:
@@ -30,13 +30,13 @@ services:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.25.5-alpine
     ports:
-      - ${PORT_TORCH_NGINX:-127.0.0.1:80}:8080
+      - ${PORT_TORCH_NGINX:-127.0.0.1:8085}:8080
     volumes:
       - ./nginx.conf.template:/etc/nginx/nginx.conf.template
       - ./start-nginx.sh:/start-nginx.sh
       - torch-data-store:/app/output  # Shared with torch service
       - ./output:/app/output
-    entrypoint: ["/bin/sh", "/start-nginx.sh"]
+    entrypoint: [ "/bin/sh", "/start-nginx.sh" ]
   torch:
     restart: unless-stopped
     build:
@@ -52,10 +52,10 @@ services:
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output
-      TORCH_RESULTS_PERSISTENCE: PT12H30M5S
+      TORCH_RESULTS_PERSISTENCE: PT2160H
       LOG_LEVEL: debug
       NGINX_SERVERNAME: localhost
-      NGINX_FILELOCATION: http://localhost:80
+      NGINX_FILELOCATION: http://localhost:8085
       TORCH_BATCHSIZE: 100
       TORCH_MAXCONCURRENCY: 4
       TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json

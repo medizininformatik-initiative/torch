@@ -21,10 +21,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
-import java.net.URI;
-import java.time.Clock;
 import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
@@ -36,78 +33,74 @@ public class DataStore {
 
     private final WebClient client;
     private final FhirContext fhirContext;
-    private final Clock clock;
     private final int pageCount;
 
 
     @Autowired
-    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,  @Qualifier("systemDefaultZone") Clock clock,
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
                      @Value("${torch.fhir.pageCount}") int pageCount) {
         this.client = client;
         this.fhirContext = fhirContext;
-        this.clock = clock;
         this.pageCount = pageCount;
     }
+
 
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
-     * @param parameters the fhir search query parameters defining the patient resources to be fetched
+     * @param query the fhir search query defined by the attribute group
      * @return the resources found with the {@param FHIRSearchQuery}
      */
-    public Flux<Resource> getResources(String resourceType,String parameters) {
-        //logger.debug("Search Parameters{}", parameters);
+    public Flux<Resource> search(Query query) {
+        var startNanoTime = System.nanoTime();
+        logger.debug("Execute resource query: {}", query);
 
         return client.post()
-                .uri("/"+resourceType+"/_search")
-                .bodyValue(parameters)
-                .header("Content-Type", "application/x-www-form-urlencoded")
+                .uri("/" + query.type() + "/_search")
+                .contentType(APPLICATION_FORM_URLENCODED)
+                .bodyValue(query.params().toString())
                 .retrieve()
                 .bodyToMono(String.class)
-                .doOnNext(response -> logger.debug("getResources Response: {}", response))
-                .flatMap(response -> Mono.just(fhirContext.newJsonParser().parseResource(Bundle.class, response)))
+                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
-                        .map(link -> fetchPage(client, link.getUrl()))
+                        .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
-                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)));
+                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
+                .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds.", query,
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
+                .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 
-    private Mono<Bundle> fetchPage(WebClient client, String url) {
-        //logger.debug("Fetch Page {}", url);
+
+    private Mono<Bundle> fetchPage(String url) {
+        logger.trace("Fetch Page {}", url);
         return client.get()
-                .uri(URI.create(url))
+                .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
     }
 
-    private Mono<de.medizininformatikinitiative.torch.model.fhir.Bundle> fetchPageCompressed(String url) {
-        logger.trace("fetch page {}", url);
-        return client.get()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(de.medizininformatikinitiative.torch.model.fhir.Bundle.class);
-    }
 
-    public Mono<List<String>> executeCollectPatientIds(Query query) {
-        var startNanoTime = System.nanoTime();
-        logger.debug("Execute query: {}", query);
+    public Flux<String> executeCollectPatientIds(Query query) {
+        logger.debug("Execute  fetch query: {}", query);
         return client.post()
                 .uri("/{type}/_search", query.type())
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .bodyValue(query.params().appendParams(extraQueryParams(query.type())).toString())
                 .retrieve()
-                .bodyToFlux(de.medizininformatikinitiative.torch.model.fhir.Bundle.class)
-                .expand(bundle -> bundle.linkWithRel("next")
-                        .map(link -> fetchPageCompressed(link.url()))
+                .bodyToFlux(String.class)
+                .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response))
+                .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
+                        .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
                 .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
                         .filter(e -> e instanceof WebClientResponseException &&
                                 shouldRetry(((WebClientResponseException) e).getStatusCode())))
-                .flatMap(bundle -> Flux.fromStream(bundle.entry().stream().flatMap(e -> e.resource().patientId().stream())))
-                .collectList()
-                .doOnNext(p -> logger.debug("Finished query `{}` returning {} patients in {} seconds.", query, p.size(),
-                        "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
+                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().flatMap(e -> Optional.ofNullable(e.getResource().getId()).stream())))
                 .doOnError(e -> logger.error("Error while executing query `{}`: {}", query, e.getMessage()));
     }
 
@@ -119,7 +112,7 @@ public class DataStore {
     private static String queryElements(String type) {
         return switch (type) {
             case "Patient" -> "id";
-            case "Immunization", "Consent" -> "patient";
+            case "Immunization", "consent" -> "patient";
             default -> "subject";
         };
     }
@@ -128,7 +121,7 @@ public class DataStore {
         return code.is5xxServerError() || code.value() == 404;
     }
 
-    public Mono<Void> transmitBundle(Bundle bundle) {
+    public Mono<Void> transact(Bundle bundle) {
 
         return client.post()
                 .uri("")
@@ -137,11 +130,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .doOnNext(response -> {
-                    try {
-                        logger.trace("Received response: {}", response);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error processing the response", e);
-                    }
+                    logger.trace("Received response: {}", response);
                 })
                 .doOnSuccess(response -> logger.debug("Successfully transmitted Bundle"))
                 .doOnError(error -> logger.error("Error occurred while transmitting Bundle: {}", error.getMessage()))
@@ -149,14 +138,10 @@ public class DataStore {
     }
 
 
-
-
-
-
     /**
-     * Get the {@link MeasureReport} for a previously transmitted {@link Measure}
+     * Get the {@link MeasureReport} for a previously transmitted Measure
      *
-     * @param params the Parameters for the evaluation of the {@link Measure}
+     * @param params the Parameters for the evaluation of the Measure
      * @return the retrieved {@link MeasureReport} from the server
      */
     public Mono<MeasureReport> evaluateMeasure(Parameters params) {
@@ -175,4 +160,5 @@ public class DataStore {
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure and received MeasureReport."))
                 .doOnError(error -> logger.error("Error occurred while evaluating Measure: {}", error.getMessage()));
     }
+
 }

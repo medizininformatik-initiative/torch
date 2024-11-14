@@ -5,8 +5,6 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.context.RuntimeResourceDefinition;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.r4.model.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -15,15 +13,16 @@ import java.util.stream.Collectors;
 
 @Component
 
-
+/*
+ * Bundle creator for collecting Resources by patient into bundles for export
+ */
 public class BundleCreator {
-    private static final Logger logger = LoggerFactory.getLogger(BundleCreator.class);
 
 
     @Autowired
     FhirContext context;
 
-    org.hl7.fhir.r4.model.Bundle.HTTPVerb method=Bundle.HTTPVerb.PUT;
+    final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
     public BundleCreator() {
 

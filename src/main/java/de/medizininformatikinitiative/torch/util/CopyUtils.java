@@ -1,15 +1,21 @@
 package de.medizininformatikinitiative.torch.util;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.lang.reflect.Method;
 
+/**
+ * Util class for copying and redacting.
+ * Contains some basic string manipulations and setter reflection
+ */
 public class CopyUtils {
 
 
+    private static final Logger logger = LoggerFactory.getLogger(CopyUtils.class);
+
     /**
-     * Get the name of the element from the path
-     *
-     * @param path
-     * @return
+     * Get the name of the element from the path by getting the last non-isEmpty element after a separator (.)
      */
     public static String getElementName(String path) {
         String[] parts = path.split("\\.");
@@ -20,24 +26,21 @@ public class CopyUtils {
      * Reflects a setMethod for a given class and field name.
      * Quite relevant for e.g. Lists, since they cannot be set directly through constructors or makeproperty in Hapi.
      *
-     * @param clazz
-     * @param fieldName
      * @return reflected Setter Method
      */
     public static Method reflectListSetter(Class<?> clazz, String fieldName) {
         try {
             return clazz.getMethod("set" + capitalizeFirstLetter(fieldName), java.util.List.class);
         } catch (NoSuchMethodException e) {
-            e.printStackTrace();
+            logger.warn(" Class {} does not have the method set{}", clazz.getName(), capitalizeFirstLetter(fieldName));
+            return null;
         }
-        return null;
     }
 
 
     /**
      * Relevant for setter methods that are in Camel case, but the field name is in lower case.
      *
-     * @param str
      * @return capitalized String
      */
     public static String capitalizeFirstLetter(String str) {

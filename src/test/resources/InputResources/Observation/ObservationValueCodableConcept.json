@@ -1,0 +1,28 @@
+{
+  "resourceType": "Observation",
+  "status": "final",
+  "id": "VHF00006-E-1-OL-1",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+    ]
+  },
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "8302-2",
+        "display": "Body height"
+      }
+    ]
+  },
+  "valueCodeableConcept": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "419199007",
+        "display": "Normal"
+      }
+    ]
+  }
+}

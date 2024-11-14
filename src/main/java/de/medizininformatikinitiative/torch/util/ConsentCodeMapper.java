@@ -2,31 +2,33 @@ package de.medizininformatikinitiative.torch.util;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.*;
 
-@Component
+
+/**
+ * Provides a Map of all consent codes belonging to a consent key e.g. "yes-yes-yes-yes"
+ */
 public class ConsentCodeMapper {
 
-    private Map<String, List<String>> consentMap;
+    private final Map<String, List<String>> consentMap;
+    private final ObjectMapper objectMapper;
 
-    public ConsentCodeMapper(
-           String consentFilePath
-    ) throws IOException {
+
+    public ConsentCodeMapper(String consentFilePath, ObjectMapper objectMapper) throws IOException {
         this.consentMap = new HashMap<>();
+        this.objectMapper = objectMapper;
         buildConsentMap(consentFilePath);
     }
 
     // Method to build the map based on the JSON file
     private void buildConsentMap(String filePath) throws IOException {
+        //Class get Resource as Stream
+        //init method
         File file = new File(filePath);
-
-        ObjectMapper mapper = new ObjectMapper();
-        JsonNode consentMappingData = mapper.readTree(file.getAbsoluteFile());
+        JsonNode consentMappingData = objectMapper.readTree(file.getAbsoluteFile());
         for (JsonNode consent : consentMappingData) {
             String keyCode = consent.get("key").get("code").asText();
             List<String> relevantCodes = new ArrayList<>();
