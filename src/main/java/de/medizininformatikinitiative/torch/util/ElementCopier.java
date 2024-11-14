@@ -127,16 +127,16 @@ public class ElementCopier {
                         logger.trace("ParentPath {}", parentPath);
                         logger.trace("Elemente {}", snapshot.getElementByPath(parentPath));
 
-                        IBase parentField = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
+                        IBase parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
 
-                        
-                        if (parentField == null) {
+
+                        if (parentElement == null) {
                             TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
-                            parentField = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
+                            parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
                         }
-                        logger.trace("parentField Type {}", parentField.fhirType());
+                        logger.trace("parentElement Type {}", parentElement.fhirType());
 
-                        setListOnParentField(parentField, terserFHIRPATH.substring(endIndex + 1), elements);
+                        setListOnParentField(parentElement, terserFHIRPATH.substring(endIndex + 1), elements);
                     }
                 } else {
 

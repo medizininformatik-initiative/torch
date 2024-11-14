@@ -30,8 +30,8 @@ public class RedactTest {
 
         resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceExpected)).
-                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceSrc));
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceSrc)).
+                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceExpected));
     }
 
     @ParameterizedTest
@@ -42,7 +42,7 @@ public class RedactTest {
 
         resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceExpected)).
-                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceSrc));
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceSrc)).
+                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceExpected));
     }
 }

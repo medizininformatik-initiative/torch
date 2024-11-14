@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -59,13 +60,29 @@ public class CdsStructureDefinitionHandler {
      * @return The first non-null StructureDefinition found, or null if none are found.
      */
     public StructureDefinition getDefinition(List<CanonicalType> urls) {
+        urls = legalUrls(urls);
+        if (urls.isEmpty()) {
+            return null;
+        }
+        return getDefinition(urls.getFirst().getValue());
+    }
+
+    /**
+     * Returns the first non-null StructureDefinition from a list of URLs.
+     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     *
+     * @param urls A list of URLs for which to find the corresponding StructureDefinition.
+     * @return The first non-null StructureDefinition found, or null if none are found.
+     */
+    public List<CanonicalType> legalUrls(List<CanonicalType> urls) {
+        List<CanonicalType> legalUrls = new ArrayList<>();
         for (CanonicalType url : urls) {
             StructureDefinition definition = getDefinition(url.getValue());
             if (definition != null) {
-                return definition;
+                legalUrls.add(url);
             }
         }
-        return null;
+        return legalUrls;
     }
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {

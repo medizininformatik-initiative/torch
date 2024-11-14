@@ -57,7 +57,7 @@ public class Slicing {
         }
         if (!slicedElement.hasSlicing()) {
             logger.warn("Element has no slicing {} {}", elementID, structureDefinition.getUrl());
-            return null; // Return null if the sliced element is not found or has no slicing
+            return null;
         }
 
 

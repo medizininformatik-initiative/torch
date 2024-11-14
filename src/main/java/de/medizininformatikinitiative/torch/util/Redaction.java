@@ -55,7 +55,7 @@ public class Redaction {
                     logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                     throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
                 }
-
+                resource.getMeta().setProfile(CDS.legalUrls(resource.getMeta().getProfile()));
                 elementID = String.valueOf(resource.getResourceType());
                 return redact(base, elementID, 0, structureDefinition);
             }
@@ -83,14 +83,13 @@ public class Redaction {
         ElementDefinition definition = snapshot.getElementById(elementID);
 
         if (definition == null) {
-            logger.warn("Definiton unknown {} {}  Element ID {} {}", base.fhirType(), base.getIdBase(), elementID, structureDefinition.getUrl());
-        } else if (definition.hasSlicing()) {
+            throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementID + "in StructureDefinition " + structureDefinition.getUrl());
 
+        } else if (definition.hasSlicing()) {
 
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
             if (slicedElement != null) {
                 if (slicedElement.hasId()) {
-                    //logger.warn("Found Sliced Element {}", slicedElement.getIdElement().toString());
                     elementID = slicedElement.getIdElement().toString();
 
                 } else {
