@@ -21,7 +21,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -225,26 +227,7 @@ class AttributeGroupTest {
 
             assertThat(attributeGroup.hasMustHave()).isFalse();
         }
-    }
-
-    @Nested
-    class addAttributes {
-        @Test
-        void consent() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(), List.of());
-        }
-
-        @Test
-        void patient() {
-
-        }
-
-        @Test
-        void baseCase() {
-
-        }
-
-    }
+    }O
 
     @Nested
     class StandardAttributes {
