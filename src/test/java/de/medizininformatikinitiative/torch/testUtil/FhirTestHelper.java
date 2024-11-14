@@ -50,6 +50,7 @@ public class FhirTestHelper {
      * @param expectedBundles Expected Bundles indexed by PatID
      */
     public void validate(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+
         for (Map.Entry<String, Bundle> entry : actualBundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
@@ -58,6 +59,9 @@ public class FhirTestHelper {
             removeMetaLastUpdatedFromEntries(bundle);
             removeMetaLastUpdatedFromEntries(expectedBundle);
 
+            /*Assertions.assertEquals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle),
+                    fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedBundle));
+*/
             Map<String, Resource> actualResourceMap = mapResourcesByProfile(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByProfile(expectedBundle);
 
@@ -71,6 +75,8 @@ public class FhirTestHelper {
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);
+
+
                 if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
                         .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
                     throw new AssertionError("Expected resource for profile " + profileKey + " does not match actual resource.");

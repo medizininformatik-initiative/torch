@@ -32,7 +32,7 @@ public class Slicing {
     }
 
     /**
-     * Checks if the given element is a sliced element and returns the sliced element.
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
      * @param base                Hapi Base (Element) which should be checked
      * @param elementID           Element ID of the above element.
@@ -49,7 +49,7 @@ public class Slicing {
             slicedElement = snapshot.getElementById(elementID);
         }
 
-        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
+        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
 
         if (slicedElement == null) {
             logger.warn("slicedElement null {} {}", elementID, structureDefinition.getUrl());

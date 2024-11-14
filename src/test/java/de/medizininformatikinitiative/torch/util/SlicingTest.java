@@ -1,7 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -20,20 +25,6 @@ class SlicingTest {
         slicing = new Slicing(context);
     }
 
-    @Test
-    void testCheckSlicing_WithSlicedElement() {
-        StructureDefinition structureDefinition = new StructureDefinition();
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition elementDefinition = new ElementDefinition();
-        elementDefinition.setPath("Patient.contact");
-        elementDefinition.getSlicing().addDiscriminator().setPath("relationship").setType(ElementDefinition.DiscriminatorType.VALUE);
-        snapshot.addElement(elementDefinition);
-        Base base = Mockito.mock(Base.class);
-
-        ElementDefinition result = slicing.checkSlicing(base, "Patient.contact", structureDefinition);
-
-        assertThat(result.getPath()).isEqualTo("Patient.contact");
-    }
 
     @Test
     void testCheckSlicing_NoSlicingElement() {

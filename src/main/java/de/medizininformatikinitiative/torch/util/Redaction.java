@@ -5,7 +5,6 @@ import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,10 +18,7 @@ import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentRea
  * Redaction operations on copied Ressources based on the Structuredefinition
  */
 public class Redaction {
-
-
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-    private final Factory factory;
     private final CdsStructureDefinitionHandler CDS;
     private final Slicing slicing;
 
@@ -33,7 +29,6 @@ public class Redaction {
      */
     public Redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
         this.CDS = cds;
-        factory = new Factory();
         this.slicing = slicing;
     }
 
@@ -42,9 +37,6 @@ public class Redaction {
      * @return Base with fulfilled required fields using Data Absent Reasons
      */
     public Base redact(Base base) {
-        /*
-         * Check if the base is a DomainResource and if it has a profile. Used for initial redaction.
-         */
         StructureDefinition structureDefinition;
         String elementID;
         if (base instanceof DomainResource resource) {
@@ -53,14 +45,14 @@ public class Redaction {
                 structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
                 if (structureDefinition == null) {
                     logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                    throw new RuntimeException("Trying to Redact Base Element that is not a ressource");
+                    throw new RuntimeException("Trying to redact Base Element that is not a KDS resource");
                 }
                 resource.getMeta().setProfile(CDS.legalUrls(resource.getMeta().getProfile()));
                 elementID = String.valueOf(resource.getResourceType());
                 return redact(base, elementID, 0, structureDefinition);
             }
         }
-        return null;
+        throw new RuntimeException("Trying to redact Base Element that is not a resource");
     }
 
 
@@ -76,10 +68,7 @@ public class Redaction {
     public Base redact(Base base, String elementID, int recursion, StructureDefinition structureDefinition) {
 
         recursion++;
-
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-
-
         ElementDefinition definition = snapshot.getElementById(elementID);
 
         if (definition == null) {
@@ -88,16 +77,26 @@ public class Redaction {
         } else if (definition.hasSlicing()) {
 
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+
             if (slicedElement != null) {
+                logger.trace("Sliced Element {}", slicedElement.getName());
                 if (slicedElement.hasId()) {
                     elementID = slicedElement.getIdElement().toString();
 
                 } else {
-                    logger.warn("Sliced Element has no valid ID {}", elementID);
+                    throw new NoSuchElementException("Sliced Element has no valid ID " + elementID + "in StructureDefinition " + structureDefinition.getUrl());
                 }
 
             } else {
-                logger.warn("Sliced Element is null {}", elementID);
+                base.children().forEach(child -> {
+                    String type = child.getTypeCode();
+                    Element element = HapiFactory.create(type);
+                    if (child.hasValues()) {
+                        element.addExtension(createAbsentReasonExtension("masked"));
+                    }
+                    base.setProperty(child.getName(), element);
+                });
+                return base;
             }
         }
 
@@ -129,7 +128,7 @@ public class Redaction {
                 child.getValues().forEach(value -> {
 
                     if (finalMin > 0 && value.isEmpty()) {
-                        Element element = factory.create(finalType).addExtension(createAbsentReasonExtension("masked"));
+                        Element element = HapiFactory.create(finalType).addExtension(createAbsentReasonExtension("masked"));
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
 
@@ -141,7 +140,7 @@ public class Redaction {
             } else {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
                     //TODO Backbone Element Handling and nested Extensions
-                    Element element = factory.create(type).addExtension(createAbsentReasonExtension("masked"));
+                    Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
                     base.setProperty(child.getName(), element);
                 }
             }

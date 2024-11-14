@@ -84,6 +84,7 @@ public class ElementCopier {
                 throw new MustHaveViolatedException("Attribute " + attribute.attributeRef() + " must have a value");
             }
         } else {
+
             String terserFHIRPATH = fhirPaths[1];
             logger.trace("Terser FhirPath {}", terserFHIRPATH);
             if (elements.size() == 1) {
@@ -129,7 +130,6 @@ public class ElementCopier {
 
                         IBase parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
 
-
                         if (parentElement == null) {
                             TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
                             parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
@@ -157,10 +157,7 @@ public class ElementCopier {
 
     public void setListOnParentField(IBase parentField, String childPath, List<?> list) {
         try {
-            // Build the setter name for the childPath
             String setterName = "set" + Character.toUpperCase(childPath.charAt(0)) + childPath.substring(1);
-
-            // Find the setter method that takes a List as parameter
             Method setterMethod = null;
             for (Method method : parentField.getClass().getMethods()) {
                 if (method.getName().equals(setterName) && method.getParameterCount() == 1 &&
@@ -173,8 +170,6 @@ public class ElementCopier {
             if (setterMethod == null) {
                 throw new NoSuchMethodException("No setter method found for child path " + childPath + " with a List parameter.");
             }
-
-            // Invoke the setter method with the list argument
             setterMethod.invoke(parentField, list);
             logger.trace("Successfully set the list on parentField {} using setter {}", parentField.fhirType(), setterName);
 

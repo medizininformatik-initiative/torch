@@ -2,21 +2,22 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Meta;
+import org.junit.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class RedactTest {
-
-    private static final Logger logger = LoggerFactory.getLogger(RedactTest.class);
-
-    // Create an instance of BaseTestSetup
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
 
     private final FhirContext fhirContext = FhirContext.forR4();
@@ -24,25 +25,43 @@ public class RedactTest {
     @ParameterizedTest
     @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
     public void testDiagnosis(String resource) throws IOException {
-        logger.info("Resource Handled {}", resource);
-        DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
-        DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+        DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+        DomainResource expected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
-        resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
+        src = (DomainResource) integrationTestSetup.redaction().redact(src);
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceSrc)).
-                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceExpected));
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(src)).
+                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(expected));
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Observation_lab_missing_Elements.json"})
+    @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})
     public void testObservation(String resource) throws IOException {
-        DomainResource resourceSrc = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
-        DomainResource resourceExpected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
+        DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
+        DomainResource expected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
-        resourceSrc = (DomainResource) integrationTestSetup.redaction().redact(resourceSrc);
+        src = (DomainResource) integrationTestSetup.redaction().redact(src);
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(resourceSrc)).
-                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(resourceExpected));
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src)).
+                isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
+
+    @Test
+    public void unknownSlice() {
+        Condition src = new Condition();
+        Meta meta = new Meta();
+        meta.setProfile(List.of(new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
+        src.setMeta(meta);
+        Coding code = new Coding("Test", "Test", "Test");
+        CodeableConcept concept = new CodeableConcept();
+        concept.setCoding(List.of(code));
+        src.setCode(concept);
+
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(src);
+
+        System.out.println("fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src) = " + fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+
+    }
+
+
 }

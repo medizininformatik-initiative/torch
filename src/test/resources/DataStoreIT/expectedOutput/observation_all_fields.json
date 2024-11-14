@@ -2,119 +2,173 @@
   "resourceType": "Bundle",
   "id": "3",
   "type": "transaction",
-  "entry": [ {
-    "resource": {
-      "resourceType": "Patient",
-      "id": "3",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "clinicalStatus": {
+          "coding": [
+            {
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
+              "code": "active"
+            }
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "45252009",
+              "display": "Example diagnosis 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "onsetDateTime": "2023-06-03T00:00:00Z",
+        "_recordedDate": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        }
       },
-      "identifier": [ {
-        "use": "usual",
-        "system": "http://hospital.smarthealthit.org",
-        "value": "987654"
-      } ],
-      "name": [ {
-        "use": "official",
-        "family": "Johnson",
-        "given": [ "Alex" ]
-      } ],
-      "gender": "other",
-      "birthDate": "1975-03-03"
-    },
-    "request": {
-      "method": "PUT",
-      "url": "Patient/3"
-    }
-  }, {
-    "resource": {
-      "resourceType": "Condition",
-      "id": "4",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
-      },
-      "clinicalStatus": {
-        "coding": [ {
-          "system": "http://terminology.hl7.org/CodeSystem/condition-clinical",
-          "code": "active"
-        } ]
-      },
-      "code": {
-        "coding": [ {
-          "system": "http://snomed.info/sct",
-          "code": "45252009",
-          "display": "Example diagnosis 3"
-        } ]
-      },
-      "subject": {
-        "reference": "Patient/3"
-      },
-      "onsetDateTime": "2023-06-03T00:00:00Z",
-      "_recordedDate": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
+      "request": {
+        "method": "PUT",
+        "url": "Condition/4"
       }
     },
-    "request": {
-      "method": "PUT",
-      "url": "Condition/4"
-    }
-  }, {
-    "resource": {
-      "resourceType": "Observation",
-      "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab" ]
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "3",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+          ]
+        },
+        "identifier": [
+          {
+            "_use": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            },
+            "_system": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            },
+            "_value": {
+              "extension": [
+                {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                }
+              ]
+            }
+          }
+        ],
+        "name": [
+          {
+            "use": "official",
+            "family": "Johnson",
+            "given": [
+              "Alex"
+            ]
+          }
+        ],
+        "gender": "other",
+        "birthDate": "1975-03-03"
       },
-      "identifier": [ {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
-      } ],
-      "status": "final",
-      "category": [ {
-        "coding": [ {
-          "system": "http://terminology.hl7.org/CodeSystem/observation-category",
-          "code": "laboratory"
-        } ]
-      } ],
-      "code": {
-        "coding": [ {
-          "system": "http://loinc.org",
-          "code": "9101-2",
-          "display": "Example lab test 3"
-        } ]
-      },
-      "subject": {
-        "reference": "Patient/3"
-      },
-      "encounter": {
-        "reference": "Encounter/5"
-      },
-      "effectiveDateTime": "2023-07-03T00:00:00Z",
-      "valueQuantity": {
-        "value": 8.4,
-        "unit": "mmol/L",
-        "system": "http://unitsofmeasure.org",
-        "code": "mmol/L"
+      "request": {
+        "method": "PUT",
+        "url": "Patient/3"
       }
     },
-    "request": {
-      "method": "PUT",
-      "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
-    }
-  }, {
-    "resource": {
-      "resourceType": "Encounter",
-      "id": "5",
-      "status": "unknown"
+    {
+      "resource": {
+        "resourceType": "Observation",
+        "id": "c74d8f35-e376-4d77-bc7a-ff5a5b84276e",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+          ]
+        },
+        "identifier": [
+          {
+            "extension": [
+              {
+                "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                "valueCode": "masked"
+              }
+            ]
+          }
+        ],
+        "status": "final",
+        "category": [
+          {
+            "coding": [
+              {
+                "system": "http://terminology.hl7.org/CodeSystem/observation-category",
+                "code": "laboratory"
+              }
+            ]
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "9101-2",
+              "display": "Example lab test 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "encounter": {
+          "reference": "Encounter/5"
+        },
+        "effectiveDateTime": "2023-07-03T00:00:00Z",
+        "valueQuantity": {
+          "value": 8.4,
+          "unit": "mmol/L",
+          "system": "http://unitsofmeasure.org",
+          "code": "mmol/L"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Observation/c74d8f35-e376-4d77-bc7a-ff5a5b84276e"
+      }
     },
-    "request": {
-      "method": "PUT",
-      "url": "Encounter/5"
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "5",
+        "status": "unknown"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/5"
+      }
     }
-  } ]
+  ]
 }
