@@ -23,4 +23,4 @@ cat <<END
 END
 }
 
-parameters | jq --arg content "$(cat $CRTDL_FILE)" -cM '.parameter[0].valueBase64Binary = ($content | @base64)'
+parameters | jq --arg content "$(cat "$CRTDL_FILE")" -cM '.parameter[0].valueBase64Binary = ($content | @base64)'

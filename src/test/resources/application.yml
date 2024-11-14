@@ -6,8 +6,8 @@ torch:
   profile:
     dir: structureDefinitions
   mapping:
-    consent: src/test/resources/mappings/consent-mappings.json
-    consent_to_profile: src/test/resources/mappings/profile_to_consent.json
+    consent: mappings/consent-mappings_fhir.json
+    consent_to_profile: mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
     pageCount: 500
@@ -23,7 +23,7 @@ torch:
     url: http://localhost:8084
   results:
     dir: output/
-    persistence: PT12H30M5S # Time Block in ISO 8601 format
+    persistence: PT2160H # Time Block in ISO 8601 format
   batchsize: 2
   maxConcurrency: 1
   mappingsFile: ontology/mapping_cql.json
@@ -36,16 +36,16 @@ nginx:
 
 logging:
   level:
-    root: INFO
-    org.springframework.web.reactive.function.client: INFO
-    reactor.netty: INFO
-    reactor: INFO
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:INFO}
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:INFO}
-    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:INFO}
+    root: WARN
+    org.springframework.web.reactive.function.client: WARN
+    reactor.netty: WARN
+    reactor: WARN
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:WARN}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:WARN}
+    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:WARN}
     org.springframework: ${LOG_LEVEL:info}
-    ca.uhn.fhir: INFO
-    org.hl7.fhir: INFO
+    ca.uhn.fhir: WARN
+    org.hl7.fhir: WARN
 
 
 spring:

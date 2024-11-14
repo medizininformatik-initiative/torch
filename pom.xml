@@ -7,8 +7,8 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.2.3</version>
-        <relativePath/> <!-- lookup parent from repository -->
+        <version>3.3.5</version>
+        <relativePath/>
     </parent>
 
     <groupId>de.medizininformatikinitiative</groupId>
@@ -20,10 +20,9 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <Hapi.version>6.2.5</Hapi.version>
+        <Hapi.version>7.4.5</Hapi.version>
         <ontology-tag>v3.0.0-alpha</ontology-tag>
     </properties>
-
 
 
     <dependencies>
@@ -53,12 +52,6 @@
             <version>${Hapi.version}</version>
         </dependency>
 
-        <!-- https://mvnrepository.com/artifact/ca.uhn.hapi.fhir/org.hl7.fhir.r4 -->
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>org.hl7.fhir.r4</artifactId>
-            <version>${Hapi.version}</version>
-        </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
@@ -84,6 +77,12 @@
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-validation</artifactId>
+            <version>${Hapi.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>hapi-fhir-caching-caffeine</artifactId>
             <version>${Hapi.version}</version>
         </dependency>
 
@@ -261,7 +260,9 @@
                                     <executable>curl</executable>
                                     <arguments>
                                         <argument>-L</argument>
-                                        <argument>https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip</argument>
+                                        <argument>
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip
+                                        </argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
                                     </arguments>

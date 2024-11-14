@@ -5,8 +5,10 @@ import de.medizininformatikinitiative.torch.model.sq.Comparator;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -80,9 +82,14 @@ class QueryParamsTest {
 
         assertEquals("name1=value1&name2=value2", combinedParams.toString());
     }
-    
+
     @Test
     void testEmptyQueryParams() {
         assertThat(QueryParams.EMPTY.params().isEmpty()).as("Expected EMPTY QueryParams to have no params");
+    }
+
+    @Test
+    void multiStringValueEmpty() {
+        assertThatThrownBy(() -> QueryParams.multiStringValue(List.of())).isInstanceOf(IllegalArgumentException.class);
     }
 }

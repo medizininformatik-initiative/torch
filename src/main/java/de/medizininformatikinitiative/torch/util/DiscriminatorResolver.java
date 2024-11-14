@@ -21,17 +21,13 @@ public class DiscriminatorResolver {
      * @param base          Element to be sliced
      * @param slice         ElementDefinition of the slice
      * @param discriminator Discriminator to be resolved
-     * @param elementID     path to the element
      * @param snapshot      Snapshot of the StructureDefinition
-     * @return
+     * @return true if Discriminator could be resolved, false otherwise
      */
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        //System.out.println("Discriminator "+discriminator);
         return switch (discriminator.getType().toCode()) {
-            case "exists" -> false;
             case "pattern", "value" ->
                     resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
-            case "profile" -> false;  //
             case "type" -> resolveType(base, slice, discriminator, snapshot);
             default -> false;
         };
@@ -66,8 +62,6 @@ public class DiscriminatorResolver {
     private static Boolean resolvePattern(Base base, ElementDefinition slice,
                                           ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        // Resolve the element containing the fixed or pattern information.
-        //logger.debug("Element to be resolved {} {} ", slice.getId(), discriminator.getPath());
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         // Resolve the base element along the path specified by the discriminator.
@@ -98,13 +92,13 @@ public class DiscriminatorResolver {
     private static boolean compareBaseToFixedOrPattern(Base resolvedBase, Base fixedOrPatternValue) {
         // Handle null inputs
         if (resolvedBase == null || fixedOrPatternValue == null) {
-            logger.warn("One or both inputs are null: resolvedBase={}, fixedOrPatternValue={}", resolvedBase, fixedOrPatternValue);
+            logger.trace("One or both inputs are null: resolvedBase={}, fixedOrPatternValue={}", resolvedBase, fixedOrPatternValue);
             return false;
         }
 
         // Check if FHIR types match
         if (!Objects.equals(resolvedBase.fhirType(), fixedOrPatternValue.fhirType())) {
-            logger.warn("Incompatible Data types when comparing {} {}", resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
+            logger.trace("Incompatible Data types when comparing {} {}", resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
             return false;
         }
 
@@ -127,7 +121,7 @@ public class DiscriminatorResolver {
 
             // Check if the number of children matches
             if (fixedChildren.size() > resolvedChildren.size()) {
-                logger.warn("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
+                logger.trace("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
                         fixedChildren.size(), resolvedChildren.size());
                 return false;
             }
@@ -141,18 +135,18 @@ public class DiscriminatorResolver {
 
                 // If the resolved base doesn't have this child, return false
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
-                    logger.warn("Missing or empty child '{}' in resolvedBase", childName);
+                    logger.trace("Missing or isEmpty child '{}' in resolvedBase", childName);
                     return false;
                 }
 
                 // Compare the first value of each child
-                Base resolvedChildValue = resolvedChild.getValues().get(0);
-                Base fixedChildValue = fixedChild.getValues().get(0);
+                Base resolvedChildValue = resolvedChild.getValues().getFirst();
+                Base fixedChildValue = fixedChild.getValues().getFirst();
 
                 // Recursive comparison
                 boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
                 if (!childComparison) {
-                    logger.warn("Mismatch found in child '{}'", childName);
+                    logger.trace("Mismatch found in child '{}'", childName);
                     return false;
                 }
             }
@@ -199,7 +193,7 @@ public class DiscriminatorResolver {
                 }
 
                 // Move to the next element in the path
-                currentElement = nextElements.get(0);
+                currentElement = nextElements.getFirst();
             }
         } catch (FHIRException e) {
             logger.error("In Slicing Base  {} contains no valid children", currentElement.getIdBase());
@@ -217,7 +211,7 @@ public class DiscriminatorResolver {
      * @param base     Element to be sliced
      * @param slice    ElementDefinition of the slice
      * @param snapshot Snapshot of the StructureDefinition
-     * @return
+     * @return true if type can be resolved and false if not
      */
     private static Boolean resolveType(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
@@ -228,7 +222,7 @@ public class DiscriminatorResolver {
         }
 
         // Proceed with the type comparison
-        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().get(0).getCode());
+        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().getFirst().getCode());
     }
 
 

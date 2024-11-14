@@ -7,18 +7,19 @@ import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
 /**
- * Structure for loading and serving the CDS structrue definitions
+ * Structure for loading and serving the CDS structure definitions
  */
 
 @Component
 public class CdsStructureDefinitionHandler {
 
 
-    private HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
+    private final HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
     protected ResourceReader resourceReader;
 
     public CdsStructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
@@ -33,9 +34,6 @@ public class CdsStructureDefinitionHandler {
 
     /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
-     *
-     * @param filePath
-     * @throws IOException
      */
     public void readStructureDefinition(String filePath) throws IOException {
         StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
@@ -62,13 +60,29 @@ public class CdsStructureDefinitionHandler {
      * @return The first non-null StructureDefinition found, or null if none are found.
      */
     public StructureDefinition getDefinition(List<CanonicalType> urls) {
+        urls = legalUrls(urls);
+        if (urls.isEmpty()) {
+            return null;
+        }
+        return getDefinition(urls.getFirst().getValue());
+    }
+
+    /**
+     * Returns the first non-null StructureDefinition from a list of URLs.
+     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     *
+     * @param urls A list of URLs for which to find the corresponding StructureDefinition.
+     * @return The first non-null StructureDefinition found, or null if none are found.
+     */
+    public List<CanonicalType> legalUrls(List<CanonicalType> urls) {
+        List<CanonicalType> legalUrls = new ArrayList<>();
         for (CanonicalType url : urls) {
             StructureDefinition definition = getDefinition(url.getValue());
             if (definition != null) {
-                return definition;
+                legalUrls.add(url);
             }
         }
-        return null;
+        return legalUrls;
     }
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
@@ -79,9 +93,6 @@ public class CdsStructureDefinitionHandler {
 
     /**
      * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap
-     *
-     * @param directoryPath the path to the directory containing JSON files
-     * @throws IOException
      */
     private void processDirectory(String directoryPath) throws IOException {
         File directory = new File(directoryPath);

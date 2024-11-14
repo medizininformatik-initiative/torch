@@ -64,5 +64,4 @@ public record Filter(
 
         return codeParams;
     }
-
 }

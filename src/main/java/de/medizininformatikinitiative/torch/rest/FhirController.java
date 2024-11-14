@@ -25,9 +25,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
-import static org.springframework.web.reactive.function.server.ServerResponse.*;
+import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
+import static org.springframework.web.reactive.function.server.ServerResponse.badRequest;
+import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
+import static org.springframework.web.reactive.function.server.ServerResponse.status;
 
 @RestController
 public class FhirController {
@@ -52,7 +57,6 @@ public class FhirController {
         this.executorService = executorService;
         this.crtdlProcessingService = crtdlProcessingService;
     }
-
 
     private static byte[] decodeCrtdlContent(Parameters parameters) {
         for (var parameter : parameters.getParameter()) {
@@ -81,7 +85,6 @@ public class FhirController {
             throw new IllegalArgumentException("Empty Parameters");
         }
 
-        // Decode and parse CRTDL content
         try {
             return Mono.just(parseCrtdlContent(decodeCrtdlContent(parameters)));
         } catch (IOException e) {
@@ -91,7 +94,6 @@ public class FhirController {
     }
 
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
-        // Read the body asynchronously and process it
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
@@ -109,7 +111,7 @@ public class FhirController {
                                 executorService.submit(() -> {
                                     try {
                                         logger.debug("Processing CRTDL in ExecutorService for jobId: {}", jobId);
-                                        crtdlProcessingService.processCrtdl(crtdl, jobId).block(); // Blocking call within the background task
+                                        crtdlProcessingService.processCrtdl(crtdl, jobId).block();
                                         resultFileManager.setStatus(jobId, "Completed");
                                     } catch (Exception e) {
                                         logger.error("Error processing CRTDL for jobId: {}", jobId, e);
@@ -155,10 +157,9 @@ public class FhirController {
         }
         if ("Completed".equals(status)) {
             // Capture the full request URL and transaction time
-            String requestUrl = request.uri().toString();
             String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
 
-            return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, requestUrl, transactionTime))
+            return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, transactionTime))
                     .flatMap(bundleMap -> {
                         if (bundleMap == null) {
                             return ServerResponse.notFound().build();

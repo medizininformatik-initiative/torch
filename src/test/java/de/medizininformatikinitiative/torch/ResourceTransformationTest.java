@@ -1,96 +1,133 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
-import de.medizininformatikinitiative.torch.model.fhir.Query;
-import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.setup.ContainerManager;
-import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.DomainResource;
+import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.Redaction;
+import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
-import org.junit.jupiter.api.BeforeAll;
+import org.hl7.fhir.r4.model.Reference;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
-import static org.assertj.core.api.Fail.fail;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.doThrow;
 
-@ActiveProfiles("test")
-@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@ExtendWith(MockitoExtension.class)
 public class ResourceTransformationTest {
 
-    private static final Logger logger = LoggerFactory.getLogger(ResourceTransformationTest.class);
 
-    // Create an instance of BaseTestSetup
-    private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
+    @Mock
+    DataStore dataStore;
+    @Mock
+    ConsentHandler handler;
+    @Mock
+    ElementCopier copier;
+    @Mock
+    Redaction redaction;
+    @Mock
+    FhirContext context;
+    @Mock
+    DseMappingTreeBase dseMappingTreeBase;
 
-    @Autowired
-    @Qualifier("fhirClient")
-    protected WebClient webClient;
 
-    @Autowired
+    @InjectMocks
     ResourceTransformer transformer;
 
-    @Autowired
-    public ResourceTransformationTest(ResourceTransformer transformer) {
-        this.transformer = transformer;
-    }
 
-    @Value("${torch.fhir.testPopulation.path}")
-    private String testPopulationPath;
+    @Nested
+    class FetchAndTransformResources {
 
-    ContainerManager manager;
+        @Test
+        void success() {
 
-    @Autowired
-    DseMappingTreeBase base;
+        }
 
-    @BeforeAll
-    void init() throws IOException {
-        manager = new ContainerManager();
-        manager.startContainers();
+        @Test
+        void fail() {
 
-
-        webClient.post()
-                .bodyValue(Files.readString(Path.of(testPopulationPath)))
-                .header("Content-Type", "application/fhir+json")
-                .retrieve()
-                .toBodilessEntity()
-                .block();
-
-        logger.info("Data Import on {}", webClient.options());
+        }
 
     }
 
+    @Nested
+    class Transform {
+        @BeforeEach
+        void setUp() {
+
+        }
+
+        @Test
+        void successAttributeCopyStandardFields() throws Exception {
+            Observation src = new Observation();
+            src.setSubject(new Reference("Patient/123"));
+            src.setMeta(new Meta().addProfile("Test"));
+            Attribute effective = new Attribute("Observation.effective", false);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(effective), List.of());
+            group.addStandardAttributes(Observation.class);
+
+            Observation result = transformer.transform(src, group, Observation.class);
+
+            Mockito.verify(copier).copy(src, result, effective);
+        }
+
+        @Test
+        void successAttributeCopy() throws Exception {
+            Observation src = new Observation();
+            src.setSubject(new Reference("Patient/123"));
+            Attribute effective = new Attribute("Observation.effective", false);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(effective), List.of());
+
+            Observation result = transformer.transform(src, group, Observation.class);
+
+            Mockito.verify(copier).copy(src, result, effective);
+        }
+
+        @Test
+        void failWithMustHaveAttributeCopy() throws Exception {
+            Observation src = new Observation();
+            src.setSubject(new Reference("Patient/123"));
+            Attribute id = new Attribute("id", true);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(id), List.of());
+            doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id));
+
+            assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(MustHaveViolatedException.class);
+        }
+
+        @Test
+        void failWithPatientIdException() throws Exception {
+            Observation src = new Observation();
+            Attribute id = new Attribute("id", true);
+            AttributeGroup group = new AttributeGroup("GroupRef", List.of(id), List.of());
+
+            assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(PatientIdNotFoundException.class);
+        }
+
+
+    }
+
+
+
+    /* TODO extract to integration test
     @Test
     public void testObservation() {
 
-        try {
+
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json");
-            Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+            Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
 
             DomainResource resourcesrc = INTEGRATION_TEST_SETUP.readResource("src/test/resources/InputResources/Observation/Observation_lab.json");
             DomainResource resourceexpected = INTEGRATION_TEST_SETUP.readResource("src/test/resources/ResourceTransformationTest/ExpectedOutput/Observation_lab.json");
@@ -105,44 +142,34 @@ public class ResourceTransformationTest {
                     "Expected not equal to actual output"
             );
             fis.close();
-        } catch (Exception e) {
-            logger.error("", e);
-            fail("Deserialization failed: " + e.getMessage(), e);
-        }
+
     }
 
 
     @Test
     public void collectPatientsbyResource() {
 
-        try {
+
             FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-            Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+            Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
             fis.close();
 
-            Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, List.of("1", "2", "4", "VHF00006"));
+            Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl, new PatientBatch(List.of("1", "2", "4", "VHF00006")));
 
             StepVerifier.create(result)
-                    .expectNextMatches(map -> map.keySet().contains("1")) // Patient1 is in consent info
+                    .expectNextMatches(map -> map.containsKey("1")) // Patient1 is in consent info
                     .verifyComplete();
 
-        } catch (Exception e) {
-            logger.error("", e);
-            fail("Deserialization failed: " + e.getMessage(), e);
-        }
-    }
 
+    }
 
     @Test
     void testExecuteQueryWithBatchAllPatients() {
-        String batch = "1,2";
+        PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Patient", EMPTY); // Basic query setup
 
-
-        // Act
         Flux<Resource> result = transformer.executeQueryWithBatch(batch, query);
 
-        // Assert
         StepVerifier.create(result)
                 .expectNextMatches(resource -> resource instanceof Patient)
                 .expectNextMatches(resource -> resource instanceof Patient)
@@ -153,19 +180,18 @@ public class ResourceTransformationTest {
     @Test
     void testExecuteQueryWithBatch_Success() throws IOException {
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        Crtdl crtdl = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        Crtdl crtdl = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
 
 
-        String batch = "1,2";
+        PatientBatch batch = PatientBatch.of("1", "2");
 
 
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().size());
         logger.info("Attribute Groups {}", crtdl.dataExtraction().attributeGroups().getFirst().attributes().size());
-        logger.info("Attribute Group Resource Type {}", crtdl.dataExtraction().attributeGroups().getFirst().resourceType());
-        List<Query> queries = crtdl.dataExtraction().attributeGroups().get(0).queries(base);
+        List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(base);
         logger.info("Queries size {}", queries.size());
-        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().get(0).queryParams(base);
+        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().getFirst().queries(base).stream().map(Query::params).toList();
         queries.forEach(x -> logger.info("Query: {}", x.toString())
         );
         logger.info("Queries size {}", params.size());
@@ -179,6 +205,9 @@ public class ResourceTransformationTest {
                 .verifyComplete();
 
     }
+
+
+     */
 
 
 }

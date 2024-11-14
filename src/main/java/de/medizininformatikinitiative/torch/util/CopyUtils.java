@@ -15,10 +15,7 @@ public class CopyUtils {
     private static final Logger logger = LoggerFactory.getLogger(CopyUtils.class);
 
     /**
-     * Get the name of the element from the path by getting the last non empty element after a separator (.)
-     *
-     * @param path
-     * @return
+     * Get the name of the element from the path by getting the last non-isEmpty element after a separator (.)
      */
     public static String getElementName(String path) {
         String[] parts = path.split("\\.");
@@ -29,8 +26,6 @@ public class CopyUtils {
      * Reflects a setMethod for a given class and field name.
      * Quite relevant for e.g. Lists, since they cannot be set directly through constructors or makeproperty in Hapi.
      *
-     * @param clazz
-     * @param fieldName
      * @return reflected Setter Method
      */
     public static Method reflectListSetter(Class<?> clazz, String fieldName) {
@@ -46,7 +41,6 @@ public class CopyUtils {
     /**
      * Relevant for setter methods that are in Camel case, but the field name is in lower case.
      *
-     * @param str
      * @return capitalized String
      */
     public static String capitalizeFirstLetter(String str) {

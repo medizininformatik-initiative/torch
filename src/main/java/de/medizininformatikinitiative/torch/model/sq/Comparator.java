@@ -19,17 +19,6 @@ public enum Comparator {
         this.s = requireNonNull(s);
     }
 
-    public static Comparator fromJson(String s) {
-        return switch (s) {
-            case "eq" -> EQUAL;
-            case "le" -> LESS_EQUAL;
-            case "lt" -> LESS_THAN;
-            case "ge" -> GREATER_EQUAL;
-            case "gt" -> GREATER_THAN;
-            default -> throw new IllegalArgumentException("unknown JSON comparator: " + s);
-        };
-    }
-
     public Comparator reverse() {
         return switch (this) {
             case GREATER_THAN -> LESS_THAN;

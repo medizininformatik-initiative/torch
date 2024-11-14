@@ -10,10 +10,6 @@
       "valueDate": "2030"
     },
     {
-      "name": "measure",
-      "valueString": ""
-    },
-    {
       "name": "reportType",
       "valueCode": "subject-list"
     }

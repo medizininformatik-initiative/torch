@@ -18,10 +18,11 @@ public class ResourceReader {
         this.ctx = ctx;
     }
 
-    protected FhirContext ctx = null;
+    private final FhirContext ctx;
 
     public Resource readResource(String path) throws IOException {
-        FileInputStream fis = null;
+        ResourceReader.class.getResourceAsStream(path);
+        FileInputStream fis;
         try {
             fis = new FileInputStream(path);
         } catch (FileNotFoundException e) {

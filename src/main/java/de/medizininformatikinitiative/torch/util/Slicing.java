@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -24,25 +23,21 @@ public class Slicing {
     private final FhirContext ctx;
 
 
-    CdsStructureDefinitionHandler handler;
-
     /**
      * Constructor for Slicing
-     *
-     * @param handler CDSStructureDefinitionHandler
      */
-    public Slicing(CdsStructureDefinitionHandler handler, FhirContext ctx) {
-        this.handler = handler;
+    public Slicing(FhirContext ctx) {
+
         this.ctx = ctx;
     }
 
     /**
-     * Checks if the given element is a sliced element and returns the sliced element.
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
-     * @param base
-     * @param elementID
-     * @param structureDefinition
-     * @return
+     * @param base                Hapi Base (Element) which should be checked
+     * @param elementID           Element ID of the above element.
+     * @param structureDefinition Struturedefinition of the Ressource to which the element belongs
+     * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
      */
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
 
@@ -54,7 +49,7 @@ public class Slicing {
             slicedElement = snapshot.getElementById(elementID);
         }
 
-        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(slicedElement);
+        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
 
         if (slicedElement == null) {
             logger.warn("slicedElement null {} {}", elementID, structureDefinition.getUrl());
@@ -62,7 +57,7 @@ public class Slicing {
         }
         if (!slicedElement.hasSlicing()) {
             logger.warn("Element has no slicing {} {}", elementID, structureDefinition.getUrl());
-            return null; // Return null if the sliced element is not found or has no slicing
+            return null;
         }
 
 
@@ -127,14 +122,14 @@ public class Slicing {
                             conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
-                            conditions.add(slicedElement.getPath() + "." + path + ".exists()");
+                            conditions.add(path + ".exists()");
                             break;
                         case TYPE:
                             logger.trace("Type discriminator found");
-                            conditions.add(slicedElement.getPath() + "." + path + ".ofType({type})");
+                            conditions.add(path + ".ofType({type})");
                             break;
                         case PROFILE:
-                            conditions.add(slicedElement.getPath() + "." + path + ".conformsTo({profile})");
+                            conditions.add(path + ".conformsTo({profile})");
                             break;
                         default:
                             throw new UnsupportedOperationException("Unsupported discriminator type: " + discriminator.getType());
@@ -143,14 +138,9 @@ public class Slicing {
             }
 
             // TODO : Future handling for ordered and rules if needed
-            /*
-            if (slicing.hasOrdered()) {
-                // Add conditions related to ordered slicing
-            }
-            if (slicing.hasRules()) {
-                // Add conditions related to slicing rules
-            }
-            */
+            // TODO (slicing.hasOrdered())
+            // TODO (slicing.hasRules()) {
+
         }
 
         return conditions;
@@ -165,7 +155,7 @@ public class Slicing {
         logger.debug("Getting Conditions {}", elementId);
         ElementDefinition elementDefinition = snapshot.getElementById(elementId);
         if (elementDefinition == null) {
-            //logger.warn("Unsupported Element potentially contains Profile reference {}",elementId);
+
             logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);
             return conditions;
         }
@@ -173,7 +163,7 @@ public class Slicing {
 
             Element pattern = elementDefinition.getFixedOrPattern();
             logger.debug("Got Pattern ");
-            conditions.addAll(traverseValueRec(elementDefinition.getPath(), pattern));
+            conditions.addAll(traverseValueRec(path, pattern));
         } else {
             logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);
 
@@ -192,9 +182,7 @@ public class Slicing {
                     child -> {
                         if (child.hasValues()) {
                             child.getValues().forEach(
-                                    value -> {
-                                        conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value));
-                                    }
+                                    value -> conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value))
                             );
 
                         }

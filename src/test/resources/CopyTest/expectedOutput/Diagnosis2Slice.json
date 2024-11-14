@@ -1,0 +1,19 @@
+{
+  "resourceType": "Condition",
+  "code": {
+    "coding": [
+      {
+        "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "_version": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "display": "Prellung des Ellenbogens"
+      }
+    ]
+  }
+}

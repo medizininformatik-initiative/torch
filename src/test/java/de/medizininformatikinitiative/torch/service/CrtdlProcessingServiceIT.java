@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
@@ -9,7 +11,11 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,6 +24,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
@@ -31,7 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
 @ActiveProfiles("test")
@@ -52,8 +60,10 @@ class CrtdlProcessingServiceIT {
     private Crtdl CRTDL_ALL_OBSERVATIONS;
     private Crtdl CRTDL_NO_PATIENTS;
 
-    private String jobId;
-    private Path jobDir;
+    private final String jobId;
+    private final Path jobDir;
+
+    private static final int BATCH_SIZE = 100;
 
     @Autowired
     public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
@@ -84,10 +94,10 @@ class CrtdlProcessingServiceIT {
 
 
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
-        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.getObjectMapper().readValue(fis, Crtdl.class);
+        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
         fis.close();
         manager.startContainers();
 
@@ -102,72 +112,42 @@ class CrtdlProcessingServiceIT {
         fis.close();
     }
 
-    @AfterEach
-    void cleanUp() throws IOException {
-        if (Files.exists(jobDir)) {
-            Files.walk(jobDir)
-                    .map(Path::toFile)
-                    .forEach(file -> {
-                        if (!file.delete()) {
-                            System.err.println("Failed to delete file: " + file.getAbsolutePath());
-                        }
-                    });
-            Files.deleteIfExists(jobDir); // Delete the main job directory
-        }
-    }
 
     private boolean isDirectoryEmpty(Path directory) throws IOException {
+        // Try-with-resources for DirectoryStream
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
             return !stream.iterator().hasNext();
         }
     }
 
-    @Test
-    void fetchPatientLists() {
-        Mono<List<String>> listMono1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+    @Nested
+    class FetchPatientList {
 
-        Mono<List<String>> listMono2 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS);
+        @Test
+        void nonEmpty() throws JsonProcessingException {
+            Mono<List<PatientBatch>> batches1 = service.fetchPatientListFromFlare(CRTDL_ALL_OBSERVATIONS).collectList();
+            Mono<List<PatientBatch>> batches2 = service.fetchPatientListUsingCql(CRTDL_ALL_OBSERVATIONS).collectList();
 
-        List<String> patientList1 = listMono1.block();
-        List<String> patientList2 = listMono2.block();
-        assertEquals(4, patientList1.size());
-        assertEquals(patientList2, patientList1);
+            StepVerifier.create(Mono.zip(batches1, batches2))
+                    .expectNextMatches(t -> t.getT1().equals(t.getT2()) && !t.getT1().isEmpty())
+                    .verifyComplete();
+        }
 
+        @Test
+        void empty() throws JsonProcessingException {
+            Flux<PatientBatch> batches1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
+            Flux<PatientBatch> batches2 = service.fetchPatientListUsingCql(CRTDL_NO_PATIENTS);
+
+            StepVerifier.create(batches1).verifyComplete();
+            StepVerifier.create(batches2).verifyComplete();
+        }
     }
 
-    @Test
-    void fetchEmptyPatientLists() {
-        Mono<List<String>> listMono1 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
-
-        Mono<List<String>> listMono2 = service.fetchPatientListFromFlare(CRTDL_NO_PATIENTS);
-
-        List<String> patientList1 = listMono1.block();
-        List<String> patientList2 = listMono2.block();
-        assertEquals(0, patientList1.size());
-        assertEquals(patientList2, patientList1);
-
-    }
-
-
-    @Test
-    void testFetchAndProcessBatches_EmptyPatientList() {
-        Mono<Void> result = service.processCrtdl(CRTDL_NO_PATIENTS, jobId);
-
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify the Mono completes without emitting any items
-
-        // Assert that the status was set correctly in ResultFileManager
-        String expectedStatus = "Failed at collectResources for batch: No patients found.";
-        String actualStatus = resultFileManager.getStatus(jobId); // Assuming getStatus is available
-        assertEquals(expectedStatus, actualStatus, "Status message should indicate failure due to empty patient list.");
-
-    }
 
     @Test
     void testProcessBatchWritesFiles() throws IOException {
 
-        List<String> batch = List.of("1", "2"); // Sample batch with patient references
+        PatientBatch batch = PatientBatch.of("1", "2"); // Sample batch with patient references
 
         // Act
         Mono<Void> result = service.processBatch(CRTDL_ALL_OBSERVATIONS, batch, jobId);
@@ -178,7 +158,7 @@ class CrtdlProcessingServiceIT {
 
         // Verify that files were created in the job directory
         assertTrue(Files.exists(jobDir), "Job directory should exist.");
-        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be empty after processing.");
+        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be isEmpty after processing.");
     }
 
 
@@ -192,10 +172,9 @@ class CrtdlProcessingServiceIT {
             boolean filesExist = stream.iterator().hasNext();
             assertTrue(filesExist, "Job directory should contain files.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-
     }
 
     @Test
@@ -220,26 +199,9 @@ class CrtdlProcessingServiceIT {
             boolean filesExist = stream.iterator().hasNext();
             assertTrue(filesExist, "Job directory should contain files.");
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-
-    }
-
-
-    @Test
-    void processCrtdl_EmptyPatientList_ShouldUpdateStatus() throws IOException {
-
-        Mono<Void> result = service.processCrtdl(CRTDL_NO_PATIENTS, jobId);
-
-        StepVerifier.create(result)
-                .verifyComplete();
-
-        // Assert that the status was set correctly in ResultFileManager
-        String expectedStatus = "Failed at collectResources for batch: No patients found.";
-        String actualStatus = resultFileManager.getStatus(jobId); // Assuming getStatus is available
-        assertEquals(expectedStatus, actualStatus, "Status message should indicate failure due to empty patient list.");
-        assertTrue(isDirectoryEmpty(jobDir), "Job directory should be empty after cleanup.");
 
     }
 

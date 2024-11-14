@@ -13,12 +13,11 @@ public class ConsentCodeMapperIT {
 
     private ConsentCodeMapper consentCodeMapper;
 
-    // Setup the test by loading the actual consent-mappings JSON data
     @BeforeEach
     public void setUp() throws IOException {
         // Use the real JSON file path or load a test JSON file
         String consentFilePath = "src/test/resources/mappings/consent-mappings.json";
-        consentCodeMapper = new ConsentCodeMapper(consentFilePath,new ObjectMapper());
+        consentCodeMapper = new ConsentCodeMapper(consentFilePath, new ObjectMapper());
     }
 
     @Test
@@ -26,17 +25,17 @@ public class ConsentCodeMapperIT {
         // Test that codes are returned for the key "yes-yes-yes-yes"
         Set<String> relevantCodes = consentCodeMapper.getRelevantCodes("yes-yes-yes-yes");
         assertNotNull(relevantCodes);
-        assertFalse(relevantCodes.isEmpty(), "Relevant codes should not be empty");
+        assertFalse(relevantCodes.isEmpty(), "Relevant codes should not be isEmpty");
         assertTrue(relevantCodes.contains("2.16.840.1.113883.3.1937.777.24.5.3.8"), "Should contain code 2.16.840.1.113883.3.1937.777.24.5.3.8");
         assertTrue(relevantCodes.contains("2.16.840.1.113883.3.1937.777.24.5.3.46"), "Should contain code 2.16.840.1.113883.3.1937.777.24.5.3.46");
     }
 
     @Test
     public void testGetRelevantCodes_withInvalidKey() {
-        // Test that an empty list is returned for an invalid key
+        // Test that an isEmpty list is returned for an invalid key
         Set<String> relevantCodes = consentCodeMapper.getRelevantCodes("invalid-key");
         assertNotNull(relevantCodes);
-        assertTrue(relevantCodes.isEmpty(), "Relevant codes should be empty for an invalid key");
+        assertTrue(relevantCodes.isEmpty(), "Relevant codes should be isEmpty for an invalid key");
     }
 
     @Test

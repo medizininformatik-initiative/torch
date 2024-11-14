@@ -1,10 +1,15 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 /**
@@ -15,50 +20,53 @@ public class ResourceUtils {
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtils.class);
 
 
-    public static String getPatientId(DomainResource resource) throws PatientIdNotFoundException {
-        // Check if the resource is an instance of Patient
-        if (resource instanceof Patient patient) {
-            return patient.getId();
-        }
+    public static String patientId(DomainResource resource) throws PatientIdNotFoundException {
 
-        try {
-            if (resource instanceof Consent consent) {
-                if (consent.hasPatient()) {
-                    return getPatientReference(consent.getPatient().getReference());
-                }
-            } else {
-                // Use reflection to check if the method 'hasSubject' exists
-                Method hasSubjectMethod = resource.getClass().getMethod("hasSubject");
-                boolean hasSubject = (Boolean) hasSubjectMethod.invoke(resource);
-
-                if (hasSubject) {
-                    // Use reflection to check if the method 'getSubject' exists
-                    Method getSubjectMethod = resource.getClass().getMethod("getSubject");
-                    Object subject = getSubjectMethod.invoke(resource);
-
-                    // Use reflection to check if the 'subject' has the method 'hasReference'
-                    Method hasReferenceMethod = subject.getClass().getMethod("hasReference");
-                    boolean hasReference = (Boolean) hasReferenceMethod.invoke(subject);
-
-                    if (hasReference) {
-                        // Use reflection to get the 'getReference' method from 'subject'
-                        Method getReferenceMethod = subject.getClass().getMethod("getReference");
-                        String reference = (String) getReferenceMethod.invoke(subject);
-                        return getPatientReference(reference);
-                    }
-
+        return switch (resource) {
+            case Patient p -> p.getIdPart();
+            case Consent c -> {
+                if (c.hasPatient()) {
+                    yield getPatientReference(c.getPatient().getReference());
+                } else {
+                    throw new PatientIdNotFoundException("Patient ID not found in the given Consent resource");
                 }
             }
-            throw new PatientIdNotFoundException("Patient Reference not found ");
-        } catch (Exception e) {
-            // Handle reflection exceptions
-            logger.error("Patient ID not Found ", e);
-        }
+            default -> getPatientIdViaReflection(resource);
+        };
 
-        // Throw an error if no patient ID is found
-        throw new PatientIdNotFoundException("Patient ID not found in the given resource");
     }
 
+    //TODO: FHIRPath?
+    private static String getPatientIdViaReflection(DomainResource resource) throws PatientIdNotFoundException {
+
+        try {
+            Method hasSubjectMethod = resource.getClass().getMethod("hasSubject");
+            boolean hasSubject = (Boolean) hasSubjectMethod.invoke(resource);
+
+            if (hasSubject) {
+                Method getSubjectMethod = resource.getClass().getMethod("getSubject");
+                Object subject = getSubjectMethod.invoke(resource);
+
+                Method hasReferenceMethod = subject.getClass().getMethod("hasReference");
+                boolean hasReference = (Boolean) hasReferenceMethod.invoke(subject);
+
+                if (hasReference) {
+                    Method getReferenceMethod = subject.getClass().getMethod("getReference");
+                    String reference = (String) getReferenceMethod.invoke(subject);
+                    return getPatientReference(reference);
+                } else {
+                    throw new PatientIdNotFoundException("Patient Reference not found for Resource of Type " + resource.getResourceType());
+                }
+
+            } else {
+                throw new PatientIdNotFoundException("Patient Reference not found for Resource of Type " + resource.getResourceType());
+            }
+
+        } catch (NoSuchMethodException | SecurityException | IllegalAccessException | IllegalArgumentException |
+                 InvocationTargetException e) {
+            throw new PatientIdNotFoundException("Patient Reference not found for Resource of Type " + resource.getResourceType());
+        }
+    }
 
     public static String getPatientReference(String reference) throws PatientIdNotFoundException {
         if (reference != null && reference.startsWith("Patient/")) {
@@ -70,11 +78,11 @@ public class ResourceUtils {
 
     public static String getPatientIdFromBundle(Bundle bundle) throws PatientIdNotFoundException {
         if (bundle == null || bundle.getEntry().isEmpty()) {
-            throw new PatientIdNotFoundException("Bundle is empty or null");
+            throw new PatientIdNotFoundException("Bundle is isEmpty or null");
         }
         Resource resource = bundle.getEntryFirstRep().getResource();
         if (resource instanceof DomainResource) {
-            return getPatientId((DomainResource) resource);
+            return patientId((DomainResource) resource);
         }
         throw new PatientIdNotFoundException("First entry in bundle is not a DomainResource");
     }

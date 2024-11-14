@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.cql;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Library;
@@ -63,12 +62,11 @@ public class FhirHelper {
      * @param fileName name of the resource file
      * @return the String contents of the file
      */
-    public static String getResourceFileAsString(String fileName) throws IOException {
-        InputStream is = getResourceFileAsInputStream(fileName);
-        if (is != null) {
+    public static String getResourceFileAsString(String fileName) {
+        try (InputStream is = getResourceFileAsInputStream(fileName)) {
             return new String(is.readAllBytes(), UTF_8);
-        } else {
-            throw new RuntimeException("File not found in classpath: " + fileName);
+        } catch (IOException e) {
+            throw new RuntimeException("Error while reading file " + fileName, e);
         }
     }
 
@@ -79,7 +77,11 @@ public class FhirHelper {
      * @return an {@link InputStream} of the file
      */
     private static InputStream getResourceFileAsInputStream(String fileName) {
-        return CqlClient.class.getResourceAsStream(fileName);
+        InputStream is = FhirHelper.class.getResourceAsStream(fileName);
+        if (is == null) {
+            throw new RuntimeException("File not found: " + fileName);
+        }
+        return is;
     }
 
     /**
@@ -90,14 +92,14 @@ public class FhirHelper {
      * @param measureUri a measure uri {@link String} to be included in the {@link Bundle}
      * @return the {@link Bundle}, consisting of a {@link Library} and {@link Measure}, containing the submitted values
      */
-    public Bundle createBundle(String cql, String libraryUri, String measureUri) throws IOException {
+    public Bundle createBundle(String cql, String libraryUri, String measureUri) {
         var library = appendCql(parseResource(Library.class,
                 getResourceFileAsString("Library.json")).setUrl(libraryUri), cql);
         var measure = parseResource(Measure.class,
                 getResourceFileAsString("Measure.json"))
                 .setUrl(measureUri)
                 .addLibrary(libraryUri);
-        logger.debug("Measure {}",measure);
+        logger.debug("Measure {}", measure);
         return bundleLibraryAndMeasure(library, measure);
     }
 

@@ -23,7 +23,6 @@ import java.util.Map;
 public class FhirTestHelper {
 
 
-
     private static final Logger logger = LoggerFactory.getLogger(FhirTestHelper.class);
     private final FhirContext fhirContext;
     private final ResourceReader resourceReader;
@@ -50,7 +49,8 @@ public class FhirTestHelper {
      * @param actualBundles   Resulting bundles indexed by PatID after internal extracting operations e.g. after ResourceTransform
      * @param expectedBundles Expected Bundles indexed by PatID
      */
-    public void validateBundles(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+    public void validate(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+
         for (Map.Entry<String, Bundle> entry : actualBundles.entrySet()) {
             String patientId = entry.getKey();
             Bundle bundle = entry.getValue();
@@ -59,6 +59,9 @@ public class FhirTestHelper {
             removeMetaLastUpdatedFromEntries(bundle);
             removeMetaLastUpdatedFromEntries(expectedBundle);
 
+            /*Assertions.assertEquals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(bundle),
+                    fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedBundle));
+*/
             Map<String, Resource> actualResourceMap = mapResourcesByProfile(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByProfile(expectedBundle);
 
@@ -72,7 +75,7 @@ public class FhirTestHelper {
                 }
 
                 Resource actualResource = actualResourceMap.get(profileKey);
-                logger.info("Resulting resource {}", fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
+
 
                 if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
                         .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
@@ -108,7 +111,6 @@ public class FhirTestHelper {
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
             if (resource != null && resource.hasMeta() && resource.getMeta().hasLastUpdated()) {
-                logger.info("Removed lastUpdated ");
                 resource.getMeta().setLastUpdated(null);
             }
         }

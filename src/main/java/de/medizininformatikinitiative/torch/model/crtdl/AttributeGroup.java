@@ -5,106 +5,85 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.hl7.fhir.r4.model.DomainResource;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
-
-        @JsonProperty(value = "groupReference", required = true)
+        @JsonProperty(required = true)
         String groupReference,
-
-        @JsonProperty(value = "attributes", required = true)
+        @JsonProperty(required = true)
         List<Attribute> attributes,
-
-        @JsonProperty(value = "filter", required = true)
-        List<Filter> filter,
-
-        UUID uuid
+        List<Filter> filter
 ) {
-    private static final Logger logger = LoggerFactory.getLogger(AttributeGroup.class);
 
     // Canonical Constructor with validation for filter duplicates and UUID generation
     public AttributeGroup {
-        if (containsDuplicateDateType(filter)) {
+        requireNonNull(groupReference);
+        attributes = List.copyOf(attributes);
+        filter = filter == null ? List.of() : List.copyOf(filter);
+        if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
         }
-        uuid = uuid != null ? uuid : UUID.randomUUID();
     }
 
-    public boolean hasFilter() {
-        return filter != null && !filter.isEmpty();
+    private static boolean containsDuplicateDateFilters(List<Filter> filters) {
+        return filters.stream().filter(filter -> "date".equals(filter.type())).count() > 1;
     }
 
-    // Helper method to check for duplicate 'date' type filters
-    private static boolean containsDuplicateDateType(List<Filter> filterList) {
-        boolean dateTypeFound = false;
-        for (Filter filter : filterList) {
-            if ("date".equals(filter.type())) {
-                if (dateTypeFound) {
-                    return true;  // Duplicate found
-                }
-                dateTypeFound = true;
-            }
-        }
-        return false;
-    }
-
-    /*
-     public String getFilterString(DseMappingTreeBase mappingBase) {
-        return filter.stream()
-                .map(f -> "date".equals(f.type()) ? f.getDateFilter() : f.getCodeFilter(mappingBase))
-                .collect(Collectors.joining("&"));
-     */
     public List<Query> queries(DseMappingTreeBase mappingTreeBase) {
-        List<QueryParams> paramsList = queryParams(mappingTreeBase);
-        return paramsList.stream()
-                .map(x -> new Query(resourceType(), x))
-                .collect(Collectors.toList());
+        return queryParams(mappingTreeBase).stream()
+                .map(params -> Query.of(resourceType(), params))
+                .toList();
     }
 
-    public List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
-
-        List<QueryParams> paramsList = filter.stream()
+    private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
+        List<QueryParams> codeParams = filter.stream()
                 .filter(f -> "token".equals(f.type()))
-                .map(f -> f.codeFilter(mappingTreeBase))
-                .filter(Objects::nonNull)
-                .flatMap(code -> code.params().stream())
-                .map(param -> {
-                    QueryParams individualCodeParams = new QueryParams(List.of(param));
-                    return individualCodeParams;
-                })
-                .collect(Collectors.toList());
+                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
+                .toList();
 
-        QueryParams dateParams = filter.stream()
+        QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
                 .orElse(EMPTY);
 
-        if (paramsList.isEmpty()) {
+        if (codeParams.isEmpty()) {
             // Add a single QueryParams with the date filter (if available) and profile parameter
-            QueryParams defaultParams = EMPTY
-                    .appendParams(dateParams)
-                    .appendParam("_profile", QueryParams.stringValue(groupReference));
-            paramsList.add(defaultParams);
+            return List.of(dateParams.appendParam("_profile", stringValue(groupReference)));
         } else {
-            paramsList = paramsList.stream()
-                    .map(p -> p.appendParams(dateParams))
-                    .map(p -> p.appendParam("_profile", QueryParams.stringValue(groupReference)))
-                    .collect(Collectors.toList());
+            return codeParams.stream()
+                    .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
+                    .toList();
         }
-        return paramsList;
     }
 
+    public <T extends DomainResource> AttributeGroup addStandardAttributes(Class<T> resourceClass) {
+        List<Attribute> tempAttributes = new ArrayList<>(attributes);
 
+        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".id", true));
+        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".meta.profile", true));
+
+        if (!org.hl7.fhir.r4.model.Patient.class.equals(resourceClass) && !org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".subject.reference", true));
+        }
+        if (org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".patient.reference", true));
+        }
+        if (org.hl7.fhir.r4.model.Observation.class.equals(resourceClass)) {
+            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".status", true));
+        }
+        return new AttributeGroup(groupReference, tempAttributes, filter);
+    }
+
+    //TODO Should be extracted from StructureDef Type attribute.
     public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }

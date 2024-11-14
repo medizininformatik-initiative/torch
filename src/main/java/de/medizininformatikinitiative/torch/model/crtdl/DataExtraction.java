@@ -6,8 +6,9 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record DataExtraction(
+public record DataExtraction(@JsonProperty(required = true) List<AttributeGroup> attributeGroups) {
 
-        @JsonProperty(value ="attributeGroups", required = true)
-        List<AttributeGroup> attributeGroups
-) {}
+    public DataExtraction {
+        attributeGroups = List.copyOf(attributeGroups);
+    }
+}

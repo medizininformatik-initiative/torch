@@ -9,7 +9,6 @@ import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.ConsentHandler;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.cql.FhirConnector;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
@@ -137,8 +136,8 @@ public class AppConfig {
 
 
     @Bean
-    Slicing slicing(CdsStructureDefinitionHandler cds, FhirContext ctx) {
-        return new Slicing(cds, ctx);
+    Slicing slicing(FhirContext ctx) {
+        return new Slicing(ctx);
     }
 
     @Bean
@@ -163,7 +162,7 @@ public class AppConfig {
     @Bean
     public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
                                @Value("${torch.fhir.pageCount}") int pageCount) {
-        return new DataStore(client, context, clock, pageCount);
+        return new DataStore(client, context, pageCount);
     }
 
     @Bean
@@ -207,11 +206,6 @@ public class AppConfig {
 
 
     @Bean
-    FhirConnector createFhirConnector(@Value("${torch.fhir.url}") String fhirUrl) {
-        return new FhirConnector(fhirContext().newRestfulGenericClient(fhirUrl));
-    }
-
-    @Bean
     FhirHelper createFhirHelper(FhirContext fhirContext) {
         return new FhirHelper(fhirContext);
     }
@@ -245,9 +239,9 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, FhirContext context, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, context, dseMappingTreeBase);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase);
     }
 
     @Bean

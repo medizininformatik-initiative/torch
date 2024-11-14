@@ -20,23 +20,28 @@ public class IntegrationTestSetup {
     private final ElementCopier copier;
     private final ObjectMapper objectMapper;
     private final Redaction redaction;
-    private final FhirPathBuilder builder;
     private final ResourceReader resourceReader;
+    private final FhirPathBuilder builder;
 
     // Constructor initializes all fields
     public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
         this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
-        Slicing slicing = new Slicing(cds, ctx);
+        Slicing slicing = new Slicing(ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
-        this.builder = new FhirPathBuilder(slicing);
+
+        builder = new FhirPathBuilder(slicing);
         this.copier = new ElementCopier(cds, ctx, builder);
         this.redaction = new Redaction(cds, slicing);
 
         logger.info("Base test setup complete with immutable configurations.");
+    }
+
+    public FhirPathBuilder fhirPathBuilder() {
+        return builder;
     }
 
     // Provide getter methods for accessing the initialized objects
@@ -48,15 +53,15 @@ public class IntegrationTestSetup {
         return cds;
     }
 
-    public ElementCopier getCopier() {
+    public ElementCopier copier() {
         return copier;
     }
 
-    public ObjectMapper getObjectMapper() {
+    public ObjectMapper objectMapper() {
         return objectMapper;
     }
 
-    public Redaction getRedaction() {
+    public Redaction redaction() {
         return redaction;
     }
 

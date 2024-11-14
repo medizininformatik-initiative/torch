@@ -9,7 +9,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 
 /**
@@ -25,9 +24,9 @@ public class FhirPathBuilder {
     private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
 
     /**
-     * Constructor for Slicing
+     * Constructor for FHIR PATH builder
      *
-     * @param handler CDSStructureDefinitionHandler
+     * @param slicing Slicing Class that handles slicing resolving
      */
     public FhirPathBuilder(Slicing slicing) {
         this.slicing = slicing;
@@ -39,8 +38,7 @@ public class FhirPathBuilder {
      * - `condition.onset[x]` will not be modified as the method does not handle square brackets.
      * - `Observation.identifier:analyseBefundCode.type.coding` becomes `Observation.identifier.type.coding`.
      *
-     * @param input   the input string representing the path with potential slicing
-     * @param factory an instance of ElementFactory (not currently used in the method)
+     * @param input the input string representing the path with potential slicing
      * @return a string with slicing removed according to the Terser base path rules
      */
     public String handleSlicingForTerser(String input) {
@@ -48,89 +46,79 @@ public class FhirPathBuilder {
             return null;
         }
         // Remove anything after colons (:) until the next dot (.) or end of the string
-        String output = input.replaceAll(":[^\\.]*", "");
-        return output;
+        return input.replaceAll(":[^.]*", "");
     }
 
-    public String handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
-        // Handle null or input without slicing indicators
+    public String[] handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
         if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
-            return input;
+            return new String[]{input, input};
         }
 
-        // Split the input path by dots to process each segment
         String[] elementIDParts = input.split("\\.");
-        StringBuilder result = new StringBuilder();
+        StringBuilder fhirPath = new StringBuilder();
+        StringBuilder terserPath = new StringBuilder();
         StringBuilder elementIDSoFar = new StringBuilder();
 
-        boolean isFirstElement = true;  // Flag to manage dot separators
+        boolean isFirstElement = true;
 
         for (String e : elementIDParts) {
             if (!isFirstElement) {
-                result.append(".");
+                fhirPath.append(".");
                 elementIDSoFar.append(".");
+                terserPath.append(".");
             } else {
                 isFirstElement = false;
             }
 
-            // Append `e` directly to `elementIDSoFar`, keeping choice and slicing indicators
             elementIDSoFar.append(e);
 
-            // Handle choice elements (contains [x]) and slicing elements (contains :)
             if (e.contains("[x]")) {
                 String path = e.split("\\[x\\]")[0];  // Remove [x] for FHIRPath expression
 
-                // Append the base path to result without [x]
-                result.append(path);
+                fhirPath.append(path);
 
                 // Check if slicing is present in the choice element
                 if (e.contains(":")) {
                     String[] sliceParts = e.split(":");
                     String sliceName = sliceParts[1].replace(path, "").trim();
 
-                    // Attempt to create the slice using the factory
                     Base element;
                     try {
                         element = factory.create(sliceName);
                     } catch (FHIRException upperCaseException) {
-                        // Attempt with lowercase first letter
                         try {
                             sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
                             element = factory.create(sliceName);
                         } catch (FHIRException lowerCaseException) {
-                            throw new FHIRException("Unsupported Slicing " + sliceName);
+                            throw new FHIRException("Unsupported Choice Slicing " + sliceName);
                         }
                     }
                     if (element == null) {
                         logger.trace("Valid slicing element for {}", sliceName);
                     }
-                    // Das nächste mal wir hier ein Code-EWlement hinterlegt welches dazu führt, dass Emails mit einer Einladung versendet werden.
-                    // Daher besser den Rechner beim verlassen des Platzes sperren.
-                    //Auch wenn die ungewohnte Mausbedienung diesmal einen anderen Eintrag verhindert hat!
 
-                    // Append the ofType clause
-                    result.append(".ofType(").append(sliceName).append(")");
+                    fhirPath.append(".ofType(").append(sliceName).append(")");
+                    terserPath.append(sliceParts[1]);
+
+                } else {
+                    terserPath.append(e);
                 }
-            } else if (e.contains(":")) { // Handle slicing indicator in non-choice elements
+            } else if (e.contains(":")) {
                 String basePath = e.substring(0, e.indexOf(":")).trim();
-                // Append the base path without slicing
-                result.append(basePath);
-
-                // Generate conditions using the complete slicing path
+                fhirPath.append(basePath);
+                terserPath.append(basePath);
                 List<String> conditions = slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
-
-                // Append the where clause with combined conditions
                 if (!conditions.isEmpty()) {
                     String combinedConditions = String.join(" and ", conditions);
-                    result.append(".where(").append(combinedConditions).append(")");
+                    fhirPath.append(".where(").append(combinedConditions).append(")");
                 }
             } else {
-                // Append the segment as-is if no choice or slicing is present
-                result.append(e);
+                fhirPath.append(e);
+                terserPath.append(e);
             }
         }
 
-        return result.toString();
+        return new String[]{String.valueOf(fhirPath), String.valueOf(terserPath)};
     }
 
 
@@ -146,8 +134,7 @@ public class FhirPathBuilder {
         if (conditions == null || conditions.isEmpty()) {
             return path;
         }
-        String combinedCondition = conditions.stream()
-                .collect(Collectors.joining(" and "));
+        String combinedCondition = String.join(" and ", conditions);
         return String.format("%s.where(%s)", path, combinedCondition);
     }
 

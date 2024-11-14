@@ -9,7 +9,7 @@ import java.util.*;
 
 
 /**
- * Provides a Map of all consent codes belonging to a Consent key e.g. "yes-yes-yes-yes"
+ * Provides a Map of all consent codes belonging to a consent key e.g. "yes-yes-yes-yes"
  */
 public class ConsentCodeMapper {
 

@@ -7,6 +7,7 @@ import java.time.LocalDate;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -18,7 +19,7 @@ import static java.util.Objects.requireNonNull;
  */
 public record QueryParams(List<Param> params) {
 
-    public static QueryParams EMPTY = new QueryParams(List.of());
+    public static final QueryParams EMPTY = new QueryParams(List.of());
 
     public QueryParams {
         params = List.copyOf(params);
@@ -32,6 +33,21 @@ public record QueryParams(List<Param> params) {
         return new StringValue(requireNonNull(value));
     }
 
+    public static Value multiStringValue(List<String> values) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("Empty Values for MultiString");
+        }
+        return new MultiStringValue(requireNonNull(values));
+    }
+
+    public static Value multiStringValue(String v1) {
+        return new MultiStringValue(List.of(v1));
+    }
+
+    public static Value multiStringValue(String v1, String v2e) {
+        return new MultiStringValue(List.of(v1, v2e));
+    }
+
     public static Value dateValue(Comparator comparator, LocalDate value) {
         return new DateValue(requireNonNull(comparator), requireNonNull(value));
     }
@@ -39,8 +55,6 @@ public record QueryParams(List<Param> params) {
     public static Value codeValue(Code value) {
         return new CodeValue(value);
     }
-
-    ;
 
     private record CodeValue(Code value) implements Value {
 
@@ -89,6 +103,15 @@ public record QueryParams(List<Param> params) {
         return new QueryParams(params.stream().map(param -> new Param(name + "." + param.name, param.value)).toList());
     }
 
+    /**
+     * Splits this QueryParams in to a list of QueryParams instances with one param each.
+     *
+     * @return a list of QueryParams instances with one param each
+     */
+    public Stream<QueryParams> split() {
+        return params.stream().map(p -> new QueryParams(List.of(p)));
+    }
+
     @Override
     public String toString() {
         return params.stream().map(Param::toString).collect(Collectors.joining("&"));
@@ -105,7 +128,7 @@ public record QueryParams(List<Param> params) {
     /**
      * A value of a query param.
      */
-    interface Value {
+    public interface Value {
     }
 
     private record StringValue(String value) implements Value {
@@ -117,6 +140,17 @@ public record QueryParams(List<Param> params) {
         @Override
         public String toString() {
             return value;
+        }
+    }
+
+    private record MultiStringValue(List<String> values) implements Value {
+        private MultiStringValue {
+            values = List.copyOf(values);
+        }
+
+        @Override
+        public String toString() {
+            return String.join(",", values);
         }
     }
 
@@ -132,6 +166,4 @@ public record QueryParams(List<Param> params) {
             return comparator.toString() + value;
         }
     }
-
-
 }
