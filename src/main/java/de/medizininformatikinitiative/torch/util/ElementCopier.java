@@ -129,6 +129,11 @@ public class ElementCopier {
 
                         IBase parentField = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
 
+                        
+                        if (parentField == null) {
+                            TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
+                            parentField = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
+                        }
                         logger.trace("parentField Type {}", parentField.fhirType());
 
                         setListOnParentField(parentField, terserFHIRPATH.substring(endIndex + 1), elements);

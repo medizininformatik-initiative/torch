@@ -9,7 +9,7 @@
         <appender-ref ref="STDOUT"/>
     </root>
 
-    <logger name="de.medizininformatikinitiative" level="TRACE"/>
-    <logger name="org.testcontainers" level="TRACE"/>
-    <logger name="com.github.dockerjava" level="TRACE"/>
+    <logger name="de.medizininformatikinitiative" level="INFO"/>
+    <logger name="org.testcontainers" level="INFO"/>
+    <logger name="com.github.dockerjava" level="INFO"/>
 </configuration>

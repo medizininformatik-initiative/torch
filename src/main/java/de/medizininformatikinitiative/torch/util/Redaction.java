@@ -1,10 +1,16 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Element;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Factory;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.NoSuchElementException;
 import java.util.Objects;
 
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
@@ -110,16 +116,11 @@ public class Redaction {
                 childDefinition = snapshot.getElementById(childID);
                 type = childDefinition.getType().getFirst().getWorkingCode();
                 min = childDefinition.getMin();
-            } catch (NullPointerException e) {
-
-                try {
-                    type = child.getTypeCode();
-                    min = child.getMinCardinality();
-                    logger.trace("{} Standard Type {} with cardinality {} ", child.getName(), type, min);
-                } catch (NullPointerException ex) {
-
-                    logger.error(" Child  Type Unknown {} {}", childID, child.getName());
-                }
+            } catch (NoSuchElementException | NullPointerException e) {
+                //Case Element not fully defined in Structure Definition, fallback to Base Resource
+                type = child.getTypeCode();
+                min = child.getMinCardinality();
+                logger.trace("{} Standard Type {} with cardinality {} ", child.getName(), type, min);
             }
             if (child.hasValues() && childDefinition != null) {
 

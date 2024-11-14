@@ -58,6 +58,25 @@ public class ElementCopierTest {
     }
 
     @Test
+    void multiProfileUnPopulatedTarget() throws MustHaveViolatedException {
+        Observation src = new Observation();
+        Observation tgt = new Observation();
+
+
+        Meta meta = new Meta();
+        meta.setProfile(List.of(new CanonicalType("Test"),
+                new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
+        src.setMeta(meta);
+      
+
+        copier.copy(src, tgt, new Attribute("Observation.meta.profile", false));
+
+        assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
+                .containsExactly("Test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
+
+    }
+
+    @Test
     void multiCategory() throws MustHaveViolatedException {
         Observation src = new Observation();
         Observation tgt = new Observation();
