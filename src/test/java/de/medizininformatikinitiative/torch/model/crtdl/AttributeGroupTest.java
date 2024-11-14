@@ -227,7 +227,7 @@ class AttributeGroupTest {
 
             assertThat(attributeGroup.hasMustHave()).isFalse();
         }
-    }O
+    }
 
     @Nested
     class StandardAttributes {
