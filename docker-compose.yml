@@ -2,9 +2,9 @@ services:
   torch-data-store:
     image: "samply/blaze:0.30"
     environment:
-      BASE_URL: "http://torch-data-store:8080"
+      BASE_URL: ${TORCH_BASE_URL:-http://torch-data-store:8080}
       JAVA_TOOL_OPTIONS: "-Xmx2g"
-      LOG_LEVEL: "info"
+      LOG_LEVEL: ${TORCH_LOG_LEVEL:-info}
     ports:
       - "8082:8080"
     volumes:
