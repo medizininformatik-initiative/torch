@@ -114,8 +114,8 @@ public class ResourceTransformer {
             if (!consentInfo.applyConsent() || handler.checkConsent(resource, consentInfo)) {
                 return Mono.just(transform(resource, group, resource.getClass().asSubclass(DomainResource.class)));
             } else {
-                logger.warn("consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-                return Mono.empty();  // Return isEmpty patient if consent violated
+                logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+                return Mono.empty();
             }
         } catch (PatientIdNotFoundException | TargetClassCreationException e) {
             return Mono.error(e);

@@ -6,8 +6,8 @@ torch:
   profile:
     dir: structureDefinitions
   mapping:
-    consent: src/test/resources/mappings/consent-mappings.json
-    consent_to_profile: src/test/resources/mappings/profile_to_consent.json
+    consent: mappings/consent-mappings_fhir.json
+    consent_to_profile: mappings/profile_to_consent.json
   fhir:
     url: http://localhost:8082/fhir
     pageCount: 500
@@ -23,7 +23,7 @@ torch:
     url: http://localhost:8084
   results:
     dir: output/
-    persistence: PT12H30M5S # Time Block in ISO 8601 format
+    persistence: PT2160H # Time Block in ISO 8601 format
   batchsize: 2
   maxConcurrency: 1
   mappingsFile: ontology/mapping_cql.json

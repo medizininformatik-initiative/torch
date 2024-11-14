@@ -11,7 +11,11 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,7 +37,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -109,21 +112,6 @@ class CrtdlProcessingServiceIT {
         fis.close();
     }
 
-    @AfterEach
-    void cleanUp() throws IOException {
-        if (Files.exists(jobDir)) {
-            // Use try-with-resources for the stream from Files.walk
-            try (Stream<Path> paths = Files.walk(jobDir)) {
-                paths.map(Path::toFile)
-                        .forEach(file -> {
-                            if (!file.delete()) {
-                                System.err.println("Failed to delete file: " + file.getAbsolutePath());
-                            }
-                        });
-            }
-            Files.deleteIfExists(jobDir); // Delete the main job directory
-        }
-    }
 
     private boolean isDirectoryEmpty(Path directory) throws IOException {
         // Try-with-resources for DirectoryStream

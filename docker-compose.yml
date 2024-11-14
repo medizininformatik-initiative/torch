@@ -36,7 +36,7 @@ services:
       - ./start-nginx.sh:/start-nginx.sh
       - torch-data-store:/app/output  # Shared with torch service
       - ./output:/app/output
-    entrypoint: ["/bin/sh", "/start-nginx.sh"]
+    entrypoint: [ "/bin/sh", "/start-nginx.sh" ]
   torch:
     restart: unless-stopped
     build:
@@ -52,7 +52,7 @@ services:
       TORCH_FHIR_URL: http://torch-data-store:8080/fhir
       TORCH_FLARE_URL: http://torch-flare:8080
       TORCH_RESULTS_DIR: /app/output
-      TORCH_RESULTS_PERSISTENCE: PT12H30M5S
+      TORCH_RESULTS_PERSISTENCE: PT2160H
       LOG_LEVEL: debug
       NGINX_SERVERNAME: localhost
       NGINX_FILELOCATION: http://localhost:80
