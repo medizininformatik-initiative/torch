@@ -26,11 +26,10 @@ public class ElementCopierTest {
     @Test
     void singleProfile() throws MustHaveViolatedException {
         Observation src = new Observation();
-        Observation tgt = new Observation();
-
         Meta meta = new Meta();
         meta.setProfile(List.of(new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
         src.setMeta(meta);
+        Observation tgt = new Observation();
 
         copier.copy(src, tgt, new Attribute("Observation.meta.profile", false));
 
@@ -41,65 +40,52 @@ public class ElementCopierTest {
     @Test
     void multiProfilePrePopulatedTarget() throws MustHaveViolatedException {
         Observation src = new Observation();
-        Observation tgt = new Observation();
-
-        Meta meta2 = new Meta();
         Meta meta = new Meta();
         meta.setProfile(List.of(new CanonicalType("Test"),
                 new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
         src.setMeta(meta);
-        tgt.setMeta(meta2);
+        Observation tgt = new Observation();
+        tgt.setMeta(new Meta());
 
         copier.copy(src, tgt, new Attribute("Observation.meta.profile", false));
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
                 .containsExactly("Test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
-
     }
 
     @Test
     void multiProfileUnPopulatedTarget() throws MustHaveViolatedException {
         Observation src = new Observation();
-        Observation tgt = new Observation();
-
-
         Meta meta = new Meta();
         meta.setProfile(List.of(new CanonicalType("Test"),
                 new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
         src.setMeta(meta);
-      
+        Observation tgt = new Observation();
 
         copier.copy(src, tgt, new Attribute("Observation.meta.profile", false));
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
                 .containsExactly("Test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
-
     }
 
     @Test
     void multiCategory() throws MustHaveViolatedException {
         Observation src = new Observation();
-        Observation tgt = new Observation();
-
         List<CodeableConcept> categories = List.of(
                 new CodeableConcept().addCoding(new Coding().setCode("Test")),
                 new CodeableConcept().addCoding(new Coding().setCode("Test2"))
         );
-        Meta meta = new Meta();
-        meta.setProfile(List.of(new CanonicalType("Test"),
-                new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
-        src.setMeta(meta);
+        src.setMeta(defaultMeta());
         src.setCategory(categories);
-
+        Observation tgt = new Observation();
 
         copier.copy(src, tgt, new Attribute("Observation.category", false));
 
-        assertThat(tgt.getCategory().get(0).getCoding().getFirst().getCode())
-                .isEqualTo("Test");
-        assertThat(tgt.getCategory().get(1).getCoding().getFirst().getCode())
-                .isEqualTo("Test2");
-
+        assertThat(tgt.getCategory().stream().map(CodeableConcept::getCoding).map(List::getFirst).map(Coding::getCode))
+                .containsExactly("Test", "Test2");
     }
 
-
+    private static Meta defaultMeta() {
+        return new Meta().setProfile(List.of(new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
+    }
 }
