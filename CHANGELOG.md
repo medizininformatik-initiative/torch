@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [UNRELEASED] - yyyy-mm-dd
+## [v1.0.0-alpha.2] - 2024-11-14
 
 ### Added
 
@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 ### Fixed
 
 ### Security
+
 
 ## [v1.0.0-alpha.3] - 2024-11-15
 
