@@ -8,22 +8,43 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Added
 
-- **Removing of Unknown Slices and Profiles**
+### Changed
+
+### Deprecated
+
+### Removed
 
 ### Fixed
 
-- **Diverse Bug Fixes in extraction process and reactive chain **
-- **Fixed Search Params in Queries**
+### Security
+
+
+## [v1.0.0-alpha.3] - 2024-11-15
+
+### Added
+
+- Update cql aliases
+
+## [v1.0.0-alpha.2] - 2024-11-14
+
+### Added
+
+- Removing of Unknown Slices and Profiles
+
+### Fixed
+
+- Diverse Bug Fixes in extraction process and reactive chain
+- Fixed Search Params in Queries
 
 ## [v1.0.0-alpha.1] - 2024-10-21
 
 ### Added
 
-- **Open Id Connect Authentication**
-- **Filter Resources by Consent selected in CCDL**
-- **Expand concept code filter**
-- **CQL cohort execution**
-- **Ontology integration**
+- Open Id Connect Authentication
+- Filter Resources by Consent selected in CCDL
+- Expand concept code filter
+- CQL cohort execution
+- Ontology integration
 
 ## [v1.0.0-alpha] - 2024-09-19
 

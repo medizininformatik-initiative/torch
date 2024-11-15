@@ -17,6 +17,7 @@ services:
     environment:
       - LOG_LEVEL=info
       - FLARE_FHIR_SERVER=http://blaze:8080/fhir
+      - FLARE_ENABLE_COHORT_ENDPOINT=true
     ports:
       - "8080"
     depends_on:

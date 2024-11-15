@@ -201,6 +201,18 @@ public class AppConfig {
                         entry("http://terminology.hl7.org/CodeSystem/consentcategorycodes", "consentcategory"),
                         entry("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "consent"),
                         entry("http://hl7.org/fhir/sid/icd-o-3", "icdo3"),
+                        entry("fdpg.mii.cds", "fdpgmiicds"),
+                        entry("http://fhir.de/CodeSystem/bfarm/alpha-id", "alphaid"),
+                        entry("urn:iso:std:iso:11073:10101", "ISO11073"),
+                        entry("http://terminology.hl7.org/CodeSystem/icd-o-3", "icdo3"),
+                        entry("http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel", "fachabteilungsschluessel"),
+                        entry("http://terminology.hl7.org/CodeSystem/v3-ActCode", "v3actcode"),
+                        entry("http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel-erweitert", "fachabteilungsschluesselerweitert"),
+                        entry("http://fhir.de/CodeSystem/kontaktart-de", "kontaktart"),
+                        entry("http://hl7.org/fhir/sid/icd-10", "sidicd10"),
+                        entry("http://fhir.de/CodeSystem/Kontaktebene", "kontaktebene"),
+                        entry("http://www.orpha.net", "orphanet"),
+                        entry("fdpg.consent.combined", "fdpgcombinedconsent"),
                         entry("http://hl7.org/fhir/consent-provision-type", "provisiontype"))));
     }
 
