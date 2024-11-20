@@ -1,7 +1,11 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util.consent;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.service.BundleCreator;
+import de.medizininformatikinitiative.torch.service.CdsStructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.service.ResourceTransformer;
+import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.consent.PatientConsentInfo;

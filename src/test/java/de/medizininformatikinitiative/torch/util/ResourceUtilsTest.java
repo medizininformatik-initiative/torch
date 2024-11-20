@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.*;
+import de.medizininformatikinitiative.torch.exception.PatientIdNotFoundException;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 

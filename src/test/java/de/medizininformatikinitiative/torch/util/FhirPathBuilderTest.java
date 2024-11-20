@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.util.slicing.Slicing;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Factory;
@@ -14,7 +15,9 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 

@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.BaseRuntimeChildDefinition;
 import ca.uhn.fhir.context.FhirContext;

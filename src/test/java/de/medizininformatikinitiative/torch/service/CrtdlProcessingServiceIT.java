@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;

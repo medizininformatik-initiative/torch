@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.exception;
 
 public class TargetClassCreationException extends Exception {
 

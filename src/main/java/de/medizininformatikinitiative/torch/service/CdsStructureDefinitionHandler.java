@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.CanonicalType;

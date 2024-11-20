@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.slicing;
 
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;

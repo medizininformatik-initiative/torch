@@ -3,8 +3,6 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;

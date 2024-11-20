@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 
+import de.medizininformatikinitiative.torch.util.slicing.Slicing;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Factory;

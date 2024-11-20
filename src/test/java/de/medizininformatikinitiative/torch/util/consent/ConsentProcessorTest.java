@@ -1,8 +1,8 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.consent;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
-import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.exception.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CodeableConcept;

@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.slicing;
 
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.ElementDefinition.DiscriminatorType;
@@ -25,8 +25,8 @@ class DiscriminatorResolverWithoutPathTest {
     /**
      * Helper method to create an ElementDefinition with a fixed value.
      *
-     * @param id          The ID of the ElementDefinition.
-     * @param fixedValue  The fixed value to set.
+     * @param id         The ID of the ElementDefinition.
+     * @param fixedValue The fixed value to set.
      * @return A configured ElementDefinition instance.
      */
     private ElementDefinition createElementWithFixedValue(String id, String fixedValue) {
@@ -39,8 +39,8 @@ class DiscriminatorResolverWithoutPathTest {
     /**
      * Helper method to create an ElementDefinition with a TypeRefComponent.
      *
-     * @param id    The ID of the ElementDefinition.
-     * @param type  The type code to set.
+     * @param id   The ID of the ElementDefinition.
+     * @param type The type code to set.
      * @return A configured ElementDefinition instance.
      */
     private ElementDefinition createElementWithType(String id, String type) {
@@ -98,7 +98,6 @@ class DiscriminatorResolverWithoutPathTest {
         slice.setFixed(fixedValue);
 
 
-
         // Create a base element with different value
         StringType baseElement = new StringType("differentStringValue");
         // No need to mock baseElement's fhirType; real instance returns "string"
@@ -125,7 +124,6 @@ class DiscriminatorResolverWithoutPathTest {
         ElementDefinition.TypeRefComponent typeRef = new ElementDefinition.TypeRefComponent();
         typeRef.setCode("string");
         slice.addType(typeRef);
-
 
 
         // Create a base element with matching type

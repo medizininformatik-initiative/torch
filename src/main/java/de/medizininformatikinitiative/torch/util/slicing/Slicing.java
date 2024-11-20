@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.slicing;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.Base;
@@ -12,7 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 
-import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
+import static de.medizininformatikinitiative.torch.util.slicing.DiscriminatorResolver.resolveDiscriminator;
 
 /**
  * Class for resolving and checking Slicing

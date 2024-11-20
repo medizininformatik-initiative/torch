@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.testUtil;
 
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exception.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;

@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exception.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;

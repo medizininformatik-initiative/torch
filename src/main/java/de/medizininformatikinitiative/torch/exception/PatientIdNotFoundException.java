@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.exceptions;
+package de.medizininformatikinitiative.torch.exception;
 
 public class PatientIdNotFoundException extends Exception {
     public PatientIdNotFoundException(String message) {

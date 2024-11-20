@@ -1,14 +1,16 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exception.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exception.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.ResourceTransformer;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.consent.ConsentHandler;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
