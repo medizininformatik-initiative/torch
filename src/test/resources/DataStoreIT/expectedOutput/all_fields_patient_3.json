@@ -56,34 +56,6 @@
             "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
           ]
         },
-        "identifier": [
-          {
-            "_use": {
-              "extension": [
-                {
-                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                  "valueCode": "masked"
-                }
-              ]
-            },
-            "_system": {
-              "extension": [
-                {
-                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                  "valueCode": "masked"
-                }
-              ]
-            },
-            "_value": {
-              "extension": [
-                {
-                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                  "valueCode": "masked"
-                }
-              ]
-            }
-          }
-        ],
         "name": [
           {
             "use": "official",

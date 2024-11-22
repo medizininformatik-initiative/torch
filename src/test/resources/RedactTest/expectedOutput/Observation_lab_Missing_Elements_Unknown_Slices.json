@@ -10,38 +10,12 @@
   },
   "identifier": [
     {
-      "type": {
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-            "valueCode": "masked"
-          }
-        ]
-      },
-      "_system": {
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-            "valueCode": "masked"
-          }
-        ]
-      },
-      "_value": {
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-            "valueCode": "masked"
-          }
-        ]
-      },
-      "assigner": {
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-            "valueCode": "masked"
-          }
-        ]
-      }
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        }
+      ]
     }
   ],
   "status": "final",
