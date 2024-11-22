@@ -88,9 +88,6 @@ public class Redaction {
                     child.getValues().forEach(value -> {
                         base.removeChild(child.getName(), value);
                     });
-                    if ("Extension".equals(child.getTypeCode())) {
-                        logger.info("Child handled {} {}", child.getName(), child.getTypeCode());
-                    }
                 });
                 if (definition.getMin() > 0) {
                     base.setProperty("extension", createAbsentReasonExtension("masked"));

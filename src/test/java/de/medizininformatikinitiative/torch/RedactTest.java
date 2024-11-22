@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.*;
 import org.junit.Test;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -41,6 +42,7 @@ public class RedactTest {
                 isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
+
     @Test
     public void unknownSlice() throws IOException {
         DomainResource expected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/unknownSlice.json");
@@ -57,6 +59,27 @@ public class RedactTest {
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).
                 isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+
+    @Nested
+    class KDS {
+
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json",
+                "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
+        public void diagnosis(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+            DomainResource expected = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(src);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).
+                    isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+
     }
 
 
