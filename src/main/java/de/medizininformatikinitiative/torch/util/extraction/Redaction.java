@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
 import de.medizininformatikinitiative.torch.service.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.util.slicing.Slicing;

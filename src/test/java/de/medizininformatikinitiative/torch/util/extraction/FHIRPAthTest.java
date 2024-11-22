@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
 
 import ca.uhn.fhir.context.FhirContext;

@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exception.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.util.fileinteract.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Consent;
 import org.hl7.fhir.r4.model.DomainResource;

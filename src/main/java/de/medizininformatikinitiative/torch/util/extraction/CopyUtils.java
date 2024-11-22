@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

@@ -1,10 +1,10 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util.extraction;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exception.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.extraction.ElementCopier;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;

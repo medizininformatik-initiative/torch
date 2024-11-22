@@ -1,5 +1,6 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
+import de.medizininformatikinitiative.torch.util.extraction.FhirPathBuilder;
 import de.medizininformatikinitiative.torch.util.slicing.Slicing;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;

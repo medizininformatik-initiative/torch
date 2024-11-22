@@ -1,5 +1,6 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
+import de.medizininformatikinitiative.torch.util.extraction.CopyUtils;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 

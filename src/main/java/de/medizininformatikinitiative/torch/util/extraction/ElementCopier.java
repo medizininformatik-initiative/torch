@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.extraction;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
@@ -19,7 +19,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Method;
 import java.util.List;
 
-import static de.medizininformatikinitiative.torch.util.CopyUtils.capitalizeFirstLetter;
+import static de.medizininformatikinitiative.torch.util.extraction.CopyUtils.capitalizeFirstLetter;
 
 /**
  * Copying class using FHIR Path and Terser from Hapi

@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.util.fileinteract;
 
 import de.medizininformatikinitiative.torch.exception.PatientIdNotFoundException;
 import org.hl7.fhir.r4.model.Bundle;
