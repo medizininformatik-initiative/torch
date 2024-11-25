@@ -61,13 +61,17 @@ public class RedactTest {
                 isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
-
     @Nested
     class KDS {
 
 
         @ParameterizedTest
         @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json",
+                "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json",
+                "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json",
+                "Condition-mii-exa-diagnose-multiple-kodierungen.json",
+                "Condition-mii-exa-test-data-patient-1-diagnose-1.json",
+
                 "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
         public void diagnosis(String resource) throws IOException {
             DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);

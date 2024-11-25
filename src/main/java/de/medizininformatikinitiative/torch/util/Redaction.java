@@ -71,7 +71,6 @@ public class Redaction {
             throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementID + "in StructureDefinition " + structureDefinition.getUrl());
 
         } else if (definition.hasSlicing()) {
-
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
 
             if (slicedElement != null) {
