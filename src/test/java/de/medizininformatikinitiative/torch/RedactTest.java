@@ -2,13 +2,9 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.*;
 import org.junit.Test;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -23,15 +19,15 @@ public class RedactTest {
     private final FhirContext fhirContext = FhirContext.forR4();
 
     @ParameterizedTest
-    @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
+    @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json", "DiagnosisWithInvalidSliceCode.json"})
     public void testDiagnosis(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
         DomainResource expected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/" + resource);
 
         src = (DomainResource) integrationTestSetup.redaction().redact(src);
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(src)).
-                isEqualTo(fhirContext.newJsonParser().encodeResourceToString(expected));
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src)).
+                isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
     @ParameterizedTest
@@ -46,8 +42,10 @@ public class RedactTest {
                 isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
+
     @Test
-    public void unknownSlice() {
+    public void unknownSlice() throws IOException {
+        DomainResource expected = integrationTestSetup.readResource("src/test/resources/RedactTest/expectedOutput/unknownSlice.json");
         Condition src = new Condition();
         Meta meta = new Meta();
         meta.setProfile(List.of(new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
@@ -59,7 +57,32 @@ public class RedactTest {
 
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(src);
 
-        System.out.println("fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src) = " + fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).
+                isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+    @Nested
+    class KDS {
+
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json",
+                "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json",
+                "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json",
+                "Condition-mii-exa-diagnose-multiple-kodierungen.json",
+                "Condition-mii-exa-test-data-patient-1-diagnose-1.json",
+
+                "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
+        public void diagnosis(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+            DomainResource expected = integrationTestSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
+
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(src);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).
+                    isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
 
     }
 

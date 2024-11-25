@@ -47,7 +47,7 @@ public class DiscriminatorResolver {
         if (Objects.equals(path, "$this")) {
             return slice;
         }
-        return snapshot.getElementByPath(slice.getId() + "." + slice.getPath());
+        return snapshot.getElementById(slice.getId() + "." + path);
     }
 
     /**
@@ -64,22 +64,17 @@ public class DiscriminatorResolver {
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
-        // Resolve the base element along the path specified by the discriminator.
-        Base resolvedBase = resolveElementPath(base, discriminator);
-
-        // If the resolved base element is null, the pattern cannot be resolved.
-        if (resolvedBase == null) {
-            return false;
-        }
-        // If the resolved base element is null, the pattern cannot be resolved.
         if (elementContainingInfo == null) {
             return false;
         }
+        Base resolvedBase = resolveElementPath(base, discriminator);
 
-        // Check if the element containing the info has a fixed value or pattern.
+        if (resolvedBase == null) {
+            return false;
+        }
+
         if (elementContainingInfo.hasFixedOrPattern()) {
 
-            // Get the fixed value or pattern from the element definition.
             Type fixedOrPatternValue = elementContainingInfo.getFixedOrPattern();
             return compareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
 
@@ -90,60 +85,40 @@ public class DiscriminatorResolver {
     }
 
     private static boolean compareBaseToFixedOrPattern(Base resolvedBase, Base fixedOrPatternValue) {
-        // Handle null inputs
         if (resolvedBase == null || fixedOrPatternValue == null) {
             logger.trace("One or both inputs are null: resolvedBase={}, fixedOrPatternValue={}", resolvedBase, fixedOrPatternValue);
             return false;
         }
-
-        // Check if FHIR types match
         if (!Objects.equals(resolvedBase.fhirType(), fixedOrPatternValue.fhirType())) {
             logger.trace("Incompatible Data types when comparing {} {}", resolvedBase.fhirType(), fixedOrPatternValue.fhirType());
             return false;
         }
-
-        // Handle primitive types
         if (fixedOrPatternValue.isPrimitive()) {
-            logger.trace("Handling Primitive Types  {}", fixedOrPatternValue.getIdBase());
             return resolvedBase.equalsDeep(fixedOrPatternValue);
         } else {
-            logger.trace("Handling Complex Types  {}", fixedOrPatternValue.fhirType());
-
-            // Collect children from fixedOrPatternValue
             List<Property> fixedChildren = fixedOrPatternValue.children().stream()
                     .filter(Property::hasValues)
                     .toList();
-
-            // Collect children from resolvedBase
             List<Property> resolvedChildren = resolvedBase.children().stream()
                     .filter(Property::hasValues)
                     .toList();
-
-            // Check if the number of children matches
             if (fixedChildren.size() > resolvedChildren.size()) {
                 logger.trace("Mismatch in number of children: fixedOrPatternValue has {} children, resolvedBase has {} children",
                         fixedChildren.size(), resolvedChildren.size());
                 return false;
             }
 
-            // Iterate through each child in fixedOrPatternValue
             for (Property fixedChild : fixedChildren) {
                 String childName = fixedChild.getName();
                 Property resolvedChild = resolvedBase.getChildByName(childName);
 
                 logger.trace("Handling Child {} {}", childName, resolvedChild);
-
-                // If the resolved base doesn't have this child, return false
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
                     logger.trace("Missing or isEmpty child '{}' in resolvedBase", childName);
                     return false;
                 }
-
-                // Compare the first value of each child
                 Base resolvedChildValue = resolvedChild.getValues().getFirst();
                 Base fixedChildValue = fixedChild.getValues().getFirst();
-
-                // Recursive comparison
                 boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
                 if (!childComparison) {
                     logger.trace("Mismatch found in child '{}'", childName);
@@ -151,7 +126,6 @@ public class DiscriminatorResolver {
                 }
             }
 
-            // All children matched
             return true;
         }
     }
@@ -222,7 +196,7 @@ public class DiscriminatorResolver {
         }
 
         // Proceed with the type comparison
-        return base.fhirType().equalsIgnoreCase(elementContainingInfo.getType().getFirst().getCode());
+        return elementContainingInfo.getType().stream().anyMatch(x -> base.fhirType().equalsIgnoreCase(x.getCode()));
     }
 
 

@@ -40,9 +40,9 @@ logging:
     org.springframework.web.reactive.function.client: WARN
     reactor.netty: WARN
     reactor: WARN
-    de.medizininformatikinitiative.torch: ${LOG_LEVEL:WARN}
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:WARN}
-    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:WARN}
+    de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:info}
+    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:info}
     org.springframework: ${LOG_LEVEL:info}
     ca.uhn.fhir: WARN
     org.hl7.fhir: WARN

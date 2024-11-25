@@ -1,16 +1,15 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Resource Utils to extract References and IDs from Resources
@@ -85,6 +84,33 @@ public class ResourceUtils {
             return patientId((DomainResource) resource);
         }
         throw new PatientIdNotFoundException("First entry in bundle is not a DomainResource");
+    }
+
+
+    public static List<ElementDefinition> getElementsByPath(String path, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        if (path == null) {
+            return Collections.emptyList();
+        }
+        List<ElementDefinition> matchingElements = new ArrayList<>();
+        for (ElementDefinition ed : snapshot.getElement()) {
+            if (path.equals(ed.getPath()) || (path + "[x]").equals(ed.getPath())) {
+                matchingElements.add(ed);
+            }
+        }
+        return List.copyOf(matchingElements);
+    }
+
+    public static List<ElementDefinition> getElementById(String id, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        if (id == null) {
+            return Collections.emptyList();
+        }
+        List<ElementDefinition> matchingElements = new ArrayList<>();
+        for (ElementDefinition ed : snapshot.getElement()) {
+            if (id.equals(ed.getId())) {
+                matchingElements.add(ed);
+            }
+        }
+        return List.copyOf(matchingElements);
     }
 
 

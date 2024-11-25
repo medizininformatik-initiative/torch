@@ -1,11 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Element;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -75,7 +71,6 @@ public class Redaction {
             throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementID + "in StructureDefinition " + structureDefinition.getUrl());
 
         } else if (definition.hasSlicing()) {
-
             ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
 
             if (slicedElement != null) {
@@ -89,13 +84,14 @@ public class Redaction {
 
             } else {
                 base.children().forEach(child -> {
-                    String type = child.getTypeCode();
-                    Element element = HapiFactory.create(type);
-                    if (child.hasValues()) {
-                        element.addExtension(createAbsentReasonExtension("masked"));
-                    }
-                    base.setProperty(child.getName(), element);
+                    child.getValues().forEach(value -> {
+                        base.removeChild(child.getName(), value);
+                    });
                 });
+                if (definition.getMin() > 0) {
+                    base.setProperty("extension", createAbsentReasonExtension("masked"));
+                }
+
                 return base;
             }
         }

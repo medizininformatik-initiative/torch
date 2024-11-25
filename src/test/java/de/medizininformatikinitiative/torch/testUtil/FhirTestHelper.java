@@ -19,6 +19,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 @Component
 public class FhirTestHelper {
 
@@ -49,7 +51,7 @@ public class FhirTestHelper {
      * @param actualBundles   Resulting bundles indexed by PatID after internal extracting operations e.g. after ResourceTransform
      * @param expectedBundles Expected Bundles indexed by PatID
      */
-    public void validate(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) {
+    public void validate(Map<String, Bundle> actualBundles, Map<String, Bundle> expectedBundles) throws PatientIdNotFoundException {
 
         for (Map.Entry<String, Bundle> entry : actualBundles.entrySet()) {
             String patientId = entry.getKey();
@@ -76,14 +78,12 @@ public class FhirTestHelper {
 
                 Resource actualResource = actualResourceMap.get(profileKey);
 
-
-                if (!fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource)
-                        .equals(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))) {
-                    throw new AssertionError("Expected resource for profile " + profileKey + " does not match actual resource.");
-                }
+                assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource))
+                        .isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
             }
         }
     }
+
 
     // Helper static function to map resources by their profile
     private Map<String, Resource> mapResourcesByProfile(Bundle bundle) {
