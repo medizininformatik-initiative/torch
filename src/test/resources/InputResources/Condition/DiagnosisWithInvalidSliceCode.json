@@ -9,7 +9,7 @@
   "code": {
     "coding": [
       {
-        "system": "error",
+        "system": "invalid",
         "extension": [
           {
             "url": "http://fhir.de/StructureDefinition/icd-10-gm-diagnosesicherheit",
