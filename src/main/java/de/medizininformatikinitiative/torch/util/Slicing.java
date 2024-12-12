@@ -1,10 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Element;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,15 +17,12 @@ import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.re
 public class Slicing {
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
-    private final FhirContext ctx;
-
 
     /**
      * Constructor for Slicing
      */
     public Slicing(FhirContext ctx) {
 
-        this.ctx = ctx;
     }
 
     /**
@@ -40,44 +34,51 @@ public class Slicing {
      * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
      */
     public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
-
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        String fhirPath = "StructureDefinition.snapshot.element.where(path = '" + elementID + "')";
+        ElementDefinition slicedElement = snapshot.getElementById(elementID);
 
-        ElementDefinition slicedElement = snapshot.getElementByPath(elementID);
-        if (elementID.contains(":")) {
-            slicedElement = snapshot.getElementById(elementID);
-        }
 
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
 
         if (slicedElement == null) {
-            logger.warn("slicedElement null {} {}", elementID, structureDefinition.getUrl());
             return null;
         }
         if (!slicedElement.hasSlicing()) {
-            logger.warn("Element has no slicing {} {}", elementID, structureDefinition.getUrl());
             return null;
         }
-
-
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> ElementDefinition = ctx.newFhirPath().evaluate(structureDefinition, fhirPath, ElementDefinition.class);
-        ElementDefinition.forEach(element -> {
-            logger.trace("Slice to be handled {}", element.getIdElement());
+        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), structureDefinition.getSnapshot());
+        elementDefinitions.forEach(element -> {
+
             boolean foundSlice = true;
             if (element.hasSliceName()) {
-                //iterate over every discriminator and test if base holds for it
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
+                    if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
+
+                        if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
+                            UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
+                            List<CanonicalType> profiles = element.getType().stream()
+                                    .flatMap(type -> type.getProfile().stream())
+                                    .toList();
+                            // Check if any profile matches the base type URL
+                            boolean anyMatchBaseUrl = profiles.stream()
+                                    .anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
+                            if (anyMatchBaseUrl) {
+                                continue;
+                            } else {
+                                foundSlice = false;
+                                break;
+                            }
+                        }
+
+                    }
                     if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
-                        logger.trace("Check failed {}", element.getIdElement());
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
                 }
                 if (foundSlice) {
-                    //logger.error("Check passed {}", element.getIdElement());
                     returnElement.set(element);
                 }
 
@@ -97,7 +98,6 @@ public class Slicing {
      */
     public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         List<String> conditions = new ArrayList<>();
-        logger.info("Generating Slicing Conditions for ElementID: {}", elementID);
         // Find the sliced element using the element ID
         ElementDefinition slicedElement = snapshot.getElementById(elementID);
         if (slicedElement == null) {
