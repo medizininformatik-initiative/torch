@@ -1,0 +1,20 @@
+{
+  "resourceType": "Patient",
+  "id": "3",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+    ]
+  },
+  "name": [
+    {
+      "use": "official",
+      "family": "Johnson",
+      "given": [
+        "Alex"
+      ]
+    }
+  ],
+  "gender": "other",
+  "birthDate": "1975-03-03"
+}

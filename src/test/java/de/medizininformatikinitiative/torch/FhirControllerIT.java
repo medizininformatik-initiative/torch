@@ -28,11 +28,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.boot.test.web.server.LocalServerPort;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -46,11 +42,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Scanner;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -218,7 +210,7 @@ public class FhirControllerIT {
 
     @Test
     public void testAllFields() throws IOException, PatientIdNotFoundException {
-        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_all_fields.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
+        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/all_fields_patient_3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
     }
 
 
@@ -252,7 +244,11 @@ public class FhirControllerIT {
 
             StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
                 Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
-                fhirTestHelper.validate(bundles, expectedResources);
+                try {
+                    fhirTestHelper.validate(bundles, expectedResources);
+                } catch (PatientIdNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
                 return true;
             }).expectComplete().verify();
         }
