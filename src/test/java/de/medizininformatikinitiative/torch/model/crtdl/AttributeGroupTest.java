@@ -6,10 +6,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,9 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -236,7 +230,7 @@ class AttributeGroupTest {
         void patient() {
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Patient.class);
+            var standardAddedGroup = attributeGroup.addStandardAttributes("Patient");
 
             assertThat(standardAddedGroup.hasMustHave()).isTrue();
             assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -251,7 +245,7 @@ class AttributeGroupTest {
         void consent() {
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
 
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Consent.class);
+            var standardAddedGroup = attributeGroup.addStandardAttributes("Consent");
 
             assertThat(standardAddedGroup.hasMustHave()).isTrue();
             assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -267,7 +261,7 @@ class AttributeGroupTest {
         void observation() {
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
 
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Observation.class);
+            var standardAddedGroup = attributeGroup.addStandardAttributes("Observation");
 
             assertThat(standardAddedGroup.hasMustHave()).isTrue();
             assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -284,7 +278,7 @@ class AttributeGroupTest {
         void defaultCase() {
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Condition.code", false)), List.of());
 
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Condition.class);
+            var standardAddedGroup = attributeGroup.addStandardAttributes("Condition");
 
             assertThat(standardAddedGroup.hasMustHave()).isTrue();
             assertThat(standardAddedGroup.attributes()).containsExactly(

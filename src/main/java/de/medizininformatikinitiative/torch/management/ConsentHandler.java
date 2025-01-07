@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.management;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -54,24 +54,24 @@ public class ConsentHandler {
     private final JsonNode mappingProfiletoDateField;
     private final FhirContext ctx;
     private final FhirPathBuilder fhirPathBuilder;
-    private final CdsStructureDefinitionHandler cdsStructureDefinitionHandler;
+    private final StructureDefinitionHandler structureDefinitionHandler;
     private final ConsentProcessor consentProcessor;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param dataStore                     The {@link DataStore} service for Server Calls.
-     * @param mapper                        The {@link ConsentCodeMapper} for mapping consent codes.
-     * @param profilePath                   The file system path to the consent profile mapping configuration.
-     * @param cdsStructureDefinitionHandler The {@link CdsStructureDefinitionHandler} for handling structure definitions.
+     * @param dataStore                  The {@link DataStore} service for Server Calls.
+     * @param mapper                     The {@link ConsentCodeMapper} for mapping consent codes.
+     * @param profilePath                The file system path to the consent profile mapping configuration.
+     * @param structureDefinitionHandler The {@link StructureDefinitionHandler} for handling structure definitions.
      * @throws IOException If an error occurs while reading the mapping profile file.
      */
-    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, CdsStructureDefinitionHandler cdsStructureDefinitionHandler, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, StructureDefinitionHandler structureDefinitionHandler, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx = ctx;
         this.fhirPathBuilder = new FhirPathBuilder(new Slicing(ctx));
-        this.cdsStructureDefinitionHandler = cdsStructureDefinitionHandler;
+        this.structureDefinitionHandler = structureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
         mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
     }
@@ -118,7 +118,7 @@ public class ConsentHandler {
                 logger.trace("Handling the following Profile {}", profile);
                 fieldValue = mappingProfiletoDateField.get(profile);
                 logger.trace("Fieldvalue {}", fieldValue);
-                snapshot = cdsStructureDefinitionHandler.getSnapshot(profile);
+                snapshot = structureDefinitionHandler.getSnapshot(profile);
                 logger.trace("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
                 break; // Exit after finding the first match
             }

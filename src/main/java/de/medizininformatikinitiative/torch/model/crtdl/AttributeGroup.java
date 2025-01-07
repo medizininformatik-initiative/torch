@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.hl7.fhir.r4.model.DomainResource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +19,22 @@ public record AttributeGroup(
         String groupReference,
         @JsonProperty(required = true)
         List<Attribute> attributes,
-        List<Filter> filter
-) {
+        List<Filter> filter,
+        @JsonProperty
+        Boolean includeReferenceOnly) {
+
+    /**
+     * @param groupReference
+     * @param attributes
+     * @param filter         Primary constructor for directly accessed groups
+     */
+    public AttributeGroup(
+            String groupReference,
+            List<Attribute> attributes,
+            List<Filter> filter
+    ) {
+        this(groupReference, attributes, filter, false); // Default value for includeReferenceOnly
+    }
 
     // Canonical Constructor with validation for filter duplicates and UUID generation
     public AttributeGroup {
@@ -65,20 +78,21 @@ public record AttributeGroup(
         }
     }
 
-    public <T extends DomainResource> AttributeGroup addStandardAttributes(Class<T> resourceClass) {
+
+    public AttributeGroup addStandardAttributes(String className) {
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
 
-        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".id", true));
-        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".meta.profile", true));
+        tempAttributes.add(new Attribute(className + ".id", true));
+        tempAttributes.add(new Attribute(className + ".meta.profile", true));
 
-        if (!org.hl7.fhir.r4.model.Patient.class.equals(resourceClass) && !org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".subject.reference", true));
+        if (!"Patient".equals(className) && !"Consent".equals(className)) {
+            tempAttributes.add(new Attribute(className + ".subject.reference", true));
         }
-        if (org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".patient.reference", true));
+        if ("Consent".equals(className)) {
+            tempAttributes.add(new Attribute(className + ".patient.reference", true));
         }
-        if (org.hl7.fhir.r4.model.Observation.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".status", true));
+        if ("Observation".equals(className)) {
+            tempAttributes.add(new Attribute(className + ".status", true));
         }
         return new AttributeGroup(groupReference, tempAttributes, filter);
     }
