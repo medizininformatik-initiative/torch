@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.Parameters;
@@ -25,14 +26,9 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
-import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
-import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
-import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
+import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
-import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
-import static org.springframework.web.reactive.function.server.ServerResponse.badRequest;
-import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
-import static org.springframework.web.reactive.function.server.ServerResponse.status;
+import static org.springframework.web.reactive.function.server.ServerResponse.*;
 
 @RestController
 public class FhirController {
@@ -44,18 +40,20 @@ public class FhirController {
     private final ResultFileManager resultFileManager;
     private final ExecutorService executorService;
     private final CrtdlProcessingService crtdlProcessingService;
+    private final CrtdlValidatorService validatorService;
 
     @Autowired
     public FhirController(
             ResultFileManager resultFileManager,
             FhirContext fhirContext,
-            ExecutorService executorService, CrtdlProcessingService crtdlProcessingService, ObjectMapper objectMapper) {
+            ExecutorService executorService, CrtdlProcessingService crtdlProcessingService, ObjectMapper objectMapper, CrtdlValidatorService validatorService) {
 
         this.objectMapper = objectMapper;
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
         this.executorService = executorService;
         this.crtdlProcessingService = crtdlProcessingService;
+        this.validatorService = validatorService;
     }
 
     private static byte[] decodeCrtdlContent(Parameters parameters) {
@@ -97,6 +95,7 @@ public class FhirController {
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
+                .flatMap(crtdl -> Mono.fromCallable(() -> validatorService.validate(crtdl)))
                 .flatMap(crtdl -> {
 
                     // Generate jobId based on the request body hashCode
@@ -106,7 +105,7 @@ public class FhirController {
 
                     // Initialize the job directory asynchronously
                     return resultFileManager.initJobDir(jobId)
-                            .doOnNext((jobDir) -> {
+                            .doOnNext(jobDir -> {
                                 // Submit the task to the executor service for background processing
                                 executorService.submit(() -> {
                                     try {
@@ -136,6 +135,7 @@ public class FhirController {
                             .bodyValue(new Error(e.getMessage()));
                 });
     }
+
 
     private Crtdl parseCrtdlContent(byte[] content) throws IOException {
         return objectMapper.readValue(content, Crtdl.class);

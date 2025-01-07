@@ -6,10 +6,6 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,9 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -229,73 +223,5 @@ class AttributeGroupTest {
         }
     }
 
-    @Nested
-    class StandardAttributes {
 
-        @Test
-        void patient() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of());
-
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Patient.class);
-
-            assertThat(standardAddedGroup.hasMustHave()).isTrue();
-            assertThat(standardAddedGroup.attributes()).containsExactly(
-                    new Attribute("Patient.name", false),
-                    new Attribute("Patient.id", true),
-                    new Attribute("Patient.meta.profile", true))
-            ;
-
-        }
-
-        @Test
-        void consent() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
-
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Consent.class);
-
-            assertThat(standardAddedGroup.hasMustHave()).isTrue();
-            assertThat(standardAddedGroup.attributes()).containsExactly(
-                    new Attribute("Consent.identifier", false),
-                    new Attribute("Consent.id", true),
-                    new Attribute("Consent.meta.profile", true),
-                    new Attribute("Consent.patient.reference", true)
-            );
-
-        }
-
-        @Test
-        void observation() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
-
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Observation.class);
-
-            assertThat(standardAddedGroup.hasMustHave()).isTrue();
-            assertThat(standardAddedGroup.attributes()).containsExactly(
-                    new Attribute("Observation.identifier", false),
-                    new Attribute("Observation.id", true),
-                    new Attribute("Observation.meta.profile", true),
-                    new Attribute("Observation.subject.reference", true),
-                    new Attribute("Observation.status", true)
-            );
-
-        }
-
-        @Test
-        void defaultCase() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Condition.code", false)), List.of());
-
-            var standardAddedGroup = attributeGroup.addStandardAttributes(Condition.class);
-
-            assertThat(standardAddedGroup.hasMustHave()).isTrue();
-            assertThat(standardAddedGroup.attributes()).containsExactly(
-                    new Attribute("Condition.code", false),
-                    new Attribute("Condition.id", true),
-                    new Attribute("Condition.meta.profile", true),
-                    new Attribute("Condition.subject.reference", true)
-            );
-
-        }
-
-
-    }
 }

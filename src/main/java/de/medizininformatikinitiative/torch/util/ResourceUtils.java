@@ -1,15 +1,17 @@
 package de.medizininformatikinitiative.torch.util;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 /**
  * Resource Utils to extract References and IDs from Resources
@@ -111,6 +113,35 @@ public class ResourceUtils {
             }
         }
         return List.copyOf(matchingElements);
+    }
+
+
+    /**
+     * Reads a JSON file from the resources folder, extracts codes in the resource fields, and returns them as a list.
+     * Used to read the compartment definition.
+     *
+     * @param fileName The name of the JSON file in the resources' folder.
+     * @return A Set of extracted codes.
+     * @throws IOException If the file cannot be read.
+     */
+    public static Set<String> extractCodes(String fileName) throws IOException {
+        // Load the file from resources
+        File file = new File(Objects.requireNonNull(ResourceUtils.class.getClassLoader().getResource(fileName)).getFile());
+
+        // Parse JSON using Jackson
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode rootNode = objectMapper.readTree(file);
+
+        // Extract codes from the "resource" array
+        Set<String> codes = new HashSet<>();
+        if (rootNode.has("resource")) {
+            for (JsonNode resourceNode : rootNode.get("resource")) {
+                if (resourceNode.has("code")) {
+                    codes.add(resourceNode.get("code").asText());
+                }
+            }
+        }
+        return codes;
     }
 
 

@@ -3,10 +3,12 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.Meta;
@@ -77,7 +79,7 @@ public class ResourceTransformationTest {
             src.setMeta(new Meta().addProfile("Test"));
             Attribute effective = new Attribute("Observation.effective", false);
             AttributeGroup group = new AttributeGroup("GroupRef", List.of(effective), List.of());
-            group.addStandardAttributes(Observation.class);
+            group = StandardAttributeGenerator.generate(group, "Observartion");
 
             Observation result = transformer.transform(src, group, Observation.class);
 

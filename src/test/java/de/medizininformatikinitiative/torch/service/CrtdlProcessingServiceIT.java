@@ -11,11 +11,7 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -78,11 +74,7 @@ class CrtdlProcessingServiceIT {
 
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
-
-
     ContainerManager manager;
-
-
     BundleCreator bundleCreator;
 
     @Autowired
@@ -91,7 +83,6 @@ class CrtdlProcessingServiceIT {
 
     @BeforeAll
     void init() throws IOException {
-
 
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
         CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);

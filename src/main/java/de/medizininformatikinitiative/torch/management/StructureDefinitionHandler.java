@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -10,19 +10,20 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Structure for loading and serving the CDS structure definitions
  */
 
 @Component
-public class CdsStructureDefinitionHandler {
+public class StructureDefinitionHandler {
 
 
     private final HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
     protected ResourceReader resourceReader;
 
-    public CdsStructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
+    public StructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
         try {
             this.resourceReader = resourceReader;
             processDirectory(fileDirectory);
@@ -31,6 +32,12 @@ public class CdsStructureDefinitionHandler {
         }
     }
 
+    /**
+     * @return Keyset of the underlying Map managing profiles and their Structure Definitions.
+     */
+    public Set<String> knownProfiles() {
+        return Set.copyOf(definitionsMap.keySet());
+    }
 
     /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
@@ -86,7 +93,12 @@ public class CdsStructureDefinitionHandler {
     }
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
-        return (definitionsMap.get(url)).getSnapshot();
+        if (definitionsMap.get(url) != null) {
+            return (definitionsMap.get(url)).getSnapshot();
+        } else {
+            throw new IllegalArgumentException("Unknown Profile: " + url);
+        }
+
 
     }
 

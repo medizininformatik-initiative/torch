@@ -4,15 +4,11 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.util.TerserUtil;
 import ca.uhn.fhir.util.TerserUtilHelper;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import org.hl7.fhir.instance.model.api.IBase;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,7 +25,7 @@ public class ElementCopier {
 
     private final FhirContext ctx;
 
-    private final CdsStructureDefinitionHandler handler;
+    private final StructureDefinitionHandler handler;
 
     private final FhirPathBuilder pathBuilder;
     private final IFhirPath fhirPathEngine;
@@ -40,7 +36,7 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+    public ElementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
         this.handler = handler;
         this.ctx = ctx;
         this.pathBuilder = fhirPathBuilder;

@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.setup;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.util.*;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.slf4j.Logger;
@@ -16,7 +16,7 @@ public class IntegrationTestSetup {
     private static final Logger logger = LoggerFactory.getLogger(IntegrationTestSetup.class);
 
     private final FhirContext ctx;
-    private final CdsStructureDefinitionHandler cds;
+    private final StructureDefinitionHandler structHandler;
     private final ElementCopier copier;
     private final ObjectMapper objectMapper;
     private final Redaction redaction;
@@ -27,15 +27,15 @@ public class IntegrationTestSetup {
     public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
-        this.cds = new CdsStructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
+        this.structHandler = new StructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
         Slicing slicing = new Slicing(ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
 
         builder = new FhirPathBuilder(slicing);
-        this.copier = new ElementCopier(cds, ctx, builder);
-        this.redaction = new Redaction(cds, slicing);
+        this.copier = new ElementCopier(structHandler, ctx, builder);
+        this.redaction = new Redaction(structHandler, slicing);
 
         logger.info("Base test setup complete with immutable configurations.");
     }
@@ -49,8 +49,8 @@ public class IntegrationTestSetup {
         return ctx;
     }
 
-    public CdsStructureDefinitionHandler getCds() {
-        return cds;
+    public StructureDefinitionHandler structureDefinitionHandler() {
+        return structHandler;
     }
 
     public ElementCopier copier() {

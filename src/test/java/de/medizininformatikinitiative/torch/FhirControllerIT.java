@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -73,7 +75,7 @@ public class FhirControllerIT {
 
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
-    protected final CdsStructureDefinitionHandler cds;
+    protected final StructureDefinitionHandler cds;
     protected BundleCreator bundleCreator;
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
@@ -95,7 +97,7 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
