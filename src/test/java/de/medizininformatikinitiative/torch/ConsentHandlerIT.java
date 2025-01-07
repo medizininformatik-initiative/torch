@@ -3,6 +3,8 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.consent.PatientConsentInfo;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -56,7 +58,7 @@ class ConsentHandlerIT {
 
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
-    protected final CdsStructureDefinitionHandler cds;
+    protected final StructureDefinitionHandler cds;
     protected BundleCreator bundleCreator;
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
@@ -78,7 +80,7 @@ class ConsentHandlerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public ConsentHandlerIT(ResourceTransformer transformer, DataStore dataStore, CdsStructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public ConsentHandlerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;

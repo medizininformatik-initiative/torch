@@ -5,7 +5,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import org.hl7.fhir.r4.model.DomainResource;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,8 +19,22 @@ public record AttributeGroup(
         String groupReference,
         @JsonProperty(required = true)
         List<Attribute> attributes,
-        List<Filter> filter
-) {
+        List<Filter> filter,
+        @JsonProperty
+        Boolean includeReferenceOnly) {
+
+    /**
+     * @param groupReference
+     * @param attributes
+     * @param filter         Primary constructor for directly accessed groups
+     */
+    public AttributeGroup(
+            String groupReference,
+            List<Attribute> attributes,
+            List<Filter> filter
+    ) {
+        this(groupReference, attributes, filter, false); // Default value for includeReferenceOnly
+    }
 
     // Canonical Constructor with validation for filter duplicates and UUID generation
     public AttributeGroup {
@@ -65,25 +78,14 @@ public record AttributeGroup(
         }
     }
 
-    public <T extends DomainResource> AttributeGroup addStandardAttributes(Class<T> resourceClass) {
+    public AttributeGroup addAttributes(List<Attribute> newAttributes) {
+
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
-
-        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".id", true));
-        tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".meta.profile", true));
-
-        if (!org.hl7.fhir.r4.model.Patient.class.equals(resourceClass) && !org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".subject.reference", true));
-        }
-        if (org.hl7.fhir.r4.model.Consent.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".patient.reference", true));
-        }
-        if (org.hl7.fhir.r4.model.Observation.class.equals(resourceClass)) {
-            tempAttributes.add(new Attribute(resourceClass.getSimpleName() + ".status", true));
-        }
-        return new AttributeGroup(groupReference, tempAttributes, filter);
+        tempAttributes.addAll(newAttributes);
+        return new AttributeGroup(groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
-    //TODO Should be extracted from StructureDef Type attribute.
+    //TODO Should this extracted from StructureDef Type attribute?
     public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }
@@ -91,4 +93,5 @@ public record AttributeGroup(
     public boolean hasMustHave() {
         return attributes.stream().anyMatch(Attribute::mustHave);
     }
+
 }

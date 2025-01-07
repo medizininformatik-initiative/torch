@@ -5,15 +5,16 @@ import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.ConsentHandler;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
@@ -115,6 +116,11 @@ public class AppConfig {
                 .defaultHeader("Accept", "application/sq+json");
 
         return builder.build();
+    }
+
+    @Bean
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler);
     }
 
     @Bean
@@ -236,7 +242,7 @@ public class AppConfig {
     }
 
     @Bean
-    public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
         return new ElementCopier(handler, ctx, fhirPathBuilder);
     }
 
@@ -246,7 +252,7 @@ public class AppConfig {
     }
 
     @Bean
-    public Redaction redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
+    public Redaction redaction(StructureDefinitionHandler cds, Slicing slicing) {
         return new Redaction(cds, slicing);
     }
 
@@ -257,7 +263,7 @@ public class AppConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx, objectMapper);
     }
 
@@ -267,8 +273,8 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader resourceReader) {
-        return new CdsStructureDefinitionHandler(dir, resourceReader);
+    public StructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader resourceReader) {
+        return new StructureDefinitionHandler(dir, resourceReader);
     }
 
     @Bean
@@ -296,6 +302,7 @@ public class AppConfig {
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
     }
+
 
     @Bean
     @Qualifier("oauth")
