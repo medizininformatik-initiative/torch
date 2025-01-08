@@ -30,7 +30,7 @@ class AttributeGroupPopulatorTest {
                 new Attribute("Observation.implicitRules", false),
                 new Attribute("Observation.modifierExtension", false),
                 new Attribute("Observation.identifier:analyseBefundCode.use", false),
-                new Attribute("Observation.status", false),
+                new Attribute("Observation.status", true),
                 new Attribute("Observation.value[x]:valueQuantity.comparator", false),
                 new Attribute("Observation.referenceRange.modifierExtension", false),
                 new Attribute("Observation.component.modifierExtension", false)

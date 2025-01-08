@@ -30,7 +30,11 @@ public class ModifierAttributeGenerator {
             if (element.hasIsModifier()) {
                 if (element.getIsModifier()) {
                     //Must have false, since modifiers don't always exist.
-                    attributeList.add(new Attribute(element.getId(), false));
+                    Boolean mustHave = false;
+                    if (element.getMin() >= 1) {
+                        mustHave = true;
+                    }
+                    attributeList.add(new Attribute(element.getId(), mustHave));
                 }
             }
         });

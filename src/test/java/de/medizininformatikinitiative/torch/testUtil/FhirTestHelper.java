@@ -78,8 +78,8 @@ public class FhirTestHelper {
 
                 Resource actualResource = actualResourceMap.get(profileKey);
 
-                assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource))
-                        .isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource));
+                assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(actualResource))
+                        .isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedResource));
             }
         }
     }

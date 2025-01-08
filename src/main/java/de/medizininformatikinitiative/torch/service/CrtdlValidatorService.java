@@ -22,6 +22,12 @@ public class CrtdlValidatorService {
         this.attributeGroupPopulator = new AttributeGroupPopulator(profileHandler);
     }
 
+    /**
+     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifiers
+     *
+     * @param crtdl to be validated
+     * @return modified crtdl or illegalArgumentException if a profile is unknown.
+     */
     public Crtdl validate(Crtdl crtdl) {
         Set<String> profiles = new HashSet<>();
         profiles.addAll(profileHandler.knownProfiles());
@@ -40,9 +46,7 @@ public class CrtdlValidatorService {
         profiles.forEach(profile -> {
             groupList.add(new AttributeGroup(profile, List.of(), List.of(), true));
         });
-        groupList.forEach(group -> {
-            group = attributeGroupPopulator.populate(group);
-        });
+        groupList.replaceAll(attributeGroupPopulator::populate);
         return new Crtdl(crtdl.cohortDefinition(), new DataExtraction(groupList));
     }
 
