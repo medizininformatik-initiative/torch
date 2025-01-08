@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -121,19 +122,13 @@ public class ResourceTransformer {
     }
 
     public <T extends DomainResource> T transform(T resourceSrc, AttributeGroup group, Class<T> resourceClass) throws MustHaveViolatedException, TargetClassCreationException, PatientIdNotFoundException {
-
         T tgt = createTargetResource(resourceClass);
         logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
-
-        group = group.addStandardAttributes(resourceClass.getSimpleName());
-
-
+        group = StandardAttributeGenerator.generate(group, resourceClass.getSimpleName());
         for (Attribute attribute : group.attributes()) {
             copier.copy(resourceSrc, tgt, attribute);
         }
-
         redaction.redact(tgt);
-
         return tgt;
     }
 

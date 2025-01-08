@@ -36,7 +36,7 @@ public class StructureDefinitionHandler {
      * @return Keyset of the underlying Map managing profiles and their Structure Definitions.
      */
     public Set<String> knownProfiles() {
-        return definitionsMap.keySet();
+        return Set.copyOf(definitionsMap.keySet());
     }
 
     /**

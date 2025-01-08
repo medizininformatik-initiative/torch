@@ -7,20 +7,24 @@ import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
 public class CrtdlValidatorService {
 
     private StructureDefinitionHandler profileHandler;
+    private final AttributeGroupPopulator attributeGroupPopulator;
 
 
     public CrtdlValidatorService(StructureDefinitionHandler profileHandler) {
         this.profileHandler = profileHandler;
+        this.attributeGroupPopulator = new AttributeGroupPopulator(profileHandler);
     }
 
     public Crtdl validate(Crtdl crtdl) {
-        Set<String> profiles = profileHandler.knownProfiles();
+        Set<String> profiles = new HashSet<>();
+        profiles.addAll(profileHandler.knownProfiles());
         List<AttributeGroup> groupList = new ArrayList<>();
 
 
@@ -28,17 +32,16 @@ public class CrtdlValidatorService {
             StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
             if (definition != null) {
                 profiles.remove(attributeGroup.groupReference());
-                groupList.add(attributeGroup.addStandardAttributes(definition.getType()));
+                groupList.add(attributeGroup);
             } else {
                 throw new IllegalArgumentException("Unknown Profile: " + attributeGroup.groupReference());
             }
         });
         profiles.forEach(profile -> {
-            //new constructor by profile or attributecreator class
-            StructureDefinition definition = profileHandler.getDefinition(profile);
-            //get Attributes by Profile
-
             groupList.add(new AttributeGroup(profile, List.of(), List.of(), true));
+        });
+        groupList.forEach(group -> {
+            group = attributeGroupPopulator.populate(group);
         });
         return new Crtdl(crtdl.cohortDefinition(), new DataExtraction(groupList));
     }

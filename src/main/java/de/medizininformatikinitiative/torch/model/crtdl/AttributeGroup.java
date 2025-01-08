@@ -77,27 +77,15 @@ public record AttributeGroup(
                     .toList();
         }
     }
-    
-    public AttributeGroup addStandardAttributes(String className) {
+
+    public AttributeGroup addAttributes(List<Attribute> newAttributes) {
+
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
-
-        tempAttributes.add(new Attribute(className + ".id", true));
-        tempAttributes.add(new Attribute(className + ".meta.profile", true));
-
-        //Hardcode with sets or similar
-        if (!"Patient".equals(className) && !"Consent".equals(className)) {
-            tempAttributes.add(new Attribute(className + ".subject.reference", true));
-        }
-        if ("Consent".equals(className)) {
-            tempAttributes.add(new Attribute(className + ".patient.reference", true));
-        }
-        if ("Observation".equals(className)) {
-            tempAttributes.add(new Attribute(className + ".status", true));
-        }
+        tempAttributes.addAll(newAttributes);
         return new AttributeGroup(groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
-    //TODO Should be extracted from StructureDef Type attribute.
+    //TODO Should this extracted from StructureDef Type attribute?
     public String resourceType() {
         return attributes.getFirst().attributeRef().split("\\.")[0];
     }
@@ -105,4 +93,5 @@ public record AttributeGroup(
     public boolean hasMustHave() {
         return attributes.stream().anyMatch(Attribute::mustHave);
     }
+
 }
