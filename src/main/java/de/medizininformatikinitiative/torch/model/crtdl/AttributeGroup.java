@@ -77,14 +77,14 @@ public record AttributeGroup(
                     .toList();
         }
     }
-
-
+    
     public AttributeGroup addStandardAttributes(String className) {
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
 
         tempAttributes.add(new Attribute(className + ".id", true));
         tempAttributes.add(new Attribute(className + ".meta.profile", true));
 
+        //Hardcode with sets or similar
         if (!"Patient".equals(className) && !"Consent".equals(className)) {
             tempAttributes.add(new Attribute(className + ".subject.reference", true));
         }
@@ -94,7 +94,7 @@ public record AttributeGroup(
         if ("Observation".equals(className)) {
             tempAttributes.add(new Attribute(className + ".status", true));
         }
-        return new AttributeGroup(groupReference, tempAttributes, filter);
+        return new AttributeGroup(groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
     //TODO Should be extracted from StructureDef Type attribute.
