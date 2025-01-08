@@ -16,7 +16,7 @@ public class IntegrationTestSetup {
     private static final Logger logger = LoggerFactory.getLogger(IntegrationTestSetup.class);
 
     private final FhirContext ctx;
-    private final StructureDefinitionHandler cds;
+    private final StructureDefinitionHandler structHandler;
     private final ElementCopier copier;
     private final ObjectMapper objectMapper;
     private final Redaction redaction;
@@ -27,15 +27,15 @@ public class IntegrationTestSetup {
     public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
-        this.cds = new StructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
+        this.structHandler = new StructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
         Slicing slicing = new Slicing(ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
 
         builder = new FhirPathBuilder(slicing);
-        this.copier = new ElementCopier(cds, ctx, builder);
-        this.redaction = new Redaction(cds, slicing);
+        this.copier = new ElementCopier(structHandler, ctx, builder);
+        this.redaction = new Redaction(structHandler, slicing);
 
         logger.info("Base test setup complete with immutable configurations.");
     }
@@ -49,8 +49,8 @@ public class IntegrationTestSetup {
         return ctx;
     }
 
-    public StructureDefinitionHandler getCds() {
-        return cds;
+    public StructureDefinitionHandler structureDefinitionHandler() {
+        return structHandler;
     }
 
     public ElementCopier copier() {

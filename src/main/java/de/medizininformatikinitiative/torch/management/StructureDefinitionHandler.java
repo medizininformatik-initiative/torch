@@ -93,7 +93,12 @@ public class StructureDefinitionHandler {
     }
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
-        return (definitionsMap.get(url)).getSnapshot();
+        if (definitionsMap.get(url) != null) {
+            return (definitionsMap.get(url)).getSnapshot();
+        } else {
+            throw new IllegalArgumentException("Unknown Profile: " + url);
+        }
+
 
     }
 

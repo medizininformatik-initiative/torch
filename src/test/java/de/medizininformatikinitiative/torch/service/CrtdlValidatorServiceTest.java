@@ -20,7 +20,7 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void invalidProfile() {
-        CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.getCds());
+        CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler());
         JsonNode node = JsonNodeFactory.instance.objectNode();
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("invalid", List.of(), List.of()))));
 
@@ -32,7 +32,7 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void validProfile() {
-        CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.getCds());
+        CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler());
         JsonNode node = JsonNodeFactory.instance.objectNode();
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of()))));
 
