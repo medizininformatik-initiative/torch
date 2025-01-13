@@ -5,24 +5,20 @@ import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
-
+import static de.medizininformatikinitiative.torch.testUtil.FhirTestHelper.emptyAttributeGroup;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class AttributeGroupPopulatorTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
-
+    private final AttributeGroupPopulator generator = new AttributeGroupPopulator(itSetup.structureDefinitionHandler());
 
     @Test
     void generate() {
-        AttributeGroupPopulator generator = new AttributeGroupPopulator(itSetup.structureDefinitionHandler());
-        AttributeGroup group = new AttributeGroup(
-                "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
-                , List.of(), List.of());
 
+        AttributeGroup group = emptyAttributeGroup(
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
 
-        assertThat(generator.populate(group).attributes()).hasSize(10);
         assertThat(generator.populate(group).attributes()).containsExactly(
                 new Attribute("Observation.id", true),
                 new Attribute("Observation.meta.profile", true),
@@ -39,12 +35,11 @@ class AttributeGroupPopulatorTest {
 
     @Test
     void generateInvalidProfile() {
-        AttributeGroupPopulator generator = new AttributeGroupPopulator(itSetup.structureDefinitionHandler());
-        AttributeGroup group = new AttributeGroup("invalid", List.of(), List.of());
-
+        AttributeGroup group = emptyAttributeGroup(
+                "unkown");
         assertThatThrownBy(() -> {
             generator.populate(group);
         }).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unknown Profile: invalid");
+                .hasMessageContaining("Unknown Profile: unkown");
     }
 }

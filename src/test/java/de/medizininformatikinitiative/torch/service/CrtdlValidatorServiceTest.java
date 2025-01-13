@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
@@ -10,7 +11,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 
@@ -19,26 +19,29 @@ class CrtdlValidatorServiceTest {
 
 
     @Test
-    void invalidProfile() {
+    void unknownProfile() {
         CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler());
         JsonNode node = JsonNodeFactory.instance.objectNode();
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("invalid", List.of(), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("unknown.test", List.of(), List.of()))));
 
         assertThatThrownBy(() -> {
             validatorService.validate(crtdl);
         }).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Unknown Profile: invalid");
+                .hasMessageContaining("Unknown Profile: unknown.test");
     }
 
     @Test
-    void validProfile() {
+    void unknownAttribute() {
         CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler());
         JsonNode node = JsonNodeFactory.instance.objectNode();
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Condition.unknown", false)), List.of()))));
 
-        Crtdl validatedCrtdl = validatorService.validate(crtdl);
 
-        assertThat(validatedCrtdl.dataExtraction().attributeGroups()).hasSize(10);
+        assertThatThrownBy(() -> {
+            validatorService.validate(crtdl);
+        }).isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Unknown Attributes in https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
     }
+
 
 }

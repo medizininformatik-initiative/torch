@@ -27,15 +27,8 @@ public class ModifierAttributeGenerator {
         List<Attribute> attributeList = new ArrayList<>();
         StructureDefinition.StructureDefinitionSnapshotComponent definition = structureDefinitionHandler.getSnapshot(group.groupReference());
         definition.getElement().forEach(element -> {
-            if (element.hasIsModifier()) {
-                if (element.getIsModifier()) {
-                    //Must have false, since modifiers don't always exist.
-                    Boolean mustHave = false;
-                    if (element.getMin() >= 1) {
-                        mustHave = true;
-                    }
-                    attributeList.add(new Attribute(element.getId(), mustHave));
-                }
+            if (element.hasIsModifier() && element.getIsModifier()) {
+                attributeList.add(new Attribute(element.getId(), element.getMin() >= 1));
             }
         });
         return group.addAttributes(attributeList);

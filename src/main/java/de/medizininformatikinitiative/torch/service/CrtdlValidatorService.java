@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
+import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.util.ArrayList;
@@ -27,8 +27,12 @@ public class CrtdlValidatorService {
      *
      * @param crtdl to be validated
      * @return modified crtdl or illegalArgumentException if a profile is unknown.
+     * <p>
+     * MedicationStatement.medication -> Attributgruppe Medication
+     * TODO: attribut in snapshot nachschlagen und wenn referenz -> potenzielle profile identifizieren
+     * und dann nur diese hinzufügen.
      */
-    public Crtdl validate(Crtdl crtdl) {
+    public void validate(Crtdl crtdl) {
         Set<String> profiles = new HashSet<>();
         profiles.addAll(profileHandler.knownProfiles());
         List<AttributeGroup> groupList = new ArrayList<>();
@@ -37,17 +41,17 @@ public class CrtdlValidatorService {
         crtdl.dataExtraction().attributeGroups().forEach(attributeGroup -> {
             StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
             if (definition != null) {
-                profiles.remove(attributeGroup.groupReference());
-                groupList.add(attributeGroup);
+                attributeGroup.attributes().forEach(attribute -> {
+                    ElementDefinition elementDefinition = definition.getSnapshot().getElementById(attribute.attributeRef());
+                    if (elementDefinition == null) {
+                        throw new IllegalArgumentException("Unknown Attributes in " + attributeGroup.groupReference());
+                    }
+                });
+
             } else {
                 throw new IllegalArgumentException("Unknown Profile: " + attributeGroup.groupReference());
             }
         });
-        profiles.forEach(profile -> {
-            groupList.add(new AttributeGroup(profile, List.of(), List.of(), true));
-        });
-        groupList.replaceAll(attributeGroupPopulator::populate);
-        return new Crtdl(crtdl.cohortDefinition(), new DataExtraction(groupList));
     }
 
 }

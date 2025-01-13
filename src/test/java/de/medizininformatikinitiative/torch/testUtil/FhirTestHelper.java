@@ -2,7 +2,13 @@ package de.medizininformatikinitiative.torch.testUtil;
 
 
 import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
@@ -148,6 +154,23 @@ public class FhirTestHelper {
             }
         }
         throw new RuntimeException("Health check failed for service: " + service + " at " + url);
+    }
+
+
+    public static AttributeGroup emptyAttributeGroup(String profile) {
+        return createAttributeGroup(profile, List.of());
+    }
+
+
+    public static AttributeGroup createAttributeGroup(String profile, List<Attribute> attributes) {
+        return new AttributeGroup(profile, attributes, List.of());
+    }
+
+    Crtdl createCRTDL(List<AttributeGroup> groupList) {
+        JsonNode node = JsonNodeFactory.instance.objectNode();
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(groupList));
+
+        return crtdl;
     }
 
 }

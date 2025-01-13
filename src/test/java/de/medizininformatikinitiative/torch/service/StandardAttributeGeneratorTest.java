@@ -25,9 +25,8 @@ class StandardAttributeGeneratorTest {
             assertThat(standardAddedGroup.attributes()).containsExactly(
                     new Attribute("Patient.name", false),
                     new Attribute("Patient.id", true),
-                    new Attribute("Patient.meta.profile", true))
-            ;
-
+                    new Attribute("Patient.meta.profile", true)
+            );
         }
 
         @Test
@@ -43,7 +42,6 @@ class StandardAttributeGeneratorTest {
                     new Attribute("Consent.meta.profile", true),
                     new Attribute("Consent.patient.reference", true)
             );
-
         }
 
         @Test
@@ -59,7 +57,6 @@ class StandardAttributeGeneratorTest {
                     new Attribute("Observation.meta.profile", true),
                     new Attribute("Observation.subject.reference", true)
             );
-
         }
 
         @Test
@@ -77,8 +74,6 @@ class StandardAttributeGeneratorTest {
             );
 
         }
-
-
     }
 
 }
