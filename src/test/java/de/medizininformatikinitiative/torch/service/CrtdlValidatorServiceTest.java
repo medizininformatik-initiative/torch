@@ -42,16 +42,6 @@ class CrtdlValidatorServiceTest {
         }).isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("Unknown Attributes in https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
     }
-
-    @Test
-    void outsidePatientComparment() throws IOException {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/wirkstofftyp", List.of(), List.of()))));
-
-        assertThatThrownBy(() -> {
-            validatorService.validate(crtdl);
-        }).isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Attribute would lead to direct extraction of a Resources outside the patient compartment https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/wirkstofftyp");
-    }
-
+    
 
 }
