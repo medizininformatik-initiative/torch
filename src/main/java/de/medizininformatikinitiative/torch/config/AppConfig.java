@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
@@ -115,6 +116,11 @@ public class AppConfig {
                 .defaultHeader("Accept", "application/sq+json");
 
         return builder.build();
+    }
+
+    @Bean
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler);
     }
 
     @Bean
@@ -296,6 +302,7 @@ public class AppConfig {
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
     }
+
 
     @Bean
     @Qualifier("oauth")

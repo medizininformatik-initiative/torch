@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
@@ -123,6 +124,11 @@ public class TestConfig {
     @Bean
     FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader) {
         return new FhirTestHelper(context, resourceReader);
+    }
+
+    @Bean
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler);
     }
 
 

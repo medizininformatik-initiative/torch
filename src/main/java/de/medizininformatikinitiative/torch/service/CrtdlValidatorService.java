@@ -20,13 +20,12 @@ public class CrtdlValidatorService {
     }
 
     /**
-     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifier
+     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifiers.
      *
-     * @param crtdl to be validated
-     * @return modified crtdl or ValidationException if a profile is unknown.
-     * <p>
+     * @param crtdl the Crtdl to be validated.
+     * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
      */
-    public void validate(Crtdl crtdl) throws ValidationException {
+    public Crtdl validate(Crtdl crtdl) throws ValidationException {
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
             StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
             if (definition != null) {
@@ -40,6 +39,7 @@ public class CrtdlValidatorService {
                 throw new ValidationException("Unknown Profile: " + attributeGroup.groupReference());
             }
         }
+        return crtdl;
     }
 
 }
