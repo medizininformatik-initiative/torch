@@ -23,8 +23,7 @@ public class StandardAttributeGenerator {
 
         tempAttributes.add(new Attribute(resourceType + ".id", true));
         tempAttributes.add(new Attribute(resourceType + ".meta.profile", true));
-
-        //TODO Hardcode with sets or similar?
+        
         if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
             tempAttributes.add(new Attribute(resourceType + ".subject.reference", true));
         }

@@ -1,13 +1,14 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
 
 public class CrtdlValidatorService {
 
@@ -19,33 +20,27 @@ public class CrtdlValidatorService {
     }
 
     /**
-     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifiers
+     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifier
      *
      * @param crtdl to be validated
-     * @return modified crtdl or illegalArgumentException if a profile is unknown.
+     * @return modified crtdl or ValidationException if a profile is unknown.
      * <p>
-     * MedicationStatement.medication -> Attributgruppe Medication
-     * und dann nur diese hinzufügen.
      */
-    public void validate(Crtdl crtdl) throws IllegalArgumentException {
-        Set<String> profiles = new HashSet<>();
-        profiles.addAll(profileHandler.knownProfiles());
-
-
-        crtdl.dataExtraction().attributeGroups().forEach(attributeGroup -> {
+    public void validate(Crtdl crtdl) throws ValidationException {
+        for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
             StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
             if (definition != null) {
-                attributeGroup.attributes().forEach(attribute -> {
+                for (Attribute attribute : attributeGroup.attributes()) {
                     ElementDefinition elementDefinition = definition.getSnapshot().getElementById(attribute.attributeRef());
                     if (elementDefinition == null) {
-                        throw new IllegalArgumentException("Unknown Attributes in " + attributeGroup.groupReference());
+                        throw new ValidationException("Unknown Attributes in " + attributeGroup.groupReference());
                     }
-                });
+                }
             } else {
-                throw new IllegalArgumentException("Unknown Profile: " + attributeGroup.groupReference());
+                throw new ValidationException("Unknown Profile: " + attributeGroup.groupReference());
             }
-        });
+        }
     }
 
-
 }
+
