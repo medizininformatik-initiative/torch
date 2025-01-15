@@ -36,7 +36,15 @@ public record AttributeGroup(
         this(groupReference, attributes, filter, false); // Default value for includeReferenceOnly
     }
 
-    // Canonical Constructor with validation for filter duplicates and UUID generation
+
+    /**
+     * Canonical Constructor with validation for filter duplicates and UUID generation
+     *
+     * @param groupReference
+     * @param attributes
+     * @param filter
+     * @param includeReferenceOnly
+     */
     public AttributeGroup {
         requireNonNull(groupReference);
         attributes = List.copyOf(attributes);
@@ -50,9 +58,9 @@ public record AttributeGroup(
         return filters.stream().filter(filter -> "date".equals(filter.type())).count() > 1;
     }
 
-    public List<Query> queries(DseMappingTreeBase mappingTreeBase) {
+    public List<Query> queries(DseMappingTreeBase mappingTreeBase, String resourceType) {
         return queryParams(mappingTreeBase).stream()
-                .map(params -> Query.of(resourceType(), params))
+                .map(params -> Query.of(resourceType, params))
                 .toList();
     }
 

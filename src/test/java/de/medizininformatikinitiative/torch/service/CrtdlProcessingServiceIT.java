@@ -51,7 +51,6 @@ class CrtdlProcessingServiceIT {
 
     private final CrtdlProcessingService service;
 
-
     protected WebClient webClient;
     private Crtdl CRTDL_ALL_OBSERVATIONS;
     private Crtdl CRTDL_NO_PATIENTS;

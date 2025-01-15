@@ -158,7 +158,7 @@ class AttributeGroupTest {
             var tokenFilter = new Filter("token", "code", List.of(CODE1));
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
-            var result = attributeGroup.queries(mappingTreeBase);
+            var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
             assertThat(result).containsExactly(
                     new Query("Patient", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile", stringValue("groupRef")))
@@ -172,7 +172,7 @@ class AttributeGroupTest {
             var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2));
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
-            var result = attributeGroup.queries(mappingTreeBase);
+            var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
             assertThat(result).containsExactly(
                     new Query("Patient", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile", stringValue("groupRef"))),
@@ -185,7 +185,7 @@ class AttributeGroupTest {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.name", false)), List.of(dateFilter));
 
-            var result = attributeGroup.queries(mappingTreeBase);
+            var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
                     new Query("Observation", QueryParams.of("date", dateValue(GREATER_EQUAL, DATE_START)).appendParam("date", dateValue(LESS_EQUAL, DATE_END)).appendParam("_profile", stringValue("groupRef")))
@@ -197,7 +197,7 @@ class AttributeGroupTest {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
             var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter));
 
-            var result = attributeGroup.queries(mappingTreeBase);
+            var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
             assertThat(result).containsExactly(
                     new Query("Patient", QueryParams.of("_profile", stringValue("groupRef")))
