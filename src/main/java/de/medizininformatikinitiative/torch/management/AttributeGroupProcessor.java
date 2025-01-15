@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.management;
 
+import de.medizininformatikinitiative.torch.model.ProcessedGroups;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 
@@ -35,12 +36,4 @@ public class AttributeGroupProcessor {
         return new ProcessedGroups(firstPass, secondPass, groups);
     }
 
-    public record ProcessedGroups(List<AttributeGroup> firstPass, List<AttributeGroup> secondPass,
-                                  Map<String, AttributeGroup> groups) {
-        public ProcessedGroups(List<AttributeGroup> firstPass, List<AttributeGroup> secondPass, Map<String, AttributeGroup> groups) {
-            this.firstPass = List.copyOf(firstPass); // Immutable lists
-            this.secondPass = List.copyOf(secondPass);
-            this.groups = Map.copyOf(groups);       // Immutable map
-        }
-    }
 }

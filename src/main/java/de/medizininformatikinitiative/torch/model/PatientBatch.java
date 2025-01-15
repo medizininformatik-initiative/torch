@@ -53,10 +53,10 @@ public record PatientBatch(List<String> ids) {
      * @return Search Param
      */
     public QueryParams compartmentSearchParam(String resourceType) {
-        return QueryParams.of(patientSearchParam(resourceType), searchParamValue(resourceType));
+        return QueryParams.of(patientSearchParam(resourceType), searchPatientParamValue(resourceType));
     }
 
-    private QueryParams.Value searchParamValue(String type) {
+    private QueryParams.Value searchPatientParamValue(String type) {
         if ("Patient".equals(type)) {
             return multiStringValue(ids);
         } else {
