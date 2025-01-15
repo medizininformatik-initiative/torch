@@ -102,6 +102,15 @@ public class StructureDefinitionHandler {
 
     }
 
+    public String getResourceType(String url) {
+        if (definitionsMap.get(url) != null) {
+            return (definitionsMap.get(url)).getType();
+        } else {
+            throw new IllegalArgumentException("Unknown Profile: " + url);
+        }
+
+    }
+
 
     /**
      * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap

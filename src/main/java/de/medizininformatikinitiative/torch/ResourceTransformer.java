@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.consent.ConsentInfo;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
@@ -43,14 +44,16 @@ public class ResourceTransformer {
     private final ConsentHandler handler;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
+    private final StructureDefinitionHandler structueDefinitionHandler;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
+        this.structueDefinitionHandler = structureDefinitionHandler;
     }
 
     /**
@@ -89,7 +92,7 @@ public class ResourceTransformer {
      * @return Flux of transformed Resources with attribute, consent and batch conditions applied
      */
     public Flux<Resource> fetchAndTransformResources(ConsentInfo batch, AttributeGroup group) {
-        List<Query> queries = group.queries(dseMappingTreeBase);
+        List<Query> queries = group.queries(dseMappingTreeBase, structueDefinitionHandler.getResourceType(group.groupReference()));
         PatientBatch queryBatch = batch.patientBatch();
 
         return Flux.fromIterable(queries)
