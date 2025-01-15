@@ -20,7 +20,7 @@ public record AttributeGroup(
         @JsonProperty(required = true)
         List<Attribute> attributes,
         List<Filter> filter,
-        @JsonProperty
+        @JsonProperty()
         Boolean includeReferenceOnly) {
 
     /**
@@ -51,6 +51,9 @@ public record AttributeGroup(
         filter = filter == null ? List.of() : List.copyOf(filter);
         if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
+        }
+        if (includeReferenceOnly == null) {
+            includeReferenceOnly = false;
         }
     }
 

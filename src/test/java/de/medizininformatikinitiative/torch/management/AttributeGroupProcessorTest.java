@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import de.medizininformatikinitiative.torch.model.ProcessedGroups;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -34,12 +35,11 @@ class AttributeGroupProcessorTest {
     @Test
     void process() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(group, group2, group3)));
-        AttributeGroupProcessor.ProcessedGroups result = processor.process(crtdl);
+        ProcessedGroups result = processor.process(crtdl);
 
         assertThat(result.groups()).isEqualTo(resultMap);
         assertThat(result.firstPass()).containsExactly(group);
         assertThat(result.secondPass()).containsExactly(group2);
-
     }
 
 

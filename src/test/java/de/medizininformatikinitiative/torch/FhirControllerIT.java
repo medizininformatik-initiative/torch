@@ -222,7 +222,7 @@ public class FhirControllerIT {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatch patients = PatientBatch.of("3");
-        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
+        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
         Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
@@ -242,7 +242,7 @@ public class FhirControllerIT {
     private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException {
         try (FileInputStream fis = new FileInputStream(filePath)) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl, patients);
+            Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
 
             StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
                 Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);

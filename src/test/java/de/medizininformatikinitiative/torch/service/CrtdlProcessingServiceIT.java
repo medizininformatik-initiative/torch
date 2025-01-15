@@ -137,10 +137,10 @@ class CrtdlProcessingServiceIT {
     @Test
     void testProcessBatchWritesFiles() throws IOException {
 
-        PatientBatch batch = PatientBatch.of("1", "2"); // Sample batch with patient references
+        PatientBatch batch = PatientBatch.of("1", "2");// Sample batch with patient references
 
         // Act
-        Mono<Void> result = service.processBatch(CRTDL_ALL_OBSERVATIONS, batch, jobId);
+        Mono<Void> result = service.processBatch(CRTDL_ALL_OBSERVATIONS.dataExtraction().attributeGroups(), batch, jobId, CRTDL_ALL_OBSERVATIONS.consentKey());
 
         // Assert
         StepVerifier.create(result)

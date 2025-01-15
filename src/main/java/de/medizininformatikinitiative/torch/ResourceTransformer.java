@@ -8,7 +8,6 @@ import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.consent.ConsentInfo;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -57,28 +56,27 @@ public class ResourceTransformer {
     }
 
     /**
-     * @param crtdl CRTDL to be applied on batch
-     * @param batch Batch of PatIDs
+     * @param attributeGroups CRTDL to be applied on batch
+     * @param batch           Batch of PatIDs
+     * @param consentKey
      * @return extracted Resources grouped by PatientID
      */
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(Crtdl crtdl, PatientBatch batch) {
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(List<AttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
-        Optional<String> key = crtdl.consentKey();
+        Optional<String> key = consentKey;
         return key.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
-                        .flatMap(consentInfo -> processBatchWithConsent(crtdl, consentInfo)))
-                .orElseGet(() -> processBatchWithConsent(crtdl, ConsentInfo.fromBatch(batch)));
+                        .flatMap(consentInfo -> processBatchWithConsent(attributeGroups, consentInfo)))
+                .orElseGet(() -> processBatchWithConsent(attributeGroups, ConsentInfo.fromBatch(batch)));
     }
 
-    private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(Crtdl crtdl, ConsentInfo consentInfo) {
+    private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(List<AttributeGroup> attributeGroups, ConsentInfo consentInfo) {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(consentInfo.patientBatch().ids());
-        return processAttributeGroups(crtdl, consentInfo, safeSet).collectList()
+        return processAttributeGroups(attributeGroups, consentInfo, safeSet).collectList()
                 .map(resourceLists -> flattenAndFilterResourceLists(resourceLists, safeSet))
                 .doOnSuccess(result -> logger.trace("Successfully collected resources {}", result.size()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
-
-
     }
 
 
@@ -147,10 +145,10 @@ public class ResourceTransformer {
     }
 
 
-    private Flux<Map<String, Collection<Resource>>> processAttributeGroups(Crtdl crtdl,
+    private Flux<Map<String, Collection<Resource>>> processAttributeGroups(List<AttributeGroup> attributeGroups,
                                                                            ConsentInfo batch,
                                                                            Set<String> safeSet) {
-        return Flux.fromIterable(crtdl.dataExtraction().attributeGroups())
+        return Flux.fromIterable(attributeGroups)
                 .flatMap(group -> processSingleAttributeGroup(group, batch, safeSet));
     }
 
