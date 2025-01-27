@@ -67,7 +67,6 @@ public class CrtdlProcessingService {
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.attributeGroupProcessor = attributeGroupProcessor;
-
     }
 
 
@@ -76,16 +75,23 @@ public class CrtdlProcessingService {
 
         //structure type+resourcenid -> resource
         //record type id
+        //reference map : referenceURL -> resourcenID,ElementID
+        //write out if no reference needed?
+        //Should a patient specific resource  jump out of that context? Technically yes e.g. same person has multiple ids
 
 
         ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
 
         //First Pass
-        return fetchPatientBatches(crtdl).flatMap(batch -> processBatch(processedGroups.firstPass(), batch, jobId, crtdl.consentKey()), maxConcurrency)
+       /* return fetchPatientBatches(crtdl).flatMap(batch -> processBatch(processedGroups.firstPass(), batch, jobId, crtdl.consentKey()), maxConcurrency)
                 //second Pass with attribute Groups
                 //reference Handling
                 //writeOut
                 .then();
+    */
+
+        return fetchPatientBatches(crtdl).flatMap(batch -> transformer.collectResourcesByPatientReference(processedGroups.firstPass(), batch, crtdl.consentKey()), maxConcurrency)
+                .filter(resourceMap -> !resourceMap.isEmpty()).doOnError(error -> logger.error("Error in collectResources: {}", error.getMessage())).then();
     }
 
     Mono<Void> processBatch(List<AttributeGroup> firstPass, PatientBatch batch, String jobId, Optional<String> consentKey) {
