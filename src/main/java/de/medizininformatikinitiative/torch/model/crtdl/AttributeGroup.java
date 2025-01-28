@@ -16,6 +16,8 @@ import static java.util.Objects.requireNonNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
         @JsonProperty(required = true)
+        String id,
+        @JsonProperty(required = true)
         String groupReference,
         @JsonProperty(required = true)
         List<Attribute> attributes,
@@ -28,24 +30,26 @@ public record AttributeGroup(
      * @param attributes
      * @param filter         Primary constructor for directly accessed groups
      */
-    public AttributeGroup(
-            String groupReference,
-            List<Attribute> attributes,
-            List<Filter> filter
+    public AttributeGroup(String id,
+                          String groupReference,
+                          List<Attribute> attributes,
+                          List<Filter> filter
     ) {
-        this(groupReference, attributes, filter, false); // Default value for includeReferenceOnly
+        this(id, groupReference, attributes, filter, false); // Default value for includeReferenceOnly
     }
 
 
     /**
      * Canonical Constructor with validation for filter duplicates and UUID generation
      *
+     * @param id
      * @param groupReference
      * @param attributes
      * @param filter
      * @param includeReferenceOnly
      */
     public AttributeGroup {
+        requireNonNull(id);
         requireNonNull(groupReference);
         attributes = List.copyOf(attributes);
         filter = filter == null ? List.of() : List.copyOf(filter);
@@ -93,7 +97,7 @@ public record AttributeGroup(
 
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AttributeGroup(groupReference, tempAttributes, filter, includeReferenceOnly);
+        return new AttributeGroup("test", groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
     //TODO Should this extracted from StructureDef Type attribute?

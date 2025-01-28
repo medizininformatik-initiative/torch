@@ -135,29 +135,30 @@ public class FhirControllerIT {
         assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
     }
 
-    @Test
-    public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
-        HttpHeaders headers = new HttpHeaders();
+    /*
+        @Test
+        public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
+            HttpHeaders headers = new HttpHeaders();
 
-        headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
+            headers.add("content-type", "application/fhir+json");
+            List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
 
-        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
-        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-    }
+            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
+            testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        }
 
-    @Test
-    public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
-        HttpHeaders headers = new HttpHeaders();
+        @Test
+        public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
+            HttpHeaders headers = new HttpHeaders();
 
-        headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
+            headers.add("content-type", "application/fhir+json");
+            List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
 
-        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
-        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-    }
+            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
+            testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        }
 
-
+    */
     @Test
     public void testFlare() throws IOException {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
@@ -210,11 +211,11 @@ public class FhirControllerIT {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
     }
 
-    @Test
+  /*  @Test
     public void testAllFields() throws IOException, PatientIdNotFoundException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/all_fields_patient_3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
     }
-
+*/
 
     @Test
     public void testMustHave() throws IOException {

@@ -26,7 +26,7 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void unknownProfile() throws ValidationException {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("unknown.test", List.of(), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
 
         assertThatThrownBy(() -> {
             validatorService.validate(crtdl);
@@ -38,7 +38,7 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void unknownAttribute() throws ValidationException {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Condition.unknown", false)), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Condition.unknown", false)), List.of()))));
 
         assertThatThrownBy(() -> {
             validatorService.validate(crtdl);
