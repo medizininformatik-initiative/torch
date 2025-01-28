@@ -37,7 +37,7 @@ class AttributeGroupTest {
         var dateFilter1 = new Filter("date", "dateField1", DATE_START, DATE_END);
         var dateFilter2 = new Filter("date", "dateField2", DATE_START, DATE_END);
 
-        assertThatThrownBy(() -> new AttributeGroup("groupRef", List.of(), List.of(dateFilter1, dateFilter2)))
+        assertThatThrownBy(() -> new AttributeGroup("test", "groupRef", List.of(), List.of(dateFilter1, dateFilter2)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate date type filter found");
     }
@@ -56,7 +56,8 @@ class AttributeGroupTest {
         void parseJson() throws JsonProcessingException {
 
             var result = mapper.readValue("""
-                     {"groupReference": "test",
+                     {"id":"testID",
+                     "groupReference": "test",
                             "attributes": [
                               {
                                 "attributeRef": "Condition.code",
@@ -65,7 +66,7 @@ class AttributeGroupTest {
                             ]
                     }
                     """, AttributeGroup.class);
-
+            assertThat(result.id()).isEqualTo("testID");
             assertThat(result.groupReference()).isEqualTo("test");
             assertThat(result.attributes()).containsExactly(new Attribute("Condition.code", false));
         }
@@ -74,7 +75,7 @@ class AttributeGroupTest {
         void parseJsonSuccess() throws JsonProcessingException {
 
             var result = mapper.readValue("""
-                    {
+                    {  "id":"testID",
                       "groupReference": "test",
                       "attributes": [
                         {
@@ -103,6 +104,7 @@ class AttributeGroupTest {
                       ]
                     }
                     """, AttributeGroup.class);
+            assertThat(result.id()).isEqualTo("testID");
 
             assertThat(result.groupReference()).isEqualTo("test");
             assertThat(result.attributes()).containsExactly(new Attribute("Condition.code", false));
@@ -116,6 +118,7 @@ class AttributeGroupTest {
         void parseJson2DatesFail() {
             assertThatThrownBy(() -> mapper.readValue("""
                      {
+                     "id": "testID",
                        "groupReference": "test",
                        "attributes": [
                          {
@@ -156,7 +159,7 @@ class AttributeGroupTest {
         void oneCode() {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1));
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
@@ -170,7 +173,7 @@ class AttributeGroupTest {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2));
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
@@ -183,7 +186,7 @@ class AttributeGroupTest {
         @Test
         void dateFilter() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.name", false)), List.of(dateFilter));
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Observation.name", false)), List.of(dateFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
@@ -195,7 +198,7 @@ class AttributeGroupTest {
         @Test
         void dateFilterIgnoredForPatients() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter));
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of(dateFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
@@ -210,14 +213,14 @@ class AttributeGroupTest {
 
         @Test
         void testTrue() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", true)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", true)), List.of());
 
             assertThat(attributeGroup.hasMustHave()).isTrue();
         }
 
         @Test
         void testFalse() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
             assertThat(attributeGroup.hasMustHave()).isFalse();
         }

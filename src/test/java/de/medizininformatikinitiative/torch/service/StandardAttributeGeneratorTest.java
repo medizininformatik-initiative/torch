@@ -17,7 +17,7 @@ class StandardAttributeGeneratorTest {
 
         @Test
         void patient() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Patient.name", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
             var standardAddedGroup = generate(attributeGroup, "Patient");
 
@@ -31,7 +31,7 @@ class StandardAttributeGeneratorTest {
 
         @Test
         void consent() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
 
             var standardAddedGroup = generate(attributeGroup, "Consent");
 
@@ -46,7 +46,7 @@ class StandardAttributeGeneratorTest {
 
         @Test
         void observation() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
 
             var standardAddedGroup = generate(attributeGroup, "Observation");
 
@@ -61,7 +61,7 @@ class StandardAttributeGeneratorTest {
 
         @Test
         void defaultCase() {
-            var attributeGroup = new AttributeGroup("groupRef", List.of(new Attribute("Condition.code", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Condition.code", false)), List.of());
 
             var standardAddedGroup = generate(attributeGroup, "Condition");
 

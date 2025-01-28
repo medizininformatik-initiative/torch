@@ -42,6 +42,7 @@
   "dataExtraction": {
     "attributeGroups": [
       {
+        "id": "Condition",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
           {
