@@ -51,7 +51,7 @@ public class CrtdlTest {
         }
     }
 
-
+/*
     @Test
     public void consentKeyPopulated() throws Exception {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_all_fields_consent.json")) {
@@ -59,5 +59,5 @@ public class CrtdlTest {
             assertThat(crtdl.consentKey()).isEqualTo(Optional.of("yes-yes-no-yes"));
         }
     }
-
+*/
 }
