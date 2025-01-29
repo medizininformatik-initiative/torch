@@ -7,7 +7,7 @@ torch:
     dir: structureDefinitions
   mapping:
     consent: mappings/consent-mappings_fhir.json
-    consent_to_profile: mappings/profile_to_consent.json
+    consent_to_profile: mappings/type_to_consent.json
   fhir:
     user: ""
     password: ""

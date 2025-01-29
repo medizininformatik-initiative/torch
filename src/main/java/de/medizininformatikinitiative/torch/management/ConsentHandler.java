@@ -51,7 +51,7 @@ public class ConsentHandler {
     public static final String CDS_ENCOUNTER_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
     private final DataStore dataStore;
     private final ConsentCodeMapper mapper;
-    private final JsonNode mappingProfiletoDateField;
+    private final JsonNode resourcetoField;
     private final FhirContext ctx;
     private final FhirPathBuilder fhirPathBuilder;
     private final StructureDefinitionHandler structureDefinitionHandler;
@@ -73,7 +73,7 @@ public class ConsentHandler {
         this.fhirPathBuilder = new FhirPathBuilder(new Slicing(ctx));
         this.structureDefinitionHandler = structureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
-        mappingProfiletoDateField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
+        resourcetoField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
     }
 
     /**
@@ -103,29 +103,15 @@ public class ConsentHandler {
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
     public boolean checkConsent(DomainResource resource, ConsentInfo consentInfo) {
-        logger.trace("Checking consent for {} {}", resource.getResourceType(), resource.getId());
-        Iterator<CanonicalType> profileIterator = resource.getMeta().getProfile().iterator();
         JsonNode fieldValue = null;
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = null;
-
-        logger.trace("Checking consent for resource of type: {} with {} profiles", resource.getResourceType(), resource.getMeta().getProfile().size());
-
-        while (profileIterator.hasNext()) {
-            String profile = profileIterator.next().asStringValue();
-            logger.trace("Evaluating profile: {}", profile);
-
-            if (mappingProfiletoDateField.has(profile)) {
-                logger.trace("Handling the following Profile {}", profile);
-                fieldValue = mappingProfiletoDateField.get(profile);
-                logger.trace("Fieldvalue {}", fieldValue);
-                snapshot = structureDefinitionHandler.getSnapshot(profile);
-                logger.trace("Profile matched. FieldValue for profile {}: {}", profile, fieldValue);
-                break; // Exit after finding the first match
-            }
+        if (resourcetoField.has(resource.getResourceType().toString())) {
+            logger.trace("Handling the following Profile {}", resource.getResourceType());
+            fieldValue = resourcetoField.get(resource.getResourceType().toString());
+            logger.trace("Fieldvalue {}", fieldValue);
         }
 
         if (fieldValue == null) {
-            logger.warn("No matching profile found for resource {} of type: {}", resource.getId(), resource.getResourceType());
+            logger.warn("No matching ResourceType found for resource  of type: {}", resource.getResourceType());
             return false;
         }
         if (fieldValue.asText().isEmpty()) {
@@ -133,9 +119,7 @@ public class ConsentHandler {
             return true;
         } else {
             logger.trace("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
-
-            String fhirPath = fhirPathBuilder.handleSlicingForFhirPath(fieldValue.asText(), snapshot)[0];
-            List<Base> values = ctx.newFhirPath().evaluate(resource, fhirPath, Base.class);
+            List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
 
             logger.trace("Evaluated FHIRPath expression, found {} values.", values.size());
 
