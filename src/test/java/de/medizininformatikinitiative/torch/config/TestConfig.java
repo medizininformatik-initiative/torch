@@ -8,6 +8,8 @@ import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.management.AttributeGroupProcessor;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -66,6 +68,19 @@ public class TestConfig {
     @Value("${torch.mapping.type_to_consent}")
     private String consentToProfileFilePath;
 
+    @Value("compartmentdefinition-patient.json")
+    private String compartmentPath;
+
+    @Bean
+    public CompartmentManager compartmentManager() throws IOException {
+        return new CompartmentManager(compartmentPath);
+    }
+
+    @Bean
+    public AttributeGroupProcessor attributeGroupProcessor(CompartmentManager manager) {
+        return new AttributeGroupProcessor(manager);
+    }
+
 
     @Bean
     public CrtdlProcessingService crtdlProcessingService(
@@ -75,13 +90,17 @@ public class TestConfig {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             BundleCreator bundleCreator,
+            AttributeGroupProcessor attributeGroupProcessor,
+            ConsentHandler handler,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
             @Value("${torch.useCql}") boolean useCql) {
 
+
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, bundleCreator,
+                transformer, bundleCreator, attributeGroupProcessor,
                 batchSize, maxConcurrency, useCql);
+
     }
 
     // Bean for the FHIR WebClient initialized with the dynamically determined URL
@@ -246,9 +265,9 @@ public class TestConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler);
     }
 
     @Bean
