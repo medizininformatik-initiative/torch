@@ -72,6 +72,9 @@ public class AppConfig {
     @Value("${torch.mapping.consent}")
     private String consentFilePath;
 
+    @Value("${torch.mapping.type_to_consent}")
+    private String consentToProfileFilePath;
+
 
     @Bean
     @Qualifier("fhirClient")
@@ -263,8 +266,8 @@ public class AppConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx, objectMapper);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, cds, ctx, objectMapper);
     }
 
     @Bean
