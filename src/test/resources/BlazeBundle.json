@@ -323,7 +323,6 @@
                 "end": "2025-12-31T00:00:00+01:00"
               }
             }
-
           ],
           "type": "deny",
           "period": {
@@ -356,12 +355,11 @@
         "dateTime": "2021-01-01T00:00:00+01:00",
         "status": "active",
         "id": "VHF00006-CO-1"
-      },  "request": {
-      "method": "PUT",
-      "url": "Consent/VHF00006-CO-1"
-    }
-
-
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Consent/VHF00006-CO-1"
+      }
     },
     {
       "fullUrl": "Encounter/VHF00006-E-1-A-1",
@@ -1042,7 +1040,8 @@
         "method": "PUT",
         "url": "Patient/4"
       }
-    }, {
+    },
+    {
       "fullUrl": "Consent/4-CO-1",
       "resource": {
         "patient": {
@@ -1230,7 +1229,6 @@
                 "end": "2030-12-31T00:00:00+01:00"
               }
             }
-
           ],
           "type": "deny",
           "period": {
@@ -1263,12 +1261,11 @@
         "dateTime": "2019-01-01T00:00:00+01:00",
         "status": "active",
         "id": "4-CO-1"
-      },  "request": {
+      },
+      "request": {
         "method": "PUT",
         "url": "Consent/4-CO-1"
       }
-
-
     },
     {
       "resource": {
@@ -1322,6 +1319,63 @@
       "request": {
         "method": "PUT",
         "url": "Condition/5"
+      }
+    },
+    {
+      "fullUrl": "Medication/Medication-1931880247",
+      "resource": {
+        "resourceType": "Medication",
+        "id": "Medication-1931880247",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+          ]
+        },
+        "identifier": [
+          {
+            "value": "Medication-1931880247"
+          }
+        ],
+        "code": {
+          "coding": [
+            {
+              "system": "http://fhir.de/CodeSystem/bfarm/atc",
+              "code": "N06AA25",
+              "userSelected": true
+            }
+          ],
+          "text": "ATC_AMITRYPTILIN"
+        },
+        "ingredient": [
+          {
+            "itemCodeableConcept": {
+              "coding": [
+                {
+                  "system": "http://fhir.de/CodeSystem/ask",
+                  "code": "<DUMMY VALUE FOR KDS Warning Suppression - no test value available>",
+                  "display": "no code defined"
+                }
+              ]
+            },
+            "strength": {
+              "numerator": {
+                "value": 11,
+                "unit": "milligram",
+                "system": "http://unitsofmeasure.org",
+                "code": "mg"
+              },
+              "denominator": {
+                "value": 1,
+                "system": "http://XXX",
+                "code": "Filmtabletten"
+              }
+            }
+          }
+        ]
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Medication/Medication-1931880247"
       }
     }
   ]

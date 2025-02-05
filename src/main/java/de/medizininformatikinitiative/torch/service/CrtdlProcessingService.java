@@ -94,6 +94,66 @@ public class CrtdlProcessingService {
                 .filter(resourceMap -> !resourceMap.isEmpty()).doOnError(error -> logger.error("Error in collectResources: {}", error.getMessage())).then();
     }
 
+
+    // Get Patient Cohort
+    // Check cohort for Consent
+    // Fetch First Pass -> by batch and checking consent? Apply must haves
+    // Fetch Second Pass outside patient compartment + apply must haves
+    // Resolve References
+    // Extract
+
+    public Mono<Void> process(Crtdl crtdl, String jobID) {
+        ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
+        Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
+        Mono<Collection<Resource>> secondPassResources = fetchCoreData(processedGroups.secondPass());
+
+        return collectAndMergeResources(batches, processedGroups.firstPass(), secondPassResources, crtdl.consentKey())
+                .flatMap(mergedResources -> saveResourcesAsBundles(jobID, mergedResources))
+                .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
+                .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
+                .then();
+    }
+
+
+    public Mono<Map<String, Collection<Resource>>> collectAndMergeResources(
+            Flux<PatientBatch> batches,
+            List<AttributeGroup> firstPassGroups,
+            Mono<Collection<Resource>> secondPassResources,
+            Optional<String> consentKey) {
+
+        return Mono.zip(
+                batches
+                        .flatMap(batch -> transformer.collectResourcesByPatientReference(firstPassGroups, batch, consentKey)
+                                .filter(resourceMap -> !resourceMap.isEmpty()), maxConcurrency)
+                        .collectList(),
+                secondPassResources
+        ).map(tuple -> {
+            List<Map<String, Collection<Resource>>> processedList = tuple.getT1();
+            Collection<Resource> secondPass = tuple.getT2();
+
+            // Merge all first pass maps into one
+            Map<String, Collection<Resource>> merged = new HashMap<>();
+            processedList.forEach(resourceMap ->
+                    resourceMap.forEach((key, value) ->
+                            merged.merge(key, value, (existing, newValues) -> {
+                                existing.addAll(newValues);
+                                return existing;
+                            })
+                    )
+            );
+            merged.put("core", secondPass);
+            return merged;
+        });
+    }
+
+    private Mono<Collection<Resource>> fetchCoreData(List<AttributeGroup> attributeGroups) {
+        return Flux.fromIterable(attributeGroups)
+                .flatMap(group -> transformer.fetchAndTransformResources(Optional.empty(), group), maxConcurrency)
+                .collectList()
+                .map(ArrayList::new); // Ensures it returns Collection<Resource> instead of List<Resource>
+    }
+
+
     Mono<Void> processBatch(List<AttributeGroup> firstPass, PatientBatch batch, String jobId, Optional<String> consentKey) {
         logger.trace("Processing batch {}", batch);
 
