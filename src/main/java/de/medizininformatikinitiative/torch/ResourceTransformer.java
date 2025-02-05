@@ -73,7 +73,7 @@ public class ResourceTransformer {
     private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(List<AttributeGroup> attributeGroups, ConsentInfo consentInfo) {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(consentInfo.patientBatch().ids());
-        return processAttributeGroups(attributeGroups, consentInfo, safeSet).collectList()
+        return processAttributeGroups(attributeGroups, Optional.of(consentInfo), Optional.of(safeSet)).collectList()
                 .map(resourceLists -> flattenAndFilterResourceLists(resourceLists, safeSet))
                 .doOnSuccess(result -> logger.trace("Successfully collected resources {}", result.size()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
@@ -89,13 +89,18 @@ public class ResourceTransformer {
      * @param group Attribute Group
      * @return Flux of transformed Resources with attribute, consent and batch conditions applied
      */
-    public Flux<Resource> fetchAndTransformResources(ConsentInfo batch, AttributeGroup group) {
+    public Flux<Resource> fetchAndTransformResources(Optional<ConsentInfo> batch, AttributeGroup group) {
         List<Query> queries = group.queries(dseMappingTreeBase, structueDefinitionHandler.getResourceType(group.groupReference()));
-        PatientBatch queryBatch = batch.patientBatch();
+        if (batch.isPresent()) {
 
-        return Flux.fromIterable(queries)
-                .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
-                .flatMap(resource -> applyConsentAndTransform((DomainResource) resource, group, batch));
+            PatientBatch queryBatch = batch.get().patientBatch();
+            return Flux.fromIterable(queries)
+                    .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
+                    .flatMap(resource -> applyConsentAndTransform((DomainResource) resource, group, batch.get()));
+        } else {
+            return Flux.fromIterable(queries)
+                    .flatMap(dataStore::search, queryConcurrency);
+        }
     }
 
 
@@ -146,44 +151,57 @@ public class ResourceTransformer {
 
 
     private Flux<Map<String, Collection<Resource>>> processAttributeGroups(List<AttributeGroup> attributeGroups,
-                                                                           ConsentInfo batch,
-                                                                           Set<String> safeSet) {
+                                                                           Optional<ConsentInfo> batch,
+                                                                           Optional<Set<String>> safeSet) {
         return Flux.fromIterable(attributeGroups)
                 .flatMap(group -> processSingleAttributeGroup(group, batch, safeSet));
     }
 
     private Mono<Map<String, Collection<Resource>>> processSingleAttributeGroup(AttributeGroup group,
-                                                                                ConsentInfo batch,
-                                                                                Set<String> safeSet) {
+                                                                                Optional<ConsentInfo> batch,
+                                                                                Optional<Set<String>> safeSet) {
         logger.trace("Processing attribute group: {}", group);
 
-        Set<String> safeGroup = new HashSet<>();
-        if (!group.hasMustHave()) {
-            safeGroup.addAll(batch.patientBatch().ids());
-            logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
+        // If batch is empty, collect all resources under "core" and return
+        if (batch.isEmpty() && safeSet.isEmpty()) {
+            return fetchAndTransformResources(Optional.empty(), group)
+                    .collectMultimap(resource -> "core") // Everything goes under "core"
+                    .map(map -> {
+                        logger.trace("Collected resources under 'core' for group {}: {}", group.id(), map.size());
+                        return new HashMap<>(map);
+                    });
         }
 
-        return fetchAndTransformResources(batch, group)
-                .filter(resource -> {
-                    boolean isNonEmpty = !resource.isEmpty();
-                    logger.trace("Resource is non-isEmpty: {}", isNonEmpty);
-                    return isNonEmpty;
-                })
-                .collectMultimap(resource -> {
-                    try {
-                        String id = ResourceUtils.patientId((DomainResource) resource);
-                        safeGroup.add(id);
-                        logger.trace("Adding patient ID to safe group: {}", id);
-                        return id;
-                    } catch (PatientIdNotFoundException e) {
-                        throw new RuntimeException(e);
-                    }
-                })
-                .doOnNext(map -> {
-                    logger.trace("Collected map for group {}: {}", group, map);
-                    safeSet.retainAll(safeGroup); // Retain only patients present in both sets
-                    logger.trace("Updated safe set after retention: {}", safeSet);
-                });
+        if (batch.isPresent() && safeSet.isPresent()) {
+            Set<String> safeGroup = new HashSet<>();
+            if (!group.hasMustHave()) {
+                safeGroup.addAll(batch.get().patientBatch().ids());
+                logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
+            }
+
+            return fetchAndTransformResources(batch, group)
+                    .filter(resource -> {
+                        boolean isNonEmpty = !resource.isEmpty();
+                        logger.trace("Resource is non-isEmpty: {}", isNonEmpty);
+                        return isNonEmpty;
+                    })
+                    .collectMultimap(resource -> {
+                        try {
+                            String id = ResourceUtils.patientId((DomainResource) resource);
+                            safeGroup.add(id);
+                            logger.trace("Adding patient ID to safe group: {}", id);
+                            return id;
+                        } catch (PatientIdNotFoundException e) {
+                            throw new RuntimeException(e);
+                        }
+                    })
+                    .doOnNext(map -> {
+                        logger.trace("Collected map for group {}: {}", group, map);
+                        safeSet.get().retainAll(safeGroup); // Retain only patients present in both sets
+                        logger.trace("Updated safe set after retention: {}", safeSet);
+                    });
+        }
+        return Mono.empty();
     }
 
 
@@ -207,6 +225,4 @@ public class ResourceTransformer {
                         }
                 ));
     }
-
-
 }

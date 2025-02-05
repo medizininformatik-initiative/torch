@@ -15,6 +15,8 @@ import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AttributeGroup(
+        @JsonProperty()
+        String name,
         @JsonProperty(required = true)
         String id,
         @JsonProperty(required = true)
@@ -35,7 +37,7 @@ public record AttributeGroup(
                           List<Attribute> attributes,
                           List<Filter> filter
     ) {
-        this(id, groupReference, attributes, filter, false); // Default value for includeReferenceOnly
+        this("", id, groupReference, attributes, filter, false); // Default value for includeReferenceOnly
     }
 
 
@@ -97,7 +99,7 @@ public record AttributeGroup(
 
         List<Attribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AttributeGroup("test", groupReference, tempAttributes, filter, includeReferenceOnly);
+        return new AttributeGroup("test", "12345", groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
     //TODO Should this extracted from StructureDef Type attribute?

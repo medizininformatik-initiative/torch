@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
+
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,15 +16,15 @@ import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentRea
  */
 public class Redaction {
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-    private final CdsStructureDefinitionHandler CDS;
+    private final StructureDefinitionHandler CDS;
     private final Slicing slicing;
 
     /**
      * Constructor for Redaction
      *
-     * @param cds CDSStructureDefinitionHandler
+     * @param cds StructureDefinitionHandler
      */
-    public Redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
+    public Redaction(StructureDefinitionHandler cds, Slicing slicing) {
         this.CDS = cds;
         this.slicing = slicing;
     }

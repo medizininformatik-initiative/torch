@@ -20,9 +20,9 @@ class AttributeGroupProcessorTest {
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     AttributeGroupProcessor processor = new AttributeGroupProcessor(new CompartmentManager("compartmentdefinition-patient.json"));
-    AttributeGroup group = new AttributeGroup("Test", "patient", List.of(new Attribute("Patient.test", false)), List.of(), false);
-    AttributeGroup group2 = new AttributeGroup("Test2", "medication", List.of(new Attribute("Medication.test", false)), List.of(), false);
-    AttributeGroup group3 = new AttributeGroup("Test3", "medication2", List.of(new Attribute("Medication.test", false)), List.of(), true);
+    AttributeGroup group = new AttributeGroup("Test", "12345", "patient", List.of(new Attribute("Patient.test", false)), List.of(), false);
+    AttributeGroup group2 = new AttributeGroup("Test2", "1234567", "medication", List.of(new Attribute("Medication.test", false)), List.of(), false);
+    AttributeGroup group3 = new AttributeGroup("Test3", "1235678", "medication2", List.of(new Attribute("Medication.test", false)), List.of(), true);
     Map<String, AttributeGroup> resultMap = new HashMap<>();
 
 
