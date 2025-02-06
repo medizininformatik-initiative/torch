@@ -1,13 +1,13 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.MeasureReport;
-import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.instance.model.api.IBaseResource;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +35,8 @@ public class DataStore {
     private final FhirContext fhirContext;
     private final int pageCount;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
 
     @Autowired
     public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
@@ -44,6 +46,62 @@ public class DataStore {
         this.pageCount = pageCount;
     }
 
+    public Mono<DomainResource> fetchDomainResource(String reference) {
+        return fetchResourceByReference(reference).cast(DomainResource.class);
+    }
+
+
+    /**
+     * Loads a single resource by id
+     *
+     * @param reference Reference String of the resource to be loaded
+     * @return the resources found in {@param reference}
+     */
+    public Mono<Resource> fetchResourceByReference(String reference) {
+        if (reference.startsWith("http")) { // Absolute URL
+            return fetchAndParseResource(reference);
+        } else if (reference.contains("/")) { // Relative reference
+            String[] parts = reference.split("/");
+            if (parts.length != 2) {
+                return Mono.error(new IllegalArgumentException("Unexpected reference format: " + reference));
+            }
+            String type = parts[0];
+            String id = parts[1];
+
+            return fetchAndParseResource("/{type}/{id}", type, id);
+        } else {
+            return Mono.error(new IllegalArgumentException("Invalid FHIR reference format: " + reference));
+        }
+    }
+
+    private Mono<Resource> fetchAndParseResource(String url, Object... uriVariables) {
+        return client.get()
+                .uri(url, uriVariables)
+                .retrieve()
+                .bodyToMono(String.class)
+                .flatMap(this::parseFhirResource)
+                .doOnSuccess(resource -> logger.debug("Successfully fetched resource: {}", resource.getId()))
+                .doOnError(error -> logger.error("Failed to fetch resource {}: {}", url, error.getMessage()));
+    }
+
+    private Mono<Resource> parseFhirResource(String jsonBody) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(jsonBody);
+            if (!jsonNode.has("resourceType")) {
+                return Mono.error(new RuntimeException("Missing 'resourceType' field in response"));
+            }
+            String resourceType = jsonNode.get("resourceType").asText();
+            Class<? extends IBaseResource> resourceClass = fhirContext.getResourceDefinition(resourceType).getImplementingClass();
+            IBaseResource parsedResource = fhirContext.newJsonParser().parseResource(resourceClass, jsonBody);
+            if (parsedResource instanceof Resource resource) {
+                return Mono.just(resource);
+            } else {
+                return Mono.error(new ClassCastException("Parsed object is not a valid FHIR Resource: " + resourceClass.getSimpleName()));
+            }
+        } catch (Exception e) {
+            return Mono.error(new RuntimeException("Failed to parse FHIR resource", e));
+        }
+    }
 
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.

@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.management;
 
+import org.hl7.fhir.r4.model.Medication;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
@@ -26,6 +28,20 @@ public class CompartmentManagerTest {
         public void notContained() {
             assertThat(manager.isInCompartment("Medication")).isFalse();
         }
+    }
+
+    @Nested
+    class Resource {
+        @Test
+        public void contained() {
+            assertThat(manager.isInCompartment(new Patient())).isTrue();
+        }
+
+        @Test
+        public void notContained() {
+            assertThat(manager.isInCompartment(new Medication())).isFalse();
+        }
+
     }
 
 

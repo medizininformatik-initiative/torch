@@ -1001,7 +1001,10 @@
       "resource": {
         "resourceType": "Encounter",
         "id": "10",
-        "status": "unknown"
+        "status": "unknown",
+        "subject": {
+          "reference": "Patient/4"
+        }
       },
       "request": {
         "method": "PUT",

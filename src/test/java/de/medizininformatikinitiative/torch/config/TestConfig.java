@@ -4,20 +4,17 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
-import de.medizininformatikinitiative.torch.management.AttributeGroupProcessor;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.*;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.*;
@@ -77,10 +74,38 @@ public class TestConfig {
     }
 
     @Bean
-    public AttributeGroupProcessor attributeGroupProcessor(CompartmentManager manager) {
-        return new AttributeGroupProcessor(manager);
+    public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {
+        return new ProcessedGroupFactory(manager);
     }
 
+    @Bean
+    ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new ProfileMustHaveChecker(ctx);
+    }
+
+    @Bean
+    ReferenceResolver referenceResolver(FhirContext ctx, DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, ProfileMustHaveChecker profileMustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
+        return new ReferenceResolver(ctx, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+    }
+
+    @Bean
+    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
+        return new BatchReferenceProcessor(referenceResolver);
+    }
+
+    @Bean
+    BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {
+        return new BatchCopierRedacter(copier, redaction);
+    }
+
+
+    @Bean
+    BatchProcessingPipeline batchProcessingPipeline(DirectResourceLoader directLoader,
+                                                    BatchReferenceProcessor batchReferenceProcessor,
+                                                    BatchCopierRedacter batchCopierRedacter,
+                                                    @Value("5") int maxConcurrency) {
+        return new BatchProcessingPipeline(directLoader, batchReferenceProcessor, batchCopierRedacter, maxConcurrency);
+    }
 
     @Bean
     public CrtdlProcessingService crtdlProcessingService(
@@ -88,20 +113,14 @@ public class TestConfig {
             Translator cqlQueryTranslator,
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
-            ResourceTransformer transformer,
-            BundleCreator bundleCreator,
-            AttributeGroupProcessor attributeGroupProcessor,
-            ConsentHandler handler,
+            ProcessedGroupFactory processedGroupFactory,
             @Value("${torch.batchsize:10}") int batchSize,
-            @Value("5") int maxConcurrency,
-            @Value("${torch.useCql}") boolean useCql) {
-
-
+            @Value("${torch.useCql}") boolean useCql,
+            BatchProcessingPipeline batchProcessingPipeline) {
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, bundleCreator, attributeGroupProcessor,
-                batchSize, maxConcurrency, useCql);
-
+                processedGroupFactory, batchSize, useCql, batchProcessingPipeline);
     }
+
 
     // Bean for the FHIR WebClient initialized with the dynamically determined URL
     @Bean
@@ -148,8 +167,8 @@ public class TestConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler);
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager);
     }
 
 
@@ -237,21 +256,9 @@ public class TestConfig {
         return new CqlClient(fhirHelper, dataStore);
     }
 
-
     @Bean
-    FhirPathBuilder fhirPathBuilder(Slicing slicing) {
-        return new FhirPathBuilder(slicing);
-    }
-
-    @Bean
-    Slicing slicing(FhirContext ctx) {
-        return new Slicing(ctx);
-    }
-
-
-    @Bean
-    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
-        return new ElementCopier(handler, ctx, fhirPathBuilder);
+    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
+        return new ElementCopier(handler, ctx);
     }
 
     @Bean
@@ -260,14 +267,14 @@ public class TestConfig {
     }
 
     @Bean
-    public Redaction redaction(StructureDefinitionHandler cds, Slicing slicing) {
-        return new Redaction(cds, slicing);
+    public Redaction redaction(StructureDefinitionHandler cds) {
+        return new Redaction(cds);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler);
+        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
     }
 
     @Bean
@@ -294,11 +301,6 @@ public class TestConfig {
     @Bean
     public CapabilityStatementController capabilityStatementController() {
         return new CapabilityStatementController();
-    }
-
-    @Bean
-    public BundleCreator bundleCreator() {
-        return new BundleCreator();
     }
 
 
