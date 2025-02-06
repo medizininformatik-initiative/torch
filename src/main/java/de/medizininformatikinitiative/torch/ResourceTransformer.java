@@ -16,7 +16,9 @@ import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.StringType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -80,31 +82,34 @@ public class ResourceTransformer {
     }
 
 
-    /**
-     * Extracts for the Patient {@code batch}, by fetching the adequate resources from the FHIR Server defined in the
-     * {@code group}, checking them for consent using the {@code consentmap} and applying
-     * the transformation according to all attributes defined in the {@code group}.
-     *
-     * @param batch Batch of PatIDs
-     * @param group Attribute Group
-     * @return Flux of transformed Resources with attribute, consent and batch conditions applied
-     */
     public Flux<Resource> fetchAndTransformResources(Optional<ConsentInfo> batch, AttributeGroup group) {
         List<Query> queries = group.queries(dseMappingTreeBase, structueDefinitionHandler.getResourceType(group.groupReference()));
-        if (batch.isPresent()) {
 
+        if (batch.isPresent()) {
             PatientBatch queryBatch = batch.get().patientBatch();
             return Flux.fromIterable(queries)
                     .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
-                    .flatMap(resource -> applyConsentAndTransform((DomainResource) resource, group, batch.get()));
+                    .flatMap(resource -> {
+                        annotateResource((DomainResource) resource, group);
+                        return applyConsentAndTransform((DomainResource) resource, group, batch.get());
+                    });
         } else {
             return Flux.fromIterable(queries)
-                    .flatMap(dataStore::search, queryConcurrency);
+                    .flatMap(dataStore::search, queryConcurrency)
+                    .map(resource -> {
+                        annotateResource((DomainResource) resource, group);
+                        return resource;
+                    });
         }
     }
 
 
-    private Flux<Resource> executeQueryWithBatch(PatientBatch batch, Query query) {
+    private void annotateResource(DomainResource resource, AttributeGroup group) {
+        resource.addExtension(new Extension("torch://attributegroup.id", new StringType(group.id())));
+    }
+
+
+    Flux<Resource> executeQueryWithBatch(PatientBatch batch, Query query) {
         Query finalQuery = Query.of(query.type(), query.params().appendParams(batch.compartmentSearchParam(query.type())));
         logger.debug("Query for Patients {}", finalQuery);
 

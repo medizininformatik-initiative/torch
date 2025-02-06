@@ -22,7 +22,7 @@ public class ElementCopierIT {
     private final FhirContext fhirContext = FhirContext.forR4();
     private final ElementCopier copier = new ElementCopier(itSetup.structureDefinitionHandler(), fhirContext, itSetup.fhirPathBuilder());
 
-    //TODO To be put in another test class
+    
     @Test
     public void testDefinitionIsContained() {
         StructureDefinition definition = itSetup.structureDefinitionHandler().getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
