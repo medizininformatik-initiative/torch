@@ -2,45 +2,41 @@
   "resourceType": "Bundle",
   "id": "3",
   "type": "transaction",
-  "entry": [ {
-    "resource": {
-      "resourceType": "Condition",
-      "id": "4",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "4",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "45252009",
+              "display": "Example diagnosis 3"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/3"
+        },
+        "_recordedDate": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        }
       },
-      "code": {
-        "coding": [ {
-          "system": "http://snomed.info/sct",
-          "code": "45252009",
-          "display": "Example diagnosis 3"
-        } ]
-      },
-      "subject": {
-        "reference": "Patient/3"
-      },
-      "_recordedDate": {
-        "extension": [ {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        } ]
+      "request": {
+        "method": "PUT",
+        "url": "http://localhost:8080/fhir/Condition/4/_history/1"
       }
-    },
-    "request": {
-      "method": "PUT",
-      "url": "Condition/4"
     }
-  }, {
-    "resource": {
-      "resourceType": "Patient",
-      "id": "3",
-      "meta": {
-        "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient" ]
-      }
-    },
-    "request": {
-      "method": "PUT",
-      "url": "Patient/3"
-    }
-  } ]
+  ]
 }

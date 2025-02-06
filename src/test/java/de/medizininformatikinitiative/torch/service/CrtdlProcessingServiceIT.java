@@ -1,16 +1,14 @@
 package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,12 +27,8 @@ import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
-import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 
@@ -52,43 +46,47 @@ class CrtdlProcessingServiceIT {
     private final CrtdlProcessingService service;
 
     protected WebClient webClient;
-    private Crtdl CRTDL_ALL_OBSERVATIONS;
-    private Crtdl CRTDL_NO_PATIENTS;
+    private AnnotatedCrtdl CRTDL_ALL_OBSERVATIONS;
+    private AnnotatedCrtdl CRTDL_NO_PATIENTS;
+    private AnnotatedCrtdl CRTDL_DIAGNOSIS_LINKED;
 
-    private final String jobId;
-    private final Path jobDir;
+    String jobId;
+    Path jobDir;
 
     private static final int BATCH_SIZE = 100;
 
     @Autowired
-    public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
+    public CrtdlProcessingServiceIT(CrtdlProcessingService service, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
         this.service = service;
         this.webClient = webClient;
-        this.bundleCreator = bundleCreator;
         this.resultFileManager = resultFileManager;
         this.manager = containerManager;
-        jobId = UUID.randomUUID().toString();
-        jobDir = resultFileManager.initJobDir(jobId).block();
     }
 
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
     ContainerManager manager;
-    BundleCreator bundleCreator;
 
     @Autowired
     ResultFileManager resultFileManager;
 
+    @Autowired
+    CrtdlValidatorService validator;
+
 
     @BeforeAll
-    void init() throws IOException {
+    void init() throws IOException, ValidationException {
 
-        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
+        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
+        CRTDL_ALL_OBSERVATIONS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
-        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
+        CRTDL_NO_PATIENTS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
+        fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_linked_encounter.json");
+        CRTDL_DIAGNOSIS_LINKED = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        fis.close();
+
         manager.startContainers();
 
 
@@ -102,13 +100,39 @@ class CrtdlProcessingServiceIT {
         fis.close();
     }
 
+    @AfterAll
+    void cleanup() {
+        clearDirectory("processwithrefs");
+        clearDirectory("processwithoutrefs");
 
-    private boolean isDirectoryEmpty(Path directory) throws IOException {
-        // Try-with-resources for DirectoryStream
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            return !stream.iterator().hasNext();
+    }
+
+    /**
+     * Recursively deletes all files inside the given directory.
+     *
+     * @param jobId the name of the job directory to clean.
+     */
+    private void clearDirectory(String jobId) {
+        Path jobDir = resultFileManager.getJobDirectory(jobId);// Get the job directory path
+
+        if (jobDir != null && Files.exists(jobDir)) {
+            try {
+                Files.walk(jobDir)
+                        .sorted((p1, p2) -> p2.compareTo(p1)) // Delete children before parents
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (IOException e) {
+                                logger.error("Failed to delete file: {}", path, e);
+                            }
+                        });
+                logger.info("Cleared job directory: {}", jobDir);
+            } catch (IOException e) {
+                logger.error("Failed to clean job directory: {}", jobDir, e);
+            }
         }
     }
+
 
     @Nested
     class FetchPatientList {
@@ -135,26 +159,11 @@ class CrtdlProcessingServiceIT {
 
 
     @Test
-    void testProcessBatchWritesFiles() throws IOException {
+    void processReferences() {
+        String jobId = "processwithrefs";
+        jobDir = resultFileManager.initJobDir(jobId).block();
 
-        PatientBatch batch = PatientBatch.of("1", "2");// Sample batch with patient references
-
-        // Act
-        Mono<Void> result = service.processBatch(CRTDL_ALL_OBSERVATIONS.dataExtraction().attributeGroups(), batch, jobId, CRTDL_ALL_OBSERVATIONS.consentKey());
-
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify that the method completes successfully
-
-        // Verify that files were created in the job directory
-        assertTrue(Files.exists(jobDir), "Job directory should exist.");
-        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be isEmpty after processing.");
-    }
-
-
-    @Test
-    void processingService() {
-        Mono<Void> result = service.processCrtdl(CRTDL_ALL_OBSERVATIONS, jobId);
+        Mono<Void> result = service.process(CRTDL_DIAGNOSIS_LINKED, jobId, List.of());
 
 
         Assertions.assertDoesNotThrow(() -> result.block());
@@ -167,24 +176,15 @@ class CrtdlProcessingServiceIT {
         }
     }
 
+
     @Test
-    void testSaveResourcesAsBundles() {
+    void processingService() {
+        jobId = "processwithoutrefs";
+        jobDir = resultFileManager.initJobDir(jobId).block();
+        Mono<Void> result = service.process(CRTDL_ALL_OBSERVATIONS, jobId, List.of());
 
-        Map<String, Collection<Resource>> resourceMap = Map.of(
-                "Patient", List.of(new Patient()), // Replace with actual test FHIR resources
-                "Observation", List.of(new Observation())
-        );// Populate with test resources
 
-        // Act
-        Mono<Void> result = service.saveResourcesAsBundles(jobId, resourceMap);
-
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify that the method completes successfully
-
-        // Check that files were created in the job directory
-        assertTrue(Files.exists(jobDir), "Job directory should exist.");
-
+        Assertions.assertDoesNotThrow(() -> result.block());
         try (DirectoryStream<Path> stream = Files.newDirectoryStream(jobDir)) {
             boolean filesExist = stream.iterator().hasNext();
             assertTrue(filesExist, "Job directory should contain files.");
@@ -192,7 +192,6 @@ class CrtdlProcessingServiceIT {
             logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-
     }
 
 

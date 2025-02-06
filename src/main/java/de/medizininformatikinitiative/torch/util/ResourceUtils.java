@@ -35,7 +35,7 @@ public class ResourceUtils {
 
     }
 
-    //TODO: FHIRPath?
+
     private static String getPatientIdViaReflection(DomainResource resource) throws PatientIdNotFoundException {
 
         try {
@@ -111,6 +111,11 @@ public class ResourceUtils {
             }
         }
         return List.copyOf(matchingElements);
+    }
+
+    public static String getRelativeURL(Resource resource) {
+        return resource.fhirType() + "/" + resource.getIdPart();
+
     }
 
 

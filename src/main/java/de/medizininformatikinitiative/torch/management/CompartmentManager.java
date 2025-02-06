@@ -3,10 +3,12 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.hl7.fhir.r4.model.Resource;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 public class CompartmentManager {
@@ -14,7 +16,7 @@ public class CompartmentManager {
     private final Set<String> compartment;
 
     public CompartmentManager(String fileName) throws IOException {
-        File file = new File(getClass().getClassLoader().getResource(fileName).getFile());
+        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(fileName)).getFile());
         JsonNode rootNode = new ObjectMapper().readTree(file);
         Set<String> codes = new HashSet<>();
         if (rootNode.has("resource")) {
@@ -30,6 +32,10 @@ public class CompartmentManager {
             });
         }
         this.compartment = Set.copyOf(codes);
+    }
+
+    public boolean isInCompartment(Resource resource) {
+        return compartment.contains(resource.fhirType());
     }
 
     public boolean isInCompartment(String resourceType) {
