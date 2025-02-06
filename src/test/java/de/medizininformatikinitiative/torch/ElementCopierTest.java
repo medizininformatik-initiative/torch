@@ -42,7 +42,7 @@ public class ElementCopierTest {
         source.setMeta(meta);
         Observation tgt = new Observation();
         tgt.setMeta(new Meta());
-        String profile = source.getMeta().getProfile().getFirst().getValue();
+        String profile = source.getMeta().getProfile().get(1).getValue();
 
         copier.copy(source, tgt, new Attribute("Observation.meta.profile", false), profile);
 
