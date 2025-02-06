@@ -85,7 +85,7 @@ public class ResourceTransformationTest {
 
             Observation result = transformer.transform(src, group, Observation.class);
 
-            Mockito.verify(copier).copy(src, result, effective);
+            Mockito.verify(copier).copy(src, result, effective, group.groupReference());
         }
 
         @Test
@@ -97,7 +97,7 @@ public class ResourceTransformationTest {
 
             Observation result = transformer.transform(src, group, Observation.class);
 
-            Mockito.verify(copier).copy(src, result, effective);
+            Mockito.verify(copier).copy(src, result, effective, group.groupReference());
         }
 
         @Test
@@ -106,7 +106,7 @@ public class ResourceTransformationTest {
             src.setSubject(new Reference("Patient/123"));
             Attribute id = new Attribute("id", true);
             AttributeGroup group = new AttributeGroup("Test", "GroupRef", List.of(id), List.of());
-            doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id));
+            doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id), group.groupReference());
 
             assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(MustHaveViolatedException.class);
         }

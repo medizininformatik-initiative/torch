@@ -91,7 +91,7 @@ public class ResourceTransformer {
                     .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
                     .flatMap(resource -> {
                         annotateResource((DomainResource) resource, group);
-                        return applyConsentAndTransform((DomainResource) resource, group, batch.get());
+                        return applyConsent((DomainResource) resource, group, batch.get());
                     });
         } else {
             return Flux.fromIterable(queries)
@@ -116,18 +116,11 @@ public class ResourceTransformer {
         return dataStore.search(finalQuery);
     }
 
-    private Mono<Resource> applyConsentAndTransform(DomainResource resource, AttributeGroup group, ConsentInfo consentInfo) {
-        try {
-            if (!consentInfo.applyConsent() || handler.checkConsent(resource, consentInfo)) {
-                return Mono.just(transform(resource, group, resource.getClass().asSubclass(DomainResource.class)));
-            } else {
-                logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-                return Mono.empty();
-            }
-        } catch (PatientIdNotFoundException | TargetClassCreationException e) {
-            return Mono.error(e);
-        } catch (MustHaveViolatedException e) {
-            logger.warn("Must Have Violated resulting in dropped Resource {} {} {}", resource.getResourceType(), resource.getId(), e.getMessage());
+    private Mono<Resource> applyConsent(DomainResource resource, AttributeGroup group, ConsentInfo consentInfo) {
+        if (!consentInfo.applyConsent() || handler.checkConsent(resource, consentInfo)) {
+            return Mono.just(resource);
+        } else {
+            logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
             return Mono.empty();
         }
     }
@@ -137,7 +130,7 @@ public class ResourceTransformer {
         logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
         group = StandardAttributeGenerator.generate(group, resourceClass.getSimpleName());
         for (Attribute attribute : group.attributes()) {
-            copier.copy(resourceSrc, tgt, attribute);
+            copier.copy(resourceSrc, tgt, attribute, group.groupReference());
         }
         redaction.redact(tgt);
         return tgt;
