@@ -34,6 +34,7 @@ public class ResourceTransformationTest {
 
 
     private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
+    public static final String OBSERVATION = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
     @Mock
     DataStore dataStore;
     @Mock
@@ -80,7 +81,7 @@ public class ResourceTransformationTest {
             src.setSubject(new Reference("Patient/123"));
             src.setMeta(new Meta().addProfile("Test"));
             Attribute effective = new Attribute("Observation.effective", false);
-            AttributeGroup group = new AttributeGroup("Test", "GroupRef", List.of(effective), List.of());
+            AttributeGroup group = new AttributeGroup("Test", OBSERVATION, List.of(effective), List.of());
             group = StandardAttributeGenerator.generate(group, "Observation");
 
             Observation result = transformer.transform(src, group, Observation.class);
@@ -93,7 +94,7 @@ public class ResourceTransformationTest {
             Observation src = new Observation();
             src.setSubject(new Reference("Patient/123"));
             Attribute effective = new Attribute("Observation.effective", false);
-            AttributeGroup group = new AttributeGroup("Test", "GroupRef", List.of(effective), List.of());
+            AttributeGroup group = new AttributeGroup("Test", OBSERVATION, List.of(effective), List.of());
 
             Observation result = transformer.transform(src, group, Observation.class);
 
@@ -105,8 +106,8 @@ public class ResourceTransformationTest {
             Observation src = new Observation();
             src.setSubject(new Reference("Patient/123"));
             Attribute id = new Attribute("id", true);
-            AttributeGroup group = new AttributeGroup("Test", "GroupRef", List.of(id), List.of());
-            doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id), group.groupReference());
+            AttributeGroup group = new AttributeGroup("Test", OBSERVATION, List.of(id), List.of());
+            doThrow(MustHaveViolatedException.class).when(copier).copy(Mockito.eq(src), Mockito.any(), Mockito.eq(id), Mockito.eq(OBSERVATION));
 
             assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(MustHaveViolatedException.class);
         }
@@ -115,7 +116,7 @@ public class ResourceTransformationTest {
         void failWithPatientIdException() throws Exception {
             Observation src = new Observation();
             Attribute id = new Attribute("id", true);
-            AttributeGroup group = new AttributeGroup("Test", "GroupRef", List.of(id), List.of());
+            AttributeGroup group = new AttributeGroup("Test", OBSERVATION, List.of(id), List.of());
 
             assertThatThrownBy(() -> transformer.transform(src, group, Observation.class)).isInstanceOf(PatientIdNotFoundException.class);
         }
