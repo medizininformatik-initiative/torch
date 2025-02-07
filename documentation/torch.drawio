@@ -122,7 +122,7 @@
             <mxPoint x="-9" y="18" as="offset" />
           </mxGeometry>
         </mxCell>
-        <mxCell id="Brb8-mD9N2KLEKnw9XJb-256" value="&lt;div&gt;all profiles and&amp;nbsp;&lt;/div&gt;&lt;div&gt;attributes, referenced attribute groups?&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" parent="1" vertex="1">
+        <mxCell id="Brb8-mD9N2KLEKnw9XJb-256" value="&lt;div&gt;all profiles and&amp;nbsp;&lt;/div&gt;&lt;div&gt;attributes, referenced attribute allGroups?&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="-1510" y="-2160" width="140" height="120" as="geometry" />
         </mxCell>
         <mxCell id="Brb8-mD9N2KLEKnw9XJb-257" value="Error" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">

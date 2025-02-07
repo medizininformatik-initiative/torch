@@ -30,7 +30,7 @@ public record AttributeGroup(
     /**
      * @param groupReference
      * @param attributes
-     * @param filter         Primary constructor for directly accessed groups
+     * @param filter         Primary constructor for directly accessed allGroups
      */
     public AttributeGroup(String id,
                           String groupReference,

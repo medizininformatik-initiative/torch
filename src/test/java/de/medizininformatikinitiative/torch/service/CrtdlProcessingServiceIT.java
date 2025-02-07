@@ -154,7 +154,7 @@ class CrtdlProcessingServiceIT {
 
     @Test
     void processingService() {
-        Mono<Void> result = service.processCrtdl(CRTDL_ALL_OBSERVATIONS, jobId);
+        Mono<Void> result = service.process(CRTDL_ALL_OBSERVATIONS, jobId);
 
 
         Assertions.assertDoesNotThrow(() -> result.block());

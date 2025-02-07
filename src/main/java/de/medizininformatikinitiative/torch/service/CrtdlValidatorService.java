@@ -20,7 +20,7 @@ public class CrtdlValidatorService {
     }
 
     /**
-     * Validates crtdl and modifies the attribute groups by adding standard attributes and modifiers.
+     * Validates crtdl and modifies the attribute allGroups by adding standard attributes and modifiers.
      *
      * @param crtdl the Crtdl to be validated.
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.

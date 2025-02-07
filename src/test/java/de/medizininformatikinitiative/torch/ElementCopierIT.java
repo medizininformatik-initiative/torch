@@ -38,7 +38,7 @@ public class ElementCopierIT {
 
         DomainResource resourceSrc = itSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
         DomainResource resourceExpected = itSetup.readResource("src/test/resources/CopyTest/expectedOutput/" + resource);
-        String profileDiagnosis = resourceSrc.getMeta().getProfile().getFirst().getValue();
+        String profileDiagnosis = resourceSrc.getMeta().getProfile().get(1).getValue();
         Class<? extends DomainResource> resourceClass = resourceSrc.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 

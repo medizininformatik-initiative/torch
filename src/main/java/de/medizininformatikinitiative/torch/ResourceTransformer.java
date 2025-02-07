@@ -82,7 +82,7 @@ public class ResourceTransformer {
     }
 
 
-    public Flux<Resource> fetchAndTransformResources(Optional<ConsentInfo> batch, AttributeGroup group) {
+    public Flux<Resource> fetchResourcesDirect(Optional<ConsentInfo> batch, AttributeGroup group) {
         List<Query> queries = group.queries(dseMappingTreeBase, structueDefinitionHandler.getResourceType(group.groupReference()));
 
         if (batch.isPresent()) {
@@ -162,7 +162,7 @@ public class ResourceTransformer {
 
         // If batch is empty, collect all resources under "core" and return
         if (batch.isEmpty() && safeSet.isEmpty()) {
-            return fetchAndTransformResources(Optional.empty(), group)
+            return fetchResourcesDirect(Optional.empty(), group)
                     .collectMultimap(resource -> "core") // Everything goes under "core"
                     .map(map -> {
                         logger.trace("Collected resources under 'core' for group {}: {}", group.id(), map.size());
@@ -177,7 +177,7 @@ public class ResourceTransformer {
                 logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
             }
 
-            return fetchAndTransformResources(batch, group)
+            return fetchResourcesDirect(batch, group)
                     .filter(resource -> {
                         boolean isNonEmpty = !resource.isEmpty();
                         logger.trace("Resource is non-isEmpty: {}", isNonEmpty);

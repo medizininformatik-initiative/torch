@@ -110,7 +110,7 @@ public class FhirController {
                                 executorService.submit(() -> {
                                     try {
                                         logger.debug("Processing CRTDL in ExecutorService for jobId: {}", jobId);
-                                        crtdlProcessingService.processCrtdl(crtdl, jobId).block();
+                                        crtdlProcessingService.process(crtdl, jobId).block();
                                         resultFileManager.setStatus(jobId, "Completed");
                                     } catch (Exception e) {
                                         logger.error("Error processing CRTDL for jobId: {}", jobId, e);

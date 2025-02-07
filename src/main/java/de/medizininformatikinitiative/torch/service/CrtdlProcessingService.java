@@ -71,26 +71,8 @@ public class CrtdlProcessingService {
 
 
     public Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
-        //Class with resources mapped to their respective attribute groups
-
-        //structure type+resourcenid -> resource
-        //record type id
-        //reference map : referenceURL -> resourcenID,ElementID
-        //write out if no reference needed?
-        //Should a patient specific resource  jump out of that context? Technically yes e.g. same person has multiple ids
-
-
         ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
-
-        //First Pass
-       /* return fetchPatientBatches(crtdl).flatMap(batch -> processBatch(processedGroups.firstPass(), batch, jobId, crtdl.consentKey()), maxConcurrency)
-                //second Pass with attribute Groups
-                //reference Handling
-                //writeOut
-                .then();
-    */
-
-        return fetchPatientBatches(crtdl).flatMap(batch -> transformer.collectResourcesByPatientReference(processedGroups.firstPass(), batch, crtdl.consentKey()), maxConcurrency)
+        return fetchPatientBatches(crtdl).flatMap(batch -> transformer.collectResourcesByPatientReference(processedGroups.patientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .filter(resourceMap -> !resourceMap.isEmpty()).doOnError(error -> logger.error("Error in collectResources: {}", error.getMessage())).then();
     }
 
@@ -105,9 +87,9 @@ public class CrtdlProcessingService {
     public Mono<Void> process(Crtdl crtdl, String jobID) {
         ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
-        Mono<Collection<Resource>> secondPassResources = fetchCoreData(processedGroups.secondPass());
+        Mono<Collection<Resource>> coreResources = fetchCoreData(processedGroups.noPatientGroups());
 
-        return collectAndMergeResources(batches, processedGroups.firstPass(), secondPassResources, crtdl.consentKey())
+        return collectAndMergePatientResources(batches, processedGroups.patientCompartmentGroups(), coreResources, crtdl.consentKey())
                 .flatMap(mergedResources -> saveResourcesAsBundles(jobID, mergedResources))
                 .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
                 .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
@@ -115,10 +97,10 @@ public class CrtdlProcessingService {
     }
 
 
-    public Mono<Map<String, Collection<Resource>>> collectAndMergeResources(
+    public Mono<Map<String, Collection<Resource>>> collectAndMergePatientResources(
             Flux<PatientBatch> batches,
             List<AttributeGroup> firstPassGroups,
-            Mono<Collection<Resource>> secondPassResources,
+            Mono<Collection<Resource>> coreResources,
             Optional<String> consentKey) {
 
         return Mono.zip(
@@ -126,12 +108,11 @@ public class CrtdlProcessingService {
                         .flatMap(batch -> transformer.collectResourcesByPatientReference(firstPassGroups, batch, consentKey)
                                 .filter(resourceMap -> !resourceMap.isEmpty()), maxConcurrency)
                         .collectList(),
-                secondPassResources
+                coreResources
         ).map(tuple -> {
             List<Map<String, Collection<Resource>>> processedList = tuple.getT1();
-            Collection<Resource> secondPass = tuple.getT2();
+            Collection<Resource> core = tuple.getT2();
 
-            // Merge all first pass maps into one
             Map<String, Collection<Resource>> merged = new HashMap<>();
             processedList.forEach(resourceMap ->
                     resourceMap.forEach((key, value) ->
@@ -141,14 +122,14 @@ public class CrtdlProcessingService {
                             })
                     )
             );
-            merged.put("core", secondPass);
+            merged.put("core", core);
             return merged;
         });
     }
 
     private Mono<Collection<Resource>> fetchCoreData(List<AttributeGroup> attributeGroups) {
         return Flux.fromIterable(attributeGroups)
-                .flatMap(group -> transformer.fetchAndTransformResources(Optional.empty(), group), maxConcurrency)
+                .flatMap(group -> transformer.fetchResourcesDirect(Optional.empty(), group), maxConcurrency)
                 .collectList()
                 .map(ArrayList::new); // Ensures it returns Collection<Resource> instead of List<Resource>
     }

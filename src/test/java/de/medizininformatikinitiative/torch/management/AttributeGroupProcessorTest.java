@@ -37,9 +37,9 @@ class AttributeGroupProcessorTest {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(group, group2, group3)));
         ProcessedGroups result = processor.process(crtdl);
 
-        assertThat(result.groups()).isEqualTo(resultMap);
-        assertThat(result.firstPass()).containsExactly(group);
-        assertThat(result.secondPass()).containsExactly(group2);
+        assertThat(result.allGroups()).isEqualTo(resultMap);
+        assertThat(result.patientCompartmentGroups()).containsExactly(group);
+        assertThat(result.noPatientGroups()).containsExactly(group2);
     }
 
 
