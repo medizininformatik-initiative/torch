@@ -4,7 +4,10 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.util.*;
+import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
+import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResourceReader;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,14 +31,13 @@ public class IntegrationTestSetup {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
         this.structHandler = new StructureDefinitionHandler("src/main/resources/StructureDefinitions/", resourceReader);
-        Slicing slicing = new Slicing(ctx);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
 
-        builder = new FhirPathBuilder(slicing);
+        builder = new FhirPathBuilder();
         this.copier = new ElementCopier(structHandler, ctx, builder);
-        this.redaction = new Redaction(structHandler, slicing);
+        this.redaction = new Redaction(structHandler);
 
         logger.info("Base test setup complete with immutable configurations.");
     }

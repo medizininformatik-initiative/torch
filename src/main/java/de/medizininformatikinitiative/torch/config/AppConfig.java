@@ -161,11 +161,6 @@ public class AppConfig {
 
 
     @Bean
-    Slicing slicing(FhirContext ctx) {
-        return new Slicing(ctx);
-    }
-
-    @Bean
     ResourceReader resourceReader(FhirContext ctx) {
         return new ResourceReader(ctx);
     }
@@ -257,7 +252,7 @@ public class AppConfig {
 
     @Bean
     FhirPathBuilder fhirPathBuilder(Slicing slicing) {
-        return new FhirPathBuilder(slicing);
+        return new FhirPathBuilder();
     }
 
     @Bean
@@ -272,7 +267,7 @@ public class AppConfig {
 
     @Bean
     public Redaction redaction(StructureDefinitionHandler cds, Slicing slicing) {
-        return new Redaction(cds, slicing);
+        return new Redaction(cds);
     }
 
     @Bean

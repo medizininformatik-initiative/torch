@@ -6,12 +6,15 @@ import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
-public record ConsentInfo(
+public record PatientBatchWithConsent(
         boolean applyConsent,
         Map<String, Provisions> provisions
 
 ) {
-    public ConsentInfo {
+    /*
+    PatientPackage(ResourceGroupsWrappers,Provisions,ReferenceStack,CoreResourcesWrapper)
+     */
+    public PatientBatchWithConsent {
         provisions = Map.copyOf(provisions);
     }
 
@@ -19,8 +22,8 @@ public record ConsentInfo(
         return new PatientBatch(provisions.keySet().stream().toList());
     }
 
-    public static ConsentInfo fromBatch(PatientBatch batch) {
-        return new ConsentInfo(false, batch.ids().stream().collect(
+    public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
+        return new PatientBatchWithConsent(false, batch.ids().stream().collect(
                 Collectors.toMap(Function.identity(), id -> Provisions.of())));
     }
 

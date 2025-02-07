@@ -5,13 +5,12 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.consent.ConsentInfo;
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
-import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -63,26 +62,26 @@ public class ResourceTransformer {
      * @param consentKey
      * @return extracted Resources grouped by PatientID
      */
-    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(List<AttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
+    public Mono<Map<String, Collection<Resource>>> collectResourcesByPatientReference(List<AnnotatedAttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
         Optional<String> key = consentKey;
         return key.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
-                        .flatMap(consentInfo -> processBatchWithConsent(attributeGroups, consentInfo)))
-                .orElseGet(() -> processBatchWithConsent(attributeGroups, ConsentInfo.fromBatch(batch)));
+                        .flatMap(patientBatchWithConsent -> processBatchWithConsent(attributeGroups, patientBatchWithConsent)))
+                .orElseGet(() -> processBatchWithConsent(attributeGroups, PatientBatchWithConsent.fromBatch(batch)));
     }
 
-    private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(List<AttributeGroup> attributeGroups, ConsentInfo consentInfo) {
+    private Mono<Map<String, Collection<Resource>>> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
 
-        Set<String> safeSet = new ConcurrentSkipListSet<>(consentInfo.patientBatch().ids());
-        return processAttributeGroups(attributeGroups, Optional.of(consentInfo), Optional.of(safeSet)).collectList()
+        Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
+        return processAttributeGroups(attributeGroups, Optional.of(patientBatchWithConsent), Optional.of(safeSet)).collectList()
                 .map(resourceLists -> flattenAndFilterResourceLists(resourceLists, safeSet))
                 .doOnSuccess(result -> logger.trace("Successfully collected resources {}", result.size()))
                 .doOnError(error -> logger.error("Error collecting resources: {}", error.getMessage()));
     }
 
 
-    public Flux<Resource> fetchResourcesDirect(Optional<ConsentInfo> batch, AttributeGroup group) {
+    public Flux<Resource> fetchResourcesDirect(Optional<PatientBatchWithConsent> batch, AnnotatedAttributeGroup group) {
         List<Query> queries = group.queries(dseMappingTreeBase, structueDefinitionHandler.getResourceType(group.groupReference()));
 
         if (batch.isPresent()) {
@@ -104,7 +103,7 @@ public class ResourceTransformer {
     }
 
 
-    private void annotateResource(DomainResource resource, AttributeGroup group) {
+    private void annotateResource(DomainResource resource, AnnotatedAttributeGroup group) {
         resource.addExtension(new Extension("torch://attributegroup.id", new StringType(group.id())));
     }
 
@@ -116,8 +115,8 @@ public class ResourceTransformer {
         return dataStore.search(finalQuery);
     }
 
-    private Mono<Resource> applyConsent(DomainResource resource, AttributeGroup group, ConsentInfo consentInfo) {
-        if (!consentInfo.applyConsent() || handler.checkConsent(resource, consentInfo)) {
+    private Mono<Resource> applyConsent(DomainResource resource, AnnotatedAttributeGroup group, PatientBatchWithConsent patientBatchWithConsent) {
+        if (!patientBatchWithConsent.applyConsent() || handler.checkConsent(resource, patientBatchWithConsent)) {
             return Mono.just(resource);
         } else {
             logger.warn("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
@@ -125,11 +124,10 @@ public class ResourceTransformer {
         }
     }
 
-    public <T extends DomainResource> T transform(T resourceSrc, AttributeGroup group, Class<T> resourceClass) throws MustHaveViolatedException, TargetClassCreationException, PatientIdNotFoundException {
+    public <T extends DomainResource> T transform(T resourceSrc, AnnotatedAttributeGroup group, Class<T> resourceClass) throws MustHaveViolatedException, TargetClassCreationException, PatientIdNotFoundException {
         T tgt = createTargetResource(resourceClass);
         logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
-        group = StandardAttributeGenerator.generate(group, resourceClass.getSimpleName());
-        for (Attribute attribute : group.attributes()) {
+        for (AnnotatedAttribute attribute : group.attributes()) {
             copier.copy(resourceSrc, tgt, attribute, group.groupReference());
         }
         redaction.redact(tgt);
@@ -148,15 +146,15 @@ public class ResourceTransformer {
     }
 
 
-    private Flux<Map<String, Collection<Resource>>> processAttributeGroups(List<AttributeGroup> attributeGroups,
-                                                                           Optional<ConsentInfo> batch,
+    private Flux<Map<String, Collection<Resource>>> processAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups,
+                                                                           Optional<PatientBatchWithConsent> batch,
                                                                            Optional<Set<String>> safeSet) {
         return Flux.fromIterable(attributeGroups)
                 .flatMap(group -> processSingleAttributeGroup(group, batch, safeSet));
     }
 
-    private Mono<Map<String, Collection<Resource>>> processSingleAttributeGroup(AttributeGroup group,
-                                                                                Optional<ConsentInfo> batch,
+    private Mono<Map<String, Collection<Resource>>> processSingleAttributeGroup(AnnotatedAttributeGroup group,
+                                                                                Optional<PatientBatchWithConsent> batch,
                                                                                 Optional<Set<String>> safeSet) {
         logger.trace("Processing attribute group: {}", group);
 

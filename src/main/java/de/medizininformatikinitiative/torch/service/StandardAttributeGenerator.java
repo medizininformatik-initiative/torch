@@ -23,9 +23,9 @@ public class StandardAttributeGenerator {
 
         tempAttributes.add(new Attribute(resourceType + ".id", true));
         tempAttributes.add(new Attribute(resourceType + ".meta.profile", true));
-        
+
         if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
-            tempAttributes.add(new Attribute(resourceType + ".subject.reference", true));
+            tempAttributes.add(new Attribute(resourceType + ".subject", true));
         }
         if ("Consent".equals(resourceType)) {
             tempAttributes.add(new Attribute(resourceType + ".patient.reference", true));

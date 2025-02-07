@@ -5,7 +5,7 @@ import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.util.TerserUtil;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -54,7 +54,7 @@ public class ElementCopier {
      * @param profile
      * @throws MustHaveViolatedException if mandatory element is missing
      */
-    public <T extends DomainResource> void copy(T src, T tgt, Attribute attribute, String profile) throws MustHaveViolatedException {
+    public <T extends DomainResource> void copy(T src, T tgt, AnnotatedAttribute attribute, String profile) throws MustHaveViolatedException {
 
         StructureDefinition structureDefinition = handler.getDefinition(profile);
 
@@ -63,8 +63,8 @@ public class ElementCopier {
 
         logger.trace("Attribute Path {}", attribute.attributeRef());
 
-        String[] fhirPaths = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
-        String fhirPath = fhirPaths[0];
+        String[] fhirAndTerserPaths = FhirPathBuilder.handleSlicingForFhirPath(pathBuilder, attribute.attributeRef(), snapshot);
+        String fhirPath = fhirAndTerserPaths[0];
         logger.trace("FHIR PATH {}", fhirPath);
 
         List<Base> elements;
@@ -78,7 +78,7 @@ public class ElementCopier {
             }
         } else {
 
-            String terserFHIRPATH = fhirPaths[1];
+            String terserFHIRPATH = fhirAndTerserPaths[1];
             logger.trace("Terser FhirPath {}", terserFHIRPATH);
             if (elements.size() == 1) {
 

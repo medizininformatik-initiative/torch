@@ -55,7 +55,7 @@ class StandardAttributeGeneratorTest {
                     new Attribute("Observation.identifier", false),
                     new Attribute("Observation.id", true),
                     new Attribute("Observation.meta.profile", true),
-                    new Attribute("Observation.subject.reference", true)
+                    new Attribute("Observation.subject", true)
             );
         }
 
@@ -70,7 +70,7 @@ class StandardAttributeGeneratorTest {
                     new Attribute("Condition.code", false),
                     new Attribute("Condition.id", true),
                     new Attribute("Condition.meta.profile", true),
-                    new Attribute("Condition.subject.reference", true)
+                    new Attribute("Condition.subject", true)
             );
 
         }

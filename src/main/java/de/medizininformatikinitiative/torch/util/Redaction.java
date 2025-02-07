@@ -17,16 +17,14 @@ import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentRea
 public class Redaction {
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
     private final StructureDefinitionHandler CDS;
-    private final Slicing slicing;
 
     /**
      * Constructor for Redaction
      *
      * @param cds StructureDefinitionHandler
      */
-    public Redaction(StructureDefinitionHandler cds, Slicing slicing) {
+    public Redaction(StructureDefinitionHandler cds) {
         this.CDS = cds;
-        this.slicing = slicing;
     }
 
     /**
@@ -72,7 +70,7 @@ public class Redaction {
             throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementID + "in StructureDefinition " + structureDefinition.getUrl());
 
         } else if (definition.hasSlicing()) {
-            ElementDefinition slicedElement = slicing.checkSlicing(base, elementID, structureDefinition);
+            ElementDefinition slicedElement = Slicing.checkSlicing(base, elementID, structureDefinition);
 
             if (slicedElement != null) {
                 logger.trace("Sliced Element {}", slicedElement.getName());

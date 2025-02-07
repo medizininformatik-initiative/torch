@@ -9,8 +9,8 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.management.AttributeGroupProcessor;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.ProcessedGroups;
-import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
@@ -77,12 +77,12 @@ public class CrtdlProcessingService {
     // Resolve References
     // Extract
 
-    public Mono<Void> process(Crtdl crtdl, String jobID) {
+    public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID) {
         ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
-        Mono<Collection<Resource>> coreResources = fetchCoreData(processedGroups.noPatientGroups());
+        Mono<Collection<Resource>> coreResources = fetchCoreData(processedGroups.directNoPatientGroups());
 
-        return collectAndMergePatientResources(batches, processedGroups.patientCompartmentGroups(), coreResources, crtdl.consentKey())
+        return collectAndMergePatientResources(batches, processedGroups.directPatientCompartmentGroups(), coreResources, crtdl.consentKey())
                 .flatMap(mergedResources -> saveResourcesAsBundles(jobID, mergedResources))
                 .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
                 .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
@@ -92,7 +92,7 @@ public class CrtdlProcessingService {
 
     public Mono<Map<String, Collection<Resource>>> collectAndMergePatientResources(
             Flux<PatientBatch> batches,
-            List<AttributeGroup> firstPassGroups,
+            List<AnnotatedAttributeGroup> firstPassGroups,
             Mono<Collection<Resource>> coreResources,
             Optional<String> consentKey) {
 
@@ -120,7 +120,7 @@ public class CrtdlProcessingService {
         });
     }
 
-    private Mono<Collection<Resource>> fetchCoreData(List<AttributeGroup> attributeGroups) {
+    private Mono<Collection<Resource>> fetchCoreData(List<AnnotatedAttributeGroup> attributeGroups) {
         return Flux.fromIterable(attributeGroups)
                 .flatMap(group -> transformer.fetchResourcesDirect(Optional.empty(), group), maxConcurrency)
                 .collectList()
@@ -128,7 +128,7 @@ public class CrtdlProcessingService {
     }
 
 
-    Mono<Void> processBatch(List<AttributeGroup> firstPass, PatientBatch batch, String jobId, Optional<String> consentKey) {
+    Mono<Void> processBatch(List<AnnotatedAttributeGroup> firstPass, PatientBatch batch, String jobId, Optional<String> consentKey) {
         logger.trace("Processing batch {}", batch);
 
         return transformer.collectResourcesByPatientReference(firstPass, batch, consentKey)
@@ -157,7 +157,7 @@ public class CrtdlProcessingService {
     }
 
 
-    public Flux<PatientBatch> fetchPatientBatches(Crtdl crtdl) {
+    public Flux<PatientBatch> fetchPatientBatches(AnnotatedCrtdl crtdl) {
         try {
             return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
         } catch (JsonProcessingException e) {
@@ -165,7 +165,7 @@ public class CrtdlProcessingService {
         }
     }
 
-    public Flux<PatientBatch> fetchPatientListFromFlare(Crtdl crtdl) {
+    public Flux<PatientBatch> fetchPatientListFromFlare(AnnotatedCrtdl crtdl) {
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
@@ -189,7 +189,7 @@ public class CrtdlProcessingService {
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Flux<PatientBatch> fetchPatientListUsingCql(Crtdl crtdl) throws JsonProcessingException {
+    public Flux<PatientBatch> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) throws JsonProcessingException {
         StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
         return cqlClient.fetchPatientIds(cqlQueryTranslator.toCql(ccdl).print())
                 .window(batchSize)

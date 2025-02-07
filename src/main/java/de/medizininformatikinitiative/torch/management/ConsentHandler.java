@@ -6,14 +6,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.consent.ConsentInfo;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.PatientConsentInfo;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.*;
+import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.util.ConsentProcessor;
+import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,7 +73,7 @@ public class ConsentHandler {
         this.dataStore = dataStore;
         this.mapper = mapper;
         this.ctx = ctx;
-        this.fhirPathBuilder = new FhirPathBuilder(new Slicing(ctx));
+        this.fhirPathBuilder = new FhirPathBuilder();
         this.structureDefinitionHandler = structureDefinitionHandler;
         this.consentProcessor = new ConsentProcessor(ctx);
         resourcetoField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
@@ -85,11 +88,11 @@ public class ConsentHandler {
      * @param batch      Batch of patient IDs
      * @return Consentinfo containing all required provisions by Patient with valid times
      */
-    public Mono<ConsentInfo> fetchAndBuildConsentInfo(String consentKey, PatientBatch batch) {
+    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(String consentKey, PatientBatch batch) {
         Flux<PatientConsentInfo> consentInfoFlux = buildingConsentInfo(consentKey, batch);
         Mono<List<PatientConsentInfo>> collectedConsentInfo = collectConsentInfo(consentInfoFlux);
         return updateConsentPeriodsByPatientEncounters(collectedConsentInfo, batch)
-                .map(consentInfos -> new ConsentInfo(true, consentInfos.stream().collect(Collectors.toMap(PatientConsentInfo::patientId, PatientConsentInfo::provisions))));
+                .map(consentInfos -> new PatientBatchWithConsent(true, consentInfos.stream().collect(Collectors.toMap(PatientConsentInfo::patientId, PatientConsentInfo::provisions))));
     }
 
     /**
@@ -98,11 +101,11 @@ public class ConsentHandler {
      * <p>This method evaluates the resource against the consent information to determine if access
      * should be granted based on the defined consent provisions.
      *
-     * @param resource    The FHIR {@link DomainResource} to check for consent compliance.
-     * @param consentInfo A map containing consent information structured by patient ID and consent codes.
+     * @param resource                The FHIR {@link DomainResource} to check for consent compliance.
+     * @param patientBatchWithConsent A map containing consent information structured by patient ID and consent codes.
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
-    public boolean checkConsent(DomainResource resource, ConsentInfo consentInfo) {
+    public boolean checkConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
         JsonNode fieldValue = null;
         if (resourcetoField.has(resource.getResourceType().toString())) {
             logger.trace("Handling the following Profile {}", resource.getResourceType());
@@ -139,7 +142,7 @@ public class ConsentHandler {
                     return false;
                 }
 
-                boolean hasValidConsent = Optional.ofNullable(consentInfo.provisions().get(patientID))
+                boolean hasValidConsent = Optional.ofNullable(patientBatchWithConsent.provisions().get(patientID))
                         .map(provisions -> provisions.periods().entrySet().stream()
                                 .allMatch(innerEntry -> {
                                     NonContinuousPeriod consentPeriods = innerEntry.getValue();

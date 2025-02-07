@@ -3,13 +3,15 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
-import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
@@ -81,6 +83,9 @@ public class ResourceTransformationIT {
     @Autowired
     ConsentHandler consentHandler;
 
+    @Autowired
+    CrtdlValidatorService validator;
+
 
     @Autowired
     public ResourceTransformationIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
@@ -103,11 +108,11 @@ public class ResourceTransformationIT {
 
 
     @Test
-    public void collectPatientsbyResource() throws IOException {
+    public void collectPatientsbyResource() throws IOException, ValidationException {
 
 
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+        AnnotatedCrtdl crtdl = validator.validate(objectMapper.readValue(fis, Crtdl.class));
         fis.close();
 
         Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), new PatientBatch(List.of("1", "2", "4", "VHF00006")), crtdl.consentKey());
@@ -144,7 +149,6 @@ public class ResourceTransformationIT {
 
 
         List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation");
-        List<QueryParams> params = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation").stream().map(Query::params).toList();
 
 
         StepVerifier.create(transformer.executeQueryWithBatch(batch, queries.getFirst()))

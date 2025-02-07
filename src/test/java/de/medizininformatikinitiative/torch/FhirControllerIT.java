@@ -5,11 +5,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
@@ -61,6 +64,9 @@ public class FhirControllerIT {
 
     @Autowired
     FhirTestHelper fhirTestHelper;
+
+    @Autowired
+    CrtdlValidatorService validatorService;
 
     @Autowired
     @Qualifier("fhirClient")
@@ -196,18 +202,18 @@ public class FhirControllerIT {
     }
 
     @Test
-    public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException {
+    public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException, ValidationException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
     }
 
     @Test
-    public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException {
+    public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException, ValidationException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"));
     }
 
     @Test
 
-    public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException {
+    public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException, ValidationException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
     }
 
@@ -218,19 +224,20 @@ public class FhirControllerIT {
 */
 
     @Test
-    public void testMustHave() throws IOException {
+    public void testMustHave() throws IOException, ValidationException {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatch patients = PatientBatch.of("3");
-        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
+        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
         Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
         fis.close();
     }
 
-    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException {
+    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException, ValidationException {
         Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
         expectedResources.values().forEach(Assertions::assertNotNull);
         PatientBatch patients = new PatientBatch(expectedResources.keySet().stream().toList());
@@ -240,9 +247,10 @@ public class FhirControllerIT {
         }
     }
 
-    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException {
+    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException, ValidationException {
         try (FileInputStream fis = new FileInputStream(filePath)) {
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+            AnnotatedCrtdl crtdl = validatorService.validate(objectMapper.readValue(fis, Crtdl.class));
+
             Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
 
             StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {

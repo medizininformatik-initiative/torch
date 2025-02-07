@@ -204,7 +204,7 @@ class ConsentHandlerIT {
      */
 
     @Nested
-    class UpdatePatientConsentInfo {
+    class UpdatePatientPatientBatchWithConsent {
         @Test
         public void success() throws IOException {
             Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
@@ -229,7 +229,7 @@ class ConsentHandlerIT {
 
 
     @Nested
-    class BuildPatientConsentInfo {
+    class BuildPatientPatientBatchWithConsent {
         @Test
         public void success() throws IOException {
             Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);

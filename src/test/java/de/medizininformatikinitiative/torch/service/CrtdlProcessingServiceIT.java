@@ -3,8 +3,10 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -52,8 +54,8 @@ class CrtdlProcessingServiceIT {
     private final CrtdlProcessingService service;
 
     protected WebClient webClient;
-    private Crtdl CRTDL_ALL_OBSERVATIONS;
-    private Crtdl CRTDL_NO_PATIENTS;
+    private AnnotatedCrtdl CRTDL_ALL_OBSERVATIONS;
+    private AnnotatedCrtdl CRTDL_NO_PATIENTS;
 
     private final String jobId;
     private final Path jobDir;
@@ -79,15 +81,18 @@ class CrtdlProcessingServiceIT {
     @Autowired
     ResultFileManager resultFileManager;
 
+    @Autowired
+    CrtdlValidatorService validator;
+
 
     @BeforeAll
-    void init() throws IOException {
+    void init() throws IOException, ValidationException {
 
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        CRTDL_ALL_OBSERVATIONS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
+        CRTDL_ALL_OBSERVATIONS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
-        CRTDL_NO_PATIENTS = INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class);
+        CRTDL_NO_PATIENTS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         manager.startContainers();
 

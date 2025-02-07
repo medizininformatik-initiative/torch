@@ -1,8 +1,8 @@
 package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.model.ProcessedGroups;
-import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -17,10 +17,10 @@ public class AttributeGroupProcessor {
         this.compartment = compartment;
     }
 
-    public ProcessedGroups process(Crtdl crtdl) {
-        List<AttributeGroup> firstPass = new ArrayList<>();
-        List<AttributeGroup> secondPass = new ArrayList<>();
-        Map<String, AttributeGroup> groups = new HashMap<>();
+    public ProcessedGroups process(AnnotatedCrtdl crtdl) {
+        List<AnnotatedAttributeGroup> firstPass = new ArrayList<>();
+        List<AnnotatedAttributeGroup> secondPass = new ArrayList<>();
+        Map<String, AnnotatedAttributeGroup> groups = new HashMap<>();
 
         crtdl.dataExtraction().attributeGroups().forEach(group -> {
             if (!group.includeReferenceOnly()) {

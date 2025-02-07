@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import org.hl7.fhir.r4.model.*;
@@ -27,7 +27,7 @@ public class ElementCopierTest {
         Observation tgt = new Observation();
         String profile = source.getMeta().getProfile().getFirst().getValue();
 
-        copier.copy(source, tgt, new Attribute("Observation.meta.profile", false), profile);
+        copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "", "", false), profile);
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
                 .containsExactly("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
@@ -44,7 +44,7 @@ public class ElementCopierTest {
         tgt.setMeta(new Meta());
         String profile = source.getMeta().getProfile().get(1).getValue();
 
-        copier.copy(source, tgt, new Attribute("Observation.meta.profile", false), profile);
+        copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "", "", false), profile);
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
                 .containsExactly("Test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
@@ -60,7 +60,7 @@ public class ElementCopierTest {
         Observation tgt = new Observation();
         String profile = source.getMeta().getProfile().get(1).getValue();
 
-        copier.copy(source, tgt, new Attribute("Observation.meta.profile", false), profile);
+        copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "", "", false), profile);
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
                 .containsExactly("Test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
@@ -78,7 +78,7 @@ public class ElementCopierTest {
         Observation tgt = new Observation();
         String profile = source.getMeta().getProfile().getFirst().getValue();
 
-        copier.copy(source, tgt, new Attribute("Observation.category", false), profile);
+        copier.copy(source, tgt, new AnnotatedAttribute("Observation.category", "", "", false), profile);
 
         assertThat(tgt.getCategory().stream().map(CodeableConcept::getCoding).map(List::getFirst).map(Coding::getCode))
                 .containsExactly("Test", "Test2");

@@ -19,18 +19,8 @@ public class FhirPathBuilder {
     Factory factory = new Factory();
 
 
-    Slicing slicing;
-
     private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
 
-    /**
-     * Constructor for FHIR PATH builder
-     *
-     * @param slicing Slicing Class that handles slicing resolving
-     */
-    public FhirPathBuilder(Slicing slicing) {
-        this.slicing = slicing;
-    }
 
     /**
      * For Terser, the base path is the primary concern. This method removes any slicing
@@ -41,7 +31,7 @@ public class FhirPathBuilder {
      * @param input the input string representing the path with potential slicing
      * @return a string with slicing removed according to the Terser base path rules
      */
-    public String handleSlicingForTerser(String input) {
+    public static String handleSlicingForTerser(String input) {
         if (input == null) {
             return null;
         }
@@ -49,7 +39,7 @@ public class FhirPathBuilder {
         return input.replaceAll(":[^.]*", "");
     }
 
-    public String[] handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
+    public static String[] handleSlicingForFhirPath(FhirPathBuilder fhirPathBuilder, String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
         if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
             return new String[]{input, input};
         }
@@ -84,11 +74,11 @@ public class FhirPathBuilder {
 
                     Base element;
                     try {
-                        element = factory.create(sliceName);
+                        element = fhirPathBuilder.factory.create(sliceName);
                     } catch (FHIRException upperCaseException) {
                         try {
                             sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
-                            element = factory.create(sliceName);
+                            element = fhirPathBuilder.factory.create(sliceName);
                         } catch (FHIRException lowerCaseException) {
                             throw new FHIRException("Unsupported Choice Slicing " + sliceName);
                         }
@@ -107,7 +97,7 @@ public class FhirPathBuilder {
                 String basePath = e.substring(0, e.indexOf(":")).trim();
                 fhirPath.append(basePath);
                 terserPath.append(basePath);
-                List<String> conditions = slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
+                List<String> conditions = Slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
                 if (!conditions.isEmpty()) {
                     String combinedConditions = String.join(" and ", conditions);
                     fhirPath.append(".where(").append(combinedConditions).append(")");
@@ -129,7 +119,7 @@ public class FhirPathBuilder {
      * @param conditions list of condition strings
      * @return FHIRPath with combined where conditions
      */
-    public String buildConditions(String path, List<String> conditions) {
+    public static String buildConditions(String path, List<String> conditions) {
         if (path == null) return null;
         if (conditions == null || conditions.isEmpty()) {
             return path;

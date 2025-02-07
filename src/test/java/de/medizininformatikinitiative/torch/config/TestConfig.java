@@ -239,13 +239,8 @@ public class TestConfig {
 
 
     @Bean
-    FhirPathBuilder fhirPathBuilder(Slicing slicing) {
-        return new FhirPathBuilder(slicing);
-    }
-
-    @Bean
-    Slicing slicing(FhirContext ctx) {
-        return new Slicing(ctx);
+    FhirPathBuilder fhirPathBuilder() {
+        return new FhirPathBuilder();
     }
 
 
@@ -260,8 +255,8 @@ public class TestConfig {
     }
 
     @Bean
-    public Redaction redaction(StructureDefinitionHandler cds, Slicing slicing) {
-        return new Redaction(cds, slicing);
+    public Redaction redaction(StructureDefinitionHandler cds) {
+        return new Redaction(cds);
     }
 
     @Bean
