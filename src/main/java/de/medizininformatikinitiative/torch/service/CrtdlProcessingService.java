@@ -70,13 +70,6 @@ public class CrtdlProcessingService {
     }
 
 
-    public Mono<Void> processCrtdl(Crtdl crtdl, String jobId) {
-        ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
-        return fetchPatientBatches(crtdl).flatMap(batch -> transformer.collectResourcesByPatientReference(processedGroups.patientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
-                .filter(resourceMap -> !resourceMap.isEmpty()).doOnError(error -> logger.error("Error in collectResources: {}", error.getMessage())).then();
-    }
-
-
     // Get Patient Cohort
     // Check cohort for Consent
     // Fetch First Pass -> by batch and checking consent? Apply must haves
