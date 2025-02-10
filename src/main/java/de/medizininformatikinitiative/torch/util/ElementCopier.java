@@ -61,10 +61,8 @@ public class ElementCopier {
         StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
         ElementDefinition elementDefinition = snapshot.getElementById(attribute.attributeRef());
 
-        logger.trace("Attribute Path {}", attribute.attributeRef());
 
-        String[] fhirAndTerserPaths = FhirPathBuilder.handleSlicingForFhirPath(pathBuilder, attribute.attributeRef(), snapshot);
-        String fhirPath = fhirAndTerserPaths[0];
+        String fhirPath = attribute.fhirPath();
         logger.trace("FHIR PATH {}", fhirPath);
 
         List<Base> elements;
@@ -78,7 +76,7 @@ public class ElementCopier {
             }
         } else {
 
-            String terserFHIRPATH = fhirAndTerserPaths[1];
+            String terserFHIRPATH = attribute.terserPath();
             logger.trace("Terser FhirPath {}", terserFHIRPATH);
             if (elements.size() == 1) {
 

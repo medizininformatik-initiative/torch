@@ -55,7 +55,7 @@ public class CrtdlValidatorService {
             if (elementDefinition == null) {
                 throw new ValidationException("Unknown Attributes in " + attributeGroup.groupReference());
             }
-            String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, attribute.attributeRef(), definition.getSnapshot());
+            String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition.getSnapshot());
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
         return new AnnotatedAttributeGroup(attributeGroup.id(), attributeGroup.groupReference(), annotatedAttributes, attributeGroup.filter());

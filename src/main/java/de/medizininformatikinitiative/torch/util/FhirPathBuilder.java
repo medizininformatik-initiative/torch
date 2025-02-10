@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,8 +14,6 @@ import java.util.List;
  * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
  */
 public class FhirPathBuilder {
-
-    Factory factory = new Factory();
 
 
     private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
@@ -39,7 +36,7 @@ public class FhirPathBuilder {
         return input.replaceAll(":[^.]*", "");
     }
 
-    public static String[] handleSlicingForFhirPath(FhirPathBuilder fhirPathBuilder, String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
+    public static String[] handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
         if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
             return new String[]{input, input};
         }
@@ -74,11 +71,11 @@ public class FhirPathBuilder {
 
                     Base element;
                     try {
-                        element = fhirPathBuilder.factory.create(sliceName);
+                        element = HapiFactory.create(sliceName);
                     } catch (FHIRException upperCaseException) {
                         try {
                             sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
-                            element = fhirPathBuilder.factory.create(sliceName);
+                            element = HapiFactory.create(sliceName);
                         } catch (FHIRException lowerCaseException) {
                             throw new FHIRException("Unsupported Choice Slicing " + sliceName);
                         }

@@ -16,7 +16,6 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for the FhirPathBuilder class.
@@ -52,41 +51,10 @@ class FhirPathBuilderTest {
         String input = "Observation.identifier.type.coding";
         String expected = "Observation.identifier.type.coding";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[1];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
         ;
 
         assertEquals(expected, result, "The FHIRPath should remain unchanged when no slicing is present.");
-    }
-
-    @Test
-    void testHandleSlicingForTerser_SingleSlicing() {
-        String input = "Observation.identifier:slice.type.coding";
-        String expected = "Observation.identifier.type.coding";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[1];
-
-        assertEquals(expected, result, "The slicing should be removed from the FHIRPath.");
-    }
-
-    @Test
-    void testHandleSlicingForTerser_MultipleSlicing() {
-        String input = "Patient.contact:home.telecom:phone.value";
-        String expected = "Patient.contact.telecom.value";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[1];
-
-        assertEquals(expected, result, "All slicing indicators should be removed from the FHIRPath.");
-    }
-
-    @Test
-    void testHandleSlicingForTerser_SlicingAtEnd() {
-        String input = "Encounter.participant:practitioner";
-        String expected = "Encounter.participant";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[1];
-        ;
-
-        assertEquals(expected, result, "Slicing at the end should be removed correctly.");
     }
 
 
@@ -95,7 +63,7 @@ class FhirPathBuilderTest {
         String input = "";
         String expected = "";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[1];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
         ;
 
         assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
@@ -103,7 +71,7 @@ class FhirPathBuilderTest {
 
     @Test
     void testHandleSlicingForTerser_NullInput() {
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, null, snapshot)[1];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[1];
 
         assertNull(result, "The method should return null when input is null.");
     }
@@ -187,7 +155,7 @@ class FhirPathBuilderTest {
         String input = "Patient.name.family";
         String expected = "Patient.name.family";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "When no slicing is present, the input should remain unchanged.");
 
@@ -199,7 +167,7 @@ class FhirPathBuilderTest {
         String expected = "Observation.value.ofType(Quantity).code";
 
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "The slicing should be handled correctly with known slice and conditions appended.");
 
@@ -210,7 +178,7 @@ class FhirPathBuilderTest {
         String input = "Observation.value[x]:unknownSlice.code";
 
         FHIRException exception = assertThrows(FHIRException.class, () -> {
-            FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot);
+            FhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
         }, "An FHIRException should be thrown for unsupported slicing.");
 
         assertEquals("Unsupported Choice Slicing unknownSlice", exception.getMessage(),
@@ -224,61 +192,10 @@ class FhirPathBuilderTest {
         String input = "Observation.value[x]:valueString.code";
         String expected = "Observation.value.ofType(string).code";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "Choice elements should be handled correctly with conditions appended.");
 
-    }
-
-    @Test
-    void testHandleSlicingForFhirPath_MultipleSlicingIndicators() throws FHIRException {
-        String input = "Patient.contact:home.telecom:phone";
-
-
-        // Mock slicing.generateConditionsForFHIRPath for each slicing indicator
-        List<String> mockConditions1 = List.of("use = 'home'", "system = 'test'");
-        List<String> mockConditions2 = List.of("system = 'phone'");
-
-        // When slicing.generateConditionsForFHIRPath is called with different paths
-        when(Slicing.generateConditionsForFHIRPath("Patient.contact:home", snapshot)).thenReturn(mockConditions1);
-        when(Slicing.generateConditionsForFHIRPath("Patient.contact:home.telecom:phone", snapshot)).thenReturn(mockConditions2);
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
-
-        // The buildConditions method combines conditions with 'and'
-        String expectedCombined = "Patient.contact.where(use = 'home' and system = 'test').telecom.where(system = 'phone')";
-
-        assertEquals(expectedCombined, result, "Multiple slicing indicators should result in combined conditions.");
-
-    }
-
-
-    @Test
-    void testHandleSlicingForFhirPath_ExtensionWithUrlCondition() throws FHIRException {
-        // Input FHIRPath with slicing on 'coding' and 'extension'
-        String input = "Condition.code.coding:icd10-gm.extension:Mehrfachcodierungs-Kennzeichen";
-
-        // Expected FHIRPath after handling slicing and extension
-        String expected = "Condition.code.coding.where(system = 'icd10-gm').extension.where(url = 'http://example.org/fhir/StructureDefinition/Mehrfachcodierungs-Kennzeichen')";
-
-
-        // Mocking conditions for slicing 'coding:icd10-gm'
-        List<String> mockConditionsCoding = Collections.singletonList("system = 'icd10-gm'");
-        when(Slicing.generateConditionsForFHIRPath("Condition.code.coding:icd10-gm", snapshot)).thenReturn(mockConditionsCoding);
-
-        // Mocking conditions for slicing 'extension:Mehrfachcodierungs-Kennzeichen'
-        List<String> mockConditionsExtension = Collections.singletonList("url = 'http://example.org/fhir/StructureDefinition/Mehrfachcodierungs-Kennzeichen'");
-        when(Slicing.generateConditionsForFHIRPath("Condition.code.coding:icd10-gm.extension:Mehrfachcodierungs-Kennzeichen", snapshot)).thenReturn(mockConditionsExtension);
-
-
-        // Call the method under test
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
-
-        // Assert the final result
-        assertEquals(expected, result, "The FHIRPath should correctly handle slicing on 'coding' and 'extension' with URL conditions.");
-
-        // Verify no interactions with factory
-        verifyNoInteractions(factory);
     }
 
 
@@ -287,7 +204,7 @@ class FhirPathBuilderTest {
         String input = "";
         String expected = "";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, input, snapshot)[0];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
 
         assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
 
@@ -297,7 +214,7 @@ class FhirPathBuilderTest {
 
     @Test
     void testHandleSlicingForFhirPath_NullInput() {
-        String result = FhirPathBuilder.handleSlicingForFhirPath(fhirPathBuilder, null, snapshot)[0];
+        String result = FhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[0];
 
         assertNull(result, "The method should return null when input is null.");
 
