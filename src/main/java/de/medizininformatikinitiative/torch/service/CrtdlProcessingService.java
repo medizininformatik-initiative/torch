@@ -103,8 +103,7 @@ public class CrtdlProcessingService {
     Mono<Void> saveResourcesAsBundles(String jobId, ResourceStore store) throws PatientIdNotFoundException {
         Map<String, Bundle> bundles = bundleCreator.createBundles(store);
         UUID batchId = UUID.randomUUID();
-
-
+        
         return Flux.fromIterable(bundles.values())
                 .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle)
                         .subscribeOn(Schedulers.boundedElastic())

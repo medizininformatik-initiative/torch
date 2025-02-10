@@ -246,7 +246,7 @@ public class TestConfig {
 
     @Bean
     public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
-        return new ElementCopier(handler, ctx, fhirPathBuilder);
+        return new ElementCopier(handler, ctx);
     }
 
     @Bean

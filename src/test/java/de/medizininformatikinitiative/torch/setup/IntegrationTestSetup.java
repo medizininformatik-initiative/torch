@@ -36,7 +36,7 @@ public class IntegrationTestSetup {
 
 
         builder = new FhirPathBuilder();
-        this.copier = new ElementCopier(structHandler, ctx, builder);
+        this.copier = new ElementCopier(structHandler, ctx);
         this.redaction = new Redaction(structHandler);
 
         logger.info("Base test setup complete with immutable configurations.");

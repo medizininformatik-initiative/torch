@@ -29,7 +29,6 @@ public class ElementCopier {
 
     private final StructureDefinitionHandler handler;
 
-    private final FhirPathBuilder pathBuilder;
     private final IFhirPath fhirPathEngine;
 
 
@@ -38,10 +37,9 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+    public ElementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
         this.handler = handler;
         this.ctx = ctx;
-        this.pathBuilder = fhirPathBuilder;
         this.fhirPathEngine = ctx.newFhirPath();
 
     }

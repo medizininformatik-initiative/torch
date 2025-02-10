@@ -16,7 +16,7 @@ public class ElementCopierTest {
 
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final FhirContext fhirContext = FhirContext.forR4();
-    private final ElementCopier copier = new ElementCopier(itSetup.structureDefinitionHandler(), fhirContext, itSetup.fhirPathBuilder());
+    private final ElementCopier copier = new ElementCopier(itSetup.structureDefinitionHandler(), fhirContext);
 
     @Test
     void singleProfile() throws MustHaveViolatedException {

@@ -24,7 +24,7 @@ public class ElementCopierIT {
 
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final FhirContext fhirContext = FhirContext.forR4();
-    private final ElementCopier copier = new ElementCopier(itSetup.structureDefinitionHandler(), fhirContext, itSetup.fhirPathBuilder());
+    private final ElementCopier copier = new ElementCopier(itSetup.structureDefinitionHandler(), fhirContext);
     private final StructureDefinitionHandler structureDefinitionHandler = itSetup.structureDefinitionHandler();
 
     @Test
