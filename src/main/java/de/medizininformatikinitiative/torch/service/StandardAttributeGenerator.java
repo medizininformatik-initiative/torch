@@ -18,6 +18,7 @@ public class StandardAttributeGenerator {
      * @return attribute group with added standard attributes
      */
 
+
     public static AttributeGroup generate(AttributeGroup attributeGroup, String resourceType) {
         List<Attribute> tempAttributes = new ArrayList<>();
 

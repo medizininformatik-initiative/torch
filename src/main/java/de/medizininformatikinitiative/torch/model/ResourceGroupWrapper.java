@@ -8,10 +8,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-public record ResourceGroupWrapper(
-        Resource resource,
-        Set<AnnotatedAttributeGroup> groupSet
-) {
+public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet) {
 
     public ResourceGroupWrapper {
         Objects.requireNonNull(resource);
@@ -26,4 +23,10 @@ public record ResourceGroupWrapper(
         return new ResourceGroupWrapper(resource, Set.copyOf(groupSet));
     }
 
+    public ResourceGroupWrapper addGroups(Set<AnnotatedAttributeGroup> newGroups) {
+        Objects.requireNonNull(newGroups);
+        Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
+        updatedGroups.addAll(newGroups);
+        return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups));
+    }
 }

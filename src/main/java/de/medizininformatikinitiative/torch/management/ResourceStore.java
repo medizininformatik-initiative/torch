@@ -31,9 +31,15 @@ public class ResourceStore {
         return Mono.empty();
     }
 
+
     public void put(ResourceGroupWrapper wrapper) {
         if (wrapper != null) {
-            resourceCache.put(wrapper.resource().getId(), wrapper);
+            resourceCache.compute(wrapper.resource().getId(), (id, existingWrapper) -> {
+                if (existingWrapper != null) {
+                    return existingWrapper.addGroups(wrapper.groupSet());
+                }
+                return wrapper;
+            });
         }
     }
 

@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 class ResourceStoreTest {
@@ -19,16 +20,29 @@ class ResourceStoreTest {
     ResourceGroupWrapper wrapper1;
     ResourceGroupWrapper wrapper2;
     ResourceGroupWrapper wrapper3;
+    ResourceGroupWrapper wrapper1Mod;
+    ResourceGroupWrapper wrapper1MergeResult;
 
     @BeforeEach
     void setUp() {
         patient1.setId("patient1");
         patient2.setId("patient2");
         patient3.setId("patient3");
-        Set<AnnotatedAttributeGroup> attributeGroups = new HashSet<>();
-        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups);
-        wrapper2 = new ResourceGroupWrapper(patient2, attributeGroups);
-        wrapper3 = new ResourceGroupWrapper(patient3, attributeGroups);
+        Set<AnnotatedAttributeGroup> attributeGroups1 = new HashSet<>();
+        attributeGroups1.add(new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), false));
+        attributeGroups1.add(new AnnotatedAttributeGroup("group2", "2345", "reference", List.of(), List.of(), false));
+
+        Set<AnnotatedAttributeGroup> attributeGroups2 = new HashSet<>();
+        attributeGroups2.add(new AnnotatedAttributeGroup("group2", "123", "reference2", List.of(), List.of(), false));
+
+        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1);
+        wrapper2 = new ResourceGroupWrapper(patient2, attributeGroups1);
+        wrapper3 = new ResourceGroupWrapper(patient3, attributeGroups1);
+        wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups2);
+
+        Set<AnnotatedAttributeGroup> mergedAttributeGroups = new HashSet<>(attributeGroups1);
+        mergedAttributeGroups.addAll(attributeGroups2);
+        wrapper1MergeResult = new ResourceGroupWrapper(patient1, mergedAttributeGroups);
     }
 
     @Test
@@ -64,6 +78,20 @@ class ResourceStoreTest {
                 .expectNext(wrapper1)
                 .verifyComplete();
     }
+
+    @Test
+    void putMerge() {
+        ResourceStore cache = new ResourceStore();
+        cache.put(wrapper1);
+        cache.put(wrapper1Mod);
+
+        Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
+
+        StepVerifier.create(result)
+                .expectNext(wrapper1MergeResult)
+                .verifyComplete();
+    }
+
 
     @Test
     void delete() {
