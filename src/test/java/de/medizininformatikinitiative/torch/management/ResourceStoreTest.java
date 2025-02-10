@@ -58,7 +58,7 @@ class ResourceStoreTest {
     }
 
     @Test
-    void getEmpty() {
+    void isEmpty() {
         ResourceStore cache = new ResourceStore();
 
         Mono<?> result = cache.get(patient1.getId());

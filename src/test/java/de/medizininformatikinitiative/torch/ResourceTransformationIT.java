@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.ResourceStore;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -37,9 +38,7 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 
@@ -115,13 +114,11 @@ public class ResourceTransformationIT {
         AnnotatedCrtdl crtdl = validator.validate(objectMapper.readValue(fis, Crtdl.class));
         fis.close();
 
-        Mono<Map<String, Collection<Resource>>> result = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), new PatientBatch(List.of("1", "2", "4", "VHF00006")), crtdl.consentKey());
+        Mono<ResourceStore> result = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), new PatientBatch(List.of("1", "2", "4", "VHF00006")), crtdl.consentKey());
 
         StepVerifier.create(result)
-                .expectNextMatches(map -> map.containsKey("1")) // Patient1 is in consent info
+                .expectNextMatches(map -> map.keySet().contains("http://localhost:8080/fhir/Observation/VHF00006-E-1-OL-1/_history/1"))
                 .verifyComplete();
-
-
     }
 
     @Test

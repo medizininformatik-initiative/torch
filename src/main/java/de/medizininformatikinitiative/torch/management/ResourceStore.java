@@ -3,9 +3,9 @@ package de.medizininformatikinitiative.torch.management;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.Collection;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -15,7 +15,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
  */
 
-@Component
+
 public class ResourceStore {
     private static final Logger logger = LoggerFactory.getLogger(ResourceStore.class);
 
@@ -49,5 +49,15 @@ public class ResourceStore {
         resourceCache.remove(fullUrl);
     }
 
+    public Boolean isEmpty() {
+        return resourceCache.isEmpty();
+    }
 
+    public Collection<String> keySet() {
+        return resourceCache.keySet();
+    }
+
+    public Collection<ResourceGroupWrapper> values() {
+        return resourceCache.values();
+    }
 }

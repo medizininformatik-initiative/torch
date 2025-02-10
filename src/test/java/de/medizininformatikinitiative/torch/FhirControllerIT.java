@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.ResourceStore;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -20,7 +21,6 @@ import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -47,7 +47,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Scanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -230,8 +233,8 @@ public class FhirControllerIT {
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatch patients = PatientBatch.of("3");
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
-        Map<String, Collection<Resource>> result = collectedResourcesMono.block(); // Blocking to get the result
+        Mono<ResourceStore> collectedResourcesMono = transformer.collectResourcesByPatientReference(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+        ResourceStore result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
         fis.close();
@@ -247,14 +250,20 @@ public class FhirControllerIT {
         }
     }
 
+
     private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException, ValidationException {
         try (FileInputStream fis = new FileInputStream(filePath)) {
             AnnotatedCrtdl crtdl = validatorService.validate(objectMapper.readValue(fis, Crtdl.class));
 
-            Mono<Map<String, Collection<Resource>>> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+            Mono<ResourceStore> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
 
             StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
-                Map<String, Bundle> bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                Map<String, Bundle> bundles = null;
+                try {
+                    bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                } catch (PatientIdNotFoundException e) {
+                    throw new RuntimeException(e);
+                }
                 try {
                     fhirTestHelper.validate(bundles, expectedResources);
                 } catch (PatientIdNotFoundException e) {
@@ -263,6 +272,8 @@ public class FhirControllerIT {
                 return true;
             }).expectComplete().verify();
         }
+
+
     }
 
     public void testExecutor(List<String> filePaths, List<String> expectedResourceFilePaths, String url, HttpHeaders headers) throws PatientIdNotFoundException, IOException {
