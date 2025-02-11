@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -18,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
-    private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler());
+    private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(), new CompartmentManager("compartmentdefinition-patient.json"));
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     CrtdlValidatorServiceTest() throws IOException {
@@ -43,7 +44,7 @@ class CrtdlValidatorServiceTest {
         assertThatThrownBy(() -> {
             validatorService.validate(crtdl);
         }).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Unknown Attributes in https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
+                .hasMessageContaining("Unknown Attribute Condition.unknown in https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
 
     }
 

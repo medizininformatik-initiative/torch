@@ -29,6 +29,7 @@ import reactor.core.publisher.Mono;
 import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -156,13 +157,25 @@ public class ResourceTransformer {
         logger.trace("Processing attribute group: {}", group);
 
         if (batch.isEmpty() && safeSet.isEmpty()) {
+            AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
             return fetchResourcesDirect(Optional.empty(), group)
                     .doOnNext(resource -> {
                         String resourceId = resource.getId();
                         logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
-                        resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group)));
+                        if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+                            atLeastOneResource.set(true);
+                            resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group)));
+                        }
                     })
-                    .then();
+                    .then(Mono.defer(() -> {
+                        if (atLeastOneResource.get()) {
+                            return Mono.empty();
+
+                        } else {
+                            logger.error("MustHave violated for group: {}", group.groupReference());
+                            return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
+                        }
+                    }));
         }
 
         if (batch.isPresent() && safeSet.isPresent()) {

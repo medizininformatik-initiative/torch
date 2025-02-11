@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
@@ -47,10 +48,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Scanner;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -237,6 +235,22 @@ public class FhirControllerIT {
         ResourceStore result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
         Assertions.assertTrue(result.isEmpty());
+        fis.close();
+    }
+
+    @Test
+    public void testCoreMustHave() throws IOException, ValidationException {
+
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
+        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
+        Mono<ResourceStore> collectedResourcesMono = transformer.processAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), Optional.empty(), Optional.empty());
+
+        // Verify that the Mono fails with the expected exception
+        StepVerifier.create(collectedResourcesMono)
+                .expectError(MustHaveViolatedException.class)
+                .verify();
+
         fis.close();
     }
 

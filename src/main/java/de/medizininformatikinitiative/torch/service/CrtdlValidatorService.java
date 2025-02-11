@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
@@ -21,11 +22,13 @@ public class CrtdlValidatorService {
 
     private final StructureDefinitionHandler profileHandler;
     private final FhirPathBuilder fhirPathBuilder;
+    private final CompartmentManager compartmentManager;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager) throws IOException {
         this.profileHandler = profileHandler;
         this.fhirPathBuilder = new FhirPathBuilder();
+        this.compartmentManager = compartmentManager;
     }
 
     /**
@@ -48,18 +51,17 @@ public class CrtdlValidatorService {
     }
 
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, StructureDefinition definition) throws ValidationException {
-        attributeGroup = StandardAttributeGenerator.generate(attributeGroup, attributeGroup.resourceType());
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
         for (Attribute attribute : attributeGroup.attributes()) {
             ElementDefinition elementDefinition = definition.getSnapshot().getElementById(attribute.attributeRef());
             if (elementDefinition == null) {
-                throw new ValidationException("Unknown Attributes in " + attributeGroup.groupReference());
+                throw new ValidationException("Unknown Attribute " + attribute.attributeRef() + " in " + attributeGroup.groupReference());
             }
             String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition.getSnapshot());
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
+        attributeGroup = StandardAttributeGenerator.generate(attributeGroup, attributeGroup.resourceType(), compartmentManager);
         return new AnnotatedAttributeGroup(attributeGroup.id(), attributeGroup.groupReference(), annotatedAttributes, attributeGroup.filter());
     }
-
 }
 

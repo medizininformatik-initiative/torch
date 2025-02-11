@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 
@@ -19,18 +20,21 @@ public class StandardAttributeGenerator {
      */
 
 
-    public static AttributeGroup generate(AttributeGroup attributeGroup, String resourceType) {
+    public static AttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager) {
         List<Attribute> tempAttributes = new ArrayList<>();
 
         tempAttributes.add(new Attribute(resourceType + ".id", true));
         tempAttributes.add(new Attribute(resourceType + ".meta.profile", true));
 
-        if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
-            tempAttributes.add(new Attribute(resourceType + ".subject", true));
+        if (manager.isInCompartment(resourceType)) {
+            if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
+                tempAttributes.add(new Attribute(resourceType + ".subject", true));
+            }
+            if ("Consent".equals(resourceType)) {
+                tempAttributes.add(new Attribute(resourceType + ".patient.reference", true));
+            }
         }
-        if ("Consent".equals(resourceType)) {
-            tempAttributes.add(new Attribute(resourceType + ".patient.reference", true));
-        }
+
         return attributeGroup.addAttributes(tempAttributes);
     }
 }
