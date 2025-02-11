@@ -86,6 +86,11 @@ public class AppConfig {
     }
 
     @Bean
+    MustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new MustHaveChecker(ctx);
+    }
+
+    @Bean
     public AttributeGroupProcessor attributeGroupProcessor(CompartmentManager manager) {
         return new AttributeGroupProcessor(manager);
     }
@@ -271,9 +276,9 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker musthaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, musthaveChecker);
     }
 
     @Bean

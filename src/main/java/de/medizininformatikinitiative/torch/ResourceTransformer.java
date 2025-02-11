@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
+import de.medizininformatikinitiative.torch.util.MustHaveChecker;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -45,15 +46,17 @@ public class ResourceTransformer {
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
+    private final MustHaveChecker mustHaveChecker;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker mustHaveChecker) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
+        this.mustHaveChecker = mustHaveChecker;
     }
 
     /**
@@ -79,7 +82,7 @@ public class ResourceTransformer {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
 
-        return processAttributeGroups(attributeGroups, Optional.of(patientBatchWithConsent), Optional.of(safeSet));
+        return applySafeSet(processAttributeGroups(attributeGroups, Optional.of(patientBatchWithConsent), Optional.of(safeSet)), safeSet);
     }
 
 
@@ -175,7 +178,11 @@ public class ResourceTransformer {
                         try {
                             String id = ResourceUtils.patientId((DomainResource) resource);
                             safeGroup.add(id);
-                            resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group))); // Auto-merges!
+                            if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+                                safeGroup.add(ResourceUtils.patientId((DomainResource) resource));
+                                resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group)));
+                            }
+
                         } catch (PatientIdNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -188,6 +195,33 @@ public class ResourceTransformer {
         }
 
         return Mono.empty();
+    }
+
+    private Mono<ResourceStore> applySafeSet(Mono<ResourceStore> resourceStoreMono, Set<String> safeSet) {
+
+        return resourceStoreMono.flatMap(resourceStore -> {
+            ResourceStore filteredStore = new ResourceStore();
+
+            return Flux.fromIterable(resourceStore.keySet())
+                    .flatMap(id -> resourceStore.get(id) // Resolve the Mono<ResourceGroupWrapper>
+                            .flatMap(wrapper -> {
+                                try {
+                                    String resourceId = ResourceUtils.patientId((DomainResource) wrapper.resource());
+                                    if (safeSet.contains(resourceId)) {
+                                        return Mono.just(wrapper);
+                                    } else {
+                                        logger.debug("Removing resource with ID: {} as it's not in the safe set", resourceId);
+                                        return Mono.empty();
+                                    }
+                                } catch (PatientIdNotFoundException e) {
+                                    logger.warn("Skipping resource due to missing patient ID", e);
+                                    return Mono.empty();
+                                }
+                            })
+                            .doOnNext(filteredStore::put) // Store only the allowed resources
+                    )
+                    .then(Mono.just(filteredStore));
+        });
     }
 
 

@@ -81,6 +81,11 @@ public class TestConfig {
         return new AttributeGroupProcessor(manager);
     }
 
+    @Bean
+    MustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new MustHaveChecker(ctx);
+    }
+
 
     @Bean
     public CrtdlProcessingService crtdlProcessingService(
@@ -260,9 +265,9 @@ public class TestConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker mustHaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, mustHaveChecker);
     }
 
     @Bean
