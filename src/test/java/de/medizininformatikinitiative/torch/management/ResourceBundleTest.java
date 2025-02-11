@@ -12,7 +12,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-class ResourceStoreTest {
+class ResourceBundleTest {
 
     Patient patient1 = new Patient();
     Patient patient2 = new Patient();
@@ -47,7 +47,7 @@ class ResourceStoreTest {
 
     @Test
     void getMatch() {
-        ResourceStore cache = new ResourceStore();
+        ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
 
         Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
@@ -59,7 +59,7 @@ class ResourceStoreTest {
 
     @Test
     void isEmpty() {
-        ResourceStore cache = new ResourceStore();
+        ResourceBundle cache = new ResourceBundle();
 
         Mono<?> result = cache.get(patient1.getId());
 
@@ -69,7 +69,7 @@ class ResourceStoreTest {
 
     @Test
     void put() {
-        ResourceStore cache = new ResourceStore();
+        ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
 
         Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
@@ -81,7 +81,7 @@ class ResourceStoreTest {
 
     @Test
     void putMerge() {
-        ResourceStore cache = new ResourceStore();
+        ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
         cache.put(wrapper1Mod);
 
@@ -95,7 +95,7 @@ class ResourceStoreTest {
 
     @Test
     void delete() {
-        ResourceStore cache = new ResourceStore();
+        ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
         cache.delete(patient1.getId());
 

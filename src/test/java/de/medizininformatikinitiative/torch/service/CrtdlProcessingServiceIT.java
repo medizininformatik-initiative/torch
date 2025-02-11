@@ -1,11 +1,10 @@
 package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.management.ResourceStore;
+import de.medizininformatikinitiative.torch.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -63,10 +62,9 @@ class CrtdlProcessingServiceIT {
     private static final int BATCH_SIZE = 100;
 
     @Autowired
-    public CrtdlProcessingServiceIT(CrtdlProcessingService service, BundleCreator bundleCreator, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
+    public CrtdlProcessingServiceIT(CrtdlProcessingService service, ResultFileManager resultFileManager, @Qualifier("fhirClient") WebClient webClient, ContainerManager containerManager) {
         this.service = service;
         this.webClient = webClient;
-        this.bundleCreator = bundleCreator;
         this.resultFileManager = resultFileManager;
         this.manager = containerManager;
         jobId = UUID.randomUUID().toString();
@@ -76,7 +74,6 @@ class CrtdlProcessingServiceIT {
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
     ContainerManager manager;
-    BundleCreator bundleCreator;
 
     @Autowired
     ResultFileManager resultFileManager;
@@ -173,7 +170,7 @@ class CrtdlProcessingServiceIT {
     @Test
     void testSaveResourcesAsBundles() throws PatientIdNotFoundException {
 
-        ResourceStore store = new ResourceStore();
+        ResourceBundle store = new ResourceBundle();
         Patient patient = new Patient();
         patient.setId(UUID.randomUUID().toString());
         store.put(new ResourceGroupWrapper(patient, Set.of(new AnnotatedAttributeGroup("1234", "1234",

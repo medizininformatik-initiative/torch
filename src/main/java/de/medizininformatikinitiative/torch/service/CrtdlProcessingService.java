@@ -3,19 +3,17 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.management.AttributeGroupProcessor;
-import de.medizininformatikinitiative.torch.management.ResourceStore;
+import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
+import de.medizininformatikinitiative.torch.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.ProcessedGroups;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
-import org.hl7.fhir.r4.model.Bundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -29,8 +27,6 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 @Service
@@ -39,7 +35,6 @@ public class CrtdlProcessingService {
     private static final Logger logger = LoggerFactory.getLogger(CrtdlProcessingService.class);
 
     private final ResourceTransformer transformer;
-    private final BundleCreator bundleCreator;
     private final ResultFileManager resultFileManager;
     private final int batchSize;
     private final int maxConcurrency;
@@ -48,20 +43,18 @@ public class CrtdlProcessingService {
     private final CqlClient cqlClient;
     private final Boolean useCql;
     private final Translator cqlQueryTranslator;
-    private final AttributeGroupProcessor attributeGroupProcessor;
+    private final ProcessedGroupFactory processedGroupFactory;
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
                                   Translator cqlQueryTranslator,
                                   CqlClient cqlClient,
                                   ResultFileManager resultFileManager,
                                   ResourceTransformer transformer,
-                                  BundleCreator bundleCreator,
-                                  AttributeGroupProcessor attributeGroupProcessor, @Value("${torch.batchsize:10}") int batchsize,
+                                  ProcessedGroupFactory processedGroupFactory, @Value("${torch.batchsize:10}") int batchsize,
                                   @Value("5") int maxConcurrency,
                                   @Value("${torch.useCql}") boolean useCql) {
         this.webClient = webClient;
         this.transformer = transformer;
-        this.bundleCreator = bundleCreator;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
         this.batchSize = batchsize;
@@ -69,7 +62,7 @@ public class CrtdlProcessingService {
         this.cqlClient = cqlClient;
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
-        this.attributeGroupProcessor = attributeGroupProcessor;
+        this.processedGroupFactory = processedGroupFactory;
     }
 
 
@@ -81,18 +74,14 @@ public class CrtdlProcessingService {
     // Extract
 
     public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID) {
-        ProcessedGroups processedGroups = attributeGroupProcessor.process(crtdl);
+        GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
+        Mono<ResourceBundle> coreResourceBundle = transformer.proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups());
+
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
 
-        Mono<ResourceStore> coreResourceStore = transformer.processAttributeGroups(processedGroups.directNoPatientGroups(), Optional.empty(), Optional.empty());
 
         return batches
-                .flatMap(batch -> {
-                    ResourceStore batchResourceStore = new ResourceStore(); // Separate store per batch
-                    return transformer.collectResourcesByPatientReference(processedGroups.directPatientCompartmentGroups(), batch, crtdl.consentKey())
-                            .doOnNext(batchStore -> batchStore.values().forEach(batchResourceStore::put))
-                            .thenReturn(batchResourceStore);
-                }, maxConcurrency)
+                .flatMap(batch -> transformer.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .collectList()
                 .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
                 .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
@@ -100,14 +89,12 @@ public class CrtdlProcessingService {
     }
 
 
-    Mono<Void> saveResourcesAsBundles(String jobId, ResourceStore store) throws PatientIdNotFoundException {
-        Map<String, Bundle> bundles = bundleCreator.createBundles(store);
+    Mono<Void> saveResourcesAsBundles(String jobId, ResourceBundle bundle) throws PatientIdNotFoundException {
         UUID batchId = UUID.randomUUID();
-        
-        return Flux.fromIterable(bundles.values())
-                .flatMap(bundle -> resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle)
-                        .subscribeOn(Schedulers.boundedElastic())
-                        .doOnSuccess(unused -> logger.trace("Bundle appended: {}", batchId)), maxConcurrency)
+
+        return resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle.toFhirBundle())
+                .subscribeOn(Schedulers.boundedElastic())
+                .doOnSuccess(unused -> logger.trace("Bundle appended: {}", batchId))
                 .then();
     }
 

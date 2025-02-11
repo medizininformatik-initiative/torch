@@ -8,9 +8,10 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.management.ResourceStore;
+import de.medizininformatikinitiative.torch.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -48,7 +49,10 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Scanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -83,7 +87,6 @@ public class FhirControllerIT {
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
-    protected BundleCreator bundleCreator;
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
     protected Translator cqlQueryTranslator;
@@ -104,12 +107,11 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
         this.fhirContext = fhirContext;
-        this.bundleCreator = bundleCreator;
         this.objectMapper = objectMapper;
         this.cqlClient = cqlClient;
         this.cqlQueryTranslator = cqlQueryTranslator;
@@ -181,7 +183,6 @@ public class FhirControllerIT {
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
 
         int patientCount = patientIds.size();
-        logger.info(String.valueOf(patientIds));
         assertEquals(4, patientCount);
     }
 
@@ -231,10 +232,11 @@ public class FhirControllerIT {
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatch patients = PatientBatch.of("3");
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<ResourceStore> collectedResourcesMono = transformer.collectResourcesByPatientReference(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
-        ResourceStore result = collectedResourcesMono.block(); // Blocking to get the result
+        Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+        PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
-        Assertions.assertTrue(result.isEmpty());
+        System.out.println("Keyset" + result.keySet());
+        Assertions.assertTrue(result.bundles().isEmpty());
         fis.close();
     }
 
@@ -244,7 +246,7 @@ public class FhirControllerIT {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<ResourceStore> collectedResourcesMono = transformer.processAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), Optional.empty(), Optional.empty());
+        Mono<ResourceBundle> collectedResourcesMono = transformer.proccessCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups());
 
         // Verify that the Mono fails with the expected exception
         StepVerifier.create(collectedResourcesMono)
@@ -269,20 +271,15 @@ public class FhirControllerIT {
         try (FileInputStream fis = new FileInputStream(filePath)) {
             AnnotatedCrtdl crtdl = validatorService.validate(objectMapper.readValue(fis, Crtdl.class));
 
-            Mono<ResourceStore> collectedResourcesMono = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+            Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
 
-            StepVerifier.create(collectedResourcesMono).expectNextMatches(combinedResourcesByPatientId -> {
-                Map<String, Bundle> bundles = null;
+            StepVerifier.create(collectedResourcesMono).expectNextMatches(patientBatchWithConsent -> {
                 try {
-                    bundles = bundleCreator.createBundles(combinedResourcesByPatientId);
+                    fhirTestHelper.validate(patientBatchWithConsent, expectedResources);
                 } catch (PatientIdNotFoundException e) {
                     throw new RuntimeException(e);
                 }
-                try {
-                    fhirTestHelper.validate(bundles, expectedResources);
-                } catch (PatientIdNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
+
                 return true;
             }).expectComplete().verify();
         }
@@ -301,7 +298,6 @@ public class FhirControllerIT {
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
                     ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-                    logger.info("Got the following response{}", response.toString());
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
 
                     // Polling the status endpoint
@@ -325,16 +321,16 @@ public class FhirControllerIT {
             try {
                 i++;
                 HttpEntity<String> entity = new HttpEntity<>(null, headers);
-                logger.info("Status URL {}", statusUrl);
+                logger.trace("Status URL {}", statusUrl);
                 ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
 
-                logger.info("Call result {} {}", i, response);
-                logger.info("Response Body: {}", response.getBody());
+                logger.trace("Call result {} {}", i, response);
+                logger.trace("Response Body: {}", response.getBody());
 
                 if (response.getStatusCode().value() == 200) {
                     completed = true;
                     assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
-                    logger.info("Final Response {}", response.getBody());
+                    logger.trace("Final Response {}", response.getBody());
                 }
                 if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());

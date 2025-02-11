@@ -5,9 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.management.ResourceStore;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -62,7 +62,7 @@ public class ResourceTransformationIT {
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
-    protected BundleCreator bundleCreator;
+
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
     protected Translator cqlQueryTranslator;
@@ -87,15 +87,13 @@ public class ResourceTransformationIT {
 
 
     @Autowired
-    public ResourceTransformationIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public ResourceTransformationIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, ObjectMapper objectMapper, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.manager = new ContainerManager();
         this.objectMapper = objectMapper;
         this.dataStore = dataStore;
         this.cds = cds;
-
-
     }
 
     @BeforeAll
@@ -108,16 +106,22 @@ public class ResourceTransformationIT {
 
     @Test
     public void collectPatientsbyResource() throws IOException, ValidationException {
-
-
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
         AnnotatedCrtdl crtdl = validator.validate(objectMapper.readValue(fis, Crtdl.class));
         fis.close();
 
-        Mono<ResourceStore> result = transformer.collectResourcesByPatientReference(crtdl.dataExtraction().attributeGroups(), new PatientBatch(List.of("1", "2", "4", "VHF00006")), crtdl.consentKey());
+        Mono<PatientBatchWithConsent> result = transformer.directLoadPatientCompartment(
+                crtdl.dataExtraction().attributeGroups(),
+                new PatientBatch(List.of("1", "2", "4", "VHF00006")),
+                crtdl.consentKey()
+        );
 
         StepVerifier.create(result)
-                .expectNextMatches(map -> map.keySet().contains("http://localhost:8080/fhir/Observation/VHF00006-E-1-OL-1/_history/1"))
+                .expectNextMatches(map -> {
+                    // Print the key set before checking assertions
+                    System.out.println("PatientBatchWithConsent KeySet: " + map.bundles().keySet());
+                    return map.bundles().containsKey("VHF00006");
+                })
                 .verifyComplete();
     }
 

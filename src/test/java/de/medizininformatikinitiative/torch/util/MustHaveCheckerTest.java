@@ -43,7 +43,8 @@ class MustHaveCheckerTest {
         Observation src = new Observation();
         src.setSubject(new Reference("Patient/123"));
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true);
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(effective), List.of());
+        AnnotatedAttribute effective2 = new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", true);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(effective, effective2), List.of());
         MustHaveChecker checker = new MustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
 
         assertThat(checker.fulfilled(src, group)).isFalse();

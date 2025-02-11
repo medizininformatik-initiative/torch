@@ -3,7 +3,8 @@ package de.medizininformatikinitiative.torch;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.management.ResourceStore;
+import de.medizininformatikinitiative.torch.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
@@ -30,7 +31,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
 
 /**
  * Transformer class, that handles the collecting of Resources from the datastore and the transformation of them according to the crtdl.
@@ -66,24 +66,21 @@ public class ResourceTransformer {
      * @param consentKey
      * @return extracted Resources grouped by PatientID
      */
-    public Mono<ResourceStore> collectResourcesByPatientReference(List<AnnotatedAttributeGroup> attributeGroups,
-                                                                  PatientBatch batch,
-                                                                  Optional<String> consentKey) {
+    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(List<AnnotatedAttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
-
-
-        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
-                        .flatMap(patientBatchWithConsent -> processBatchWithConsent(attributeGroups, patientBatchWithConsent)))
-                .orElseGet(() -> processBatchWithConsent(attributeGroups, PatientBatchWithConsent.fromBatch(batch)));
+        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch).flatMap(patientBatchWithConsent -> processBatchWithConsent(attributeGroups, patientBatchWithConsent))).orElseGet(() -> processBatchWithConsent(attributeGroups, PatientBatchWithConsent.fromBatch(batch)));
     }
 
-    private Mono<ResourceStore> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups,
-                                                        PatientBatchWithConsent patientBatchWithConsent) {
+    private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
 
-        return applySafeSet(processAttributeGroups(attributeGroups, Optional.of(patientBatchWithConsent), Optional.of(safeSet)), safeSet);
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).flatMap(bundle -> {
+            // Ensure the updated safeSet is applied before returning
+            PatientBatchWithConsent filteredBatch = patientBatchWithConsent.keep(safeSet);
+            return Mono.just(filteredBatch);
+        });
     }
 
 
@@ -92,12 +89,9 @@ public class ResourceTransformer {
 
         if (batch.isPresent()) {
             PatientBatch queryBatch = batch.get().patientBatch();
-            return Flux.fromIterable(queries)
-                    .flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency)
-                    .flatMap(resource -> applyConsent((DomainResource) resource, batch.get()));
+            return Flux.fromIterable(queries).flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency).flatMap(resource -> applyConsent((DomainResource) resource, batch.get()));
         } else {
-            return Flux.fromIterable(queries)
-                    .flatMap(dataStore::search, queryConcurrency);
+            return Flux.fromIterable(queries).flatMap(dataStore::search, queryConcurrency);
         }
     }
 
@@ -140,122 +134,83 @@ public class ResourceTransformer {
     }
 
 
-    public Mono<ResourceStore> processAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups,
-                                                      Optional<PatientBatchWithConsent> batch,
-                                                      Optional<Set<String>> safeSet) {
-        ResourceStore resourceStore = new ResourceStore();
+    public Mono<PatientBatchWithConsent> processPatientAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent batch, Set<String> safeSet) {
 
-        return Flux.fromIterable(attributeGroups)
-                .flatMap(group -> processSingleAttributeGroup(group, batch, safeSet, resourceStore))
-                .then(Mono.just(resourceStore));
+        return Flux.fromIterable(attributeGroups).flatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet)).then(Mono.just(batch));
     }
 
-    private Mono<Void> processSingleAttributeGroup(AnnotatedAttributeGroup group,
-                                                   Optional<PatientBatchWithConsent> batch,
-                                                   Optional<Set<String>> safeSet,
-                                                   ResourceStore resourceStore) {
+
+    public Mono<ResourceBundle> proccessCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups) {
+        ResourceBundle bundle = new ResourceBundle();
+        return Flux.fromIterable(attributeGroups).flatMap(group -> proccessCoreAttributeGroup(group, bundle)).then(Mono.just(bundle));
+    }
+
+    private Mono<Void> proccessCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
         logger.trace("Processing attribute group: {}", group);
-
-        if (batch.isEmpty() && safeSet.isEmpty()) {
-            AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
-            return fetchResourcesDirect(Optional.empty(), group)
-                    .doOnNext(resource -> {
-                        String resourceId = resource.getId();
-                        logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
-                        if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
-                            atLeastOneResource.set(true);
-                            resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group)));
-                        }
-                    })
-                    .then(Mono.defer(() -> {
-                        if (atLeastOneResource.get()) {
-                            return Mono.empty();
-
-                        } else {
-                            logger.error("MustHave violated for group: {}", group.groupReference());
-                            return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
-                        }
-                    }));
-        }
-
-        if (batch.isPresent() && safeSet.isPresent()) {
-            Set<String> safeGroup = new HashSet<>();
-            if (!group.hasMustHave()) {
-                safeGroup.addAll(batch.get().patientBatch().ids());
-                logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
+        AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
+        return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {
+            String resourceId = resource.getId();
+            logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
+            if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+                atLeastOneResource.set(true);
+                resourceBundle.put(new ResourceGroupWrapper(resource, Set.of(group)));
             }
+        }).then(Mono.defer(() -> {
+            if (atLeastOneResource.get()) {
+                return Mono.empty();
 
-            return fetchResourcesDirect(batch, group)
-                    .filter(resource -> !resource.isEmpty())
-                    .doOnNext(resource -> {
-                        try {
-                            String id = ResourceUtils.patientId((DomainResource) resource);
-                            safeGroup.add(id);
-                            if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
-                                safeGroup.add(ResourceUtils.patientId((DomainResource) resource));
-                                resourceStore.put(new ResourceGroupWrapper(resource, Set.of(group)));
-                            }
+            } else {
+                logger.error("MustHave violated for group: {}", group.groupReference());
+                return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
+            }
+        }));
+    }
 
-                        } catch (PatientIdNotFoundException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .doOnTerminate(() -> {
-                        logger.trace("Updated safe set after retention: {}", safeSet);
-                        safeSet.get().retainAll(safeGroup);
-                    })
-                    .then();
+
+    /**
+     * Fetches all resources for a batch and adds them to it, if
+     *
+     * @param group   Annotated Attribute Group to be processed
+     * @param batch   Patientbatch containid the PatientResourceBundles to be filled
+     * @param safeSet resources that have survived so far.
+     * @return
+     */
+    private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(AnnotatedAttributeGroup group,
+                                                                             PatientBatchWithConsent batch,
+                                                                             Set<String> safeSet) {
+        logger.trace("Processing patient attribute group: {}", group);
+        Set<String> safeGroup = new HashSet<>();
+
+        if (!group.hasMustHave()) {
+            safeGroup.addAll(batch.patientBatch().ids());
+            logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
         }
 
-        return Mono.empty();
-    }
+        // Extract a mutable copy of the patient bundles
+        Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
-    private Mono<ResourceStore> applySafeSet(Mono<ResourceStore> resourceStoreMono, Set<String> safeSet) {
+        return fetchResourcesDirect(Optional.ofNullable(batch), group)
+                .filter(resource -> !resource.isEmpty())
+                .doOnNext(resource -> {
+                    try {
+                        String id = ResourceUtils.patientId((DomainResource) resource);
 
-        return resourceStoreMono.flatMap(resourceStore -> {
-            ResourceStore filteredStore = new ResourceStore();
-
-            return Flux.fromIterable(resourceStore.keySet())
-                    .flatMap(id -> resourceStore.get(id) // Resolve the Mono<ResourceGroupWrapper>
-                            .flatMap(wrapper -> {
-                                try {
-                                    String resourceId = ResourceUtils.patientId((DomainResource) wrapper.resource());
-                                    if (safeSet.contains(resourceId)) {
-                                        return Mono.just(wrapper);
-                                    } else {
-                                        logger.debug("Removing resource with ID: {} as it's not in the safe set", resourceId);
-                                        return Mono.empty();
-                                    }
-                                } catch (PatientIdNotFoundException e) {
-                                    logger.warn("Skipping resource due to missing patient ID", e);
-                                    return Mono.empty();
-                                }
-                            })
-                            .doOnNext(filteredStore::put) // Store only the allowed resources
-                    )
-                    .then(Mono.just(filteredStore));
-        });
-    }
-
-
-    private Map<String, Collection<Resource>> flattenAndFilterResourceLists(
-            List<Map<String, Collection<Resource>>> resourceLists, Set<String> safeSet) {
-        return resourceLists.stream()
-                .flatMap(map -> map.entrySet().stream())
-                .filter(entry -> {
-                    boolean isInSafeSet = safeSet.contains(entry.getKey());
-                    logger.trace("Filtering entry with key: {} (in safe set: {}) and value: {}", entry.getKey(), isInSafeSet, entry.getValue());
-                    return isInSafeSet;
-                })
-                .collect(Collectors.toMap(
-                        Map.Entry::getKey,
-                        Map.Entry::getValue,
-                        (existing, replacement) -> {
-                            Collection<Resource> merged = new ArrayList<>(existing);
-                            merged.addAll(replacement);
-                            logger.trace("Merging values: existing = {}, replacement = {}", existing, replacement);
-                            return merged;
+                        if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+                            safeGroup.add(id);
+                            PatientResourceBundle bundle = mutableBundles.get(id);
+                            bundle.put(new ResourceGroupWrapper(resource, Set.of(group)));
                         }
-                ));
+
+                    } catch (PatientIdNotFoundException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .doOnTerminate(() -> {
+                    safeSet.retainAll(safeGroup);
+                })
+                .then(Mono.just(new PatientBatchWithConsent(batch.applyConsent(), mutableBundles))); // Convert back to immutable
     }
+
 }
+
+

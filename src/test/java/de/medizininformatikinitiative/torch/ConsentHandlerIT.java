@@ -4,16 +4,14 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.consent.PatientConsentInfo;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.Observation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,7 +57,7 @@ class ConsentHandlerIT {
     protected final ResourceTransformer transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
-    protected BundleCreator bundleCreator;
+
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
     protected Translator cqlQueryTranslator;
@@ -80,12 +78,12 @@ class ConsentHandlerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public ConsentHandlerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, BundleCreator bundleCreator, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public ConsentHandlerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;
         this.fhirContext = fhirContext;
-        this.bundleCreator = bundleCreator;
+
         this.objectMapper = objectMapper;
         this.cqlClient = cqlClient;
         this.cqlQueryTranslator = cqlQueryTranslator;
@@ -207,20 +205,20 @@ class ConsentHandlerIT {
     class UpdatePatientPatientBatchWithConsent {
         @Test
         public void success() throws IOException {
-            Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
+            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
 
-            List<PatientConsentInfo> patientConsentInfoList = consentInfoFlux.collectList().block();
+            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
             assert patientConsentInfoList != null;
-            PatientConsentInfo patientConsentInfo = patientConsentInfoList.getFirst();
+            PatientResourceBundle patientConsentInfo = patientConsentInfoList.getFirst();
 
             assertThat(patientConsentInfo.patientId()).isEqualTo(PATIENT_ID);
         }
 
         @Test
         public void invalidBatch() throws IOException {
-            Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
+            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
 
-            List<PatientConsentInfo> patientConsentInfoList = consentInfoFlux.collectList().block();
+            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
             assertThat(patientConsentInfoList).isEmpty();
         }
 
@@ -232,31 +230,23 @@ class ConsentHandlerIT {
     class BuildPatientPatientBatchWithConsent {
         @Test
         public void success() throws IOException {
-            Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
+            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
 
-            List<PatientConsentInfo> patientConsentInfoList = consentInfoFlux.collectList().block();
+            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
             assert patientConsentInfoList != null;
-            PatientConsentInfo patientConsentInfo = patientConsentInfoList.getFirst();
+            PatientResourceBundle patientConsentInfo = patientConsentInfoList.getFirst();
 
             assertThat(patientConsentInfo.patientId()).isEqualTo(PATIENT_ID);
         }
 
         @Test
         public void invalidBatch() throws IOException {
-            Flux<PatientConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
+            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
 
-            List<PatientConsentInfo> patientConsentInfoList = consentInfoFlux.collectList().block();
+            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
             assertThat(patientConsentInfoList).isEmpty();
         }
 
-    }
-
-
-    private Observation getObservationWithTime(String s) throws IOException {
-        Observation observation = (Observation) resourceReader.readResource(OBSERVATION_PATH);
-        DateTimeType time = new DateTimeType(s);
-        observation.setEffective(time);
-        return observation;
     }
 
 

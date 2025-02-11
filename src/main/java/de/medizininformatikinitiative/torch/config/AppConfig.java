@@ -4,13 +4,12 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.BundleCreator;
 import de.medizininformatikinitiative.torch.ResourceTransformer;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
-import de.medizininformatikinitiative.torch.management.AttributeGroupProcessor;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
@@ -91,8 +90,8 @@ public class AppConfig {
     }
 
     @Bean
-    public AttributeGroupProcessor attributeGroupProcessor(CompartmentManager manager) {
-        return new AttributeGroupProcessor(manager);
+    public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {
+        return new ProcessedGroupFactory(manager);
     }
 
     @Bean
@@ -152,15 +151,14 @@ public class AppConfig {
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
-            BundleCreator bundleCreator,
-            AttributeGroupProcessor attributeGroupProcessor,
+            ProcessedGroupFactory processedGroupFactory,
             ConsentHandler handler,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
             @Value("${torch.useCql}") boolean useCql) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, bundleCreator, attributeGroupProcessor,
+                transformer, processedGroupFactory,
                 batchSize, maxConcurrency, useCql);
     }
 
@@ -304,11 +302,6 @@ public class AppConfig {
     @Bean
     public CapabilityStatementController capabilityStatementController() {
         return new CapabilityStatementController();
-    }
-
-    @Bean
-    public BundleCreator bundleCreator() {
-        return new BundleCreator();
     }
 
 
