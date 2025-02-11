@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.model;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.HashSet;
@@ -8,25 +9,24 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet) {
+public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet,
+                                   List<Reference> references) {
 
     public ResourceGroupWrapper {
         Objects.requireNonNull(resource);
         groupSet = Set.copyOf(groupSet);
+        references = List.copyOf(references);
     }
 
-    public ResourceGroupWrapper addGroup(AnnotatedAttributeGroup group) {
-        Objects.requireNonNull(group);
-        List<AnnotatedAttributeGroup> groups = new java.util.ArrayList<>(groupSet.stream().toList());
-        groups.add(group);
-        HashSet<AnnotatedAttributeGroup> groupSet = new HashSet<>(groups);
-        return new ResourceGroupWrapper(resource, Set.copyOf(groupSet));
+    public ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet) {
+        this(resource, groupSet, List.of());
     }
 
+    
     public ResourceGroupWrapper addGroups(Set<AnnotatedAttributeGroup> newGroups) {
         Objects.requireNonNull(newGroups);
         Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.addAll(newGroups);
-        return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups));
+        return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups), references);
     }
 }

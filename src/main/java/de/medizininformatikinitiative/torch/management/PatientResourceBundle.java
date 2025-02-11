@@ -3,10 +3,10 @@ package de.medizininformatikinitiative.torch.management;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
+import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 
 
 /**
@@ -18,59 +18,52 @@ import java.util.concurrent.ConcurrentHashMap;
  * @param bundle     Resourcebundle handling the resource wrappers for the patient
  */
 public record PatientResourceBundle(String patientId, Provisions provisions,
-                                    ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache) {
+                                    ResourceBundle bundle) {
 
     public PatientResourceBundle {
-        patientId = Objects.requireNonNull(patientId);
-        provisions = Objects.requireNonNull(provisions);
+        Objects.requireNonNull(patientId);
+        Objects.requireNonNull(provisions);
     }
 
     public PatientResourceBundle(String patientID) {
-        this(patientID, Provisions.of(), new ConcurrentHashMap<>());
+        this(patientID, Provisions.of(), new ResourceBundle());
     }
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
-        this(patientID, provisions, new ConcurrentHashMap<>());
+        this(patientID, provisions, new ResourceBundle());
     }
 
     public PatientResourceBundle updateConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
-        return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), resourceCache);
+        return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
-    public ResourceGroupWrapper get(String id) {
-        return resourceCache.get(id);
+    public Mono<ResourceGroupWrapper> get(String id) {
+        return bundle.get(id);
     }
 
     public void put(ResourceGroupWrapper wrapper) {
-        if (wrapper != null) {
-            resourceCache.compute(wrapper.resource().getId(), (id, existingWrapper) -> {
-                if (existingWrapper != null) {
-                    return existingWrapper.addGroups(wrapper.groupSet());
-                }
-                return wrapper;
-            });
-        }
+        bundle.put(wrapper);
     }
 
 
     public void delete(String fullUrl) {
-        resourceCache.remove(fullUrl);
+        bundle.delete(fullUrl);
     }
 
     public Boolean isEmpty() {
-        return resourceCache.isEmpty();
+        return bundle.isEmpty();
     }
 
     public Collection<String> keySet() {
-        return resourceCache.keySet();
+        return bundle.keySet();
     }
 
     public Collection<ResourceGroupWrapper> values() {
-        return resourceCache.values();
+        return bundle.values();
     }
 
     public ResourceBundle toResourceBundle() {
-        return new ResourceBundle(resourceCache);
+        return bundle;
     }
 
 }
