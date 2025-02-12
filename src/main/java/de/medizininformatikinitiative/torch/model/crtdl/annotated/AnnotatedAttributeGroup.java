@@ -97,5 +97,11 @@ public record AnnotatedAttributeGroup(
     public boolean hasMustHave() {
         return attributes.stream().anyMatch(AnnotatedAttribute::mustHave);
     }
+
+
+    public List<AnnotatedAttribute> refAttributes() {
+        return attributes.stream().filter(annotatedAttribute -> !annotatedAttribute.linkedGroups().isEmpty()).toList();
+    }
+
 }
 
