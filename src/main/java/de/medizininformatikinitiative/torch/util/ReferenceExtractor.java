@@ -27,20 +27,27 @@ public class ReferenceExtractor {
     Recursive walk -> kill all unknown references
 
      */
-    List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) {
+    List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) throws MustHaveViolatedException {
         Resource resource = wrapper.resource();
-        return wrapper.groupSet().stream()
-                .flatMap(group -> group.refAttributes().stream()
-                        .map(refAttribute -> {
-                            try {
-                                return new ReferenceWrapper(resource.getId(), refAttribute, getReferences(resource, refAttribute));
-                            } catch (MustHaveViolatedException e) {
-                                throw new RuntimeException(e);
-                            }
-                        }))
-                .collect(Collectors.toList());
+        try {
+            return wrapper.groupSet().stream()
+                    .flatMap(group -> group.refAttributes().stream()
+                            .map(refAttribute -> {
+                                try {
+                                    return new ReferenceWrapper(resource.getId(), refAttribute, getReferences(resource, refAttribute));
+                                } catch (MustHaveViolatedException e) {
+                                    throw new RuntimeException(e); // Wrapping it first
+                                }
+                            }))
+                    .collect(Collectors.toList());
+        } catch (RuntimeException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof MustHaveViolatedException) {
+                throw (MustHaveViolatedException) cause; // Unwrapping and rethrowing
+            }
+            throw e; // Rethrow the original RuntimeException if it's not MustHaveViolatedException
+        }
     }
-
 
     List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
         //fhirpath call

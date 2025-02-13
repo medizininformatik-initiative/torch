@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
-import de.medizininformatikinitiative.torch.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
+import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 
 import java.util.Collection;
 import java.util.List;

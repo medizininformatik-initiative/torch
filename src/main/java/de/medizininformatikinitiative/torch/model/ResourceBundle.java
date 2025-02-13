@@ -1,6 +1,5 @@
-package de.medizininformatikinitiative.torch.management;
+package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;

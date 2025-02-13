@@ -1,6 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
-import de.medizininformatikinitiative.torch.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;

@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.model;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.HashSet;
@@ -10,7 +9,7 @@ import java.util.Objects;
 import java.util.Set;
 
 public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet,
-                                   List<Reference> references) {
+                                   List<ReferenceWrapper> references) {
 
     public ResourceGroupWrapper {
         Objects.requireNonNull(resource);
@@ -22,7 +21,7 @@ public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGrou
         this(resource, groupSet, List.of());
     }
 
-    
+
     public ResourceGroupWrapper addGroups(Set<AnnotatedAttributeGroup> newGroups) {
         Objects.requireNonNull(newGroups);
         Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);

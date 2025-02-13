@@ -1,6 +1,5 @@
-package de.medizininformatikinitiative.torch.management;
+package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
 import reactor.core.publisher.Mono;
