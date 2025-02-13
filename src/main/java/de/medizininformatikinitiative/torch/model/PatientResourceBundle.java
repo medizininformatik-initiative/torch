@@ -54,7 +54,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
     public Collection<String> keySet() {
-        return bundle.keySet();
+        return null;
     }
 
     public Collection<ResourceGroupWrapper> values() {
@@ -65,4 +65,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle;
     }
 
+    public boolean contains(String ref) {
+        return bundle.contains(ref);
+    }
 }

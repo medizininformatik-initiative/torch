@@ -15,7 +15,7 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.MustHaveChecker;
+import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -47,23 +47,23 @@ public class ResourceTransformer {
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
-    private final MustHaveChecker mustHaveChecker;
+    private final ProfileMustHaveChecker profileMustHaveChecker;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker mustHaveChecker) {
+    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
         this.dataStore = dataStore;
         this.copier = copier;
         this.redaction = redaction;
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
-        this.mustHaveChecker = mustHaveChecker;
+        this.profileMustHaveChecker = profileMustHaveChecker;
     }
 
     /**
      * @param attributeGroups CRTDL to be applied on batch
      * @param batch           Batch of PatIDs
-     * @param consentKey
+     * @param consentKey      string key encoding the applicable consent code (optional)
      * @return extracted Resources grouped by PatientID
      */
     public Mono<PatientBatchWithConsent> directLoadPatientCompartment(List<AnnotatedAttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
@@ -151,7 +151,7 @@ public class ResourceTransformer {
         return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {
             String resourceId = resource.getId();
             logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
-            if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+            if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                 atLeastOneResource.set(true);
                 resourceBundle.put(new ResourceGroupWrapper(resource, Set.of(group)));
             }
@@ -173,7 +173,7 @@ public class ResourceTransformer {
      * @param group   Annotated Attribute Group to be processed
      * @param batch   Patientbatch containid the PatientResourceBundles to be filled
      * @param safeSet resources that have survived so far.
-     * @return
+     * @return Patient batch containing a bundle per Patient Resource
      */
     private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(AnnotatedAttributeGroup group,
                                                                              PatientBatchWithConsent batch,
@@ -189,13 +189,13 @@ public class ResourceTransformer {
         // Extract a mutable copy of the patient bundles
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
-        return fetchResourcesDirect(Optional.ofNullable(batch), group)
+        return fetchResourcesDirect(Optional.of(batch), group)
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
                         String id = ResourceUtils.patientId((DomainResource) resource);
 
-                        if (mustHaveChecker.fulfilled((DomainResource) resource, group)) {
+                        if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                             safeGroup.add(id);
                             PatientResourceBundle bundle = mutableBundles.get(id);
                             bundle.put(new ResourceGroupWrapper(resource, Set.of(group)));

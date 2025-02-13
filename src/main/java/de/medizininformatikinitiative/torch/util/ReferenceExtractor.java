@@ -21,13 +21,12 @@ public class ReferenceExtractor {
         this.fhirPathEngine = fhirPathEngine;
     }
 
-    /*
-    Idea:
-    Extract all attributegroups with linked groups (maybe preprocess that)
-    Recursive walk -> kill all unknown references
-
+    /**
+     * @param wrapper containing the resource from whic the references should be extracted
+     * @return List of Referencewrapper containing the references and associated attribute, resource
+     * @throws MustHaveViolatedException if for a must have field there is not reference at all
      */
-    List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) throws MustHaveViolatedException {
+    public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) throws MustHaveViolatedException {
         Resource resource = wrapper.resource();
         try {
             return wrapper.groupSet().stream()

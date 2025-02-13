@@ -81,4 +81,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         return resourceCache.values();
     }
 
+    public boolean contains(String ref) {
+        return resourceCache.containsKey(ref);
+    }
 }

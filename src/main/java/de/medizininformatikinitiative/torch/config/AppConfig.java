@@ -85,8 +85,8 @@ public class AppConfig {
     }
 
     @Bean
-    MustHaveChecker mustHaveChecker(FhirContext ctx) {
-        return new MustHaveChecker(ctx);
+    ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new ProfileMustHaveChecker(ctx);
     }
 
     @Bean
@@ -253,13 +253,9 @@ public class AppConfig {
         return new CqlClient(fhirHelper, dataStore);
     }
 
-    @Bean
-    FhirPathBuilder fhirPathBuilder(Slicing slicing) {
-        return new FhirPathBuilder();
-    }
 
     @Bean
-    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
         return new ElementCopier(handler, ctx);
     }
 
@@ -269,14 +265,14 @@ public class AppConfig {
     }
 
     @Bean
-    public Redaction redaction(StructureDefinitionHandler cds, Slicing slicing) {
+    public Redaction redaction(StructureDefinitionHandler cds) {
         return new Redaction(cds);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker musthaveChecker) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, musthaveChecker);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
     }
 
     @Bean

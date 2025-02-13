@@ -81,8 +81,8 @@ public class TestConfig {
     }
 
     @Bean
-    MustHaveChecker mustHaveChecker(FhirContext ctx) {
-        return new MustHaveChecker(ctx);
+    ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new ProfileMustHaveChecker(ctx);
     }
 
 
@@ -240,15 +240,8 @@ public class TestConfig {
         return new CqlClient(fhirHelper, dataStore);
     }
 
-
     @Bean
-    FhirPathBuilder fhirPathBuilder() {
-        return new FhirPathBuilder();
-    }
-
-
-    @Bean
-    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
+    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
         return new ElementCopier(handler, ctx);
     }
 
@@ -263,9 +256,9 @@ public class TestConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, MustHaveChecker mustHaveChecker) {
+    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, mustHaveChecker);
+        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
     }
 
     @Bean
