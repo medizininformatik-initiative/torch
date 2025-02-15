@@ -64,7 +64,7 @@ class ReferenceExtractorTest {
             ResourceGroupWrapper wrapper = new ResourceGroupWrapper(condition, Set.of(new AnnotatedAttributeGroup("Test", "test", List.of(ATTRIBUTE, ATTRIBUTE_2), List.of())));
 
 
-            assertThat(referenceExtractor.extract(wrapper)).containsExactly(new ReferenceWrapper("Condition1", ATTRIBUTE, List.of("Patient1")), new ReferenceWrapper("Condition1", ATTRIBUTE_2, List.of("Asserter1")));
+            assertThat(referenceExtractor.extract(wrapper)).containsExactly(new ReferenceWrapper("Condition1", "Test", ATTRIBUTE, List.of("Patient1")), new ReferenceWrapper("Condition1", "Test", ATTRIBUTE_2, List.of("Asserter1")));
         }
 
         @Test

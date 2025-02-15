@@ -23,8 +23,8 @@ public class ReferenceExtractor {
 
     /**
      * @param wrapper containing the resource from whic the references should be extracted
-     * @return List of Referencewrapper containing the references and associated attribute, resource
-     * @throws MustHaveViolatedException if for a must have field there is not reference at all
+     * @return List of Referencewrapper containing the references and associated attribute of a resource
+     * @throws MustHaveViolatedException if for a must have field there is no reference at all
      */
     public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) throws MustHaveViolatedException {
         Resource resource = wrapper.resource();
@@ -33,7 +33,7 @@ public class ReferenceExtractor {
                     .flatMap(group -> group.refAttributes().stream()
                             .map(refAttribute -> {
                                 try {
-                                    return new ReferenceWrapper(resource.getId(), refAttribute, getReferences(resource, refAttribute));
+                                    return new ReferenceWrapper(resource.getId(), group.id(), refAttribute, getReferences(resource, refAttribute));
                                 } catch (MustHaveViolatedException e) {
                                     throw new RuntimeException(e); // Wrapping it first
                                 }

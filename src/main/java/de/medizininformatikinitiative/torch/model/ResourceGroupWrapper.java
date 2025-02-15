@@ -28,4 +28,12 @@ public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGrou
         updatedGroups.addAll(newGroups);
         return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups), references);
     }
+
+    public ResourceGroupWrapper removeGroups(Set<AnnotatedAttributeGroup> groups) {
+        Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
+        updatedGroups.removeAll(groups);
+        return new ResourceGroupWrapper(resource, updatedGroups, references);
+
+    }
+
 }
