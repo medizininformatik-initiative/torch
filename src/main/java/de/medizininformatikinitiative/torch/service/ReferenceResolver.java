@@ -11,10 +11,14 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Resource;
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ReferenceResolver {
 
@@ -23,97 +27,81 @@ public class ReferenceResolver {
     ProfileMustHaveChecker profileMustHaveChecker;
     CompartmentManager compartmentManager;
     ConsentHandler consentHandler;
+    Map<String, AnnotatedAttributeGroup> attributeGroupMap;
+    ResourceBundle coreBundle;
 
-
-    ReferenceResolver(ReferenceExtractor referenceExtractor, DataStore store, ProfileMustHaveChecker checker, CompartmentManager compartmentManager, ConsentHandler handler) {
+    ReferenceResolver(ReferenceExtractor referenceExtractor, DataStore store, ProfileMustHaveChecker checker, CompartmentManager compartmentManager, ConsentHandler handler, Map<String, AnnotatedAttributeGroup> attributeGroupMap, ResourceBundle coreBundle) {
         this.referenceExtractor = referenceExtractor;
         this.dataStore = store;
         this.profileMustHaveChecker = checker;
         this.compartmentManager = compartmentManager;
         this.consentHandler = handler;
+        this.attributeGroupMap = attributeGroupMap;
+        this.coreBundle = coreBundle;
     }
 
-    PatientResourceBundle resolvePatient(PatientResourceBundle patientBundle, ResourceBundle coreBundle) throws MustHaveViolatedException {
-        //load patient bundle into stack
-        Deque<ResourceGroupWrapper> resourceStack = new LinkedList<>(patientBundle.values());
-        boolean newResource;
+/*
+    Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle) {
+        return Flux.fromIterable(patientBundle.values())
+                .flatMap(wrapper -> {
+                    List<ReferenceWrapper> referenceWrappers;
+                    try {
+                        referenceWrappers = referenceExtractor.extract(wrapper);
+                    } catch (MustHaveViolatedException e) {
+                        //start deleting groups from ParentResource
+                    }
 
-        while (!resourceStack.isEmpty()) {
-            ResourceGroupWrapper wrapper = resourceStack.pop();
-            List<ReferenceWrapper> referenceWrappers = referenceExtractor.extract(wrapper);
+                    return Flux.fromIterable(referenceWrappers)
+                            .flatMap(ref -> handleReference(ref, Optional.of(patientBundle)))
+                            .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers))
+                            .doOnNext(resourceWrapper -> {
+                                if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
+                                    patientBundle.put(resourceWrapper);
+                                } else {
+                                    coreBundle.put(resourceWrapper);
+                                }
+                            })
+                            .then();
+                })
+                .thenReturn(patientBundle);
+    }
 
-            for (ReferenceWrapper ref : referenceWrappers) {
-                for (String reference : ref.references()) {
-                    newResource = false;
+*/
+
+    /**
+     * @param referenceWrapper reference to be handled
+     * @param patientBundle    patient bundle from which the reference was loaded
+     * @return Mono<List < ResourceGroupWrapper>> - all known and newly fetched resources.
+     */
+    Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle) {
+        return Flux.fromIterable(referenceWrapper.references())
+                .flatMap(reference -> {
                     Mono<ResourceGroupWrapper> referenceResource;
-                    if (patientBundle.contains(reference)) {
-                        referenceResource = patientBundle.get(reference);
+
+                    if (patientBundle.isPresent() && patientBundle.get().contains(reference)) {
+                        referenceResource = patientBundle.get().get(reference);
                     } else if (coreBundle.contains(reference)) {
                         referenceResource = coreBundle.get(reference);
                     } else {
-                        newResource = true;
                         referenceResource = dataStore.fetchResourceByReference(reference)
                                 .map(resource -> new ResourceGroupWrapper(resource, Set.of()));
                     }
-                    //Over all referenced resources
-                    referenceResource.flatMap(resourceWrapper -> {
-                        Set<AnnotatedAttributeGroup> groups = new HashSet<>();
-                        //Groupset from linked list
-                        resourceWrapper.groupSet().stream()
-                                .filter(annotatedAttributeGroup ->
-                                        profileMustHaveChecker.fulfilled((DomainResource) resourceWrapper.resource(), annotatedAttributeGroup))
-                                .forEach(groups::add);
-                        if (ref.refAttribute().mustHave() && groups.isEmpty()) {
-                            //Must Have Violation
-                            //collect must have violation over reference
-                            ref.GroupId();
+
+                    return referenceResource.flatMap(resourceWrapper -> {
+                        Set<AnnotatedAttributeGroup> groups = referenceWrapper.refAttribute().linkedGroups().stream()
+                                .map(attributeGroupMap::get)
+                                .filter(group -> profileMustHaveChecker.fulfilled((DomainResource) resourceWrapper.resource(), group))
+                                .collect(Collectors.toSet());
+
+                        if (referenceWrapper.refAttribute().mustHave() && groups.isEmpty()) {
+                            return Mono.error(new MustHaveViolatedException("MustHave condition violated for " + reference));
                         }
+
                         resourceWrapper.addGroups(groups);
-
                         return Mono.just(resourceWrapper);
-                    }).subscribe();
-                }
-
-
-            }
-
-        }
-
-
-        //extract references from patient bundle
-        // check if resource in patientbundle or coreBundle if not build queries and fetch resources
-        // check which attribute groups are applicable
-        // update groups
-        // add new resources to patient or corebundle (if in compartment)
-
-
-        //Add successful Resource IDs to Reference and manage it in bundle
-        //Manage for which groups the must have has been violated
-        return patientBundle;
-
-    }
-
-    Boolean validateResourceAgainstLinkedGroups(Resource resource, ReferenceWrapper referenceWrapper) {
-        /*
-        for all linked groups:
-        Load Group
-
-           //Groupset from linked list
-                        linked.stream()
-                                .filter(annotatedAttributeGroup ->
-                                        profileMustHaveChecker.fulfilled((DomainResource) resourceWrapper.resource(), annotatedAttributeGroup))
-                                .forEach(groups::add);
-                        if (ref.refAttribute().mustHave() && groups.isEmpty()) {
-                            //Must Have Violation
-                            //collect must have violation over reference
-                        }
-
-        save if reference not resolvable
-
-        safe reference to ResourceWrapper
-
-         */
-        return true;
+                    }).onErrorResume(MustHaveViolatedException.class, e -> Mono.empty());
+                })
+                .collectList();
     }
 
 

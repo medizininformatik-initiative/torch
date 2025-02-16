@@ -78,28 +78,20 @@ public class DataStore {
                 .uri(url, uriVariables)
                 .retrieve()
                 .bodyToMono(String.class)
-                .flatMap(body -> parseFhirResource(body))
+                .flatMap(this::parseFhirResource)
                 .doOnSuccess(resource -> logger.debug("Fetched resource: {}", resource.getId()))
                 .doOnError(error -> logger.error("Failed to fetch resource: {}", error.getMessage()));
     }
 
     private Mono<Resource> parseFhirResource(String jsonBody) {
         try {
-            // Step 1: Use Jackson to extract the resourceType field
             JsonNode jsonNode = objectMapper.readTree(jsonBody);
             if (!jsonNode.has("resourceType")) {
                 return Mono.error(new RuntimeException("Missing 'resourceType' field in response"));
             }
             String resourceType = jsonNode.get("resourceType").asText();
-            logger.debug("Extracted resourceType: {}", resourceType);
-
-            // Step 2: Get the correct FHIR class dynamically
             Class<? extends IBaseResource> resourceClass = fhirContext.getResourceDefinition(resourceType).getImplementingClass();
-
-            // Step 3: Parse JSON into the correct FHIR resource class
             IBaseResource parsedResource = fhirContext.newJsonParser().parseResource(resourceClass, jsonBody);
-
-            // Step 4: Ensure the parsed object is a subclass of Resource
             if (parsedResource instanceof Resource resource) {
                 return Mono.just(resource);
             } else {

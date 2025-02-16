@@ -43,13 +43,13 @@ class ResourceGroupWrapperTest {
         Set<AnnotatedAttributeGroup> attributeGroups3 = new HashSet<>();
         attributeGroups3.add(group1);
 
-        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1, List.of(reference1));
-        wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups3, List.of(reference1));
+        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1, List.of(reference1), List.of());
+        wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups3, List.of(reference1), List.of());
     }
 
     @Test
     void addGroups() {
-        ResourceGroupWrapper wrapper = new ResourceGroupWrapper(patient1, Set.of(), List.of(reference1));
+        ResourceGroupWrapper wrapper = new ResourceGroupWrapper(patient1, Set.of(), List.of(reference1), List.of());
         ResourceGroupWrapper result = wrapper.addGroups(attributeGroups1);
 
         assertThat(result).isEqualTo(wrapper1);
@@ -74,6 +74,6 @@ class ResourceGroupWrapperTest {
 
     @Test
     void references() {
-        assertThat(wrapper1.references()).containsExactly(reference1);
+        assertThat(wrapper1.referencedBy()).containsExactly(reference1);
     }
 }

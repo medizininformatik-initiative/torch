@@ -9,16 +9,17 @@ import java.util.Objects;
 import java.util.Set;
 
 public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet,
-                                   List<ReferenceWrapper> references) {
+                                   List<ReferenceWrapper> referencedBy, List<String> referencing) {
 
     public ResourceGroupWrapper {
         Objects.requireNonNull(resource);
         groupSet = Set.copyOf(groupSet);
-        references = List.copyOf(references);
+        referencedBy = List.copyOf(referencedBy);
+        referencing = List.copyOf(referencing);
     }
 
     public ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet) {
-        this(resource, groupSet, List.of());
+        this(resource, groupSet, List.of(), List.of());
     }
 
 
@@ -26,14 +27,12 @@ public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGrou
         Objects.requireNonNull(newGroups);
         Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.addAll(newGroups);
-        return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups), references);
+        return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups), referencedBy, referencing);
     }
 
     public ResourceGroupWrapper removeGroups(Set<AnnotatedAttributeGroup> groups) {
         Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.removeAll(groups);
-        return new ResourceGroupWrapper(resource, updatedGroups, references);
-
+        return new ResourceGroupWrapper(resource, updatedGroups, referencedBy, referencing);
     }
-
 }
