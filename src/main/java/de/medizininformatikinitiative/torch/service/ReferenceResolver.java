@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.CoreReferenceToPatientException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
@@ -11,7 +12,6 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
@@ -34,7 +34,7 @@ public class ReferenceResolver {
     private final CompartmentManager compartmentManager;
     private final ConsentHandler consentHandler;
     private final Map<String, AnnotatedAttributeGroup> attributeGroupMap;
-    private final ResourceBundle coreBundle;
+
 
     /**
      * Constructs a ReferenceResolver with the necessary dependencies.
@@ -60,8 +60,42 @@ public class ReferenceResolver {
         this.compartmentManager = compartmentManager;
         this.consentHandler = consentHandler;
         this.attributeGroupMap = attributeGroupMap;
-        this.coreBundle = coreBundle;
+
     }
+
+    /**
+     * Resolves references within the coreBundle using an empty PatientResourceBundle.
+     *
+     * @param applyConsent Flag indicating whether to apply consent.
+     * @return A Mono that completes when processing is done.
+     */
+    public Mono<Void> resolveCoreBundle(ResourceBundle coreBundle) {
+        return Flux.<ResourceGroupWrapper>create(sink -> {
+                    coreBundle.values().forEach(wrapper -> processCoreResourceWrapper(wrapper, coreBundle, sink));
+                    sink.complete();
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .then();
+    }
+
+    /**
+     * Processes a ResourceGroupWrapper in the coreBundle.
+     *
+     * @param wrapper The resource group wrapper to process.
+     * @param sink    FluxSink to emit new ResourceGroupWrappers for processing.
+     */
+    private void processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, FluxSink<ResourceGroupWrapper> sink) {
+        extractReferences(wrapper)
+                .flatMapMany(Flux::fromIterable)
+                .flatMap(ref -> handleReference(ref, Optional.empty(), coreBundle, false)) // Use empty patientBundle
+                .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
+                    if (coreBundle.put(resourceWrapper)) {
+                        sink.next(resourceWrapper);
+                    }
+                }))
+                .subscribe();
+    }
+
 
     /**
      * Resolves all references within the given PatientResourceBundle.
@@ -70,14 +104,15 @@ public class ReferenceResolver {
      * @param applyConsent  Flag indicating whether to apply consent.
      * @return A Mono emitting the updated PatientResourceBundle upon completion.
      */
-    public Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle, Boolean applyConsent) {
+    public Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent) {
         return Flux.<ResourceGroupWrapper>create(sink -> {
-                    patientBundle.values().forEach(wrapper -> processResourceWrapper(wrapper, patientBundle, applyConsent, sink));
+                    patientBundle.values().forEach(wrapper -> processPatientResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, sink));
                     sink.complete();
                 })
                 .subscribeOn(Schedulers.boundedElastic()) // Ensure processing occurs on a bounded elastic scheduler
                 .then(Mono.just(patientBundle));
     }
+
 
     /**
      * Processes a ResourceGroupWrapper and updates the PatientResourceBundle accordingly.
@@ -88,10 +123,10 @@ public class ReferenceResolver {
      * @param applyConsent  Flag indicating whether to apply consent.
      * @param sink          The FluxSink to emit new ResourceGroupWrappers.
      */
-    private void processResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, Boolean applyConsent, FluxSink<ResourceGroupWrapper> sink) {
+    private void processPatientResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, FluxSink<ResourceGroupWrapper> sink) {
         extractReferences(wrapper)
                 .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> handleReference(ref, Optional.of(patientBundle), applyConsent))
+                .flatMap(ref -> handleReference(ref, Optional.of(patientBundle), coreBundle, applyConsent))
                 .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
                     boolean updated = false;
                     if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
@@ -131,7 +166,7 @@ public class ReferenceResolver {
      * @param applyConsent
      * @return A Mono emitting a list of ResourceGroupWrappers corresponding to the resolved references.
      */
-    public Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle, Boolean applyConsent) {
+    public Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle, ResourceBundle coreBundle, Boolean applyConsent) {
         return Flux.fromIterable(referenceWrapper.references())
                 .flatMap(reference -> {
                     Mono<ResourceGroupWrapper> referenceResource;
@@ -141,24 +176,7 @@ public class ReferenceResolver {
                     } else if (coreBundle.contains(reference)) {
                         referenceResource = coreBundle.get(reference);
                     } else {
-                        referenceResource = dataStore.fetchResourceByReference(reference)
-                                .flatMap(resource ->
-                                {
-                                    if (compartmentManager.isInCompartment(resource)) {
-                                        if (applyConsent && patientBundle.isPresent()) {
-                                            if (consentHandler.checkConsent((DomainResource) resource, patientBundle.get())) {
-                                                return Mono.just(resource);
-                                            } else {
-                                                return Mono.empty();
-                                            }
-                                        } else {
-                                            return Mono.just(resource);
-                                        }
-                                    }
-
-                                    return Mono.just(resource);
-                                })
-                                .map(resource -> new ResourceGroupWrapper((Resource) resource, Set.of()));
+                        referenceResource = getResourceGroupWrapperMono(patientBundle, applyConsent, reference);
                     }
 
                     return referenceResource.flatMap(resourceWrapper -> {
@@ -176,5 +194,32 @@ public class ReferenceResolver {
                     }).onErrorResume(MustHaveViolatedException.class, e -> Mono.empty());
                 })
                 .collectList();
+    }
+
+    public Mono<ResourceGroupWrapper> getResourceGroupWrapperMono(Optional<PatientResourceBundle> patientBundle, Boolean applyConsent, String reference) {
+        Mono<ResourceGroupWrapper> referenceResource;
+        referenceResource = dataStore.fetchResourceByReference(reference)
+                .flatMap(resource ->
+                {
+                    if (compartmentManager.isInCompartment(resource)) {
+                        if (patientBundle.isPresent()) {
+                            if (applyConsent) {
+                                if (consentHandler.checkConsent((DomainResource) resource, patientBundle.get())) {
+                                    return Mono.just(resource);
+                                } else {
+                                    return Mono.empty();
+                                }
+                            } else {
+                                return Mono.just(resource);
+                            }
+                        } else {
+                            //Case in compartment but not from patientBundle
+                            return Mono.error(new CoreReferenceToPatientException("Patient Resource referenced in Core Bundle"));
+                        }
+                    }
+                    return Mono.just(resource);
+                })
+                .map(resource -> new ResourceGroupWrapper(resource, Set.of()));
+        return referenceResource;
     }
 }

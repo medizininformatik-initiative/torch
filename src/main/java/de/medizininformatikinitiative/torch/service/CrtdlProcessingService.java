@@ -79,10 +79,13 @@ public class CrtdlProcessingService {
 
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
 
-
         return batches
                 .flatMap(batch -> transformer.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .collectList()
+                //TODO: Handle references for each batch
+                //TODO: Handle references for core data
+                //TODO: Apply extraction on batches and core data
+                //TODO: Write out batches and core data to file
                 .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
                 .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
                 .then();

@@ -75,7 +75,6 @@ class ResourceBundleTest {
         ResourceBundle cache = new ResourceBundle();
         assertThat(cache.put(wrapper1)).isTrue();
         assertThat(cache.put(wrapper1)).isFalse();
-
         Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
 
         StepVerifier.create(result)
