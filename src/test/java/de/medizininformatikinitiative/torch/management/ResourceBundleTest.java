@@ -13,6 +13,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 class ResourceBundleTest {
 
     Patient patient1 = new Patient();
@@ -71,7 +73,8 @@ class ResourceBundleTest {
     @Test
     void put() {
         ResourceBundle cache = new ResourceBundle();
-        cache.put(wrapper1);
+        assertThat(cache.put(wrapper1)).isTrue();
+        assertThat(cache.put(wrapper1)).isFalse();
 
         Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
 

@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 
 /**
@@ -35,26 +36,36 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
     }
 
 
+    /**
+     * @param wrapper wrapper to be added to the resourcebundle
+     * @return boolean containing info if the wrapper is new or updated.
+     */
     public boolean put(ResourceGroupWrapper wrapper) {
+        AtomicReference<Boolean> result = new AtomicReference<>(false);
         if (wrapper == null) {
-            return false;
+            return result.get();
         }
 
         String resourceId = wrapper.resource().getId();
         resourceCache.compute(resourceId, (id, existingWrapper) -> {
             if (existingWrapper == null) {
                 // No existing wrapper, add the new one
+                result.set(true);
                 return wrapper;
             } else {
                 // Merge attribute groups into a new mutable set
                 Set<AnnotatedAttributeGroup> mergedGroups = new HashSet<>(existingWrapper.groupSet());
                 mergedGroups.addAll(wrapper.groupSet());
+                if (mergedGroups.equals(existingWrapper.groupSet())) {
+                    result.set(false);
+                } else {
+                    result.set(true);
+                }
                 return new ResourceGroupWrapper(existingWrapper.resource(), mergedGroups);
             }
         });
 
-        // Check if the wrapper was added or updated
-        return resourceCache.get(resourceId).equals(wrapper);
+        return result.get();
     }
 
 
