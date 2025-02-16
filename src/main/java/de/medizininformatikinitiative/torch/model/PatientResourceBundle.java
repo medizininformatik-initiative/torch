@@ -22,6 +22,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     public PatientResourceBundle {
         Objects.requireNonNull(patientId);
         Objects.requireNonNull(provisions);
+
     }
 
     public PatientResourceBundle(String patientID) {
@@ -40,8 +41,8 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.get(id);
     }
 
-    public void put(ResourceGroupWrapper wrapper) {
-        bundle.put(wrapper);
+    public boolean put(ResourceGroupWrapper wrapper) {
+        return bundle.put(wrapper);
     }
 
 

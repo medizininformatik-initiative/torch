@@ -31,10 +31,10 @@ class ResourceBundleTest {
         patient3.setId("patient3");
         Set<AnnotatedAttributeGroup> attributeGroups1 = new HashSet<>();
         attributeGroups1.add(new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), false));
-        attributeGroups1.add(new AnnotatedAttributeGroup("group2", "2345", "reference", List.of(), List.of(), false));
+        attributeGroups1.add(new AnnotatedAttributeGroup("group2", "123", "reference", List.of(), List.of(), false));
 
         Set<AnnotatedAttributeGroup> attributeGroups2 = new HashSet<>();
-        attributeGroups2.add(new AnnotatedAttributeGroup("group2", "123", "reference2", List.of(), List.of(), false));
+        attributeGroups2.add(new AnnotatedAttributeGroup("group3", "1234", "reference2", List.of(), List.of(), false));
 
         wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1);
         wrapper2 = new ResourceGroupWrapper(patient2, attributeGroups1);

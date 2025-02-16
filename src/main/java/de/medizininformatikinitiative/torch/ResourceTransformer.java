@@ -208,7 +208,7 @@ public class ResourceTransformer {
                 .doOnTerminate(() -> {
                     safeSet.retainAll(safeGroup);
                 })
-                .then(Mono.just(new PatientBatchWithConsent(batch.applyConsent(), mutableBundles))); // Convert back to immutable
+                .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent()))); // Convert back to immutable
     }
 
 }

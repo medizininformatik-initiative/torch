@@ -10,14 +10,12 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
- * @param applyConsent Boolean if consent is to be applied
  * @param bundles      Map of bundles keyed with Patient ID
+ * @param applyConsent
  */
 public record PatientBatchWithConsent(
-        boolean applyConsent,
-        Map<String, PatientResourceBundle> bundles
-
-) {
+        Map<String, PatientResourceBundle> bundles,
+        Boolean applyConsent) {
     public PatientBatchWithConsent {
         bundles = Map.copyOf(bundles);
     }
@@ -28,13 +26,13 @@ public record PatientBatchWithConsent(
     }
 
     public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
-        return new PatientBatchWithConsent(false, batch.ids().stream().collect(
-                Collectors.toMap(Function.identity(), PatientResourceBundle::new)));
+        return new PatientBatchWithConsent(batch.ids().stream().collect(
+                Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false);
     }
 
     public static PatientBatchWithConsent fromList(List<PatientResourceBundle> batch) {
-        return new PatientBatchWithConsent(true, batch.stream()
-                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())));
+        return new PatientBatchWithConsent(batch.stream()
+                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
     }
 
     public Collection<String> keySet() {
@@ -51,7 +49,7 @@ public record PatientBatchWithConsent(
                 .filter(entry -> safeSet.contains(entry.getKey()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        return new PatientBatchWithConsent(applyConsent, filtered);
+        return new PatientBatchWithConsent(filtered, applyConsent);
     }
 
 }

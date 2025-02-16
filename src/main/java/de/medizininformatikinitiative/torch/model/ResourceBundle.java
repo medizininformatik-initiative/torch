@@ -1,10 +1,13 @@
 package de.medizininformatikinitiative.torch.model;
 
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -32,16 +35,28 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
     }
 
 
-    public void put(ResourceGroupWrapper wrapper) {
-        if (wrapper != null) {
-            resourceCache.compute(wrapper.resource().getId(), (id, existingWrapper) -> {
-                if (existingWrapper != null) {
-                    return existingWrapper.addGroups(wrapper.groupSet());
-                }
-                return wrapper;
-            });
+    public boolean put(ResourceGroupWrapper wrapper) {
+        if (wrapper == null) {
+            return false;
         }
+
+        String resourceId = wrapper.resource().getId();
+        resourceCache.compute(resourceId, (id, existingWrapper) -> {
+            if (existingWrapper == null) {
+                // No existing wrapper, add the new one
+                return wrapper;
+            } else {
+                // Merge attribute groups into a new mutable set
+                Set<AnnotatedAttributeGroup> mergedGroups = new HashSet<>(existingWrapper.groupSet());
+                mergedGroups.addAll(wrapper.groupSet());
+                return new ResourceGroupWrapper(existingWrapper.resource(), mergedGroups);
+            }
+        });
+
+        // Check if the wrapper was added or updated
+        return resourceCache.get(resourceId).equals(wrapper);
     }
+
 
     public Bundle toFhirBundle() {
         Bundle bundle = new Bundle();

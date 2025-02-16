@@ -11,8 +11,11 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.Map;
@@ -20,60 +23,115 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+/**
+ * Service class responsible for resolving references within a PatientResourceBundle.
+ */
 public class ReferenceResolver {
 
-    ReferenceExtractor referenceExtractor;
-    DataStore dataStore;
-    ProfileMustHaveChecker profileMustHaveChecker;
-    CompartmentManager compartmentManager;
-    ConsentHandler consentHandler;
-    Map<String, AnnotatedAttributeGroup> attributeGroupMap;
-    ResourceBundle coreBundle;
+    private final ReferenceExtractor referenceExtractor;
+    private final DataStore dataStore;
+    private final ProfileMustHaveChecker profileMustHaveChecker;
+    private final CompartmentManager compartmentManager;
+    private final ConsentHandler consentHandler;
+    private final Map<String, AnnotatedAttributeGroup> attributeGroupMap;
+    private final ResourceBundle coreBundle;
 
-    ReferenceResolver(ReferenceExtractor referenceExtractor, DataStore store, ProfileMustHaveChecker checker, CompartmentManager compartmentManager, ConsentHandler handler, Map<String, AnnotatedAttributeGroup> attributeGroupMap, ResourceBundle coreBundle) {
+    /**
+     * Constructs a ReferenceResolver with the necessary dependencies.
+     *
+     * @param referenceExtractor     Utility to extract references from resources.
+     * @param dataStore              Data store to fetch resources by reference.
+     * @param profileMustHaveChecker Checker to validate profile constraints.
+     * @param compartmentManager     Manager to determine resource compartmentalization.
+     * @param consentHandler         Handler to manage consents.
+     * @param attributeGroupMap      Map of attribute group identifiers to their definitions.
+     * @param coreBundle             Core resource bundle shared across patients.
+     */
+    public ReferenceResolver(ReferenceExtractor referenceExtractor,
+                             DataStore dataStore,
+                             ProfileMustHaveChecker profileMustHaveChecker,
+                             CompartmentManager compartmentManager,
+                             ConsentHandler consentHandler,
+                             Map<String, AnnotatedAttributeGroup> attributeGroupMap,
+                             ResourceBundle coreBundle) {
         this.referenceExtractor = referenceExtractor;
-        this.dataStore = store;
-        this.profileMustHaveChecker = checker;
+        this.dataStore = dataStore;
+        this.profileMustHaveChecker = profileMustHaveChecker;
         this.compartmentManager = compartmentManager;
-        this.consentHandler = handler;
+        this.consentHandler = consentHandler;
         this.attributeGroupMap = attributeGroupMap;
         this.coreBundle = coreBundle;
     }
 
-/*
-    Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle) {
-        return Flux.fromIterable(patientBundle.values())
-                .flatMap(wrapper -> {
-                    List<ReferenceWrapper> referenceWrappers;
-                    try {
-                        referenceWrappers = referenceExtractor.extract(wrapper);
-                    } catch (MustHaveViolatedException e) {
-                        //start deleting groups from ParentResource
-                    }
-
-                    return Flux.fromIterable(referenceWrappers)
-                            .flatMap(ref -> handleReference(ref, Optional.of(patientBundle)))
-                            .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers))
-                            .doOnNext(resourceWrapper -> {
-                                if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
-                                    patientBundle.put(resourceWrapper);
-                                } else {
-                                    coreBundle.put(resourceWrapper);
-                                }
-                            })
-                            .then();
+    /**
+     * Resolves all references within the given PatientResourceBundle.
+     *
+     * @param patientBundle The patient resource bundle to resolve.
+     * @param applyConsent  Flag indicating whether to apply consent.
+     * @return A Mono emitting the updated PatientResourceBundle upon completion.
+     */
+    public Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle, Boolean applyConsent) {
+        return Flux.<ResourceGroupWrapper>create(sink -> {
+                    patientBundle.values().forEach(wrapper -> processResourceWrapper(wrapper, patientBundle, applyConsent, sink));
+                    sink.complete();
                 })
-                .thenReturn(patientBundle);
+                .subscribeOn(Schedulers.boundedElastic()) // Ensure processing occurs on a bounded elastic scheduler
+                .then(Mono.just(patientBundle));
     }
 
-*/
+    /**
+     * Processes a ResourceGroupWrapper and updates the PatientResourceBundle accordingly.
+     * New ResourceGroupWrappers are emitted into the provided FluxSink for dynamic processing.
+     *
+     * @param wrapper       The resource group wrapper to process.
+     * @param patientBundle The patient resource bundle being updated.
+     * @param applyConsent  Flag indicating whether to apply consent.
+     * @param sink          The FluxSink to emit new ResourceGroupWrappers.
+     */
+    private void processResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, Boolean applyConsent, FluxSink<ResourceGroupWrapper> sink) {
+        extractReferences(wrapper)
+                .flatMapMany(Flux::fromIterable)
+                .flatMap(ref -> handleReference(ref, Optional.of(patientBundle), applyConsent))
+                .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
+                    boolean updated = false;
+                    if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
+                        updated = patientBundle.put(resourceWrapper);
+                    } else {
+                        updated = coreBundle.put(resourceWrapper);
+                    }
+                    // Emit only if the wrapper is new or has been updated
+                    if (updated) {
+                        sink.next(resourceWrapper);
+                    }
+                }))
+                .subscribe();
+    }
+
 
     /**
-     * @param referenceWrapper reference to be handled
-     * @param patientBundle    patient bundle from which the reference was loaded
-     * @return Mono<List < ResourceGroupWrapper>> - all known and newly fetched resources.
+     * Extracts references from a ResourceGroupWrapper.
+     *
+     * @param wrapper The resource group wrapper from which to extract references.
+     * @return A Mono emitting a list of ReferenceWrappers.
      */
-    Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle) {
+    private Mono<List<ReferenceWrapper>> extractReferences(ResourceGroupWrapper wrapper) {
+        try {
+            List<ReferenceWrapper> references = referenceExtractor.extract(wrapper);
+            return Mono.just(references);
+        } catch (MustHaveViolatedException e) {
+            return Mono.error(e);
+        }
+    }
+
+    /**
+     * Handles a ReferenceWrapper by resolving its references and updating the patient bundle.
+     *
+     * @param referenceWrapper The reference wrapper to handle.
+     * @param patientBundle    The patient bundle being updated.
+     * @param applyConsent
+     * @return A Mono emitting a list of ResourceGroupWrappers corresponding to the resolved references.
+     */
+    public Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle, Boolean applyConsent) {
         return Flux.fromIterable(referenceWrapper.references())
                 .flatMap(reference -> {
                     Mono<ResourceGroupWrapper> referenceResource;
@@ -84,7 +142,23 @@ public class ReferenceResolver {
                         referenceResource = coreBundle.get(reference);
                     } else {
                         referenceResource = dataStore.fetchResourceByReference(reference)
-                                .map(resource -> new ResourceGroupWrapper(resource, Set.of()));
+                                .flatMap(resource ->
+                                {
+                                    if (compartmentManager.isInCompartment(resource)) {
+                                        if (applyConsent && patientBundle.isPresent()) {
+                                            if (consentHandler.checkConsent((DomainResource) resource, patientBundle.get())) {
+                                                return Mono.just(resource);
+                                            } else {
+                                                return Mono.empty();
+                                            }
+                                        } else {
+                                            return Mono.just(resource);
+                                        }
+                                    }
+
+                                    return Mono.just(resource);
+                                })
+                                .map(resource -> new ResourceGroupWrapper((Resource) resource, Set.of()));
                     }
 
                     return referenceResource.flatMap(resourceWrapper -> {
@@ -103,6 +177,4 @@ public class ReferenceResolver {
                 })
                 .collectList();
     }
-
-
 }

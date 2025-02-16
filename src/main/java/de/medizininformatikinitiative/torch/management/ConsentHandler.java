@@ -94,6 +94,7 @@ public class ConsentHandler {
                 .map(PatientBatchWithConsent::fromList);
     }
 
+
     /**
      * Checks whether the provided {@link DomainResource} complies with the patient's consents.
      *
@@ -104,7 +105,39 @@ public class ConsentHandler {
      * @param patientBatchWithConsent A map containing consent information structured by patient ID and consent codes.
      * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
      */
+    /**
+     * Wrapper function that checks whether the provided {@link DomainResource} complies with the patient's consents.
+     *
+     * <p>This method extracts the relevant {@link PatientResourceBundle} for the patient associated with the resource
+     * and delegates the consent compliance check to the existing {@code checkConsent} method.
+     *
+     * @param resource                The FHIR {@link DomainResource} to check for consent compliance.
+     * @param patientBatchWithConsent A batch containing consent information structured by patient ID.
+     * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
+     */
     public boolean checkConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
+        // Extract the patient ID from the resource
+        String patientID;
+        try {
+            patientID = ResourceUtils.patientId(resource);
+        } catch (PatientIdNotFoundException e) {
+            logger.error("Patient ID not found in resource: {}", e.getMessage());
+            return false;
+        }
+
+        // Retrieve the PatientResourceBundle for the given patient ID
+        PatientResourceBundle patientResourceBundle = patientBatchWithConsent.bundles().get(patientID);
+
+        if (patientResourceBundle == null) {
+            logger.warn("No PatientResourceBundle found for patient ID: {}", patientID);
+            return false;
+        }
+
+        // Delegate the consent check to the existing checkConsent method
+        return checkConsent(resource, patientResourceBundle);
+    }
+
+    public boolean checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
         JsonNode fieldValue = null;
         if (resourcetoField.has(resource.getResourceType().toString())) {
             logger.trace("Handling the following Profile {}", resource.getResourceType());
@@ -134,26 +167,18 @@ public class ConsentHandler {
                 } else {
                     throw new IllegalArgumentException("No valid Date Time Value found");
                 }
-                String patientID;
-                try {
-                    patientID = ResourceUtils.patientId(resource);
-                } catch (PatientIdNotFoundException e) {
-                    return false;
-                }
-
-                boolean hasValidConsent = Optional.ofNullable(patientBatchWithConsent.bundles().get(patientID))
-                        .map(bundle -> bundle.provisions().periods().entrySet().stream()
-                                .allMatch(innerEntry -> {
-                                    NonContinuousPeriod consentPeriods = innerEntry.getValue();
-                                    return consentPeriods.within(period);
-                                }))
-                        .orElse(false);
+                boolean hasValidConsent = patientResourceBundle.provisions().periods().entrySet().stream()
+                        .allMatch(innerEntry -> {
+                            NonContinuousPeriod consentPeriods = innerEntry.getValue();
+                            return consentPeriods.within(period);
+                        });
                 if (hasValidConsent) {
                     return true;
                 }
             }
             return false;  // No matching consent period found
         }
+
     }
 
 

@@ -85,7 +85,7 @@ class ReferenceResolverTest {
         when(resourceWrapper.resource()).thenReturn(domainResource);
         when(profileMustHaveChecker.fulfilled(domainResource, attributeGroup)).thenReturn(true);
 
-        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.of(patientBundle)))
+        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.of(patientBundle), false))
                 .expectNextMatches(resourceWrappers -> resourceWrappers.size() == 1)
                 .verifyComplete();
 
@@ -109,7 +109,7 @@ class ReferenceResolverTest {
         when(resourceWrapper.resource()).thenReturn(domainResource);
         when(profileMustHaveChecker.fulfilled(domainResource, attributeGroup)).thenReturn(true);
 
-        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty()))
+        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty(), true))
                 .expectNextMatches(resourceWrappers -> resourceWrappers.size() == 1)
                 .verifyComplete();
 
@@ -132,7 +132,7 @@ class ReferenceResolverTest {
         when(attributeGroupMap.get("group1")).thenReturn(attributeGroup);
         when(profileMustHaveChecker.fulfilled(domainResource, attributeGroup)).thenReturn(true);
 
-        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty()))
+        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty(), false))
                 .expectNextMatches(resourceWrappers -> resourceWrappers.size() == 1)
                 .verifyComplete();
 
@@ -158,7 +158,7 @@ class ReferenceResolverTest {
         when(profileMustHaveChecker.fulfilled(domainResource, attributeGroup)).thenReturn(false);
 
         // Verifying the behavior
-        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty()))
+        StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty(), false))
                 .expectNextMatches(list -> list.isEmpty()) // Expecting an empty list
                 .verifyComplete(); // Expecting the Mono to complete
 
