@@ -6,7 +6,6 @@ import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -24,8 +23,8 @@ class ResourceGroupWrapperTest {
     private ResourceGroupWrapper wrapper1;
 
     private ResourceGroupWrapper wrapper1Mod;
-    private Set<AnnotatedAttributeGroup> attributeGroups1;
-    private Set<AnnotatedAttributeGroup> attributeGroups2;
+    private Set<String> attributeGroups1;
+    private Set<String> attributeGroups2;
 
 
     @BeforeEach
@@ -33,15 +32,11 @@ class ResourceGroupWrapperTest {
         patient1.setId("patient1");
         patient2.setId("patient2");
         patient3.setId("patient3");
-        attributeGroups1 = new HashSet<>();
-        attributeGroups1.add(group1);
-        attributeGroups1.add(group2);
+        attributeGroups1 = Set.of("group1", "group2");
 
-        attributeGroups2 = new HashSet<>();
-        attributeGroups2.add(group2);
+        attributeGroups2 = Set.of("group2");
 
-        Set<AnnotatedAttributeGroup> attributeGroups3 = new HashSet<>();
-        attributeGroups3.add(group1);
+        Set<String> attributeGroups3 = Set.of("group1");
 
         wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1, List.of(reference1), List.of());
         wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups3, List.of(reference1), List.of());

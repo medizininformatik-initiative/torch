@@ -153,7 +153,7 @@ public class ResourceTransformer {
             logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
             if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                 atLeastOneResource.set(true);
-                resourceBundle.put(new ResourceGroupWrapper(resource, Set.of(group)));
+                resourceBundle.put(new ResourceGroupWrapper(resource, Set.of(group.id())));
             }
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {
@@ -198,7 +198,7 @@ public class ResourceTransformer {
                         if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                             safeGroup.add(id);
                             PatientResourceBundle bundle = mutableBundles.get(id);
-                            bundle.put(new ResourceGroupWrapper(resource, Set.of(group)));
+                            bundle.put(new ResourceGroupWrapper(resource, Set.of(group.id())));
                         }
 
                     } catch (PatientIdNotFoundException e) {

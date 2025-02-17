@@ -5,24 +5,28 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 public class ReferenceExtractor {
 
     private final IFhirPath fhirPathEngine;
+    private final Map<String, AnnotatedAttributeGroup> groups;
 
 
-    ReferenceExtractor(IFhirPath fhirPathEngine) {
+    public ReferenceExtractor(IFhirPath fhirPathEngine, Map<String, AnnotatedAttributeGroup> groups) {
         this.fhirPathEngine = fhirPathEngine;
+        this.groups = groups;
     }
 
     /**
-     * @param wrapper containing the resource from whic the references should be extracted
+     * @param wrapper containing the resource from which the references should be extracted
      * @return List of Referencewrapper containing the references and associated attribute of a resource
      * @throws MustHaveViolatedException if for a must have field there is no reference at all
      */
@@ -30,10 +34,10 @@ public class ReferenceExtractor {
         Resource resource = wrapper.resource();
         try {
             return wrapper.groupSet().stream()
-                    .flatMap(group -> group.refAttributes().stream()
+                    .flatMap(groupID -> groups.get(groupID).refAttributes().stream()
                             .map(refAttribute -> {
                                 try {
-                                    return new ReferenceWrapper(resource.getId(), group.id(), refAttribute, getReferences(resource, refAttribute));
+                                    return new ReferenceWrapper(resource.getId(), groupID, refAttribute, getReferences(resource, refAttribute));
                                 } catch (MustHaveViolatedException e) {
                                     throw new RuntimeException(e); // Wrapping it first
                                 }

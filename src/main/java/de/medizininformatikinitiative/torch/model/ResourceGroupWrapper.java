@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.HashSet;
@@ -8,7 +7,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
-public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet,
+public record ResourceGroupWrapper(Resource resource, Set<String> groupSet,
                                    List<ReferenceWrapper> referencedBy, List<String> referencing) {
 
     public ResourceGroupWrapper {
@@ -18,20 +17,20 @@ public record ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGrou
         referencing = List.copyOf(referencing);
     }
 
-    public ResourceGroupWrapper(Resource resource, Set<AnnotatedAttributeGroup> groupSet) {
+    public ResourceGroupWrapper(Resource resource, Set<String> groupSet) {
         this(resource, groupSet, List.of(), List.of());
     }
 
 
-    public ResourceGroupWrapper addGroups(Set<AnnotatedAttributeGroup> newGroups) {
+    public ResourceGroupWrapper addGroups(Set<String> newGroups) {
         Objects.requireNonNull(newGroups);
-        Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
+        Set<String> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.addAll(newGroups);
         return new ResourceGroupWrapper(resource, Set.copyOf(updatedGroups), referencedBy, referencing);
     }
 
-    public ResourceGroupWrapper removeGroups(Set<AnnotatedAttributeGroup> groups) {
-        Set<AnnotatedAttributeGroup> updatedGroups = new HashSet<>(groupSet);
+    public ResourceGroupWrapper removeGroups(Set<String> groups) {
+        HashSet<String> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.removeAll(groups);
         return new ResourceGroupWrapper(resource, updatedGroups, referencedBy, referencing);
     }

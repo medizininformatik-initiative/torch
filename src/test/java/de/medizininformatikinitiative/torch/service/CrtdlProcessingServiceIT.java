@@ -8,7 +8,6 @@ import de.medizininformatikinitiative.torch.model.PatientBatch;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
@@ -173,8 +172,7 @@ class CrtdlProcessingServiceIT {
         ResourceBundle store = new ResourceBundle();
         Patient patient = new Patient();
         patient.setId(UUID.randomUUID().toString());
-        store.put(new ResourceGroupWrapper(patient, Set.of(new AnnotatedAttributeGroup("1234", "1234",
-                "12345", List.of(), List.of(), false))));
+        store.put(new ResourceGroupWrapper(patient, Set.of("1234")));
         Mono<Void> result = service.saveResourcesAsBundles(jobId, store);
 
         // Assert

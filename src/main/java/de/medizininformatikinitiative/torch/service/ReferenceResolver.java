@@ -185,9 +185,10 @@ public class ReferenceResolver {
                     }
 
                     return referenceResource.flatMap(resourceWrapper -> {
-                        Set<AnnotatedAttributeGroup> groups = referenceWrapper.refAttribute().linkedGroups().stream()
+                        Set<String> groups = referenceWrapper.refAttribute().linkedGroups().stream()
                                 .map(attributeGroupMap::get)
                                 .filter(group -> profileMustHaveChecker.fulfilled((DomainResource) resourceWrapper.resource(), group))
+                                .map(AnnotatedAttributeGroup::id)
                                 .collect(Collectors.toSet());
 
                         if (referenceWrapper.refAttribute().mustHave() && groups.isEmpty()) {

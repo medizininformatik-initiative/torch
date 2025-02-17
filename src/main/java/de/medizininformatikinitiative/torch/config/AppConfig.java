@@ -88,6 +88,7 @@ public class AppConfig {
     ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
         return new ProfileMustHaveChecker(ctx);
     }
+    
 
     @Bean
     public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {

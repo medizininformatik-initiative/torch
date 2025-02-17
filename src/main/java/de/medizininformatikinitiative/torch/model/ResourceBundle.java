@@ -1,13 +1,11 @@
 package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,7 +52,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
                 return wrapper;
             } else {
                 // Merge attribute groups into a new mutable set
-                Set<AnnotatedAttributeGroup> mergedGroups = new HashSet<>(existingWrapper.groupSet());
+                HashSet<String> mergedGroups = new HashSet<>(existingWrapper.groupSet());
                 mergedGroups.addAll(wrapper.groupSet());
                 if (mergedGroups.equals(existingWrapper.groupSet())) {
                     result.set(false);

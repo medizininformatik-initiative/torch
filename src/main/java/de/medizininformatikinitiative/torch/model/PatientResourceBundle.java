@@ -60,7 +60,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
     public Collection<String> keySet() {
-        return null;
+        return bundle.keySet();
     }
 
     public Collection<ResourceGroupWrapper> values() {

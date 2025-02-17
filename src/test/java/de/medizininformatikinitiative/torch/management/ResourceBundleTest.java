@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +9,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -31,19 +29,15 @@ class ResourceBundleTest {
         patient1.setId("patient1");
         patient2.setId("patient2");
         patient3.setId("patient3");
-        Set<AnnotatedAttributeGroup> attributeGroups1 = new HashSet<>();
-        attributeGroups1.add(new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), false));
-        attributeGroups1.add(new AnnotatedAttributeGroup("group2", "123", "reference", List.of(), List.of(), false));
+        Set<String> attributeGroups1 = Set.of("group1", "group2");
 
-        Set<AnnotatedAttributeGroup> attributeGroups2 = new HashSet<>();
-        attributeGroups2.add(new AnnotatedAttributeGroup("group3", "1234", "reference2", List.of(), List.of(), false));
-
+        Set<String> attributeGroups2 = Set.of("group3");
         wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1);
         wrapper2 = new ResourceGroupWrapper(patient2, attributeGroups1);
         wrapper3 = new ResourceGroupWrapper(patient3, attributeGroups1);
         wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups2);
 
-        Set<AnnotatedAttributeGroup> mergedAttributeGroups = new HashSet<>(attributeGroups1);
+        Set<String> mergedAttributeGroups = new HashSet<>(attributeGroups1);
         mergedAttributeGroups.addAll(attributeGroups2);
         wrapper1MergeResult = new ResourceGroupWrapper(patient1, mergedAttributeGroups);
     }
