@@ -195,7 +195,7 @@ class ReferenceResolverTest {
     }
 
     @Test
-    void handleReference_whenPatientReferenceIsNotInPatientOrCoreBundleAndMustHaveFails_shouldReturnEmpty() {
+    void handleReference_whenPatientReferenceIsNotInPatientOrCoreBundleAndMustHaveFails_shouldThrowError() {
         // Mocking dependencies
         AnnotatedAttribute annotatedAttribute = mock(AnnotatedAttribute.class);
         AnnotatedAttributeGroup attributeGroup = mock(AnnotatedAttributeGroup.class);
@@ -213,8 +213,8 @@ class ReferenceResolverTest {
 
         // Verifying the behavior
         StepVerifier.create(referenceResolver.handleReference(referenceWrapper, Optional.empty(), coreBundle, false))
-                .expectNextMatches(List::isEmpty) // Expecting an empty list
-                .verifyComplete(); // Expecting the Mono to complete
+                .expectError(MustHaveViolatedException.class)
+                .verify(); // Expecting the Mono to complete
 
         // Verifying interactions
         verify(profileMustHaveChecker).fulfilled(domainResource, attributeGroup);

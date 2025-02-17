@@ -26,7 +26,7 @@ public class BatchReferenceProcessor {
      * @param coreResourceBundle shared across all patients with an underlying concurrent hashmap
      * @return
      */
-    public Mono<List<PatientBatchWithConsent>> processPatientBatches(
+    public Mono<List<PatientBatchWithConsent>> processBatches(
             Mono<List<PatientBatchWithConsent>> batches, Mono<ResourceBundle> coreResourceBundle) {
 
         return coreResourceBundle.flatMap(coreBundle ->

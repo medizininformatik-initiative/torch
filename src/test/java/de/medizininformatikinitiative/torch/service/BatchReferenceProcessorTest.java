@@ -42,7 +42,7 @@ class BatchReferenceProcessorTest {
     }
 
     @Test
-    void processPatientBatches_shouldUpdateBatchesAndResolveCoreBundle() {
+    void processBatches_shouldUpdateBatchesAndResolveCoreBundle() {
         String patientId1 = "patient1";
         String patientId2 = "patient2";
 
@@ -59,7 +59,7 @@ class BatchReferenceProcessorTest {
         when(referenceResolver.resolveCoreBundle(any(ResourceBundle.class))).thenReturn(Mono.empty());
 
 
-        Mono<List<PatientBatchWithConsent>> result = patientBatchProcessor.processPatientBatches(
+        Mono<List<PatientBatchWithConsent>> result = patientBatchProcessor.processBatches(
                 Mono.just(batches), Mono.just(coreResourceBundle)
         );
 

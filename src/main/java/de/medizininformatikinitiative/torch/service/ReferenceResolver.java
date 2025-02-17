@@ -88,7 +88,7 @@ public class ReferenceResolver {
     private void processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, FluxSink<ResourceGroupWrapper> sink) {
         extractReferences(wrapper)
                 .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> handleReference(ref, Optional.empty(), coreBundle, false)) // Use empty patientBundle
+                .flatMap(ref -> handleReference(ref, Optional.empty(), coreBundle, false))
                 .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
                     if (coreBundle.put(resourceWrapper)) {
                         sink.next(resourceWrapper);
@@ -131,16 +131,17 @@ public class ReferenceResolver {
                 .flatMapMany(Flux::fromIterable)
                 .flatMap(ref -> handleReference(ref, Optional.of(patientBundle), coreBundle, applyConsent))
                 .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
-                    boolean updated = false;
                     if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
-                        updated = patientBundle.put(resourceWrapper);
+                        boolean updated = patientBundle.put(resourceWrapper);
+                        if (updated) {
+                            // Emit only if the wrapper is new or has been updated
+                            sink.next(resourceWrapper);
+                        }
                     } else {
-                        updated = coreBundle.put(resourceWrapper);
+                        coreBundle.put(resourceWrapper);
                     }
-                    // Emit only if the wrapper is new or has been updated
-                    if (updated) {
-                        sink.next(resourceWrapper);
-                    }
+
+
                 }))
                 .subscribe();
     }
@@ -197,7 +198,12 @@ public class ReferenceResolver {
                         return Mono.just(resourceWrapper);
                     }).onErrorResume(MustHaveViolatedException.class, e -> Mono.empty());
                 })
-                .collectList();
+                .collectList().flatMap(resourceList -> {
+                    if (referenceWrapper.refAttribute().mustHave() && resourceList.isEmpty()) {
+                        return Mono.error(new MustHaveViolatedException("MustHave condition violated: No valid references were resolved."));
+                    }
+                    return Mono.just(resourceList);
+                });
     }
 
     public Mono<ResourceGroupWrapper> getResourceGroupWrapperMono(Optional<PatientResourceBundle> patientBundle, Boolean applyConsent, String reference) {
