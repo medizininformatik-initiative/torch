@@ -82,6 +82,7 @@ public class CrtdlProcessingService {
         return batches
                 .flatMap(batch -> transformer.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .collectList()
+                
                 //TODO: Handle references for each batch
                 //TODO: Handle references for core data
                 //TODO: Apply extraction on batches and core data

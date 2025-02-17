@@ -69,13 +69,13 @@ public class ReferenceResolver {
      * @param coreBundle to be handled
      * @return A Mono that completes when processing is done.
      */
-    public Mono<Void> resolveCoreBundle(ResourceBundle coreBundle) {
+    public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle) {
         return Flux.<ResourceGroupWrapper>create(sink -> {
                     coreBundle.values().forEach(wrapper -> processCoreResourceWrapper(wrapper, coreBundle, sink));
                     sink.complete();
                 })
                 .subscribeOn(Schedulers.boundedElastic())
-                .then();
+                .then(Mono.just(coreBundle));
     }
 
     /**

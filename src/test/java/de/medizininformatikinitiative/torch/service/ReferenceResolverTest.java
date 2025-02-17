@@ -84,6 +84,7 @@ class ReferenceResolverTest {
         when(coreBundle.values()).thenReturn(Collections.emptyList());
 
         StepVerifier.create(referenceResolver.resolveCoreBundle(coreBundle))
+                .expectNext(coreBundle)
                 .verifyComplete();
 
         verifyNoInteractions(dataStore, compartmentManager, consentHandler);
@@ -95,6 +96,7 @@ class ReferenceResolverTest {
         when(referenceExtractor.extract(resourceGroupWrapper)).thenReturn(Collections.emptyList());
 
         StepVerifier.create(referenceResolver.resolveCoreBundle(coreBundle))
+                .expectNext(coreBundle)
                 .verifyComplete();
 
         verify(referenceExtractor).extract(resourceGroupWrapper);

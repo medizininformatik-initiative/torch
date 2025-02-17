@@ -26,8 +26,13 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
     public PatientResourceBundle(String patientID) {
-        this(patientID, Provisions.of(), new ResourceBundle());
+        this(patientID, new ResourceBundle());
     }
+
+    public PatientResourceBundle(String patientID, ResourceBundle bundle) {
+        this(patientID, Provisions.of(), bundle);
+    }
+
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
         this(patientID, provisions, new ResourceBundle());

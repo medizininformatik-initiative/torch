@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.service;
 
-
 import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -16,6 +15,7 @@ import reactor.test.StepVerifier;
 import java.util.List;
 import java.util.Map;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,6 +33,9 @@ class BatchReferenceProcessorTest {
     @Mock
     private PatientResourceBundle patientResourceBundle2;
 
+    @Mock
+    private ResourceBundle resolvedCoreBundle;
+
     @InjectMocks
     private BatchReferenceProcessor patientBatchProcessor;
 
@@ -45,35 +48,46 @@ class BatchReferenceProcessorTest {
     void processBatches_shouldUpdateBatchesAndResolveCoreBundle() {
         String patientId1 = "patient1";
         String patientId2 = "patient2";
+        String CORE = "CORE";
 
+        // Create a batch with two patient resource bundles
         PatientBatchWithConsent batch1 = new PatientBatchWithConsent(
                 Map.of(patientId1, patientResourceBundle1, patientId2, patientResourceBundle2),
                 true
         );
         List<PatientBatchWithConsent> batches = List.of(batch1);
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle1), any(ResourceBundle.class), eq(true)))
+
+        // Mock reference resolution for patient resources
+        when(referenceResolver.resolvePatient(eq(patientResourceBundle1), eq(coreResourceBundle), eq(true)))
                 .thenReturn(Mono.just(patientResourceBundle1));
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle2), any(ResourceBundle.class), eq(true)))
+        when(referenceResolver.resolvePatient(eq(patientResourceBundle2), eq(coreResourceBundle), eq(true)))
                 .thenReturn(Mono.just(patientResourceBundle2));
 
-        when(referenceResolver.resolveCoreBundle(any(ResourceBundle.class))).thenReturn(Mono.empty());
+        // Mock core bundle resolution
+        when(referenceResolver.resolveCoreBundle(eq(coreResourceBundle)))
+                .thenReturn(Mono.just(resolvedCoreBundle));
 
-
+        // Run the processBatches method
         Mono<List<PatientBatchWithConsent>> result = patientBatchProcessor.processBatches(
                 Mono.just(batches), Mono.just(coreResourceBundle)
         );
 
-
+        // Validate the output using StepVerifier
         StepVerifier.create(result)
-                .expectNextMatches(updatedBatches -> {
-                    // Ensure only one batch exists
-                    if (updatedBatches.size() != 1) return false;
-                    PatientBatchWithConsent updatedBatch = updatedBatches.get(0);
+                .assertNext(updatedBatches -> {
+                    // Expect two batches: one with resolved patient data, one with the core bundle
+                    assertThat(updatedBatches).hasSize(2);
 
-                    // Ensure patient bundles are correctly updated
-                    return updatedBatch.bundles().containsKey(patientId1) &&
-                            updatedBatch.bundles().containsKey(patientId2) &&
-                            updatedBatch.applyConsent();
+                    // First batch should contain updated patient data
+                    PatientBatchWithConsent updatedPatientBatch = updatedBatches.get(0);
+                    assertThat(updatedPatientBatch.bundles()).containsKeys(patientId1, patientId2);
+                    assertThat(updatedPatientBatch.applyConsent()).isTrue();
+
+                    // Second batch should contain the resolved core bundle
+                    PatientBatchWithConsent coreBundleBatch = updatedBatches.get(1);
+                    assertThat(coreBundleBatch.bundles()).containsKey(CORE);
+                    assertThat(coreBundleBatch.bundles().get(CORE).bundle()).isEqualTo(resolvedCoreBundle);
+                    assertThat(coreBundleBatch.applyConsent()).isFalse();
                 })
                 .verifyComplete();
 
