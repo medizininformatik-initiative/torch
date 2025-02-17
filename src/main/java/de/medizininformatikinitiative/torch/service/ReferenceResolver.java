@@ -1,7 +1,8 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.exceptions.CoreReferenceToPatientException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
@@ -11,6 +12,7 @@ import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.FluxSink;
@@ -24,7 +26,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Service class responsible for resolving references within a PatientResourceBundle.
+ * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
  */
 public class ReferenceResolver {
 
@@ -45,15 +47,13 @@ public class ReferenceResolver {
      * @param compartmentManager     Manager to determine resource compartmentalization.
      * @param consentHandler         Handler to manage consents.
      * @param attributeGroupMap      Map of attribute group identifiers to their definitions.
-     * @param coreBundle             Core resource bundle shared across patients.
      */
     public ReferenceResolver(ReferenceExtractor referenceExtractor,
                              DataStore dataStore,
                              ProfileMustHaveChecker profileMustHaveChecker,
                              CompartmentManager compartmentManager,
                              ConsentHandler consentHandler,
-                             Map<String, AnnotatedAttributeGroup> attributeGroupMap,
-                             ResourceBundle coreBundle) {
+                             Map<String, AnnotatedAttributeGroup> attributeGroupMap) {
         this.referenceExtractor = referenceExtractor;
         this.dataStore = dataStore;
         this.profileMustHaveChecker = profileMustHaveChecker;
@@ -66,7 +66,7 @@ public class ReferenceResolver {
     /**
      * Resolves references within the coreBundle using an empty PatientResourceBundle.
      *
-     * @param applyConsent Flag indicating whether to apply consent.
+     * @param coreBundle to be handled
      * @return A Mono that completes when processing is done.
      */
     public Mono<Void> resolveCoreBundle(ResourceBundle coreBundle) {
@@ -81,8 +81,9 @@ public class ReferenceResolver {
     /**
      * Processes a ResourceGroupWrapper in the coreBundle.
      *
-     * @param wrapper The resource group wrapper to process.
-     * @param sink    FluxSink to emit new ResourceGroupWrappers for processing.
+     * @param wrapper    The resource group wrapper to process.
+     * @param coreBundle coreBundle to be processed
+     * @param sink       FluxSink to emit new ResourceGroupWrappers for processing.
      */
     private void processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, FluxSink<ResourceGroupWrapper> sink) {
         extractReferences(wrapper)
@@ -101,6 +102,7 @@ public class ReferenceResolver {
      * Resolves all references within the given PatientResourceBundle.
      *
      * @param patientBundle The patient resource bundle to resolve.
+     * @param coreBundle    to be updated and queried, that contains a centrally shared concurrent HashMap
      * @param applyConsent  Flag indicating whether to apply consent.
      * @return A Mono emitting the updated PatientResourceBundle upon completion.
      */
@@ -120,6 +122,7 @@ public class ReferenceResolver {
      *
      * @param wrapper       The resource group wrapper to process.
      * @param patientBundle The patient resource bundle being updated.
+     * @param coreBundle    to be updated and queried, that contains a centrally shared concurrent HashMap
      * @param applyConsent  Flag indicating whether to apply consent.
      * @param sink          The FluxSink to emit new ResourceGroupWrappers.
      */
@@ -163,7 +166,8 @@ public class ReferenceResolver {
      *
      * @param referenceWrapper The reference wrapper to handle.
      * @param patientBundle    The patient bundle being updated.
-     * @param applyConsent
+     * @param coreBundle       to be updated and queried, that contains a centrally shared concurrent HashMap
+     * @param applyConsent     if consent has to be applied (only relevant if patientBundle given)
      * @return A Mono emitting a list of ResourceGroupWrappers corresponding to the resolved references.
      */
     public Mono<List<ResourceGroupWrapper>> handleReference(ReferenceWrapper referenceWrapper, Optional<PatientResourceBundle> patientBundle, ResourceBundle coreBundle, Boolean applyConsent) {
@@ -205,7 +209,16 @@ public class ReferenceResolver {
                         if (patientBundle.isPresent()) {
                             if (applyConsent) {
                                 if (consentHandler.checkConsent((DomainResource) resource, patientBundle.get())) {
-                                    return Mono.just(resource);
+                                    try {
+                                        if (ResourceUtils.patientId((DomainResource) resource) == patientBundle.get().patientId()) {
+                                            return Mono.just(resource);
+                                        } else {
+                                            return Mono.error(new ReferenceToPatientException("Patient loaded Reference belonging to other Patient"));
+                                        }
+                                    } catch (PatientIdNotFoundException e) {
+                                        return Mono.error(e);
+                                    }
+
                                 } else {
                                     return Mono.empty();
                                 }
@@ -214,7 +227,7 @@ public class ReferenceResolver {
                             }
                         } else {
                             //Case in compartment but not from patientBundle
-                            return Mono.error(new CoreReferenceToPatientException("Patient Resource referenced in Core Bundle"));
+                            return Mono.error(new ReferenceToPatientException("Patient Resource referenced in Core Bundle"));
                         }
                     }
                     return Mono.just(resource);

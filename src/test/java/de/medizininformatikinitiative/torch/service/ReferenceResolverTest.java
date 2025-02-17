@@ -1,7 +1,8 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.exceptions.CoreReferenceToPatientException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
@@ -13,6 +14,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -73,7 +75,7 @@ class ReferenceResolverTest {
     void setUp() {
         referenceResolver = new ReferenceResolver(
                 referenceExtractor, dataStore, profileMustHaveChecker,
-                compartmentManager, consentHandler, attributeGroupMap, coreBundle
+                compartmentManager, consentHandler, attributeGroupMap
         );
     }
 
@@ -239,7 +241,7 @@ class ReferenceResolverTest {
         when(compartmentManager.isInCompartment(domainResource)).thenReturn(true);
 
         StepVerifier.create(referenceResolver.getResourceGroupWrapperMono(Optional.empty(), true, reference))
-                .verifyError(CoreReferenceToPatientException.class);
+                .verifyError(ReferenceToPatientException.class);
     }
 
     @Test
@@ -253,15 +255,23 @@ class ReferenceResolverTest {
     }
 
     @Test
-    void shouldReturnResourceIfConsentAppliedAndAllowed() {
+    void shouldReturnResourceIfConsentAppliedAndAllowed() throws PatientIdNotFoundException {
+        // Mocking dependencies
+        DomainResource domainResource = new Patient();
+        domainResource.setId("123");
+
+        // Mocking return values
         when(dataStore.fetchResourceByReference(reference)).thenReturn(Mono.just(domainResource));
         when(compartmentManager.isInCompartment(domainResource)).thenReturn(true);
+        when(patientBundle.patientId()).thenReturn("123");
         when(consentHandler.checkConsent(domainResource, patientBundle)).thenReturn(true);
 
+        // Execute test
         StepVerifier.create(referenceResolver.getResourceGroupWrapperMono(Optional.of(patientBundle), true, reference))
                 .expectNextMatches(wrapper -> wrapper.resource().equals(domainResource))
                 .verifyComplete();
 
+        // Verify interactions
         verify(consentHandler).checkConsent(domainResource, patientBundle);
     }
 
