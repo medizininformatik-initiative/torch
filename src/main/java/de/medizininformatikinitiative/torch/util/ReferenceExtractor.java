@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
@@ -17,24 +18,24 @@ import java.util.stream.Collectors;
 public class ReferenceExtractor {
 
     private final IFhirPath fhirPathEngine;
-    private final Map<String, AnnotatedAttributeGroup> groups;
 
 
-    public ReferenceExtractor(IFhirPath fhirPathEngine, Map<String, AnnotatedAttributeGroup> groups) {
-        this.fhirPathEngine = fhirPathEngine;
-        this.groups = groups;
+    public ReferenceExtractor(FhirContext ctx) {
+        this.fhirPathEngine = ctx.newFhirPath();
+
     }
 
     /**
-     * @param wrapper containing the resource from which the references should be extracted
+     * @param wrapper  containing the resource from which the references should be extracted
+     * @param groupMap
      * @return List of Referencewrapper containing the references and associated attribute of a resource
      * @throws MustHaveViolatedException if for a must have field there is no reference at all
      */
-    public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper) throws MustHaveViolatedException {
+    public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap) throws MustHaveViolatedException {
         Resource resource = wrapper.resource();
         try {
             return wrapper.groupSet().stream()
-                    .flatMap(groupID -> groups.get(groupID).refAttributes().stream()
+                    .flatMap(groupID -> groupMap.get(groupID).refAttributes().stream()
                             .map(refAttribute -> {
                                 try {
                                     return new ReferenceWrapper(resource.getId(), groupID, refAttribute, getReferences(resource, refAttribute));

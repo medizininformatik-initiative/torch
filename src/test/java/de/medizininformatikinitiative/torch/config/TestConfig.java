@@ -14,9 +14,7 @@ import de.medizininformatikinitiative.torch.management.StructureDefinitionHandle
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.*;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.*;
@@ -85,6 +83,16 @@ public class TestConfig {
         return new ProfileMustHaveChecker(ctx);
     }
 
+    @Bean
+    ReferenceResolver referenceResolver(FhirContext ctx, DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, ProfileMustHaveChecker profileMustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
+        return new ReferenceResolver(ctx, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+    }
+
+    @Bean
+    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
+        return new BatchReferenceProcessor(referenceResolver);
+    }
+
 
     @Bean
     public CrtdlProcessingService crtdlProcessingService(
@@ -94,6 +102,7 @@ public class TestConfig {
             ResultFileManager resultFileManager,
             ResourceTransformer transformer,
             ProcessedGroupFactory processedGroupFactory,
+            BatchReferenceProcessor batchReferenceProcessor,
             ConsentHandler handler,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
@@ -101,7 +110,7 @@ public class TestConfig {
 
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, processedGroupFactory,
+                transformer, processedGroupFactory, batchReferenceProcessor,
                 batchSize, maxConcurrency, useCql);
 
     }

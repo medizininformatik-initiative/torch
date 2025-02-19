@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -24,37 +25,38 @@ public class BatchReferenceProcessor {
      *
      * @param batches            Patientbatch containing the underlying patients to be processed.
      * @param coreResourceBundle shared across all patients with an underlying concurrent hashmap
+     * @param groupMap
      * @return processed Batches
      */
     public Mono<List<PatientBatchWithConsent>> processBatches(
-            Mono<List<PatientBatchWithConsent>> batches, Mono<ResourceBundle> coreResourceBundle) {
+            List<PatientBatchWithConsent> batches, Mono<ResourceBundle> coreResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return coreResourceBundle.flatMap(coreBundle ->
-                batches.flatMap(patientBatchList ->
-                        Flux.fromIterable(patientBatchList)
-                                .flatMap(batch ->
-                                        Flux.fromIterable(batch.bundles().entrySet())
-                                                .flatMap(entry ->
-                                                        referenceResolver.resolvePatient(entry.getValue(), coreBundle, batch.applyConsent())
-                                                                .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle))
-                                                )
-                                                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()))
-                                )
-                                .collectList()
-                                .flatMap(updatedBatches ->
-                                        referenceResolver.resolveCoreBundle(coreBundle)
-                                                .map(resourceBundle -> {
-                                                    PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", resourceBundle);
-                                                    PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
-                                                            Map.of("CORE", corePatientBundle),
-                                                            false
-                                                    );
+                Flux.fromIterable(batches)
+                        .flatMap(batch ->
+                                Flux.fromIterable(batch.bundles().entrySet())
+                                        .flatMap(entry ->
+                                                referenceResolver.resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
+                                                        .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle))
+                                        )
+                                        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                                        .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()))
+                        )
+                        .collectList()
+                        .flatMap(updatedBatches ->
+                                referenceResolver.resolveCoreBundle(coreBundle, groupMap)
+                                        .map(resourceBundle -> {
+                                            PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", resourceBundle);
+                                            PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
+                                                    Map.of("CORE", corePatientBundle),
+                                                    false
+                                            );
 
-                                                    updatedBatches.add(coreBundleBatch);
-                                                    return updatedBatches;
-                                                })
-                                )
-                )
+                                            updatedBatches.add(coreBundleBatch);
+                                            return updatedBatches;
+                                        })
+                        )
         );
     }
+
 }
+

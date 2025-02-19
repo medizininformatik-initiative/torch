@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -22,15 +23,18 @@ public class ProfileMustHaveChecker {
         this.fhirPathEngine = ctx.newFhirPath();
     }
 
-    public Boolean fulfilled(DomainResource src, AnnotatedAttributeGroup group) {
+    public Boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
+        DomainResource resource = (DomainResource) src;
         List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).toList();
         if (profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {
                 return group.attributes().stream().filter(AnnotatedAttribute::mustHave).allMatch(attribute ->
-                        fulfilled(src, attribute));
+                        fulfilled(resource, attribute));
+
             }
             return true;
         }
+
         return false;
     }
 

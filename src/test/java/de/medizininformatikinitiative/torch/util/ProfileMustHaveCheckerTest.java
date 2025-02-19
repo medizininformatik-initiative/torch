@@ -23,7 +23,7 @@ class ProfileMustHaveCheckerTest {
     @BeforeAll
     static void setup() {
         Meta meta = new Meta();
-        meta.setProfile(List.of(new CanonicalType("Test")));
+        meta.setProfile(List.of(new CanonicalType("Invalid"), new CanonicalType("Test")));
         src.setMeta(meta);
         src.setSubject(new Reference("Patient/123"));
         src.setId("1243");

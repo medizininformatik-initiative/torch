@@ -109,6 +109,7 @@ class DataStoreTest {
     @Nested
     class FetchResourceByReference {
 
+
         @Test
         @DisplayName("Fetches resource using a relative reference")
         void fetchResourceByRelativeReference() {

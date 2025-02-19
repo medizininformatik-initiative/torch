@@ -7,10 +7,7 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.MeasureReport;
-import org.hl7.fhir.r4.model.Parameters;
-import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +46,11 @@ public class DataStore {
         this.pageCount = pageCount;
     }
 
+    public Mono<DomainResource> fetchDomainResource(String reference) {
+        return fetchResourceByReference(reference).cast(DomainResource.class);
+    }
+
+
     /**
      * Loads a single resource by id
      *
@@ -63,7 +65,6 @@ public class DataStore {
             if (parts.length != 2) {
                 return Mono.error(new IllegalArgumentException("Unexpected reference format: " + reference));
             }
-
             String type = parts[0];
             String id = parts[1];
 
@@ -79,8 +80,8 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .flatMap(this::parseFhirResource)
-                .doOnSuccess(resource -> logger.debug("Fetched resource: {}", resource.getId()))
-                .doOnError(error -> logger.error("Failed to fetch resource: {}", error.getMessage()));
+                .doOnSuccess(resource -> logger.debug("Successfully fetched resource: {}", resource.getId()))
+                .doOnError(error -> logger.error("Failed to fetch resource {}: {}", url, error.getMessage()));
     }
 
     private Mono<Resource> parseFhirResource(String jsonBody) {

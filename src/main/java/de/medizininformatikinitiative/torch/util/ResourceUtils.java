@@ -35,7 +35,7 @@ public class ResourceUtils {
 
     }
 
-    //TODO: FHIRPath?
+
     private static String getPatientIdViaReflection(DomainResource resource) throws PatientIdNotFoundException {
 
         try {

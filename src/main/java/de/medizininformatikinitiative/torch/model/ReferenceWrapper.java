@@ -8,7 +8,6 @@ public record ReferenceWrapper(String ResourceID, String GroupId, AnnotatedAttri
                                List<String> references) {
 
 
-    
 
     /*
     Check for all references must have

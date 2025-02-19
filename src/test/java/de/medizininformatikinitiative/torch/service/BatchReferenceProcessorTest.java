@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -36,6 +37,9 @@ class BatchReferenceProcessorTest {
     @Mock
     private ResourceBundle resolvedCoreBundle;
 
+    @Mock
+    private Map<String, AnnotatedAttributeGroup> groupMap;
+
     @InjectMocks
     private BatchReferenceProcessor patientBatchProcessor;
 
@@ -58,18 +62,18 @@ class BatchReferenceProcessorTest {
         List<PatientBatchWithConsent> batches = List.of(batch1);
 
         // Mock reference resolution for patient resources
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle1), eq(coreResourceBundle), eq(true)))
+        when(referenceResolver.resolvePatient(eq(patientResourceBundle1), eq(coreResourceBundle), eq(true), eq(groupMap)))
                 .thenReturn(Mono.just(patientResourceBundle1));
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle2), eq(coreResourceBundle), eq(true)))
+        when(referenceResolver.resolvePatient(eq(patientResourceBundle2), eq(coreResourceBundle), eq(true), eq(groupMap)))
                 .thenReturn(Mono.just(patientResourceBundle2));
 
         // Mock core bundle resolution
-        when(referenceResolver.resolveCoreBundle(eq(coreResourceBundle)))
+        when(referenceResolver.resolveCoreBundle(eq(coreResourceBundle), eq(groupMap)))
                 .thenReturn(Mono.just(resolvedCoreBundle));
 
         // Run the processBatches method
         Mono<List<PatientBatchWithConsent>> result = patientBatchProcessor.processBatches(
-                Mono.just(batches), Mono.just(coreResourceBundle)
+                batches, Mono.just(coreResourceBundle), groupMap
         );
 
         // Validate the output using StepVerifier
@@ -92,10 +96,10 @@ class BatchReferenceProcessorTest {
                 .verifyComplete();
 
         // Verify that patient bundles were resolved first
-        verify(referenceResolver).resolvePatient(patientResourceBundle1, coreResourceBundle, true);
-        verify(referenceResolver).resolvePatient(patientResourceBundle2, coreResourceBundle, true);
+        verify(referenceResolver).resolvePatient(patientResourceBundle1, coreResourceBundle, true, groupMap);
+        verify(referenceResolver).resolvePatient(patientResourceBundle2, coreResourceBundle, true, groupMap);
 
         // Verify that core bundle was resolved last
-        verify(referenceResolver).resolveCoreBundle(coreResourceBundle);
+        verify(referenceResolver).resolveCoreBundle(coreResourceBundle, groupMap);
     }
 }

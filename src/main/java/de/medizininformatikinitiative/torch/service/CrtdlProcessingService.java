@@ -44,13 +44,17 @@ public class CrtdlProcessingService {
     private final Boolean useCql;
     private final Translator cqlQueryTranslator;
     private final ProcessedGroupFactory processedGroupFactory;
+    private final BatchReferenceProcessor batchReferenceProcessor;
+
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
                                   Translator cqlQueryTranslator,
                                   CqlClient cqlClient,
                                   ResultFileManager resultFileManager,
                                   ResourceTransformer transformer,
-                                  ProcessedGroupFactory processedGroupFactory, @Value("${torch.batchsize:10}") int batchsize,
+                                  ProcessedGroupFactory processedGroupFactory,
+                                  BatchReferenceProcessor batchReferenceProcessor,
+                                  @Value("${torch.batchsize:10}") int batchsize,
                                   @Value("5") int maxConcurrency,
                                   @Value("${torch.useCql}") boolean useCql) {
         this.webClient = webClient;
@@ -63,6 +67,7 @@ public class CrtdlProcessingService {
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.processedGroupFactory = processedGroupFactory;
+        this.batchReferenceProcessor = batchReferenceProcessor;
     }
 
 
@@ -79,10 +84,14 @@ public class CrtdlProcessingService {
 
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
 
+
         return batches
                 .flatMap(batch -> transformer.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .collectList()
-                
+                .map(directlyLoadedPatients -> {
+                    return batchReferenceProcessor.processBatches(directlyLoadedPatients, coreResourceBundle, groupsToProcess.allGroups());
+                })
+
                 //TODO: Handle references for each batch
                 //TODO: Handle references for core data
                 //TODO: Apply extraction on batches and core data

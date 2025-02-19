@@ -14,13 +14,13 @@ import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.*;
 
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -134,10 +135,10 @@ class ReferenceResolverIT {
                          }""";
 
     public static final String PAT_REFERENCE = "Patient/VHF00006";
-    @Autowired
-    private ReferenceExtractor referenceExtractor;
 
-    @Autowired
+    private ReferenceExtractor extractor;
+
+    @MockBean
     private DataStore dataStore;
 
     @Autowired
@@ -146,7 +147,7 @@ class ReferenceResolverIT {
     @Autowired
     private CompartmentManager compartmentManager;
 
-    @Autowired
+    @MockBean
     private ConsentHandler consentHandler;
 
     @Autowired
@@ -156,16 +157,27 @@ class ReferenceResolverIT {
 
     private IParser parser;
 
+    AnnotatedAttributeGroup patientGroup;
+
+    Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
+
     @BeforeAll
     void setUp() {
-        Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
-        AnnotatedAttribute patientReference = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true, List.of("Patient"));
-        AnnotatedAttribute conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true);
-        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("ConditionGroup", "CG12345", "Condition", List.of(conditionId, patientReference), List.of(), false);
-        attributeGroupMap.put("Condition", conditionGroup);
 
-        this.referenceResolver = new ReferenceResolver(referenceExtractor, dataStore, profileMustHaveChecker, compartmentManager, consentHandler, attributeGroupMap);
+        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
+        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of());
+
+        AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of());
+
+
+        attributeGroupMap.put("Patient1", patientGroup);
+        attributeGroupMap.put("Condition1", conditionGroup);
+
+
+        this.referenceResolver = new ReferenceResolver(fhirContext, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
@@ -179,7 +191,7 @@ class ReferenceResolverIT {
             testResource.setId("testResource");
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
 
-            Mono<ResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle);
+            Mono<ResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(bundle -> assertThat(bundle.isEmpty()).isFalse())
@@ -195,7 +207,7 @@ class ReferenceResolverIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Boolean applyConsent = true;
 
-            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, applyConsent);
+            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, applyConsent, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(bundle -> assertThat(bundle.isEmpty()).isFalse())
@@ -211,20 +223,35 @@ class ReferenceResolverIT {
             Patient patient = parser.parseResource(Patient.class, PATIENT);
             ResourceBundle coreBundle = new ResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
-            AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-            AnnotatedAttributeGroup patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID), List.of());
 
-            AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
-            AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of());
 
-            patientBundle.put(new ResourceGroupWrapper(patient, Set.of("Patient1")));
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
-            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false);
+            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
+            // Validate the result using StepVerifier
             StepVerifier.create(result)
                     .assertNext(bundle -> {
                         System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
                         assertThat(bundle.isEmpty()).isFalse();
+                        Mono<ResourceGroupWrapper> resultCondition = bundle.get("Condition/2");
+
+                        StepVerifier.create(resultCondition)
+                                .assertNext(wrapper -> {
+                                    assertThat(wrapper).isNotNull();
+                                    assertThat(wrapper.groupSet()).containsExactly("Condition1");
+                                })
+                                .verifyComplete();
+                        Mono<ResourceGroupWrapper> resultPatient = bundle.get("Patient/VHF00006");
+
+                        StepVerifier.create(resultPatient)
+                                .assertNext(wrapper -> {
+                                    assertThat(wrapper).isNotNull();
+                                    assertThat(wrapper.groupSet()).containsExactly("Patient1");
+                                })
+                                .verifyComplete();
+
+
                     })
                     .verifyComplete();
         }
@@ -232,23 +259,18 @@ class ReferenceResolverIT {
         @Test
         void resolvePatientBundle_failure() {
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
-            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            Patient patient = new Patient();
+            patient.setId("VHF00006");
             ResourceBundle coreBundle = new ResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
-            condition.setSubject(new Reference("Patient/123"));
-            AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-            AnnotatedAttributeGroup patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID), List.of());
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of("Patient1")));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
-            AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true);
-            AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of());
-
-
-            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false);
+            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             StepVerifier.create(result)
                     .assertNext(bundle -> {
                                 System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
                                 assertThat(bundle.isEmpty()).isFalse();
-                                assertThat(bundle.contains("Patient/VHF00006")).isTrue();
                                 assertThat(bundle.contains("Condition/2")).isTrue();
                             }
                     )
@@ -258,7 +280,62 @@ class ReferenceResolverIT {
 
     }
 
-    //TODO Test Server Interact
+    @Nested
+    class ServerInteract {
+        @Test
+        void resolvePatientBundle_success() {
+            // Parse test resources
+            Patient patient = parser.parseResource(Patient.class, ReferenceResolverIT.PATIENT);
+            Condition condition = parser.parseResource(Condition.class, ReferenceResolverIT.CONDITION);
 
-    //TODO Test Core Bundle
+            // Create patient bundle with condition
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+
+            ResourceBundle coreBundle = new ResourceBundle();
+
+            // Mock DataStore to return the expected patient resource
+            when(dataStore.fetchDomainResource("Patient/VHF00006")).thenReturn(Mono.just(patient));
+
+            // Mock ConsentHandler to always return true
+            when(consentHandler.checkConsent(eq(patient), any(PatientResourceBundle.class)))
+                    .thenReturn(true);
+
+            System.out.println("Checker Result" + profileMustHaveChecker.fulfilled(patient, patientGroup));
+            // Call method under test
+            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, true, attributeGroupMap);
+
+            // Validate the result using StepVerifier
+            StepVerifier.create(result)
+                    .assertNext(bundle -> {
+                        System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
+                        assertThat(bundle.isEmpty()).isFalse();
+                        Mono<ResourceGroupWrapper> resultCondition = bundle.get("Condition/2");
+
+                        StepVerifier.create(resultCondition)
+                                .assertNext(wrapper -> {
+                                    assertThat(wrapper).isNotNull();
+                                    assertThat(wrapper.groupSet()).containsExactly("Condition1");
+                                })
+                                .verifyComplete();
+                        Mono<ResourceGroupWrapper> resultPatient = bundle.get("Patient/VHF00006");
+
+                        StepVerifier.create(resultPatient)
+                                .assertNext(wrapper -> {
+                                    assertThat(wrapper).isNotNull();
+                                    assertThat(wrapper.groupSet()).containsExactly("Patient1");
+                                })
+                                .verifyComplete();
+
+
+                    })
+                    .verifyComplete();
+
+            // Verify that the mocked methods were called as expected
+            verify(dataStore, times(1)).fetchDomainResource("Patient/VHF00006");
+            verify(consentHandler, times(1)).checkConsent(eq(patient), any(PatientResourceBundle.class));
+        }
+    }
+
 }

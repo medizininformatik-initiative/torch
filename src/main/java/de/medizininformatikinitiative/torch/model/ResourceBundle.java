@@ -35,6 +35,9 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
 
 
     /**
+     * Adds the wrapper into the underlying concurrent hashmap.
+     * Generates from ID and
+     *
      * @param wrapper wrapper to be added to the resourcebundle
      * @return boolean containing info if the wrapper is new or updated.
      */

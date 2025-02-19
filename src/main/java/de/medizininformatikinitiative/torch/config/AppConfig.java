@@ -14,9 +14,7 @@ import de.medizininformatikinitiative.torch.management.StructureDefinitionHandle
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.*;
 import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
@@ -88,12 +86,23 @@ public class AppConfig {
     ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
         return new ProfileMustHaveChecker(ctx);
     }
-    
+
 
     @Bean
     public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {
         return new ProcessedGroupFactory(manager);
     }
+
+    @Bean
+    ReferenceResolver referenceResolver(FhirContext ctx, DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, ProfileMustHaveChecker profileMustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
+        return new ReferenceResolver(ctx, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+    }
+
+    @Bean
+    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
+        return new BatchReferenceProcessor(referenceResolver);
+    }
+
 
     @Bean
     @Qualifier("fhirClient")
@@ -154,12 +163,13 @@ public class AppConfig {
             ResourceTransformer transformer,
             ProcessedGroupFactory processedGroupFactory,
             ConsentHandler handler,
+            BatchReferenceProcessor batchReferenceProcessor,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
             @Value("${torch.useCql}") boolean useCql) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, processedGroupFactory,
+                transformer, processedGroupFactory, batchReferenceProcessor,
                 batchSize, maxConcurrency, useCql);
     }
 

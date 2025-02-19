@@ -70,7 +70,8 @@ public class FhirTestHelper {
             Map<String, Resource> actualResourceMap = mapResourcesByID(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByID(expectedBundle);
 
-
+            System.out.println("Expected: " + expectedResourceMap.keySet());
+            System.out.println("Actual: " + actualResourceMap.keySet());
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
                 String profileKey = expectedEntry.getKey();
                 Resource expectedResource = expectedEntry.getValue();
@@ -88,7 +89,7 @@ public class FhirTestHelper {
     }
 
 
-    // Helper static function to map resources by their profile
+    // Helper static function to map resources by their id
     private Map<String, Resource> mapResourcesByID(Bundle bundle) {
         Map<String, Resource> resourceMap = new HashMap<>();
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
@@ -96,15 +97,6 @@ public class FhirTestHelper {
             resourceMap.put(resource.getId(), resource);
         }
         return resourceMap;
-    }
-
-    // Implement a method to extract the profile from a resource
-    private String extractProfileFromResource(Resource resource) {
-        // Extract the first profile URL from the resource's meta field
-        if (resource.getMeta() != null && resource.getMeta().hasProfile()) {
-            return resource.getMeta().getProfile().get(0).getValue();  // Use the first profile URL as the key
-        }
-        return null;  // Return null if no profile is found
     }
 
     private void removeMetaLastUpdatedFromEntries(Bundle bundle) {
