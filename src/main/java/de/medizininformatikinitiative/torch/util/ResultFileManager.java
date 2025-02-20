@@ -112,6 +112,11 @@ public class ResultFileManager {
     }
 
     public Mono<Void> saveBatchToNDJSON(String jobId, PatientBatchWithConsent batch) {
+        Objects.requireNonNull(resultsDirPath, "resultsDirPath must not be null");
+        Objects.requireNonNull(jobId, "jobId must not be null");
+        Objects.requireNonNull(batch, "batch must not be null");
+        Objects.requireNonNull(batch.bundles(), "batch.bundles() must not be null");
+        
         return Mono.fromCallable(() -> {
                     Path jobDir = resultsDirPath.resolve(jobId);
                     Files.createDirectories(jobDir); // Ensure job directory exists

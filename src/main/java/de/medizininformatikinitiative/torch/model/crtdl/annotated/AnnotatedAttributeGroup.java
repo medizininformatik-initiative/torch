@@ -29,8 +29,7 @@ public record AnnotatedAttributeGroup(
     public AnnotatedAttributeGroup(String id,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
-                                   List<Filter> filter
-    ) {
+                                   List<Filter> filter) {
         this("", id, groupReference, attributes, filter, false); // Default value for includeReferenceOnly
     }
 

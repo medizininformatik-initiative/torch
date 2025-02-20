@@ -52,6 +52,7 @@ public class CrtdlValidatorService {
 
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, StructureDefinition definition) throws ValidationException {
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
+
         for (Attribute attribute : attributeGroup.attributes()) {
             ElementDefinition elementDefinition = definition.getSnapshot().getElementById(attribute.attributeRef());
             if (elementDefinition == null) {
@@ -60,8 +61,9 @@ public class CrtdlValidatorService {
             String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition.getSnapshot());
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
-        attributeGroup = StandardAttributeGenerator.generate(attributeGroup, attributeGroup.resourceType(), compartmentManager);
-        return new AnnotatedAttributeGroup(attributeGroup.id(), attributeGroup.groupReference(), annotatedAttributes, attributeGroup.filter());
+        AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(attributeGroup, definition.getType(), compartmentManager);
+
+        return standardGroup.addAttributes(annotatedAttributes);
     }
 }
 

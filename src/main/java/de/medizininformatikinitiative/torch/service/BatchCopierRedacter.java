@@ -80,7 +80,6 @@ public class BatchCopierRedacter {
         }
         for (String groupID : groups) {
             AnnotatedAttributeGroup group = groupMap.get(groupID);
-
             for (AnnotatedAttribute attribute : group.attributes()) {
                 copier.copy(srcResource, tgt, attribute, group.groupReference());
             }

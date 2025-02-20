@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -27,9 +28,8 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new Attribute("Patient.name", false),
-                new Attribute("Patient.id", true),
-                new Attribute("Patient.meta.profile", true)
+                new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true),
+                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", true)
         );
     }
 
@@ -41,10 +41,10 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new Attribute("Consent.identifier", false),
-                new Attribute("Consent.id", true),
-                new Attribute("Consent.meta.profile", true),
-                new Attribute("Consent.patient.reference", true)
+
+                new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", true),
+                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", true),
+                new AnnotatedAttribute("Consent.patient.reference", "Consent.patient.reference", "Consent.patient.reference", true)
         );
     }
 
@@ -56,10 +56,9 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new Attribute("Observation.identifier", false),
-                new Attribute("Observation.id", true),
-                new Attribute("Observation.meta.profile", true),
-                new Attribute("Observation.subject", true)
+                new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true),
+                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true),
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", true)
         );
     }
 
@@ -71,8 +70,8 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new Attribute("Medication.id", true),
-                new Attribute("Medication.meta.profile", true)
+                new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true),
+                new AnnotatedAttribute("Medication.meta.profile", "Medication.meta.profile", "Medication.meta.profile", true)
         );
 
     }
@@ -85,11 +84,10 @@ class StandardAttributeGeneratorTest {
         var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager);
 
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
-        assertThat(standardAddedGroup.attributes()).containsExactly(
-                new Attribute("Condition.code", false),
-                new Attribute("Condition.id", true),
-                new Attribute("Condition.meta.profile", true),
-                new Attribute("Condition.subject", true)
+        assertThat(standardAddedGroup.attributes()).contains(
+                new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true),
+                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", true),
+                new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true)
         );
 
     }

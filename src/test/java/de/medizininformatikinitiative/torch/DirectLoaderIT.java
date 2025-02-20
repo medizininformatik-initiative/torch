@@ -140,9 +140,9 @@ public class DirectLoaderIT {
     }
 
     @Test
-    void testExecuteQueryWithBatch_Success() throws IOException {
+    void testExecuteQueryWithBatch_Success() throws IOException, ValidationException {
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
-        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+        AnnotatedCrtdl crtdl = validator.validate(objectMapper.readValue(fis, Crtdl.class));
         fis.close();
 
 

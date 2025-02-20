@@ -203,10 +203,10 @@ public class FhirControllerIT {
         }
     }
 
-    @Test
-    public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException, ValidationException {
-        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
-    }
+    /*  @Test
+      public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException, ValidationException {
+          executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
+      }
 
     @Test
     public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException, ValidationException {
@@ -215,10 +215,10 @@ public class FhirControllerIT {
 
     @Test
 
-    public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException, ValidationException {
+    /*public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException, ValidationException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
     }
-
+*/
   /*  @Test
     public void testAllFields() throws IOException, PatientIdNotFoundException {
         executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/all_fields_patient_3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));

@@ -1,8 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,21 +21,25 @@ public class StandardAttributeGenerator {
      */
 
 
-    public static AttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager) {
-        List<Attribute> tempAttributes = new ArrayList<>();
+    public static AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager) {
+        List<AnnotatedAttribute> tempAttributes = new ArrayList<>();
 
-        tempAttributes.add(new Attribute(resourceType + ".id", true));
-        tempAttributes.add(new Attribute(resourceType + ".meta.profile", true));
+        String id = resourceType + ".id";
+        tempAttributes.add(new AnnotatedAttribute(id, id, id, true));
+        String profile = resourceType + ".meta.profile";
+        tempAttributes.add(new AnnotatedAttribute(profile, profile, profile, true));
 
         if (manager.isInCompartment(resourceType)) {
             if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
-                tempAttributes.add(new Attribute(resourceType + ".subject", true));
+                String subject = resourceType + ".subject";
+                tempAttributes.add(new AnnotatedAttribute(subject, subject, subject, true));
             }
             if ("Consent".equals(resourceType)) {
-                tempAttributes.add(new Attribute(resourceType + ".patient.reference", true));
+                String pReference = resourceType + ".patient.reference";
+                tempAttributes.add(new AnnotatedAttribute(pReference, pReference, pReference, true));
             }
         }
 
-        return attributeGroup.addAttributes(tempAttributes);
+        return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), attributeGroup.includeReferenceOnly());
     }
 }

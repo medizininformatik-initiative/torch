@@ -28,7 +28,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,9 +48,10 @@ class CrtdlProcessingServiceIT {
     protected WebClient webClient;
     private AnnotatedCrtdl CRTDL_ALL_OBSERVATIONS;
     private AnnotatedCrtdl CRTDL_NO_PATIENTS;
+    private AnnotatedCrtdl CRTDL_DIAGNOSIS_LINKED;
 
-    private final String jobId;
-    private final Path jobDir;
+    String jobId;
+    Path jobDir;
 
     private static final int BATCH_SIZE = 100;
 
@@ -61,8 +61,6 @@ class CrtdlProcessingServiceIT {
         this.webClient = webClient;
         this.resultFileManager = resultFileManager;
         this.manager = containerManager;
-        jobId = UUID.randomUUID().toString();
-        jobDir = resultFileManager.initJobDir(jobId).block();
     }
 
     @Value("${torch.fhir.testPopulation.path}")
@@ -85,6 +83,10 @@ class CrtdlProcessingServiceIT {
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
         CRTDL_NO_PATIENTS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
+        fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_linked_encounter.json");
+        CRTDL_DIAGNOSIS_LINKED = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        fis.close();
+
         manager.startContainers();
 
 
@@ -129,25 +131,30 @@ class CrtdlProcessingServiceIT {
         }
     }
 
-/*
+
     @Test
-    void testProcessBatchWritesFiles() throws IOException {
+    void processReferences() {
+        String jobId = "processwithrefs";
+        jobDir = resultFileManager.initJobDir(jobId).block();
 
-        PatientBatch batch = PatientBatch.of("1", "2");// Sample batch with patient references
+        Mono<Void> result = service.process(CRTDL_DIAGNOSIS_LINKED, jobId);
 
 
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify that the method completes successfully
-
-        // Verify that files were created in the job directory
-        assertTrue(Files.exists(jobDir), "Job directory should exist.");
-        assertFalse(isDirectoryEmpty(jobDir), "Job directory should not be isEmpty after processing.");
+        Assertions.assertDoesNotThrow(() -> result.block());
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(jobDir)) {
+            boolean filesExist = stream.iterator().hasNext();
+            assertTrue(filesExist, "Job directory should contain files.");
+        } catch (IOException e) {
+            logger.trace(e.getMessage());
+            throw new RuntimeException("Failed to read job directory.");
+        }
     }
-*/
+
 
     @Test
     void processingService() {
+        jobId = "processwithoutrefs";
+        jobDir = resultFileManager.initJobDir(jobId).block();
         Mono<Void> result = service.process(CRTDL_ALL_OBSERVATIONS, jobId);
 
 

@@ -27,9 +27,9 @@ class ProcessedGroupFactoryTest {
 
 
     ProcessedGroupFactoryTest() throws IOException {
-        resultMap.put("patient", group);
-        resultMap.put("medication", group2);
-        resultMap.put("medication2", group3);
+        resultMap.put("12345", group);
+        resultMap.put("1234567", group2);
+        resultMap.put("1235678", group3);
     }
 
     @Test

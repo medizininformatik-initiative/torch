@@ -45,6 +45,9 @@ public class BatchReferenceProcessor {
                         .flatMap(updatedBatches ->
                                 referenceResolver.resolveCoreBundle(coreBundle, groupMap)
                                         .map(resourceBundle -> {
+                                            if (resourceBundle.isEmpty()) {
+                                                return updatedBatches;
+                                            }
                                             PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", resourceBundle);
                                             PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
                                                     Map.of("CORE", corePatientBundle),

@@ -31,23 +31,22 @@ public class Redaction {
      * @param base - Resource after Data Selection and Extraction process with possibly missing required fields
      * @return Base with fulfilled required fields using Data Absent Reasons
      */
-    public Base redact(Base base) {
+    public Base redact(DomainResource resource) {
         StructureDefinition structureDefinition;
         String elementID;
-        if (base instanceof DomainResource resource) {
-            if (resource.hasMeta()) {
 
-                structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
-                if (structureDefinition == null) {
-                    logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                    throw new RuntimeException("Trying to redact Base Element that is not a KDS resource");
-                }
-                resource.getMeta().setProfile(CDS.legalUrls(resource.getMeta().getProfile()));
-                elementID = String.valueOf(resource.getResourceType());
-                return redact(base, elementID, 0, structureDefinition);
+        if (resource.hasMeta()) {
+
+            structureDefinition = CDS.getDefinition(resource.getMeta().getProfile());
+            if (structureDefinition == null) {
+                logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
+                throw new RuntimeException("Trying to redact Base Element that is not a KDS resource");
             }
+            resource.getMeta().setProfile(CDS.legalUrls(resource.getMeta().getProfile()));
+            elementID = String.valueOf(resource.getResourceType());
+            return this.redact((Base) resource, elementID, 0, structureDefinition);
         }
-        throw new RuntimeException("Trying to redact Base Element that is not a resource");
+        throw new RuntimeException("Trying to redact Resource without Meta");
     }
 
 
