@@ -2,17 +2,13 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.Torch;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +28,6 @@ import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -164,32 +159,6 @@ class CrtdlProcessingServiceIT {
             logger.trace(e.getMessage());
             throw new RuntimeException("Failed to read job directory.");
         }
-    }
-
-    @Test
-    void testSaveResourcesAsBundles() throws PatientIdNotFoundException {
-
-        ResourceBundle store = new ResourceBundle();
-        Patient patient = new Patient();
-        patient.setId(UUID.randomUUID().toString());
-        store.put(new ResourceGroupWrapper(patient, Set.of("1234")));
-        Mono<Void> result = service.saveResourcesAsBundles(jobId, store);
-
-        // Assert
-        StepVerifier.create(result)
-                .verifyComplete(); // Verify that the method completes successfully
-
-        // Check that files were created in the job directory
-        assertTrue(Files.exists(jobDir), "Job directory should exist.");
-
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(jobDir)) {
-            boolean filesExist = stream.iterator().hasNext();
-            assertTrue(filesExist, "Job directory should contain files.");
-        } catch (IOException e) {
-            logger.trace(e.getMessage());
-            throw new RuntimeException("Failed to read job directory.");
-        }
-
     }
 
 

@@ -3,9 +3,8 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.PatientBatch;
@@ -27,14 +26,13 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
-import java.util.UUID;
 
 @Service
 public class CrtdlProcessingService {
 
     private static final Logger logger = LoggerFactory.getLogger(CrtdlProcessingService.class);
 
-    private final ResourceTransformer transformer;
+    private final DirectResourceLoader directLoader;
     private final ResultFileManager resultFileManager;
     private final int batchSize;
     private final int maxConcurrency;
@@ -45,20 +43,22 @@ public class CrtdlProcessingService {
     private final Translator cqlQueryTranslator;
     private final ProcessedGroupFactory processedGroupFactory;
     private final BatchReferenceProcessor batchReferenceProcessor;
+    private final BatchCopierRedacter batchCopierRedacter;
 
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
                                   Translator cqlQueryTranslator,
                                   CqlClient cqlClient,
                                   ResultFileManager resultFileManager,
-                                  ResourceTransformer transformer,
+                                  DirectResourceLoader directLoader,
                                   ProcessedGroupFactory processedGroupFactory,
                                   BatchReferenceProcessor batchReferenceProcessor,
+                                  BatchCopierRedacter batchCopierRedacter,
                                   @Value("${torch.batchsize:10}") int batchsize,
                                   @Value("5") int maxConcurrency,
                                   @Value("${torch.useCql}") boolean useCql) {
         this.webClient = webClient;
-        this.transformer = transformer;
+        this.directLoader = directLoader;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
         this.batchSize = batchsize;
@@ -68,6 +68,7 @@ public class CrtdlProcessingService {
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.processedGroupFactory = processedGroupFactory;
         this.batchReferenceProcessor = batchReferenceProcessor;
+        this.batchCopierRedacter = batchCopierRedacter;
     }
 
 
@@ -80,40 +81,21 @@ public class CrtdlProcessingService {
 
     public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID) {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-        Mono<ResourceBundle> coreResourceBundle = transformer.proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups());
+        Mono<ResourceBundle> coreResourceBundle = directLoader.proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups());
 
         Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
 
 
         return batches
-                .flatMap(batch -> transformer.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
+                .flatMap(batch -> directLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()), maxConcurrency)
                 .collectList()
-                .map(directlyLoadedPatients -> {
-                    return batchReferenceProcessor.processBatches(directlyLoadedPatients, coreResourceBundle, groupsToProcess.allGroups());
-                })
-
-                //TODO: Handle references for each batch
-                //TODO: Handle references for core data
-                //TODO: Apply extraction on batches and core data
-                //TODO: Write out batches and core data to file
+                .flatMap(directlyLoadedPatients -> batchReferenceProcessor.processBatches(directlyLoadedPatients, coreResourceBundle, groupsToProcess.allGroups()))
+                //TODO: Cascading delete
+                .map(referencedBatch -> batchCopierRedacter.transformBatch(referencedBatch, groupsToProcess.allGroups()))
+                .flatMap(transformedBatches -> resultFileManager.saveBatchList(jobID, transformedBatches))
                 .doOnError(error -> logger.error("Error saving resources: {}", error.getMessage()))
                 .doOnSuccess(unused -> logger.debug("Successfully saved all resources for jobId: {}", jobID))
                 .then();
-    }
-
-
-    Mono<Void> saveResourcesAsBundles(String jobId, ResourceBundle bundle) throws PatientIdNotFoundException {
-        UUID batchId = UUID.randomUUID();
-
-        return resultFileManager.saveBundleToNDJSON(jobId, batchId.toString(), bundle.toFhirBundle())
-                .subscribeOn(Schedulers.boundedElastic())
-                .doOnSuccess(unused -> logger.trace("Bundle appended: {}", batchId))
-                .then();
-    }
-
-    private void handleBatchError(String jobId, Throwable error) {
-        resultFileManager.setStatus(jobId, "Failed at collectResources for batch: " + error.getMessage());
-        logger.error("Error in collectResourcesByPatientReference for batch: {}", error.getMessage());
     }
 
 

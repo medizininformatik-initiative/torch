@@ -4,7 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
@@ -103,6 +103,10 @@ public class AppConfig {
         return new BatchReferenceProcessor(referenceResolver);
     }
 
+    @Bean
+    BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {
+        return new BatchCopierRedacter(copier, redaction);
+    }
 
     @Bean
     @Qualifier("fhirClient")
@@ -160,17 +164,17 @@ public class AppConfig {
             Translator cqlQueryTranslator,
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
-            ResourceTransformer transformer,
+            DirectResourceLoader directLoader,
             ProcessedGroupFactory processedGroupFactory,
             ConsentHandler handler,
             BatchReferenceProcessor batchReferenceProcessor,
+            BatchCopierRedacter batchCopierRedacter,
             @Value("${torch.batchsize:10}") int batchSize,
             @Value("5") int maxConcurrency,
             @Value("${torch.useCql}") boolean useCql) {
 
-        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, processedGroupFactory, batchReferenceProcessor,
-                batchSize, maxConcurrency, useCql);
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, directLoader,
+                processedGroupFactory, batchReferenceProcessor, batchCopierRedacter, batchSize, maxConcurrency, useCql);
     }
 
 
@@ -281,9 +285,9 @@ public class AppConfig {
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
+        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
     }
 
     @Bean

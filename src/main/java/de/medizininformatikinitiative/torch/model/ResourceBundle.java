@@ -85,15 +85,15 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
         entryComponent.setResource(resource);
         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
-        request.setUrl(resource.getResourceType() + "/" + resource.getId());
+        request.setUrl(resource.getId());
         request.setMethod(method);
         entryComponent.setRequest(request);
         return entryComponent;
     }
 
 
-    public void delete(String fullUrl) {
-        resourceCache.remove(fullUrl);
+    public void remove(String id) {
+        resourceCache.remove(id);
     }
 
     public Boolean isEmpty() {
@@ -111,4 +111,5 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
     public boolean contains(String ref) {
         return resourceCache.containsKey(ref);
     }
+    
 }

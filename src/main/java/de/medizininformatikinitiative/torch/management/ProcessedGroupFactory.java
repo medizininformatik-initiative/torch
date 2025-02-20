@@ -36,7 +36,7 @@ public class ProcessedGroupFactory {
                     directLoadNotPatientCompartment.add(group);
                 }
             }
-            allGroups.put(group.groupReference(), group);
+            allGroups.put(group.id(), group);
         });
 
         return new GroupsToProcess(directLoadPatientCompartment, directLoadNotPatientCompartment, allGroups);

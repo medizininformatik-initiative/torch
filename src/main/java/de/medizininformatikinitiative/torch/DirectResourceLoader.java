@@ -9,14 +9,11 @@ import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
-import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
@@ -27,22 +24,20 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.*;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
- * Transformer class, that handles the collecting of Resources from the datastore and the transformation of them according to the crtdl.
+ * Loader class, that handles the fetching of Resources from the datastore in batches and applying consent.
  */
 @Component
-public class ResourceTransformer {
+public class DirectResourceLoader {
 
-    private static final Logger logger = LoggerFactory.getLogger(ResourceTransformer.class);
+    private static final Logger logger = LoggerFactory.getLogger(DirectResourceLoader.class);
 
     private final DataStore dataStore;
-    private final ElementCopier copier;
-    private final Redaction redaction;
+
     private final ConsentHandler handler;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
@@ -50,10 +45,9 @@ public class ResourceTransformer {
     private final ProfileMustHaveChecker profileMustHaveChecker;
 
     @Autowired
-    public ResourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
+    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
         this.dataStore = dataStore;
-        this.copier = copier;
-        this.redaction = redaction;
+
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
@@ -110,27 +104,6 @@ public class ResourceTransformer {
             logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
             return Mono.empty();
         }
-    }
-
-    public <T extends DomainResource> T transform(T resourceSrc, AnnotatedAttributeGroup group, Class<T> resourceClass) throws MustHaveViolatedException, TargetClassCreationException, PatientIdNotFoundException {
-        T tgt = createTargetResource(resourceClass);
-        logger.trace("Handling resource {} for patient {} and attributegroup {}", resourceSrc.getId(), ResourceUtils.patientId(resourceSrc), group.groupReference());
-        for (AnnotatedAttribute attribute : group.attributes()) {
-            copier.copy(resourceSrc, tgt, attribute, group.groupReference());
-        }
-        redaction.redact(tgt);
-        return tgt;
-    }
-
-    private static <T extends DomainResource> T createTargetResource(Class<T> resourceClass) throws TargetClassCreationException {
-        T tgt;
-        try {
-            tgt = resourceClass.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                 NoSuchMethodException e) {
-            throw new TargetClassCreationException(resourceClass);
-        }
-        return tgt;
     }
 
 

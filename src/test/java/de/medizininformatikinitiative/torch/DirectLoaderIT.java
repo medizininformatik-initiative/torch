@@ -45,7 +45,7 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class ResourceTransformationIT {
+public class DirectLoaderIT {
 
 
     @Autowired
@@ -59,7 +59,7 @@ public class ResourceTransformationIT {
     ContainerManager manager;
 
 
-    protected final ResourceTransformer transformer;
+    protected final DirectResourceLoader dLoader;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
 
@@ -87,8 +87,8 @@ public class ResourceTransformationIT {
 
 
     @Autowired
-    public ResourceTransformationIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, ObjectMapper objectMapper, DseMappingTreeBase dseMappingTreeBase) {
-        this.transformer = transformer;
+    public DirectLoaderIT(DirectResourceLoader dLoader, DataStore dataStore, StructureDefinitionHandler cds, ObjectMapper objectMapper, DseMappingTreeBase dseMappingTreeBase) {
+        this.dLoader = dLoader;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.manager = new ContainerManager();
         this.objectMapper = objectMapper;
@@ -110,7 +110,7 @@ public class ResourceTransformationIT {
         AnnotatedCrtdl crtdl = validator.validate(objectMapper.readValue(fis, Crtdl.class));
         fis.close();
 
-        Mono<PatientBatchWithConsent> result = transformer.directLoadPatientCompartment(
+        Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
                 crtdl.dataExtraction().attributeGroups(),
                 new PatientBatch(List.of("1", "2", "4", "VHF00006")),
                 crtdl.consentKey()
@@ -130,7 +130,7 @@ public class ResourceTransformationIT {
         PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Patient", EMPTY); // Basic query setup
 
-        Flux<Resource> result = transformer.executeQueryWithBatch(batch, query);
+        Flux<Resource> result = dLoader.executeQueryWithBatch(batch, query);
 
         StepVerifier.create(result)
                 .expectNextMatches(resource -> resource instanceof Patient)
@@ -152,7 +152,7 @@ public class ResourceTransformationIT {
         List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation");
 
 
-        StepVerifier.create(transformer.executeQueryWithBatch(batch, queries.getFirst()))
+        StepVerifier.create(dLoader.executeQueryWithBatch(batch, queries.getFirst()))
                 .expectNextMatches(resource -> resource instanceof Observation)
                 .expectNextMatches(resource -> resource instanceof Observation)
                 .verifyComplete();

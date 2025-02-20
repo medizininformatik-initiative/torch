@@ -91,10 +91,10 @@ class ResourceBundleTest {
 
 
     @Test
-    void delete() {
+    void remove() {
         ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
-        cache.delete(patient1.getId());
+        cache.remove(patient1.getId());
 
         Mono<?> result = cache.get(patient1.getId());
 

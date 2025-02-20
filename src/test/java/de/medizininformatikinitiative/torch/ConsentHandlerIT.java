@@ -54,7 +54,7 @@ class ConsentHandlerIT {
     ContainerManager manager;
 
 
-    protected final ResourceTransformer transformer;
+    protected final DirectResourceLoader transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
 
@@ -78,7 +78,7 @@ class ConsentHandlerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public ConsentHandlerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public ConsentHandlerIT(DirectResourceLoader transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;

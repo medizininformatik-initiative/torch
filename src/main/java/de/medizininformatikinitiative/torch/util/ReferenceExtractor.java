@@ -13,6 +13,7 @@ import org.hl7.fhir.r4.model.Resource;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 public class ReferenceExtractor {
@@ -27,20 +28,22 @@ public class ReferenceExtractor {
 
     /**
      * @param wrapper  containing the resource from which the references should be extracted
-     * @param groupMap
-     * @return List of Referencewrapper containing the references and associated attribute of a resource
-     * @throws MustHaveViolatedException if for a must have field there is no reference at all
+     * @param groupMap Map of group IDs to their corresponding AnnotatedAttributeGroup
+     * @return List of ReferenceWrapper containing the references and associated attributes of a resource
+     * @throws MustHaveViolatedException if a must-have field has no reference at all
      */
     public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap) throws MustHaveViolatedException {
         Resource resource = wrapper.resource();
         try {
             return wrapper.groupSet().stream()
-                    .flatMap(groupID -> groupMap.get(groupID).refAttributes().stream()
+                    .map(groupMap::get) // Retrieve the group from the map
+                    .filter(Objects::nonNull) // Ignore unknown groups
+                    .flatMap(group -> group.refAttributes().stream()
                             .map(refAttribute -> {
                                 try {
-                                    return new ReferenceWrapper(resource.getId(), groupID, refAttribute, getReferences(resource, refAttribute));
+                                    return new ReferenceWrapper(resource.getId(), group.id(), refAttribute, getReferences(resource, refAttribute));
                                 } catch (MustHaveViolatedException e) {
-                                    throw new RuntimeException(e); // Wrapping it first
+                                    throw new RuntimeException(e); // Wrapping the exception first
                                 }
                             }))
                     .collect(Collectors.toList());
@@ -52,6 +55,7 @@ public class ReferenceExtractor {
             throw e; // Rethrow the original RuntimeException if it's not MustHaveViolatedException
         }
     }
+
 
     List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
         //fhirpath call

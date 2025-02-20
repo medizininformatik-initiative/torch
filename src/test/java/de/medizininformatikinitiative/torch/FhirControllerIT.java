@@ -84,7 +84,7 @@ public class FhirControllerIT {
     protected WebClient flareClient;
 
 
-    protected final ResourceTransformer transformer;
+    protected final DirectResourceLoader transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
     protected ObjectMapper objectMapper;
@@ -107,7 +107,7 @@ public class FhirControllerIT {
     ConsentHandler consentHandler;
 
     @Autowired
-    public FhirControllerIT(ResourceTransformer transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
+    public FhirControllerIT(DirectResourceLoader transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
         this.cds = cds;

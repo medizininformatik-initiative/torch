@@ -51,9 +51,10 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
 
-    public void delete(String fullUrl) {
-        bundle.delete(fullUrl);
+    public void remove(String id) {
+        bundle.remove(id);
     }
+
 
     public Boolean isEmpty() {
         return bundle.isEmpty();
@@ -74,4 +75,6 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     public boolean contains(String ref) {
         return bundle.contains(ref);
     }
+
+
 }
