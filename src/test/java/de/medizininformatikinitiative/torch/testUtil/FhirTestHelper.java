@@ -94,7 +94,7 @@ public class FhirTestHelper {
         Map<String, Resource> resourceMap = new HashMap<>();
         for (Bundle.BundleEntryComponent entry : bundle.getEntry()) {
             Resource resource = entry.getResource();
-            resourceMap.put(resource.getId(), resource);
+            resourceMap.put(resource.getIdPart(), resource);
         }
         return resourceMap;
     }

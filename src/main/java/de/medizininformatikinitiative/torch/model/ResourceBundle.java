@@ -47,7 +47,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
             return result.get();
         }
 
-        String resourceId = wrapper.resource().getId();
+        String resourceId = wrapper.resource().getIdBase();
         resourceCache.compute(resourceId, (id, existingWrapper) -> {
             if (existingWrapper == null) {
                 // No existing wrapper, add the new one
