@@ -62,35 +62,15 @@ public record AttributeGroup(
         return filters.stream().filter(filter -> "date".equals(filter.type())).count() > 1;
     }
 
-    /*
-        public List<Query> queries(DseMappingTreeBase mappingTreeBase, String resourceType) {
-            return queryParams(mappingTreeBase).stream()
-                    .map(params -> Query.of(resourceType, params))
-                    .toList();
-        }
+    /**
+     * Looks up the resourceType from ElementIds
+     *
+     * @return "unknown" if no ElementId specified and ResourceType otherwise.
+     */
+    public String resourceTypeFromElementIDs() {
+        return attributes.isEmpty() ? "unknown" : attributes.getFirst().attributeRef().split("\\.")[0];
+    }
 
-        private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
-            List<QueryParams> codeParams = filter.stream()
-                    .filter(f -> "token".equals(f.type()))
-                    .flatMap(f -> f.codeFilter(mappingTreeBase).split())
-                    .toList();
-
-            QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
-                    .filter(f -> "date".equals(f.type()))
-                    .findFirst()
-                    .map(Filter::dateFilter)
-                    .orElse(EMPTY);
-
-            if (codeParams.isEmpty()) {
-                // Add a single QueryParams with the date filter (if available) and profile parameter
-                return List.of(dateParams.appendParam("_profile", stringValue(groupReference)));
-            } else {
-                return codeParams.stream()
-                        .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
-                        .toList();
-            }
-        }
-    */
     public AttributeGroup addAttributes(List<Attribute> newAttributes) {
 
         List<Attribute> tempAttributes = new ArrayList<>(attributes);

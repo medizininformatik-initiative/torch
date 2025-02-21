@@ -77,7 +77,7 @@ class CrtdlProcessingServiceIT {
     @BeforeAll
     void init() throws IOException, ValidationException {
 
-        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields.json");
+        FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
         CRTDL_ALL_OBSERVATIONS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");

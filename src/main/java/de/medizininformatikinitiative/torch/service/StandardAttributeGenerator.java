@@ -29,6 +29,8 @@ public class StandardAttributeGenerator {
         String profile = resourceType + ".meta.profile";
         tempAttributes.add(new AnnotatedAttribute(profile, profile, profile, true));
 
+        /*
+        TODO: Handle how to deal with linked groups in this case
         if (manager.isInCompartment(resourceType)) {
             if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
                 String subject = resourceType + ".subject";
@@ -39,7 +41,7 @@ public class StandardAttributeGenerator {
                 tempAttributes.add(new AnnotatedAttribute(pReference, pReference, pReference, true));
             }
         }
-
+        */
         return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), attributeGroup.includeReferenceOnly());
     }
 }

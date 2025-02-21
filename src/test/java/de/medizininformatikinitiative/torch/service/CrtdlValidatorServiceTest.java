@@ -46,7 +46,18 @@ class CrtdlValidatorServiceTest {
         assertThatThrownBy(() -> {
             validatorService.validate(crtdl);
         }).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Unknown Attribute Condition.unknown in https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab");
+                .hasMessageContaining("Unknown Attribute Condition.unknown in group test");
+
+    }
+
+    @Test
+    void referenceWithoutLinkedGroups() throws ValidationException {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.subject", false)), List.of()))));
+
+        assertThatThrownBy(() -> {
+            validatorService.validate(crtdl);
+        }).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Reference Attribute Observation.subject without linked Groups in group test");
 
     }
 
@@ -57,8 +68,7 @@ class CrtdlValidatorServiceTest {
         assertThat(validatorService.validate(crtdl).dataExtraction().attributeGroups().get(0).attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true),
-                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true),
-                        new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", true)
+                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true)
                 ));
 
     }

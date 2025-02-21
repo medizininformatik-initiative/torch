@@ -43,8 +43,7 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.attributes()).containsExactly(
 
                 new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", true),
-                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", true),
-                new AnnotatedAttribute("Consent.patient.reference", "Consent.patient.reference", "Consent.patient.reference", true)
+                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", true)
         );
     }
 
@@ -57,8 +56,7 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true),
-                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true),
-                new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", true)
+                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true)
         );
     }
 
@@ -86,8 +84,7 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.hasMustHave()).isTrue();
         assertThat(standardAddedGroup.attributes()).contains(
                 new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true),
-                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", true),
-                new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true)
+                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", true)
         );
 
     }
