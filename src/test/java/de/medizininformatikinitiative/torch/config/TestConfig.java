@@ -100,22 +100,25 @@ public class TestConfig {
 
 
     @Bean
+    BatchProcessingPipeline batchProcessingPipeline(DirectResourceLoader directLoader,
+                                                    BatchReferenceProcessor batchReferenceProcessor,
+                                                    BatchCopierRedacter batchCopierRedacter,
+                                                    @Value("5") int maxConcurrency) {
+        return new BatchProcessingPipeline(directLoader, batchReferenceProcessor, batchCopierRedacter, maxConcurrency);
+    }
+
+    @Bean
     public CrtdlProcessingService crtdlProcessingService(
             @Qualifier("flareClient") WebClient webClient,
             Translator cqlQueryTranslator,
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
-            DirectResourceLoader directLoader,
             ProcessedGroupFactory processedGroupFactory,
-            ConsentHandler handler,
-            BatchReferenceProcessor batchReferenceProcessor,
-            BatchCopierRedacter batchCopierRedacter,
             @Value("${torch.batchsize:10}") int batchSize,
-            @Value("5") int maxConcurrency,
-            @Value("${torch.useCql}") boolean useCql) {
-
-        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, directLoader,
-                processedGroupFactory, batchReferenceProcessor, batchCopierRedacter, batchSize, maxConcurrency, useCql);
+            @Value("${torch.useCql}") boolean useCql,
+            BatchProcessingPipeline batchProcessingPipeline) {
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
+                processedGroupFactory, batchSize, useCql, batchProcessingPipeline);
     }
 
 

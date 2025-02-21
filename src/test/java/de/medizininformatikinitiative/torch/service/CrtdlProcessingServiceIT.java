@@ -100,13 +100,38 @@ class CrtdlProcessingServiceIT {
         fis.close();
     }
 
+    @AfterAll
+    void cleanup() {
+        clearDirectory("processwithrefs");
+        clearDirectory("processwithoutrefs");
+    }
 
-    private boolean isDirectoryEmpty(Path directory) throws IOException {
-        // Try-with-resources for DirectoryStream
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(directory)) {
-            return !stream.iterator().hasNext();
+    /**
+     * Recursively deletes all files inside the given directory.
+     *
+     * @param jobId the name of the job directory to clean.
+     */
+    private void clearDirectory(String jobId) {
+        Path jobDir = resultFileManager.getJobDirectory(jobId);// Get the job directory path
+
+        if (jobDir != null && Files.exists(jobDir)) {
+            try {
+                Files.walk(jobDir)
+                        .sorted((p1, p2) -> p2.compareTo(p1)) // Delete children before parents
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (IOException e) {
+                                logger.error("Failed to delete file: {}", path, e);
+                            }
+                        });
+                logger.info("Cleared job directory: {}", jobDir);
+            } catch (IOException e) {
+                logger.error("Failed to clean job directory: {}", jobDir, e);
+            }
         }
     }
+
 
     @Nested
     class FetchPatientList {

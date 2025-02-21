@@ -57,6 +57,10 @@ public class ResultFileManager {
         loadExistingResults();
     }
 
+    public Path getJobDirectory(String jobId) {
+        return resultsDirPath.resolve(jobId);
+    }
+
     public void loadExistingResults() {
         try (Stream<Path> jobDirs = Files.list(resultsDirPath)) {
             jobDirs.filter(Files::isDirectory)
@@ -116,9 +120,9 @@ public class ResultFileManager {
         Objects.requireNonNull(jobId, "jobId must not be null");
         Objects.requireNonNull(batch, "batch must not be null");
         Objects.requireNonNull(batch.bundles(), "batch.bundles() must not be null");
-        
+
         return Mono.fromCallable(() -> {
-                    Path jobDir = resultsDirPath.resolve(jobId);
+                    Path jobDir = getJobDirectory(jobId);
                     Files.createDirectories(jobDir); // Ensure job directory exists
 
                     Path ndjsonFile;
@@ -166,7 +170,7 @@ public class ResultFileManager {
     public Map<String, Object> loadBundleFromFileSystem(String jobId, String transactionTime) {
         Map<String, Object> response = new HashMap<>();
         try {
-            Path jobDir = resultsDirPath.resolve(jobId);
+            Path jobDir = getJobDirectory(jobId);
             if (Files.exists(jobDir) && Files.isDirectory(jobDir)) {
                 List<Map<String, String>> outputFiles = new ArrayList<>();
                 List<Map<String, String>> deletedFiles = new ArrayList<>();
