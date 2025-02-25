@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
@@ -19,10 +20,13 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 
@@ -42,6 +46,12 @@ public class FhirController {
     private final CrtdlProcessingService crtdlProcessingService;
     private final CrtdlValidatorService validatorService;
 
+    private static record DecodedContent(byte[] crtdl, List<String> patientIds) {
+    }
+
+    private static record DecodedCRTDLContent(Crtdl crtdl, List<String> patientIds) {
+    }
+
     @Autowired
     public FhirController(
             ResultFileManager resultFileManager,
@@ -56,16 +66,34 @@ public class FhirController {
         this.validatorService = validatorService;
     }
 
-    private static byte[] decodeCrtdlContent(Parameters parameters) {
+    private static DecodedContent decodeCrtdlContent(Parameters parameters) {
+        byte[] crtdlContent = null;
+        List<String> patientIds = new ArrayList<>();
+
         for (var parameter : parameters.getParameter()) {
-            if ("crtdl".equals(parameter.getName())) {
-                var valueElement = parameter.getChildByName("value[x]");
-                if (valueElement.hasValues()) {
-                    return ((Base64BinaryType) valueElement.getValues().getFirst()).getValue();
+            if (parameter.hasValue()) {
+                var value = parameter.getValue();
+                if ("crtdl".equals(parameter.getName()) && value.hasType("base64Binary")) {
+                    logger.debug("Found crtdl content for parameter '{}'", parameter.getName());
+                    crtdlContent = ((Base64BinaryType) parameter.getValue()).getValue();
+                }
+            }
+            if (parameter.hasPart()) {
+                if ("patients".equals(parameter.getName())) {
+                    parameter.getPart().forEach(
+                            part -> {
+                                patientIds.add(part.getName());
+                            }
+                    );
                 }
             }
         }
-        throw new IllegalArgumentException("No base64 encoded CRDTL content found in Parameters resource");
+
+        if (crtdlContent == null) {
+            throw new IllegalArgumentException("No base64 encoded CRDTL content found in Parameters resource");
+        }
+
+        return new DecodedContent(crtdlContent, patientIds);
     }
 
     @Bean
@@ -75,8 +103,8 @@ public class FhirController {
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
     }
 
-    private Mono<Crtdl> parseCrtdl(String body) {
-        // Parse the request body into Parameters object
+    private Mono<DecodedCRTDLContent> parseCrtdl(String body) {
+
         var parameters = fhirContext.newJsonParser().parseResource(Parameters.class, body);
         if (parameters.isEmpty()) {
             logger.debug("Empty Parameters");
@@ -84,9 +112,13 @@ public class FhirController {
         }
 
         try {
-            return Mono.just(parseCrtdlContent(decodeCrtdlContent(parameters)));
+            var decodedContent = decodeCrtdlContent(parameters);
+            byte[] crtdlBytes = decodedContent.crtdl();
+            List<String> patientIds = decodedContent.patientIds();
+
+            // Process crtdl content, potentially using patientIds
+            return Mono.just(new DecodedCRTDLContent(parseCrtdlContent(crtdlBytes), patientIds));
         } catch (IOException e) {
-            // TODO: improve error handling
             return Mono.error(e);
         }
     }
@@ -95,32 +127,38 @@ public class FhirController {
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
-                .flatMap(crtdl -> Mono.fromCallable(() -> validatorService.validate(crtdl)))
-                .flatMap(crtdl -> {
+                .flatMap(decodedCrtdlcontent ->
+                        Mono.fromCallable(() -> validatorService.validate(decodedCrtdlcontent.crtdl))
+                                .flatMap(crtdl -> {
+                                    List<String> patientList = decodedCrtdlcontent.patientIds;
 
-                    // Generate jobId based on the request body hashCode
-                    var jobId = UUID.randomUUID().toString();
-                    logger.info("Create data extraction job id: {}", jobId);
-                    resultFileManager.setStatus(jobId, "Processing");
+                                    // Generate jobId based on the request body hashCode
+                                    var jobId = UUID.randomUUID().toString();
+                                    logger.info("Create data extraction job id: {}", jobId);
+                                    resultFileManager.setStatus(jobId, "Processing");
 
-                    // Initialize the job directory asynchronously
-                    return resultFileManager.initJobDir(jobId)
-                            .doOnNext(jobDir -> {
-                                // Submit the task to the executor service for background processing
-                                executorService.submit(() -> {
-                                    try {
-                                        logger.debug("Processing CRTDL in ExecutorService for jobId: {}", jobId);
-                                        crtdlProcessingService.process(crtdl, jobId).block();
-                                        resultFileManager.setStatus(jobId, "Completed");
-                                    } catch (Exception e) {
-                                        logger.error("Error processing CRTDL for jobId: {}", jobId, e);
-                                        resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                                    }
-                                });
-                            })
-                            .then(accepted()
-                                    .header("Content-Location", "/fhir/__status/" + jobId)
-                                    .build());
+                                    return resultFileManager.initJobDir(jobId)
+                                            .flatMap(jobDir ->
+                                                    crtdlProcessingService.process(crtdl, jobId, patientList)
+                                                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
+                                                            .doOnError(e -> {
+                                                                logger.error("Error processing CRTDL for jobId: {}", jobId, e);
+                                                                resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
+                                                            })
+                                                            .subscribeOn(Schedulers.boundedElastic()) // Run async, but remain reactive
+                                                            .thenReturn(jobId)
+                                            );
+                                })
+                )
+                .flatMap(jobId -> accepted()
+                        .header("Content-Location", "/fhir/__status/" + jobId)
+                        .build()
+                )
+                .onErrorResume(ValidationException.class, e -> {
+                    logger.warn("Invalid CRTDL: {}", e.getMessage());
+                    return badRequest()
+                            .contentType(MEDIA_TYPE_FHIR_JSON)
+                            .bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());

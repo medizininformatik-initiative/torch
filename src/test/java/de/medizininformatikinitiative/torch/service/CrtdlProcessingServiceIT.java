@@ -102,7 +102,9 @@ class CrtdlProcessingServiceIT {
 
     @AfterAll
     void cleanup() {
-     
+        clearDirectory("processwithrefs");
+        clearDirectory("processwithoutrefs");
+
     }
 
     /**
@@ -161,7 +163,7 @@ class CrtdlProcessingServiceIT {
         String jobId = "processwithrefs";
         jobDir = resultFileManager.initJobDir(jobId).block();
 
-        Mono<Void> result = service.process(CRTDL_DIAGNOSIS_LINKED, jobId);
+        Mono<Void> result = service.process(CRTDL_DIAGNOSIS_LINKED, jobId, List.of());
 
 
         Assertions.assertDoesNotThrow(() -> result.block());
@@ -179,7 +181,7 @@ class CrtdlProcessingServiceIT {
     void processingService() {
         jobId = "processwithoutrefs";
         jobDir = resultFileManager.initJobDir(jobId).block();
-        Mono<Void> result = service.process(CRTDL_ALL_OBSERVATIONS, jobId);
+        Mono<Void> result = service.process(CRTDL_ALL_OBSERVATIONS, jobId, List.of());
 
 
         Assertions.assertDoesNotThrow(() -> result.block());

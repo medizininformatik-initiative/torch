@@ -23,10 +23,7 @@ import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.Bundle;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -144,29 +141,25 @@ public class FhirControllerIT {
         assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
     }
 
-/*
-    @Test
-    public void testExtractEndpoint() throws PatientIdNotFoundException, IOException {
-        HttpHeaders headers = new HttpHeaders();
+    @Nested
+    class Endpoint {
 
-        headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
+        @Test
+        public void testEndpointWithObservation() throws PatientIdNotFoundException, IOException {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json");
+            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        }
 
-        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields.json");
-        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        @Test
+        public void testEndpointWithObservationWithPatientParameters() throws PatientIdNotFoundException, IOException {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json");
+            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        }
     }
-
-    @Test
-    public void testExtractEndpointConsent() throws PatientIdNotFoundException, IOException {
-        HttpHeaders headers = new HttpHeaders();
-
-        headers.add("content-type", "application/fhir+json");
-        List<String> expectedResourceFilePaths = List.of("src/test/resources/DataStoreIT/expectedOutput/diagnosis_basic_bundle.json");
-
-        List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_all_fields_consent.json");
-        testExecutor(filePaths, expectedResourceFilePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-    }
-    */
 
 
     @Test
@@ -286,6 +279,30 @@ public class FhirControllerIT {
         }
 
 
+    }
+
+    public void testExecutor(List<String> filePaths, String url, HttpHeaders headers) {
+        TestRestTemplate restTemplate = new TestRestTemplate();
+        filePaths.forEach(filePath -> {
+            try {
+                String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
+
+                HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+                try {
+                    ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+                    assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
+
+                    // Polling the status endpoint
+                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
+                } catch (HttpStatusCodeException e) {
+                    logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
+                    Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
+                }
+
+            } catch (IOException e) {
+                logger.error("CRTDL file not found", e);
+            }
+        });
     }
 
     public void testExecutor(List<String> filePaths, List<String> expectedResourceFilePaths, String url, HttpHeaders headers) throws PatientIdNotFoundException, IOException {

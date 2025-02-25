@@ -64,13 +64,20 @@ public class CrtdlProcessingService {
     /**
      * Fetches the patient batch from cohort, starts the processing pipeline and then starts the output process to write the result to file
      *
-     * @param crtdl CRTDL to be processed
-     * @param jobID JobID of the current job used to identify the extraction
+     * @param crtdl      CRTDL to be processed
+     * @param jobID      JobID of the current job used to identify the extraction
+     * @param patientIds
      * @return mono finishes when complete
      */
-    public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID) {
+    public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID, List<String> patientIds) {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-        Flux<PatientBatch> batches = fetchPatientBatches(crtdl);
+        Flux<PatientBatch> batches;
+        if (patientIds.isEmpty()) {
+            batches = fetchPatientBatches(crtdl);
+        } else {
+            batches = Flux.just(new PatientBatch(patientIds));
+        }
+
 
         return batchProcessingPipeline.execute(batches, groupsToProcess, crtdl.consentKey())
                 .flatMap(transformedBatches -> resultFileManager.saveBatchList(jobID, transformedBatches))
