@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -17,7 +18,9 @@ import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class BatchReferenceProcessorTest {
@@ -35,6 +38,9 @@ class BatchReferenceProcessorTest {
     private PatientResourceBundle patientResourceBundle2;
 
     @Mock
+    private PatientResourceBundle patientResourceBundle3;
+
+    @Mock
     private ResourceBundle resolvedCoreBundle;
 
     @Mock
@@ -49,57 +55,71 @@ class BatchReferenceProcessorTest {
     }
 
     @Test
-    void processBatches_shouldUpdateBatchesAndResolveCoreBundle() {
+    void processBatches_shouldHandleMultipleBatchesAndResolveCoreBundleAtEnd() {
+        // Given
         String patientId1 = "patient1";
         String patientId2 = "patient2";
+        String patientId3 = "patient3";
         String CORE = "CORE";
 
-        // Create a batch with two patient resource bundles
+        // Create multiple patient batches
         PatientBatchWithConsent batch1 = new PatientBatchWithConsent(
                 Map.of(patientId1, patientResourceBundle1, patientId2, patientResourceBundle2),
                 true
         );
-        List<PatientBatchWithConsent> batches = List.of(batch1);
+        PatientBatchWithConsent batch2 = new PatientBatchWithConsent(
+                Map.of(patientId3, patientResourceBundle3),
+                true
+        );
 
-        // Mock reference resolution for patient resources
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle1), eq(coreResourceBundle), eq(true), eq(groupMap)))
-                .thenReturn(Mono.just(patientResourceBundle1));
-        when(referenceResolver.resolvePatient(eq(patientResourceBundle2), eq(coreResourceBundle), eq(true), eq(groupMap)))
-                .thenReturn(Mono.just(patientResourceBundle2));
+        List<PatientBatchWithConsent> batches = List.of(batch1, batch2);
 
-        // Mock core bundle resolution
+
+        when(referenceResolver.processSinglePatientBatch(eq(batch1), eq(coreResourceBundle), eq(groupMap)))
+                .thenReturn(Mono.just(batch1));
+
+
+        when(referenceResolver.processSinglePatientBatch(eq(batch2), eq(coreResourceBundle), eq(groupMap)))
+                .thenReturn(Mono.just(batch2));
+
+
         when(referenceResolver.resolveCoreBundle(eq(coreResourceBundle), eq(groupMap)))
                 .thenReturn(Mono.just(resolvedCoreBundle));
 
-        // Run the processBatches method
+
         Mono<List<PatientBatchWithConsent>> result = patientBatchProcessor.processBatches(
                 batches, Mono.just(coreResourceBundle), groupMap
         );
 
-        // Validate the output using StepVerifier
+    
         StepVerifier.create(result)
                 .assertNext(updatedBatches -> {
-                    // Expect two batches: one with resolved patient data, one with the core bundle
-                    assertThat(updatedBatches).hasSize(2);
+                    System.out.println("Updated Batches: " + updatedBatches);
 
-                    // First batch should contain updated patient data
-                    PatientBatchWithConsent updatedPatientBatch = updatedBatches.get(0);
-                    assertThat(updatedPatientBatch.bundles()).containsKeys(patientId1, patientId2);
-                    assertThat(updatedPatientBatch.applyConsent()).isTrue();
+                    // We should have 3 batches in total: 2 for patients and 1 for the core bundle
+                    assertThat(updatedBatches).hasSize(3);
 
-                    // Second batch should contain the resolved core bundle
-                    PatientBatchWithConsent coreBundleBatch = updatedBatches.get(1);
+                    // Verify that each patient batch contains its expected patients
+                    PatientBatchWithConsent updatedPatientBatch1 = updatedBatches.get(0);
+                    assertThat(updatedPatientBatch1.bundles()).containsKeys(patientId1, patientId2);
+                    assertThat(updatedPatientBatch1.applyConsent()).isTrue();
+
+                    PatientBatchWithConsent updatedPatientBatch2 = updatedBatches.get(1);
+                    assertThat(updatedPatientBatch2.bundles()).containsKeys(patientId3);
+                    assertThat(updatedPatientBatch2.applyConsent()).isTrue();
+
+                    // Verify that the last batch contains the core bundle
+                    PatientBatchWithConsent coreBundleBatch = updatedBatches.get(2);
                     assertThat(coreBundleBatch.bundles()).containsKey(CORE);
                     assertThat(coreBundleBatch.bundles().get(CORE).bundle()).isEqualTo(resolvedCoreBundle);
                     assertThat(coreBundleBatch.applyConsent()).isFalse();
                 })
                 .verifyComplete();
 
-        // Verify that patient bundles were resolved first
-        verify(referenceResolver).resolvePatient(patientResourceBundle1, coreResourceBundle, true, groupMap);
-        verify(referenceResolver).resolvePatient(patientResourceBundle2, coreResourceBundle, true, groupMap);
-
-        // Verify that core bundle was resolved last
-        verify(referenceResolver).resolveCoreBundle(coreResourceBundle, groupMap);
+        InOrder inOrder = inOrder(referenceResolver);
+        inOrder.verify(referenceResolver).processSinglePatientBatch(batch1, coreResourceBundle, groupMap);
+        inOrder.verify(referenceResolver).processSinglePatientBatch(batch2, coreResourceBundle, groupMap);
+        inOrder.verify(referenceResolver).resolveCoreBundle(coreResourceBundle, groupMap);
     }
+
 }

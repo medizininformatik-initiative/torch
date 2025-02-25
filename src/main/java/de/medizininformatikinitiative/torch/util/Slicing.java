@@ -144,7 +144,7 @@ public class Slicing {
         if (!path.equals("$this")) {
             elementId += "." + path;
         }
-        logger.debug("Getting Conditions {}", elementId);
+        logger.trace("Getting Conditions {}", elementId);
         ElementDefinition elementDefinition = snapshot.getElementById(elementId);
         if (elementDefinition == null) {
 
@@ -154,7 +154,6 @@ public class Slicing {
         if (elementDefinition.hasFixedOrPattern()) {
 
             Element pattern = elementDefinition.getFixedOrPattern();
-            logger.debug("Got Pattern ");
             conditions.addAll(Slicing.traverseValueRec(path, pattern));
         } else {
             logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);

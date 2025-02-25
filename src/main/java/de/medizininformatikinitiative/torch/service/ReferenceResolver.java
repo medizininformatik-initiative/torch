@@ -8,35 +8,34 @@ import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.FluxSink;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
  */
 public class ReferenceResolver {
+    private static final Logger logger = LoggerFactory.getLogger(ReferenceResolver.class);
+
     private final ReferenceExtractor referenceExtractor;
     private final CompartmentManager compartmentManager;
     private final ReferenceHandler referenceHandler;
 
     /**
      * Constructs a ReferenceResolver with the necessary dependencies.
-     *
-     * @param ctx                    Utility to extract references from resources.
-     * @param dataStore              Data store to fetch resources by reference.
-     * @param profileMustHaveChecker Checker to validate profile constraints.
-     * @param compartmentManager     Manager to determine resource compartmentalization.
-     * @param consentHandler         Handler to manage consents.
      */
     public ReferenceResolver(FhirContext ctx,
                              DataStore dataStore,
@@ -48,109 +47,107 @@ public class ReferenceResolver {
         this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
     }
 
-
     /**
-     * Resolves references within the coreBundle using an empty PatientResourceBundle.
-     *
-     * @param coreBundle to be handled
-     * @param groupMap
-     * @return A Mono that completes when processing is done.
+     * Resolves references within the coreBundle.
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return Flux.<ResourceGroupWrapper>create(sink -> {
-                    coreBundle.values().forEach(wrapper -> processCoreResourceWrapper(wrapper, coreBundle, sink, groupMap));
-                    sink.complete();
-                })
-                .subscribeOn(Schedulers.boundedElastic())
+        return Flux.fromIterable(coreBundle.values())
+                .expand(wrapper -> processCoreResourceWrapper(wrapper, coreBundle, groupMap))
                 .then(Mono.just(coreBundle));
     }
 
     /**
      * Processes a ResourceGroupWrapper in the coreBundle.
-     *
-     * @param wrapper    The resource group wrapper to process.
-     * @param coreBundle coreBundle to be processed
-     * @param sink       FluxSink to emit new ResourceGroupWrappers for processing.
-     * @param groupMap   Map of all valid attributeGroups
      */
-    private void processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, FluxSink<ResourceGroupWrapper> sink, Map<String, AnnotatedAttributeGroup> groupMap) {
-        extractReferences(wrapper, groupMap)
+    private Flux<ResourceGroupWrapper> processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        return extractReferences(wrapper, groupMap)
                 .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.empty(), coreBundle, false, groupMap))
-                .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
-                    if (coreBundle.put(resourceWrapper)) {
-                        sink.next(resourceWrapper);
-                    }
-                }))
-                .subscribe();
+                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.empty(), coreBundle, false, groupMap)
+                        .onErrorResume(MustHaveViolatedException.class, e -> {
+                            logger.warn("MustHaveViolatedException for reference {} in core resource {}: {}. Removing affected groups.",
+                                    ref.refAttribute(),
+                                    ResourceUtils.getRelativeURL(wrapper.resource()),
+                                    e.getMessage());
+                            // Remove only the group associated with the failing reference
+                            wrapper.removeGroups(Set.of(ref.GroupId()));
+                            coreBundle.put(wrapper);
+                            return Mono.empty(); // Continue processing other references
+                        }))
+                .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers)
+                        .filter(resourceWrapper -> !compartmentManager.isInCompartment(resourceWrapper.resource()))
+                        .filter(coreBundle::put)
+                );
     }
 
+    /**
+     * Processes a batch of PatientResourceBundles sequentially.
+     */
+    Mono<PatientBatchWithConsent> processSinglePatientBatch(
+            PatientBatchWithConsent batch, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        return Flux.fromIterable(batch.bundles().entrySet())
+                .concatMap(entry -> resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
+                        .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
+                .collectMap(Map.Entry::getKey, Map.Entry::getValue)
+                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()));
+    }
 
     /**
      * Resolves all references within the given PatientResourceBundle.
-     *
-     * @param patientBundle The patient resource bundle to resolve.
-     * @param coreBundle    to be updated and queried, that contains a centrally shared concurrent HashMap
-     * @param applyConsent  Flag indicating whether to apply consent.
-     * @param groupMap
-     * @return A Mono emitting the updated PatientResourceBundle upon completion.
      */
-    public Mono<PatientResourceBundle> resolvePatient(PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return Flux.<ResourceGroupWrapper>create(sink -> {
-                    patientBundle.values().forEach(wrapper -> processPatientResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap, sink));
-                    sink.complete();
-                })
-                .subscribeOn(Schedulers.boundedElastic()) // Ensure processing occurs on a bounded elastic scheduler
+    public Mono<PatientResourceBundle> resolvePatient(
+            PatientResourceBundle patientBundle,
+            ResourceBundle coreBundle,
+            Boolean applyConsent,
+            Map<String, AnnotatedAttributeGroup> groupMap) {
+
+        return Flux.fromIterable(patientBundle.values())
+                .expand(wrapper -> processPatientResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
                 .then(Mono.just(patientBundle));
     }
 
-
     /**
      * Processes a ResourceGroupWrapper and updates the PatientResourceBundle accordingly.
-     * New ResourceGroupWrappers are emitted into the provided FluxSink for dynamic processing.
-     *
-     * @param wrapper       The resource group wrapper to process.
-     * @param patientBundle The patient resource bundle being updated.
-     * @param coreBundle    to be updated and queried, that contains a centrally shared concurrent HashMap
-     * @param applyConsent  Flag indicating whether to apply consent.
-     * @param groupMap
-     * @param sink          The FluxSink to emit new ResourceGroupWrappers.
      */
-    private void processPatientResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap, FluxSink<ResourceGroupWrapper> sink) {
-        extractReferences(wrapper, groupMap)
+    private Flux<ResourceGroupWrapper> processPatientResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+        return extractReferences(wrapper, groupMap)
                 .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.of(patientBundle), coreBundle, applyConsent, groupMap))
-                .doOnNext(resourceWrappers -> resourceWrappers.forEach(resourceWrapper -> {
-                    if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
-                        boolean updated = patientBundle.put(resourceWrapper);
-                        if (updated) {
-                            sink.next(resourceWrapper);
-                        }
-                    } else {
-                        coreBundle.put(resourceWrapper);
-                    }
+                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.of(patientBundle), coreBundle, applyConsent, groupMap)
+                        .onErrorResume(MustHaveViolatedException.class, e -> {
+                            logger.debug("MustHaveViolatedException for reference {} in parent resource {}: {}. Removing affected groups.",
+                                    ref.refAttribute(),
+                                    ResourceUtils.getRelativeURL(wrapper.resource()),
+                                    e.getMessage());
 
+                            // Remove only the group associated with the failing reference
+                            wrapper.removeGroups(Set.of(ref.GroupId()));
+                            patientBundle.put(wrapper);
 
-                }))
-                .subscribe();
+                            return Mono.empty(); // Continue processing other references
+                        }))
+                .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers)
+                        .flatMap(resourceWrapper -> {
+                            logger.trace("Handling {}", ResourceUtils.getRelativeURL(resourceWrapper.resource()));
+                            if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
+                                boolean updated = patientBundle.put(resourceWrapper);
+                                return updated ? Flux.just(resourceWrapper) : Flux.empty();
+                            } else {
+                                coreBundle.put(resourceWrapper);
+                                return Flux.empty();
+                            }
+                        }));
     }
 
 
     /**
      * Extracts references from a ResourceGroupWrapper.
-     *
-     * @param wrapper  The resource group wrapper from which to extract references.
-     * @param groupMap
-     * @return A Mono emitting a list of ReferenceWrappers.
      */
     private Mono<List<ReferenceWrapper>> extractReferences(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap) {
         try {
-            List<ReferenceWrapper> references = referenceExtractor.extract(wrapper, groupMap);
-            return Mono.just(references);
+
+            return Mono.just(referenceExtractor.extract(wrapper, groupMap));
         } catch (MustHaveViolatedException e) {
             return Mono.error(e);
         }
     }
-
 
 }

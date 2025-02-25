@@ -4,6 +4,8 @@ import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -11,6 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 public class BatchReferenceProcessor {
+    private static final Logger logger = LoggerFactory.getLogger(BatchReferenceProcessor.class);
 
     private final ReferenceResolver referenceResolver;
 
@@ -30,36 +33,27 @@ public class BatchReferenceProcessor {
      */
     public Mono<List<PatientBatchWithConsent>> processBatches(
             List<PatientBatchWithConsent> batches, Mono<ResourceBundle> coreResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+
         return coreResourceBundle.flatMap(coreBundle ->
                 Flux.fromIterable(batches)
-                        .flatMap(batch ->
-                                Flux.fromIterable(batch.bundles().entrySet())
-                                        .flatMap(entry ->
-                                                referenceResolver.resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
-                                                        .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle))
-                                        )
-                                        .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                                        .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()))
-                        )
+                        .flatMap(batch -> referenceResolver.processSinglePatientBatch(batch, coreBundle, groupMap),
+                                Runtime.getRuntime().availableProcessors()) // Process batches in parallel
                         .collectList()
                         .flatMap(updatedBatches ->
-                                referenceResolver.resolveCoreBundle(coreBundle, groupMap)
-                                        .map(resourceBundle -> {
-                                            if (resourceBundle.isEmpty()) {
-                                                return updatedBatches;
-                                            }
-                                            PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", resourceBundle);
-                                            PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
-                                                    Map.of("CORE", corePatientBundle),
-                                                    false
-                                            );
+                                {
 
-                                            updatedBatches.add(coreBundleBatch);
-                                            return updatedBatches;
-                                        })
+                                    return referenceResolver.resolveCoreBundle(coreBundle, groupMap)
+                                            .map(resourceBundle -> {
+                                                if (!resourceBundle.isEmpty()) {
+                                                    PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", resourceBundle);
+                                                    PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
+                                                            Map.of("CORE", corePatientBundle), false);
+                                                    updatedBatches.add(coreBundleBatch);
+                                                }
+                                                return updatedBatches;
+                                            });
+                                }
                         )
         );
     }
-
 }
-

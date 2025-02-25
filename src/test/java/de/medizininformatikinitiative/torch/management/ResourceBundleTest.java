@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -23,6 +24,7 @@ class ResourceBundleTest {
     ResourceGroupWrapper wrapper3;
     ResourceGroupWrapper wrapper1Mod;
     ResourceGroupWrapper wrapper1MergeResult;
+    String id;
 
     @BeforeEach
     void setUp() {
@@ -40,6 +42,8 @@ class ResourceBundleTest {
         Set<String> mergedAttributeGroups = new HashSet<>(attributeGroups1);
         mergedAttributeGroups.addAll(attributeGroups2);
         wrapper1MergeResult = new ResourceGroupWrapper(patient1, mergedAttributeGroups);
+
+        id = ResourceUtils.getRelativeURL(patient1);
     }
 
     @Test
@@ -47,7 +51,7 @@ class ResourceBundleTest {
         ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
 
-        Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
+        Mono<ResourceGroupWrapper> result = cache.get(id);
 
         StepVerifier.create(result)
                 .expectNext(wrapper1)
@@ -58,7 +62,7 @@ class ResourceBundleTest {
     void isEmpty() {
         ResourceBundle cache = new ResourceBundle();
 
-        Mono<?> result = cache.get(patient1.getId());
+        Mono<?> result = cache.get(id);
 
         StepVerifier.create(result)
                 .verifyComplete();  // Ensures Mono is empty
@@ -69,7 +73,7 @@ class ResourceBundleTest {
         ResourceBundle cache = new ResourceBundle();
         assertThat(cache.put(wrapper1)).isTrue();
         assertThat(cache.put(wrapper1)).isFalse();
-        Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
+        Mono<ResourceGroupWrapper> result = cache.get(id);
 
         StepVerifier.create(result)
                 .expectNext(wrapper1)
@@ -82,7 +86,7 @@ class ResourceBundleTest {
         cache.put(wrapper1);
         cache.put(wrapper1Mod);
 
-        Mono<ResourceGroupWrapper> result = cache.get(patient1.getId());
+        Mono<ResourceGroupWrapper> result = cache.get(id);
 
         StepVerifier.create(result)
                 .expectNext(wrapper1MergeResult)
@@ -94,9 +98,9 @@ class ResourceBundleTest {
     void remove() {
         ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
-        cache.remove(patient1.getId());
+        cache.remove(id);
 
-        Mono<?> result = cache.get(patient1.getId());
+        Mono<?> result = cache.get(id);
 
         StepVerifier.create(result)
                 .verifyComplete(); // Should be empty after invalidation

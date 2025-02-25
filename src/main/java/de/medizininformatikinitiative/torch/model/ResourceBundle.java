@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.model;
 
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -17,6 +21,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * @param resourceCache Cache that contains the Resources keyed by their FullURL
  */
 public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache) {
+    private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
     static final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
@@ -36,7 +41,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
 
     /**
      * Adds the wrapper into the underlying concurrent hashmap.
-     * Generates from ID and
+     * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
      *
      * @param wrapper wrapper to be added to the resourcebundle
      * @return boolean containing info if the wrapper is new or updated.
@@ -46,9 +51,9 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         if (wrapper == null) {
             return result.get();
         }
-
-        String resourceId = wrapper.resource().getIdBase();
-        resourceCache.compute(resourceId, (id, existingWrapper) -> {
+        //set Cache Key to relative URL
+        DomainResource resource = wrapper.resource();
+        resourceCache.compute(ResourceUtils.getRelativeURL(resource), (id, existingWrapper) -> {
             if (existingWrapper == null) {
                 // No existing wrapper, add the new one
                 result.set(true);
@@ -111,5 +116,5 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
     public boolean contains(String ref) {
         return resourceCache.containsKey(ref);
     }
-    
+
 }

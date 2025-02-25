@@ -86,7 +86,7 @@ public record AnnotatedAttributeGroup(
 
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AnnotatedAttributeGroup("test", "12345", groupReference, tempAttributes, filter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(name, id, groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
     public String resourceType() {

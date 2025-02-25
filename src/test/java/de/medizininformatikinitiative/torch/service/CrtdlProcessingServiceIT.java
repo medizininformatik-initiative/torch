@@ -102,8 +102,7 @@ class CrtdlProcessingServiceIT {
 
     @AfterAll
     void cleanup() {
-        clearDirectory("processwithrefs");
-        clearDirectory("processwithoutrefs");
+     
     }
 
     /**
