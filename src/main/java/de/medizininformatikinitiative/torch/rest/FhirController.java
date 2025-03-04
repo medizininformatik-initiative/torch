@@ -77,9 +77,12 @@ public class FhirController {
                     logger.debug("Found crtdl content for parameter '{}'", parameter.getName());
                     crtdlContent = ((Base64BinaryType) parameter.getValue()).getValue();
                 }
+                if ("patients".equals(parameter.getName())) {
+
+                }
             }
             if (parameter.hasPart()) {
-                if ("patients".equals(parameter.getName())) {
+                if ("patientID".equals(parameter.getName())) {
                     parameter.getPart().forEach(
                             part -> {
                                 patientIds.add(part.getName());
