@@ -4,13 +4,10 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.util.TerserUtil;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -27,8 +24,6 @@ public class ElementCopier {
 
     private final FhirContext ctx;
 
-    private final StructureDefinitionHandler handler;
-
     private final IFhirPath fhirPathEngine;
 
 
@@ -37,11 +32,9 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
-        this.handler = handler;
+    public ElementCopier(FhirContext ctx) {
         this.ctx = ctx;
         this.fhirPathEngine = ctx.newFhirPath();
-
     }
 
 
@@ -49,16 +42,9 @@ public class ElementCopier {
      * @param src       Source Resource to copy from
      * @param tgt       Target Resource to copy to
      * @param attribute Attribute to copy containing ElementID and if it is a mandatory element.
-     * @param profile
      * @throws MustHaveViolatedException if mandatory element is missing
      */
-    public <T extends DomainResource> void copy(T src, T tgt, AnnotatedAttribute attribute, String profile) throws MustHaveViolatedException {
-
-        StructureDefinition structureDefinition = handler.getDefinition(profile);
-
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition elementDefinition = snapshot.getElementById(attribute.attributeRef());
-
+    public <T extends DomainResource> void copy(T src, T tgt, AnnotatedAttribute attribute) throws MustHaveViolatedException {
 
         String fhirPath = attribute.fhirPath();
         logger.trace("FHIR PATH {}", fhirPath);
@@ -87,12 +73,7 @@ public class ElementCopier {
                 try {
                     TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
                 } catch (Exception e) {
-                    if (elementDefinition.hasType()) {
-                        elementDefinition.getType().getFirst().getWorkingCode();
-                        logger.trace("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                    } else {
-                        logger.warn("Element has no known type {}", terserFHIRPATH);
-                    }
+                    logger.warn("Element has no known type {}", terserFHIRPATH);
                 }
 
             } else {
@@ -107,7 +88,6 @@ public class ElementCopier {
                     if (endIndex != -1) {
                         String parentPath = terserFHIRPATH.substring(0, endIndex);
                         logger.trace("ParentPath {}", parentPath);
-                        logger.trace("Elemente {}", snapshot.getElementByPath(parentPath));
 
                         IBase parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
 

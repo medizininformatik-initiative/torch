@@ -274,7 +274,7 @@ public class AppConfig {
 
     @Bean
     public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
-        return new ElementCopier(handler, ctx);
+        return new ElementCopier(ctx);
     }
 
     @Bean

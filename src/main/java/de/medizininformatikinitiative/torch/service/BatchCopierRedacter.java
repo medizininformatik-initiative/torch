@@ -10,19 +10,20 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class BatchCopierRedacter {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchCopierRedacter.class);
     private final ElementCopier copier;
     private final Redaction redaction;
+
+    static final Factory FACTORY = new Factory();
 
     public BatchCopierRedacter(ElementCopier copier, Redaction redaction) {
         this.copier = copier;
@@ -76,16 +77,79 @@ public class BatchCopierRedacter {
 
         Set<String> groups = resourceGroupWrapper.groupSet();
         if (groups.isEmpty()) {
-            throw new MustHaveViolatedException("No groups found for extraction");
+            throw new MustHaveViolatedException("No groups found");
         }
+
+        Map<String, AnnotatedAttribute> highestLevelAttributes = collectHighestLevelAttributes(groupMap, groups);
+
+        // Step 4: Copy only the highest-level attributes
+        for (AnnotatedAttribute attribute : highestLevelAttributes.values()) {
+            copier.copy(srcResource, tgt, attribute);
+        }
+
+        redaction.redact(tgt);
+        return new ResourceGroupWrapper(tgt, resourceGroupWrapper.groupSet(), resourceGroupWrapper.referencedBy(), resourceGroupWrapper.referencing());
+    }
+
+    public Map<String, AnnotatedAttribute> collectHighestLevelAttributes(Map<String, AnnotatedAttributeGroup> groupMap, Set<String> groups) {
+        Map<String, AnnotatedAttribute> highestLevelAttributes = new HashMap<>();
+
         for (String groupID : groups) {
             AnnotatedAttributeGroup group = groupMap.get(groupID);
             for (AnnotatedAttribute attribute : group.attributes()) {
-                copier.copy(srcResource, tgt, attribute, group.groupReference());
+                String attrPath = attribute.attributeRef();
+
+                if (isSubPath(attrPath, highestLevelAttributes.keySet())) {
+                    continue;
+                }
+                Set<String> children = findChildren(attrPath, highestLevelAttributes.keySet());
+                for (String child : children) {
+                    highestLevelAttributes.remove(child);
+                }
+
+                // Step 3: Add the current highest-level attribute
+                highestLevelAttributes.put(attrPath, attribute);
             }
         }
-        redaction.redact(tgt);
-        return new ResourceGroupWrapper(tgt, resourceGroupWrapper.groupSet(), resourceGroupWrapper.referencedBy(), resourceGroupWrapper.referencing());
+        return highestLevelAttributes;
+    }
+
+
+    /**
+     * @param parentCandidate potential parent Element Id string
+     * @param path            Element Id string to be tested against.
+     * @return true if parent is a substring of path and either the end is defined by a separating dot . or colon :
+     * or a camelcase like e.g. value vs. valueQuantity
+     * choice operators at the end are ignored.
+     */
+    public boolean isParentPath(String parentCandidate, String path) {
+        if (!path.startsWith(parentCandidate)) {
+            return false;
+        }
+
+        String remainder = path.substring(parentCandidate.length());
+
+        return remainder.startsWith(".") || remainder.startsWith(":");
+    }
+
+    public Set<String> findChildren(String parent, Set<String> existingPaths) {
+        Set<String> children = new HashSet<>();
+        for (String existing : existingPaths) {
+            if (isParentPath(parent, existing)) {
+                children.add(existing);
+            }
+        }
+        return children;
+    }
+
+
+    public boolean isSubPath(String path, Set<String> existingPaths) {
+        for (String existing : existingPaths) {
+            if (isParentPath(existing, path)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -103,4 +167,5 @@ public class BatchCopierRedacter {
             throw new TargetClassCreationException(resourceClass);
         }
     }
+
 }
