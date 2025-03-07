@@ -2,11 +2,11 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -88,7 +88,7 @@ public class BatchCopierRedacter {
         }
 
         redaction.redact(tgt);
-        return new ResourceGroupWrapper(tgt, resourceGroupWrapper.groupSet(), resourceGroupWrapper.referencedBy(), resourceGroupWrapper.referencing());
+        return new ResourceGroupWrapper(tgt, resourceGroupWrapper.groupSet());
     }
 
     public Map<String, AnnotatedAttribute> collectHighestLevelAttributes(Map<String, AnnotatedAttributeGroup> groupMap, Set<String> groups) {

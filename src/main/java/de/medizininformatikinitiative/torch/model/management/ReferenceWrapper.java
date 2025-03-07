@@ -1,11 +1,11 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 
 import java.util.List;
 
-public record ReferenceWrapper(String ResourceID, String GroupId, AnnotatedAttribute refAttribute,
-                               List<String> references) {
+public record ReferenceWrapper(AnnotatedAttribute refAttribute,
+                               List<String> references, String groupId) {
 
 
 

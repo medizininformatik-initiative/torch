@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
-import de.medizininformatikinitiative.torch.model.GroupsToProcess;
-import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

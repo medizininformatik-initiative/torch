@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +91,7 @@ class BatchReferenceProcessorTest {
                 batches, Mono.just(coreResourceBundle), groupMap
         );
 
-    
+
         StepVerifier.create(result)
                 .assertNext(updatedBatches -> {
                     System.out.println("Updated Batches: " + updatedBatches);

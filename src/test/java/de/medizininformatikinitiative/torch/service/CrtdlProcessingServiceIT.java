@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.model.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
@@ -102,9 +102,9 @@ class CrtdlProcessingServiceIT {
 
     @AfterAll
     void cleanup() {
-        clearDirectory("processwithrefs");
+        /*clearDirectory("processwithrefs");
         clearDirectory("processwithoutrefs");
-
+*/
     }
 
     /**

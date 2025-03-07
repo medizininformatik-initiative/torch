@@ -143,25 +143,6 @@ public class DataStore {
     }
 
 
-    public Flux<String> executeCollectPatientIds(Query query) {
-        logger.debug("Execute  fetch query: {}", query);
-        return client.post()
-                .uri("/{type}/_search", query.type())
-                .contentType(APPLICATION_FORM_URLENCODED)
-                .bodyValue(query.params().appendParams(extraQueryParams(query.type())).toString())
-                .retrieve()
-                .bodyToFlux(String.class)
-                .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response))
-                .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
-                        .map(link -> fetchPage(link.getUrl()))
-                        .orElse(Mono.empty()))
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
-                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().flatMap(e -> Optional.ofNullable(e.getResource().getId()).stream())))
-                .doOnError(e -> logger.error("Error while executing query `{}`: {}", query, e.getMessage()));
-    }
-
     private QueryParams extraQueryParams(String type) {
         return QueryParams.of("_elements", stringValue(queryElements(type)))
                 .appendParam("_count", stringValue(Integer.toString(pageCount)));

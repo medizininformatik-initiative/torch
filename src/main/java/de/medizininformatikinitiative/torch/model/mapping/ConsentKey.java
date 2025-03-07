@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.mapping;
 
 import static java.util.Objects.requireNonNull;
 

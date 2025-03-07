@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
@@ -50,6 +50,17 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.put(wrapper);
     }
 
+    public Boolean isValidReference(ReferenceGroup group) {
+        return bundle.isValidReference(group);
+    }
+
+    public Boolean knownReference(String reference) {
+        return bundle.knownReference(reference);
+    }
+
+    public String getResourceIDFromReferenceString(String reference) {
+        return bundle.getResourceIDFromReferenceString(reference);
+    }
 
     public void remove(String id) {
         bundle.remove(id);

@@ -2,6 +2,8 @@ package de.medizininformatikinitiative.torch.model;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -14,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ResourceGroupWrapperTest {
 
     public static final AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
-    public static final ReferenceWrapper reference1 = new ReferenceWrapper("Test", "Test", attribute1, List.of());
+    public static final ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of(), "group1");
     public static final AnnotatedAttributeGroup group1 = new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), false);
     public static final AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("group2", "2345", "reference", List.of(), List.of(), false);
     Patient patient1 = new Patient();
@@ -38,13 +40,13 @@ class ResourceGroupWrapperTest {
 
         Set<String> attributeGroups3 = Set.of("group1");
 
-        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1, List.of(reference1), List.of());
-        wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups3, List.of(reference1), List.of());
+        wrapper1 = new ResourceGroupWrapper(patient1, attributeGroups1);
+        wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups3);
     }
 
     @Test
     void addGroups() {
-        ResourceGroupWrapper wrapper = new ResourceGroupWrapper(patient1, Set.of(), List.of(reference1), List.of());
+        ResourceGroupWrapper wrapper = new ResourceGroupWrapper(patient1, Set.of());
         ResourceGroupWrapper result = wrapper.addGroups(attributeGroups1);
 
         assertThat(result).isEqualTo(wrapper1);
@@ -67,8 +69,4 @@ class ResourceGroupWrapperTest {
         assertThat(wrapper1.groupSet()).isEqualTo(attributeGroups1);
     }
 
-    @Test
-    void references() {
-        assertThat(wrapper1.referencedBy()).containsExactly(reference1);
-    }
 }

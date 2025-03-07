@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
@@ -10,6 +10,7 @@ import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 import java.util.HashSet;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -18,15 +19,25 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Generic bundle that handles Resources
  *
- * @param resourceCache Cache that contains the Resources keyed by their FullURL
+ * @param resourceCache                    Cache that contains the Resources keyed by their FullURL
+ * @param resourceAGtoParentReferenceGroup
+ * @param resourceAGtoChildReferenceGroup
+ * @param referenceValidity
+ * @param resourceAGToReferenceWrapper
+ * @param ReferenceToResourceId            Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
  */
-public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache) {
+public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache,
+                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ReferenceGroup>> resourceAGtoParentReferenceGroup,
+                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ReferenceGroup>> resourceAGtoChildReferenceGroup,
+                             ConcurrentHashMap<ReferenceGroup, Boolean> referenceValidity,
+                             ConcurrentHashMap<ResourceAttributeGroup, List<ReferenceWrapper>> resourceAGToReferenceWrapper,
+                             ConcurrentHashMap<String, String> ReferenceToResourceId) {
     private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
     static final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
     public ResourceBundle() {
-        this(new ConcurrentHashMap<>());
+        this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
 
@@ -47,10 +58,16 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
      * @return boolean containing info if the wrapper is new or updated.
      */
     public boolean put(ResourceGroupWrapper wrapper) {
+        return put(wrapper, List.of(ResourceUtils.getRelativeURL(wrapper.resource())));
+    }
+
+    public boolean put(ResourceGroupWrapper wrapper, List<String> references) {
         AtomicReference<Boolean> result = new AtomicReference<>(false);
         if (wrapper == null) {
             return result.get();
         }
+        String relativeURL = ResourceUtils.getRelativeURL(wrapper.resource());
+        references.forEach(ref -> ReferenceToResourceId.putIfAbsent(ref, relativeURL));
         //set Cache Key to relative URL
         DomainResource resource = wrapper.resource();
         resourceCache.compute(ResourceUtils.getRelativeURL(resource), (id, existingWrapper) -> {
@@ -96,6 +113,14 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         return entryComponent;
     }
 
+    public Boolean isValidReference(ReferenceGroup group) {
+        return referenceValidity.get(group);
+    }
+
+    public Boolean knownReference(String Reference) {
+        return ReferenceToResourceId.contains(Reference);
+    }
+
 
     public void remove(String id) {
         resourceCache.remove(id);
@@ -117,4 +142,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         return resourceCache.containsKey(ref);
     }
 
+    public String getResourceIDFromReferenceString(String reference) {
+        return ReferenceToResourceId.get(reference);
+    }
 }

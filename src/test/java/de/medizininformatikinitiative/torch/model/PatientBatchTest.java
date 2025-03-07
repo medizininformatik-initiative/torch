@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.model;
 
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 

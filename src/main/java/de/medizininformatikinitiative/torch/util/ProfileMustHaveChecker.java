@@ -24,17 +24,20 @@ public class ProfileMustHaveChecker {
     }
 
     public Boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
+        logger.debug("Checking if resource {} fulfills group {}", src.getId(), group);
         DomainResource resource = (DomainResource) src;
         List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).toList();
         if (profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {
+                logger.debug("Group has must have");
                 return group.attributes().stream().filter(AnnotatedAttribute::mustHave).allMatch(attribute ->
                         fulfilled(resource, attribute));
 
             }
+            logger.debug("Group has no must have");
             return true;
         }
-
+        logger.debug("Profile unknown in {} ", profiles);
         return false;
     }
 
