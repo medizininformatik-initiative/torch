@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.management;
 
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;

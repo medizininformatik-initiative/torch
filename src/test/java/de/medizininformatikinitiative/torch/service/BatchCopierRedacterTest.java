@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -168,7 +168,7 @@ class BatchCopierRedacterTest {
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
             groupMap.put("group1", mockGroup1);
             groupMap.put("group2", mockGroup2);
-            
+
             Map<String, AnnotatedAttribute> result = transformer.collectHighestLevelAttributes(groupMap, groups);
 
             // Expected: "Patient.identifier" should exclude "Patient.identifier.system"

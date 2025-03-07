@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -33,6 +33,7 @@ public class BatchReferenceProcessor {
      */
     public Mono<List<PatientBatchWithConsent>> processBatches(
             List<PatientBatchWithConsent> batches, Mono<ResourceBundle> coreResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+
 
         return coreResourceBundle.flatMap(coreBundle ->
                 Flux.fromIterable(batches)

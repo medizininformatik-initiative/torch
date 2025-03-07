@@ -2,26 +2,27 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.ResourceTypeMissmatchException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import javax.annotation.Nullable;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -52,31 +53,8 @@ public class ReferenceResolver {
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(coreBundle.values())
-                .expand(wrapper -> processCoreResourceWrapper(wrapper, coreBundle, groupMap))
+                .expand(wrapper -> processResourceWrapper(wrapper, null, coreBundle, false, groupMap))
                 .then(Mono.just(coreBundle));
-    }
-
-    /**
-     * Processes a ResourceGroupWrapper in the coreBundle.
-     */
-    private Flux<ResourceGroupWrapper> processCoreResourceWrapper(ResourceGroupWrapper wrapper, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return extractReferences(wrapper, groupMap)
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.empty(), coreBundle, false, groupMap)
-                        .onErrorResume(MustHaveViolatedException.class, e -> {
-                            logger.warn("MustHaveViolatedException for reference {} in core resource {}: {}. Removing affected groups.",
-                                    ref.refAttribute(),
-                                    ResourceUtils.getRelativeURL(wrapper.resource()),
-                                    e.getMessage());
-                            // Remove only the group associated with the failing reference
-                            wrapper.removeGroups(Set.of(ref.GroupId()));
-                            coreBundle.put(wrapper);
-                            return Mono.empty(); // Continue processing other references
-                        }))
-                .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers)
-                        .filter(resourceWrapper -> !compartmentManager.isInCompartment(resourceWrapper.resource()))
-                        .filter(coreBundle::put)
-                );
     }
 
     /**
@@ -101,40 +79,52 @@ public class ReferenceResolver {
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         return Flux.fromIterable(patientBundle.values())
-                .expand(wrapper -> processPatientResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
+                .expand(wrapper -> processResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
                 .then(Mono.just(patientBundle));
     }
 
     /**
      * Processes a ResourceGroupWrapper and updates the PatientResourceBundle accordingly.
      */
-    private Flux<ResourceGroupWrapper> processPatientResourceWrapper(ResourceGroupWrapper wrapper, PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return extractReferences(wrapper, groupMap)
-                .flatMapMany(Flux::fromIterable)
-                .flatMap(ref -> referenceHandler.handleReference(ref, Optional.of(patientBundle), coreBundle, applyConsent, groupMap)
-                        .onErrorResume(MustHaveViolatedException.class, e -> {
-                            logger.debug("MustHaveViolatedException for reference {} in parent resource {}: {}. Removing affected groups.",
-                                    ref.refAttribute(),
-                                    ResourceUtils.getRelativeURL(wrapper.resource()),
-                                    e.getMessage());
+    private Flux<ResourceGroupWrapper> processResourceWrapper(ResourceGroupWrapper wrapper, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
 
-                            // Remove only the group associated with the failing reference
-                            wrapper.removeGroups(Set.of(ref.GroupId()));
-                            patientBundle.put(wrapper);
+        Set<String> deleteGroups = new HashSet<>();
 
-                            return Mono.empty(); // Continue processing other references
-                        }))
-                .flatMap(resourceWrappers -> Flux.fromIterable(resourceWrappers)
-                        .flatMap(resourceWrapper -> {
-                            logger.trace("Handling {}", ResourceUtils.getRelativeURL(resourceWrapper.resource()));
-                            if (compartmentManager.isInCompartment(resourceWrapper.resource())) {
-                                boolean updated = patientBundle.put(resourceWrapper);
-                                return updated ? Flux.just(resourceWrapper) : Flux.empty();
-                            } else {
-                                coreBundle.put(resourceWrapper);
-                                return Flux.empty();
-                            }
-                        }));
+        if (compartmentManager.isInCompartment(wrapper.resource()) && patientBundle == null) {
+            return Flux.error(new ResourceTypeMissmatchException("Handling a Patient Resource Bundle without a Patient Resource Bundle"));
+        }
+
+
+        return Flux.fromIterable(wrapper.groupSet())
+                .flatMap(group -> {
+                    return Mono.fromCallable(() -> referenceExtractor.extract(wrapper, groupMap, group))
+                            .flatMapMany(references -> referenceHandler.handleReferences(references, patientBundle, coreBundle, applyConsent, groupMap))
+                            .onErrorResume(MustHaveViolatedException.class, e -> {
+                                deleteGroups.add(group); // Mark this group for deletion
+                                return Flux.empty(); // Skip processing for this group
+                            });
+                })
+                .collectList()
+                .doOnSuccess(results -> {
+                    ResourceGroupWrapper updatedWrapper = wrapper.removeGroups(deleteGroups);
+                    if (patientBundle != null) {
+                        patientBundle.put(updatedWrapper);
+                    } else {
+                        coreBundle.put(updatedWrapper);
+                    }
+
+                })// Collect all emitted elements into List<List<ResourceGroupWrapper>>
+                .flatMapMany(results -> Flux.fromIterable(results.stream()
+                        .toList()))
+                .flatMap(resourceGroupWrapper -> {
+                    if (patientBundle != null && compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
+                        boolean updated = patientBundle.put(resourceGroupWrapper);
+                        return updated ? Mono.just(resourceGroupWrapper) : Mono.empty();
+                    } else {
+                        coreBundle.put(resourceGroupWrapper);
+                        return Mono.just(resourceGroupWrapper);
+                    }
+                });
     }
 
 
@@ -142,12 +132,18 @@ public class ReferenceResolver {
      * Extracts references from a ResourceGroupWrapper.
      */
     private Mono<List<ReferenceWrapper>> extractReferences(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap) {
-        try {
 
-            return Mono.just(referenceExtractor.extract(wrapper, groupMap));
-        } catch (MustHaveViolatedException e) {
-            return Mono.error(e);
-        }
+        List<ReferenceWrapper> referenceList = new java.util.ArrayList<>();
+        wrapper.groupSet().forEach(group -> {
+            try {
+                referenceList.addAll(referenceExtractor.extract(wrapper, groupMap, group));
+            } catch (MustHaveViolatedException e) {
+                throw new RuntimeException(e);
+            }
+        });
+        return Mono.just(referenceList);
+
     }
+
 
 }

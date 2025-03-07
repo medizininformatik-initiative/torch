@@ -4,8 +4,8 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Patient;
@@ -19,8 +19,6 @@ import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
-
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
@@ -63,7 +61,7 @@ public class ReferenceHandlerTest {
             when(compartmentManager.isInCompartment(coreResource)).thenReturn(false);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.empty(), true, "Medication/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(null, true, "Medication/123");
 
 
             StepVerifier.create(result)
@@ -83,7 +81,7 @@ public class ReferenceHandlerTest {
             when(compartmentManager.isInCompartment(coreResource)).thenReturn(true);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.empty(), true, "Medication/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(null, true, "Medication/123");
 
 
             StepVerifier.create(result)
@@ -101,7 +99,7 @@ public class ReferenceHandlerTest {
             when(dataStore.fetchDomainResource("Medication/123")).thenReturn(Mono.empty());
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.empty(), true, "Medication/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(null, true, "Medication/123");
 
 
             StepVerifier.create(result)
@@ -132,7 +130,7 @@ public class ReferenceHandlerTest {
             when(consentHandler.checkConsent(patientResource, patientBundle)).thenReturn(true);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.of(patientBundle), true, "Patient/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(patientBundle, true, "Patient/123");
 
 
             StepVerifier.create(result)
@@ -155,7 +153,7 @@ public class ReferenceHandlerTest {
             when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.of(patientBundle), false, "Patient/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(patientBundle, false, "Patient/123");
 
 
             StepVerifier.create(result)
@@ -174,7 +172,7 @@ public class ReferenceHandlerTest {
             when(consentHandler.checkConsent(patientResource, patientBundle)).thenReturn(false);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.of(patientBundle), true, "Patient/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(patientBundle, true, "Patient/123");
 
 
             StepVerifier.create(result)
@@ -201,7 +199,7 @@ public class ReferenceHandlerTest {
             when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
 
 
-            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(Optional.of(patientBundle), false, "Patient/123");
+            Mono<ResourceGroupWrapper> result = referenceHandler.getResourceGroupWrapperMono(patientBundle, false, "Patient/123");
 
 
             StepVerifier.create(result)

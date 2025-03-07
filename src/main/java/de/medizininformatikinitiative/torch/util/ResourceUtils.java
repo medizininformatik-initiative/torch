@@ -12,7 +12,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Resource Utils to extract References and IDs from Resources
+ * Resource Utils to extract referenceValidity and IDs from Resources
  */
 public class ResourceUtils {
 

@@ -9,8 +9,8 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.model.PatientBatch;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;

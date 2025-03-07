@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.model;
+package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 

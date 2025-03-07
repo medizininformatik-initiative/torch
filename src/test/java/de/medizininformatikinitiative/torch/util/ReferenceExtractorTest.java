@@ -2,10 +2,10 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeAll;
@@ -75,7 +75,7 @@ class ReferenceExtractorTest {
             ResourceGroupWrapper wrapper = new ResourceGroupWrapper(condition, Set.of("Test"));
 
 
-            assertThat(referenceExtractor.extract(wrapper, GROUPS)).containsExactly(new ReferenceWrapper("Condition1", "Test", ATTRIBUTE, List.of("Patient1")), new ReferenceWrapper("Condition1", "Test", ATTRIBUTE_2, List.of("Asserter1")));
+            assertThat(referenceExtractor.extract(wrapper, GROUPS, "Test")).containsExactly(new ReferenceWrapper(ATTRIBUTE, List.of("Patient1"), "Test"), new ReferenceWrapper(ATTRIBUTE_2, List.of("Asserter1"), "Test"));
         }
 
         @Test
@@ -85,7 +85,7 @@ class ReferenceExtractorTest {
             condition.setId("Condition1");
             ResourceGroupWrapper wrapper = new ResourceGroupWrapper(condition, Set.of("Test"));
             assertThatThrownBy(() -> {
-                referenceExtractor.extract(wrapper, GROUPS);
+                referenceExtractor.extract(wrapper, GROUPS, "Test");
             }).isInstanceOf(MustHaveViolatedException.class);
         }
 

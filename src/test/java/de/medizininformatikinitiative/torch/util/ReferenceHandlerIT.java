@@ -5,11 +5,11 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Organization;
@@ -24,7 +24,10 @@ import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -82,7 +85,7 @@ class ReferenceHandlerIT {
     private static final String CONDITION = """
             {
                            "resourceType": "Condition",
-                           "id": "Medication/testMedication",
+                           "id": "testCondition",
                            "meta": {
                              "profile": [
                                "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
@@ -207,9 +210,10 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
+            System.out.println(coreBundle.knownReference("Medication/testMedication"));
             System.out.println("CORE Bundle" + coreBundle.keySet());
 
-            Mono<List<ResourceGroupWrapper>> result = referenceHandler.handleReference(new ReferenceWrapper("Encounter", "EncounterGroup", medicationRef, List.of("Medication/testMedication")), Optional.empty(), coreBundle, false, attributeGroupMap);
+            Mono<List<ResourceGroupWrapper>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup"), null, coreBundle, false, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst().groupSet()).isEqualTo(Set.of("Medication1")))
