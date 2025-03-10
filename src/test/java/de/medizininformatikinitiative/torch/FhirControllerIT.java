@@ -9,11 +9,11 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.model.management.PatientBatch;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -240,7 +240,7 @@ public class FhirControllerIT {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<ResourceBundle> collectedResourcesMono = transformer.proccessCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups());
+        Mono<ResourceBundle> collectedResourcesMono = transformer.proccessCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), new ResourceBundle());
 
         // Verify that the Mono fails with the expected exception
         StepVerifier.create(collectedResourcesMono)

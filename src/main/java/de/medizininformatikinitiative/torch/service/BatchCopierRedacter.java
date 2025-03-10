@@ -13,9 +13,13 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Factory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import reactor.core.publisher.Mono;
 
 import java.lang.reflect.InvocationTargetException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
 public class BatchCopierRedacter {
 
@@ -31,16 +35,19 @@ public class BatchCopierRedacter {
     }
 
     /**
-     * @param batches  List of PatientBatches to be handled
-     * @param groupMap Immutable AttributeGroup Map shared between all Batches
-     * @return Transformed list of batches
+     * Transforms a batch of patients reactively.
+     *
+     * @param batchMono Mono of PatientBatchWithConsent to be handled.
+     * @param groupMap  Immutable AttributeGroup Map shared between all Batches.
+     * @return Mono of transformed batch.
      */
-    public List<PatientBatchWithConsent> transformBatch(List<PatientBatchWithConsent> batches, Map<String, AnnotatedAttributeGroup> groupMap) {
-        batches.forEach(batch ->
-                batch.bundles().values().forEach(bundle -> transform(bundle, groupMap))
-        );
-        return batches;
+    public Mono<PatientBatchWithConsent> transformBatch(Mono<PatientBatchWithConsent> batchMono, Map<String, AnnotatedAttributeGroup> groupMap) {
+        return batchMono.map(batch -> {
+            batch.bundles().values().forEach(bundle -> transform(bundle, groupMap));
+            return batch;
+        });
     }
+
 
     /**
      * Transforms a PatientResourceBundle using the given attribute group map.
@@ -55,7 +62,7 @@ public class BatchCopierRedacter {
                 ResourceGroupWrapper transformedWrapper = transform(wrapper, groupMap);
                 bundle.put(transformedWrapper);
             } catch (MustHaveViolatedException | TargetClassCreationException e) {
-                logger.trace("Error transforming resource", e);
+                logger.warn("Error transforming resource", e);
                 bundle.remove(wrapper.resource().getIdBase());
             }
         });

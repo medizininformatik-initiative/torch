@@ -50,7 +50,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.put(wrapper);
     }
 
-    public Boolean isValidReference(ReferenceGroup group) {
+    public Boolean isValidReference(ResourceIdGroup group) {
         return bundle.isValidReference(group);
     }
 

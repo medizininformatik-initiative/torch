@@ -109,37 +109,35 @@ public class ResultFileManager {
     }
 
 
-    public Mono<Void> saveBatchList(String jobId, List<PatientBatchWithConsent> batchList) {
-        return Flux.fromIterable(batchList)
-                .flatMap(batch -> saveBatchToNDJSON(jobId, batch))
-                .then();
-    }
-
-    public Mono<Void> saveBatchToNDJSON(String jobId, PatientBatchWithConsent batch) {
+    public Mono<Void> saveBatchToNDJSON(String jobId, Mono<PatientBatchWithConsent> batchMono) {
         Objects.requireNonNull(resultsDirPath, "resultsDirPath must not be null");
         Objects.requireNonNull(jobId, "jobId must not be null");
-        Objects.requireNonNull(batch, "batch must not be null");
-        Objects.requireNonNull(batch.bundles(), "batch.bundles() must not be null");
+        Objects.requireNonNull(batchMono, "batchMono must not be null");
 
-        return Mono.fromCallable(() -> {
-                    Path jobDir = getJobDirectory(jobId);
-                    Files.createDirectories(jobDir); // Ensure job directory exists
 
-                    Path ndjsonFile;
-                    if (batch.keySet().equals(Set.of("CORE"))) {
-                        ndjsonFile = jobDir.resolve("core.ndjson");
-                    } else {
-                        ndjsonFile = jobDir.resolve(UUID.randomUUID().toString() + ".ndjson");
-                    }
+        return batchMono.flatMap(batch -> {
+            Objects.requireNonNull(batch.bundles(), "batch.bundles() must not be null");
+            logger.debug("Saving batch to {} {}", jobId, batch.keySet());
 
-                    return ndjsonFile;
-                })
-                .flatMap(ndjsonFile ->
-                        Flux.fromIterable(batch.bundles().values()) // Process each bundle asynchronously
-                                .flatMap(bundle -> saveBundleToNDJSON(ndjsonFile, bundle.bundle().toFhirBundle()))
-                                .then()
-                )
-                .subscribeOn(Schedulers.boundedElastic());
+            return Mono.fromCallable(() -> {
+                        Path jobDir = getJobDirectory(jobId);
+                        Files.createDirectories(jobDir); // Ensure job directory exists
+
+                        Path ndjsonFile;
+                        if (batch.keySet().equals(Set.of("CORE"))) {
+                            ndjsonFile = jobDir.resolve("core.ndjson");
+                        } else {
+                            ndjsonFile = jobDir.resolve(UUID.randomUUID().toString() + ".ndjson");
+                        }
+
+                        return ndjsonFile;
+                    })
+                    .flatMap(ndjsonFile ->
+                            Flux.fromIterable(batch.bundles().values()) // Process each bundle asynchronously
+                                    .flatMap(bundle -> saveBundleToNDJSON(ndjsonFile, bundle.bundle().toFhirBundle()))
+                                    .then()
+                    );
+        }).subscribeOn(Schedulers.boundedElastic());
     }
 
     public Mono<Void> saveBundleToNDJSON(Path ndjsonFile, Bundle bundle) {

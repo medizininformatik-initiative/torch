@@ -4,13 +4,13 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
@@ -113,12 +113,11 @@ public class DirectResourceLoader {
     }
 
 
-    public Mono<ResourceBundle> proccessCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups) {
-        ResourceBundle bundle = new ResourceBundle();
-        return Flux.fromIterable(attributeGroups).flatMap(group -> proccessCoreAttributeGroup(group, bundle)).then(Mono.just(bundle));
+    public Mono<ResourceBundle> proccessCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
+        return Flux.fromIterable(attributeGroups).flatMap(group -> proccessCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
     }
 
-    private Mono<Void> proccessCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
+    public Mono<Void> proccessCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
         logger.trace("Processing attribute group: {}", group);
         AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
         return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {

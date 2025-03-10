@@ -1,19 +1,10 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
-import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
-import de.medizininformatikinitiative.torch.model.management.PatientBatch;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-
-import java.util.List;
-import java.util.Optional;
 
 @Service
 public class BatchProcessingPipeline {
@@ -38,13 +29,14 @@ public class BatchProcessingPipeline {
 
 
     /**
-     * @param batches         Queried PatientBatch from the cohort
-     * @param groupsToProcess AttributeGroups extracted from the CRTDL
-     * @param consentKey      consent key from the crtdl (optional)
+     * @param batches            Queried PatientBatch from the cohort
+     * @param groupsToProcess    AttributeGroups extracted from the CRTDL
+     * @param consentKey         consent key from the crtdl (optional)
+     * @param coreResourceBundle coreResourceBundle to be handled
      * @return Mono<List < PatientBatchWithConsent>> with the processed resources in form of batches
      */
-    public Mono<List<PatientBatchWithConsent>> execute(Flux<PatientBatch> batches, GroupsToProcess groupsToProcess, Optional<String> consentKey) {
-        Mono<ResourceBundle> coreResourceBundle = directLoader.proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups());
+    /*
+    public Mono<List<PatientBatchWithConsent>> execute(Flux<PatientBatch> batches, GroupsToProcess groupsToProcess, Optional<String> consentKey, Mono<ResourceBundle> coreResourceBundle) {
         return batches
                 .flatMap(batch -> directLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch, consentKey), maxConcurrency)
                 .collectList()
@@ -52,6 +44,6 @@ public class BatchProcessingPipeline {
                 //TODO: Cascading delete
                 .map(referencedBatch -> batchCopierRedacter.transformBatch(referencedBatch, groupsToProcess.allGroups()));
     }
-
+*/
 
 }

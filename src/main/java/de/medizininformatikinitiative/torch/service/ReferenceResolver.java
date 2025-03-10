@@ -8,12 +8,12 @@ import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -21,7 +21,6 @@ import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -79,6 +78,7 @@ public class ReferenceResolver {
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         return Flux.fromIterable(patientBundle.values())
+                //Input alle direkt geladenen PAtientenresourcen und expanden auf returnwert
                 .expand(wrapper -> processResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
                 .then(Mono.just(patientBundle));
     }
@@ -121,28 +121,14 @@ public class ReferenceResolver {
                         boolean updated = patientBundle.put(resourceGroupWrapper);
                         return updated ? Mono.just(resourceGroupWrapper) : Mono.empty();
                     } else {
+                        if (compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
+                            logger.warn("Resource {} has been ignored since it is a Patient Resource that has been found within a core bundle processing", ResourceUtils.getRelativeURL(resourceGroupWrapper.resource()));
+                            return Mono.empty();
+                        }
                         coreBundle.put(resourceGroupWrapper);
                         return Mono.just(resourceGroupWrapper);
                     }
                 });
-    }
-
-
-    /**
-     * Extracts references from a ResourceGroupWrapper.
-     */
-    private Mono<List<ReferenceWrapper>> extractReferences(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap) {
-
-        List<ReferenceWrapper> referenceList = new java.util.ArrayList<>();
-        wrapper.groupSet().forEach(group -> {
-            try {
-                referenceList.addAll(referenceExtractor.extract(wrapper, groupMap, group));
-            } catch (MustHaveViolatedException e) {
-                throw new RuntimeException(e);
-            }
-        });
-        return Mono.just(referenceList);
-
     }
 
 

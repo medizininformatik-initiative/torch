@@ -114,11 +114,17 @@ public class TestConfig {
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ProcessedGroupFactory processedGroupFactory,
-            @Value("${torch.batchsize:10}") int batchSize,
+            @Value("2") int batchSize,
             @Value("${torch.useCql}") boolean useCql,
-            BatchProcessingPipeline batchProcessingPipeline) {
+            BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
+            ReferenceResolver referenceResolver,
+            BatchCopierRedacter batchCopierRedacter,
+            @Value("5") int maxConcurrency
+    ) {
+
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                processedGroupFactory, batchSize, useCql, batchProcessingPipeline);
+                processedGroupFactory, batchSize, useCql, directResourceLoader,
+                referenceResolver, batchCopierRedacter, maxConcurrency);
     }
 
 
