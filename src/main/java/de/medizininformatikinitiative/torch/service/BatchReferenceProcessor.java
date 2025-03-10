@@ -33,16 +33,17 @@ public class BatchReferenceProcessor {
      */
     public Mono<List<PatientBatchWithConsent>> processBatches(
             List<PatientBatchWithConsent> batches, Mono<ResourceBundle> coreResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        //preprocess corebundle references not reference only
 
 
         return coreResourceBundle.flatMap(coreBundle ->
                 Flux.fromIterable(batches)
+                        // resolveReferences + extraction + file creation
                         .flatMap(batch -> referenceResolver.processSinglePatientBatch(batch, coreBundle, groupMap),
                                 Runtime.getRuntime().availableProcessors()) // Process batches in parallel
                         .collectList()
                         .flatMap(updatedBatches ->
                                 {
-
                                     return referenceResolver.resolveCoreBundle(coreBundle, groupMap)
                                             .map(resourceBundle -> {
                                                 if (!resourceBundle.isEmpty()) {

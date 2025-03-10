@@ -20,21 +20,22 @@ import java.util.concurrent.atomic.AtomicReference;
  * Generic bundle that handles Resources
  *
  * @param resourceCache                    Cache that contains the Resources keyed by their FullURL
- * @param resourceAGtoParentReferenceGroup
- * @param resourceAGtoChildReferenceGroup
- * @param referenceValidity
+ * @param resourceAGtoParentReferenceGroup Bundle level map managing a resource group combination pointing to a ReferenceGroup calling it i.e. which context created this reference
+ * @param resourceAGtoChildReferenceGroup  Bundle level map managing a resource group combination pointing to a ReferenceGroup it calls i.e. which resources are called because of that reference
+ * @param referenceValidity                Is this reference valid i.e. has this reference
  * @param resourceAGToReferenceWrapper
  * @param ReferenceToResourceId            Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
  */
 public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache,
-                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ReferenceGroup>> resourceAGtoParentReferenceGroup,
-                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ReferenceGroup>> resourceAGtoChildReferenceGroup,
-                             ConcurrentHashMap<ReferenceGroup, Boolean> referenceValidity,
+                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ResourceIdGroup>> resourceAGtoParentReferenceGroup,
+                             ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ResourceIdGroup>> resourceAGtoChildReferenceGroup,
+                             ConcurrentHashMap<ResourceIdGroup, Boolean> referenceValidity,
                              ConcurrentHashMap<ResourceAttributeGroup, List<ReferenceWrapper>> resourceAGToReferenceWrapper,
                              ConcurrentHashMap<String, String> ReferenceToResourceId) {
     private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
     static final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
+
 
     public ResourceBundle() {
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
@@ -113,7 +114,7 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         return entryComponent;
     }
 
-    public Boolean isValidReference(ReferenceGroup group) {
+    public Boolean isValidReference(ResourceIdGroup group) {
         return referenceValidity.get(group);
     }
 
