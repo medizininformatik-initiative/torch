@@ -47,35 +47,6 @@ class FilterServiceTest {
         filterService.init();
     }
 
-    @Nested
-    class MultipleFilters {
-        @Test
-        public void test_compile_onlyFirstFilterSatisfied() {
-            var observation = new Observation().setCode(new CodeableConcept().setCoding(List.of(
-                    new Coding(SYS, CODE_1, DISPLAY))));
-
-            var result = filterService.compileFilter(List.of(
-                            new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_1))),
-                            new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_2)))), OBSERVATION)
-                    .test(observation);
-
-            assertTrue(result);
-        }
-
-        @Test
-        public void test_compile_onlySecondFilterSatisfied() {
-            var observation = new Observation().setCode(new CodeableConcept().setCoding(List.of(
-                    new Coding(SYS, CODE_2, DISPLAY))));
-
-            var result = filterService.compileFilter(List.of(
-                            new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_1))),
-                            new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_2)))), OBSERVATION)
-                    .test(observation);
-
-            assertTrue(result);
-        }
-    }
-
     @Test
     public void test_compile_MultipleResources() {
         var observation_1 = new Observation().setCode(new CodeableConcept().setCoding(List.of(
@@ -628,7 +599,7 @@ class FilterServiceTest {
                             new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_1)))), OBSERVATION)
                     .test(resource);
 
-            assertTrue(result);
+            assertFalse(result);
         }
 
         @Test
@@ -643,8 +614,24 @@ class FilterServiceTest {
                             new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_1)))), OBSERVATION)
                     .test(resource);
 
+            assertFalse(result);
+        }
+
+        @Test
+        public void test_compile_allFiltersSatisfied() throws ParseException {
+            var resourceDate = DATE_FORMAT.parse("2024-10-16");
+            var filterStartDate = LocalDate.parse("2024-10-15", LOCALDATE_FORMAT);
+            var filterEndDate = LocalDate.parse("2024-10-18", LOCALDATE_FORMAT);
+            var resource = new Observation().setCode(new CodeableConcept().setCoding(List.of(
+                    new Coding(SYS, CODE_1, DISPLAY))))
+                    .setEffective(new DateTimeType(resourceDate));
+
+            var result = filterService.compileFilter(List.of(
+                            new Filter(DATE, DATE, filterStartDate, filterEndDate),
+                            new Filter(TOKEN, CODE, List.of(new Code(SYS, CODE_1)))), OBSERVATION)
+                    .test(resource);
+
             assertTrue(result);
         }
     }
-
 }

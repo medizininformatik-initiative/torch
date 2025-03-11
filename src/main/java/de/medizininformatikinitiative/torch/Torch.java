@@ -8,8 +8,7 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @ComponentScan(basePackages = {
         "de.medizininformatikinitiative.torch.config",
-        "de.medizininformatikinitiative.torch.rest",
-        "de.medizininformatikinitiative.torch.service"
+        "de.medizininformatikinitiative.torch.rest"
 })
 public class Torch {
 

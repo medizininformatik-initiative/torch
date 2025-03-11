@@ -83,6 +83,11 @@ public class AppConfig {
     }
 
     @Bean
+    public FilterService filterService(FhirContext ctx, String searchParametersFile) {
+        return new FilterService(ctx, searchParametersFile);
+    }
+
+    @Bean
     public CompartmentManager compartmentManager() throws IOException {
         return new CompartmentManager(compartmentPath);
     }

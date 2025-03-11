@@ -22,7 +22,7 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -61,11 +61,11 @@ public class FilterService {
         Bundle searchParams = parser.parseResource(Bundle.class, readSearchParams());
 
         this.searchParameters = searchParams.getEntry().stream().map(e -> (SearchParameter)e.getResource())
-                .filter(this::isValidSearchParam)
+                .filter(FilterService::isValidSearchParam)
                 .flatMap(searchParam -> searchParam.getBase().stream().map(base ->
                             Map.entry(
                                     List.of(searchParam.getCode(), searchParam.getType().toCode(), base.getCode()),
-                                    getExpression(searchParam.getExpression(), base.getCode())
+                                    buildExpression(searchParam.getExpression(), base.getCode())
                             )
                         )
                 ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -80,37 +80,46 @@ public class FilterService {
      * @return the compiled filters containing parsed FHIRPath expressions that are ready to be evaluated
      */
     public Predicate<Resource> compileFilter(List<Filter> attributeGroupFilters, String resourceType) {
-        var parsedFhirPaths = attributeGroupFilters.stream()
-                .map(f -> searchParameters.get(List.of(f.name(), f.type(), resourceType)))
-                .map(this::parseFhirPath).toList();
+        var parsedFilters = attributeGroupFilters.stream()
+                .map(filter ->
+                        new ParsedFilter(
+                                filter,
+                                parseFhirPath(searchParameters.get(List.of(filter.name(), filter.type(), resourceType)))))
+                .toList();
 
-        return new CompiledFilter(parsedFhirPaths, attributeGroupFilters, fhirPathEngine);
+        if (parsedFilters.isEmpty()) {
+            logger.warn("Could not find any matching search parameter for filter. This can later result in unexpected false" +
+                    " negative results of the 'test' method of 'CompiledFilter'.");
+        }
+
+        return new CompiledFilter(parsedFilters, fhirPathEngine);
     }
 
     private IFhirPath.IParsedExpression parseFhirPath(String path) {
         try {
             return fhirPathEngine.parse(path);
         } catch (Exception e) {
-            throw new RuntimeException(e);
+            // FHIRPath expressions from FHIR search parameters should usually never fail parsing
+            throw new RuntimeException("Unexpected parsing error occurred", e);
         }
     }
 
     private String readSearchParams() {
         ResourceLoader resourceLoader = new DefaultResourceLoader();
         try {
-            return resourceLoader.getResource("classpath:"+searchParametersFile).getContentAsString(Charset.defaultCharset());
+            return resourceLoader.getResource("classpath:"+searchParametersFile).getContentAsString(StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private String getExpression(String expressions, String resourceType) {
+    private static String buildExpression(String expressions, String resourceType) {
         return Arrays.stream(expressions.split("\\|"))
                 .filter(e -> e.startsWith(resourceType, e.indexOf('.') - resourceType.length()))
                 .collect(Collectors.joining(" | "));
     }
 
-    private boolean isValidSearchParam(SearchParameter searchParam) {
+    private static boolean isValidSearchParam(SearchParameter searchParam) {
         return  searchParam.hasCode() &&
                 searchParam.hasType() &&
                 searchParam.hasBase() &&
@@ -119,34 +128,26 @@ public class FilterService {
                     searchParam.getType().equals(Enumerations.SearchParamType.DATE));
     }
 
-    private record CompiledFilter(List<IFhirPath. IParsedExpression> parsedFhirPaths,
-                                  List<Filter> attributeGroupFilters,
+    private record CompiledFilter(List<ParsedFilter> filters,
                                   IFhirPath fhirPathEngine) implements Predicate<Resource> {
 
         @Override
         public boolean test(Resource resource) {
-            if (parsedFhirPaths.isEmpty()) {
-                logger.warn("Could not find any matching search parameter for filter.");
-                return false;
-            }
 
-            for(int i = 0; i < attributeGroupFilters.size(); i++) {
-                var foundElements = fhirPathEngine.evaluate(resource, parsedFhirPaths.get(i), Base.class);
 
-                int finalI = i;
-                var isFilterSatisfied =  foundElements.stream().anyMatch( found-> {
-                    var filter = attributeGroupFilters.get(finalI);
-                    return switch (filter.type()) {
-                        case "token" -> evaluateToken(found, filter);
-                        case "date" -> evaluateDate(found, filter);
-                        default -> false;
-                    };
+            for (ParsedFilter parsedFilter : filters) {
+                var foundElements = fhirPathEngine.evaluate(resource, parsedFilter.parsedExpression, Base.class);
+
+                var isFilterSatisfied = foundElements.stream().anyMatch(found -> switch (parsedFilter.filter.type()) {
+                    case "token" -> evaluateToken(found, parsedFilter.filter);
+                    case "date" -> evaluateDate(found, parsedFilter.filter);
+                    default -> false;
                 });
 
-                if(isFilterSatisfied)
-                    return true;
+                if (!isFilterSatisfied)
+                    return false;
             }
-            return false;
+            return true;
         }
 
         private boolean evaluateToken(Base found, Filter filter) {
@@ -163,7 +164,7 @@ public class FilterService {
                 return codingMatchesFilterCode(coding, filterCode);
             }
 
-            logger.warn("Code filter was not of type 'CodeableConcept' or 'Coding'.");
+            logger.warn("Expected Code filter to be of type 'CodeableConcept' or 'Coding', but was {}.", found.fhirType());
             return false;
         }
 
@@ -214,6 +215,7 @@ public class FilterService {
             logger.warn("Date filter was not of type 'DateTimeType' or 'Period'.");
             return false;
         }
-
     }
+
+    private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {}
 }
