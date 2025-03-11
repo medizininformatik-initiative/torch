@@ -60,7 +60,7 @@ public class BatchCopierRedacter {
         bundle.values().forEach(wrapper -> {
             try {
                 ResourceGroupWrapper transformedWrapper = transform(wrapper, groupMap);
-                bundle.put(transformedWrapper);
+                bundle.mergingPut(transformedWrapper);
             } catch (MustHaveViolatedException | TargetClassCreationException e) {
                 logger.warn("Error transforming resource", e);
                 bundle.remove(wrapper.resource().getIdBase());

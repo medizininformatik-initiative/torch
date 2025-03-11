@@ -18,9 +18,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.function.Tuples;
 
 import javax.annotation.Nullable;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -88,44 +88,42 @@ public class ReferenceResolver {
      */
     private Flux<ResourceGroupWrapper> processResourceWrapper(ResourceGroupWrapper wrapper, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        Set<String> deleteGroups = new HashSet<>();
-
         if (compartmentManager.isInCompartment(wrapper.resource()) && patientBundle == null) {
             return Flux.error(new ResourceTypeMissmatchException("Handling a Patient Resource Bundle without a Patient Resource Bundle"));
         }
 
-
         return Flux.fromIterable(wrapper.groupSet())
-                .flatMap(group -> {
-                    return Mono.fromCallable(() -> referenceExtractor.extract(wrapper, groupMap, group))
-                            .flatMapMany(references -> referenceHandler.handleReferences(references, patientBundle, coreBundle, applyConsent, groupMap))
-                            .onErrorResume(MustHaveViolatedException.class, e -> {
-                                deleteGroups.add(group); // Mark this group for deletion
-                                return Flux.empty(); // Skip processing for this group
-                            });
-                })
-                .collectList()
-                .doOnSuccess(results -> {
-                    ResourceGroupWrapper updatedWrapper = wrapper.removeGroups(deleteGroups);
+                .flatMap(group -> Mono.fromCallable(() -> referenceExtractor.extract(wrapper, groupMap, group))
+                        .flatMapMany(references -> referenceHandler.handleReferences(references, patientBundle, coreBundle, applyConsent, groupMap))
+                        .map(resourceGroupWrapper -> Tuples.of(group, resourceGroupWrapper))
+                        .onErrorResume(MustHaveViolatedException.class, e -> {
+                            ResourceGroupWrapper updatedWrapper = wrapper.removeGroups(Set.of(group));
+                            if (patientBundle != null) {
+                                patientBundle.overwritingPut(updatedWrapper);
+                            } else {
+                                coreBundle.overwritingPut(updatedWrapper);
+                            }// Mark this group for deletion
+                            return Flux.empty(); // Skip processing for this group
+                        }))
+                .flatMap(results -> {
+                    String group = results.getT1();
+                    ResourceGroupWrapper resourceGroupWrapper = results.getT2();
+                    ResourceBundle bundle;
                     if (patientBundle != null) {
-                        patientBundle.put(updatedWrapper);
+                        bundle = patientBundle.getResourceBundle();
                     } else {
-                        coreBundle.put(updatedWrapper);
+                        bundle = coreBundle;
                     }
 
-                })// Collect all emitted elements into List<List<ResourceGroupWrapper>>
-                .flatMapMany(results -> Flux.fromIterable(results.stream()
-                        .toList()))
-                .flatMap(resourceGroupWrapper -> {
                     if (patientBundle != null && compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
-                        boolean updated = patientBundle.put(resourceGroupWrapper);
+                        boolean updated = patientBundle.mergingPut(resourceGroupWrapper);
                         return updated ? Mono.just(resourceGroupWrapper) : Mono.empty();
                     } else {
                         if (compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
                             logger.warn("Resource {} has been ignored since it is a Patient Resource that has been found within a core bundle processing", ResourceUtils.getRelativeURL(resourceGroupWrapper.resource()));
                             return Mono.empty();
                         }
-                        coreBundle.put(resourceGroupWrapper);
+                        coreBundle.mergingPut(resourceGroupWrapper);
                         return Mono.just(resourceGroupWrapper);
                     }
                 });

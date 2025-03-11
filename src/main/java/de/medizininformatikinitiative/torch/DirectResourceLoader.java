@@ -125,7 +125,7 @@ public class DirectResourceLoader {
             logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
             if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                 atLeastOneResource.set(true);
-                resourceBundle.put(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                resourceBundle.mergingPut(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
             }
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {
@@ -170,7 +170,7 @@ public class DirectResourceLoader {
                         if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
                             safeGroup.add(id);
                             PatientResourceBundle bundle = mutableBundles.get(id);
-                            bundle.put(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                            bundle.mergingPut(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
                         }
 
                     } catch (PatientIdNotFoundException e) {

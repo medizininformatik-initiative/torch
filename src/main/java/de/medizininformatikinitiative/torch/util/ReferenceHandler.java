@@ -76,13 +76,14 @@ public class ReferenceHandler {
                 .flatMap(reference -> {
                     Mono<ResourceGroupWrapper> referenceResource;
                     // Attempt to resolve the reference
-                    if (patientBundle != null && patientBundle.knownReference(reference)) {
-                        referenceResource = patientBundle.get(patientBundle.getResourceIDFromReferenceString(reference));
-                    } else if (coreBundle.knownReference(reference)) {
-                        referenceResource = coreBundle.get(coreBundle.getResourceIDFromReferenceString(reference));
+                    if (patientBundle != null && patientBundle.contains(reference)) {
+                        referenceResource = patientBundle.get(reference);
+                    } else if (coreBundle.contains(reference)) {
+                        referenceResource = coreBundle.get(reference);
                     } else {
                         logger.debug("Reference {} not found in patientBundle or coreBundle, attempting fetch.", reference);
                         referenceResource = getResourceGroupWrapperMono(patientBundle, applyConsent, reference);
+
                     }
                     return referenceResource.flatMap(resourceWrapper -> {
                                 String resourceUrl = ResourceUtils.getRelativeURL(resourceWrapper.resource());
@@ -92,7 +93,7 @@ public class ReferenceHandler {
                                         .filter(group -> profileMustHaveChecker.fulfilled(resourceWrapper.resource(), group))
                                         .map(AnnotatedAttributeGroup::id)
                                         .collect(Collectors.toSet());
-                                logger.debug("Groups found: {}", groups.toString());
+                                logger.debug("Groups found: {}", groups);
                                 if (referenceWrapper.refAttribute().mustHave() && groups.isEmpty()) {
                                     String errorMessage = String.format("MustHave condition violated for reference %s (%s) - No matching groups found.",
                                             reference, resourceUrl);
@@ -120,8 +121,7 @@ public class ReferenceHandler {
     }
 
     public Mono<ResourceGroupWrapper> getResourceGroupWrapperMono(@Nullable PatientResourceBundle patientBundle, Boolean applyConsent, String reference) {
-        return Mono.justOrEmpty(dataStore.fetchDomainResource(reference))
-                .flatMap(resourceMono -> resourceMono)
+        return dataStore.fetchDomainResource(reference)
                 .switchIfEmpty(Mono.error(new RuntimeException("Failed to fetch resource: received empty response")))
                 .flatMap(resource -> {
                     if (compartmentManager.isInCompartment(resource)) {

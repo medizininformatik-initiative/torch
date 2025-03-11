@@ -209,8 +209,7 @@ class ReferenceHandlerIT {
         void resolveCoreBundle_success() {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
-            coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            System.out.println(coreBundle.knownReference("Medication/testMedication"));
+            coreBundle.mergingPut(new ResourceGroupWrapper(testResource, Set.of()));
             System.out.println("CORE Bundle" + coreBundle.keySet());
 
             Mono<List<ResourceGroupWrapper>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup"), null, coreBundle, false, attributeGroupMap);

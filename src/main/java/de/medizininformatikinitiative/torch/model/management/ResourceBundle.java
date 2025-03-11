@@ -23,22 +23,20 @@ import java.util.concurrent.atomic.AtomicReference;
  * @param resourceAGtoParentReferenceGroup Bundle level map managing a resource group combination pointing to a ReferenceGroup calling it i.e. which context created this reference
  * @param resourceAGtoChildReferenceGroup  Bundle level map managing a resource group combination pointing to a ReferenceGroup it calls i.e. which resources are called because of that reference
  * @param referenceValidity                Is this reference valid i.e. has this reference
- * @param resourceAGToReferenceWrapper
- * @param ReferenceToResourceId            Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
+ * @param resourceAGToReferenceWrapper     Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
  */
 public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> resourceCache,
                              ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ResourceIdGroup>> resourceAGtoParentReferenceGroup,
                              ConcurrentHashMap<ResourceAttributeGroup, java.util.Set<ResourceIdGroup>> resourceAGtoChildReferenceGroup,
                              ConcurrentHashMap<ResourceIdGroup, Boolean> referenceValidity,
-                             ConcurrentHashMap<ResourceAttributeGroup, List<ReferenceWrapper>> resourceAGToReferenceWrapper,
-                             ConcurrentHashMap<String, String> ReferenceToResourceId) {
+                             ConcurrentHashMap<ResourceAttributeGroup, List<ReferenceWrapper>> resourceAGToReferenceWrapper) {
     private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
     static final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
 
 
     public ResourceBundle() {
-        this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+        this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
 
@@ -54,21 +52,16 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
     /**
      * Adds the wrapper into the underlying concurrent hashmap.
      * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
+     * Merges the groups assignment.
      *
      * @param wrapper wrapper to be added to the resourcebundle
      * @return boolean containing info if the wrapper is new or updated.
      */
-    public boolean put(ResourceGroupWrapper wrapper) {
-        return put(wrapper, List.of(ResourceUtils.getRelativeURL(wrapper.resource())));
-    }
-
-    public boolean put(ResourceGroupWrapper wrapper, List<String> references) {
+    public boolean mergingPut(ResourceGroupWrapper wrapper) {
         AtomicReference<Boolean> result = new AtomicReference<>(false);
         if (wrapper == null) {
             return result.get();
         }
-        String relativeURL = ResourceUtils.getRelativeURL(wrapper.resource());
-        references.forEach(ref -> ReferenceToResourceId.putIfAbsent(ref, relativeURL));
         //set Cache Key to relative URL
         DomainResource resource = wrapper.resource();
         resourceCache.compute(ResourceUtils.getRelativeURL(resource), (id, existingWrapper) -> {
@@ -87,6 +80,37 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
                 }
                 return new ResourceGroupWrapper(existingWrapper.resource(), mergedGroups);
             }
+        });
+
+        return result.get();
+    }
+
+    /**
+     * Adds the wrapper into the underlying concurrent hashmap.
+     * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
+     *
+     * @param wrapper wrapper to be added to the resourcebundle
+     * @return boolean containing info if the wrapper is new or updated.
+     */
+    public boolean overwritingPut(ResourceGroupWrapper wrapper) {
+        AtomicReference<Boolean> result = new AtomicReference<>(false);
+        if (wrapper == null) {
+            return result.get();
+        }
+        //set Cache Key to relative URL
+        DomainResource resource = wrapper.resource();
+        resourceCache.compute(ResourceUtils.getRelativeURL(resource), (id, existingWrapper) -> {
+            if (existingWrapper == null) {
+                // No existing wrapper, add the new one
+                result.set(true);
+            } else {
+                if (wrapper.groupSet().equals(existingWrapper.groupSet())) {
+                    result.set(false);
+                } else {
+                    result.set(true);
+                }
+            }
+            return wrapper;
         });
 
         return result.get();
@@ -118,10 +142,6 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
         return referenceValidity.get(group);
     }
 
-    public Boolean knownReference(String Reference) {
-        return ReferenceToResourceId.contains(Reference);
-    }
-
 
     public void remove(String id) {
         resourceCache.remove(id);
@@ -141,9 +161,5 @@ public record ResourceBundle(ConcurrentHashMap<String, ResourceGroupWrapper> res
 
     public boolean contains(String ref) {
         return resourceCache.containsKey(ref);
-    }
-
-    public String getResourceIDFromReferenceString(String reference) {
-        return ReferenceToResourceId.get(reference);
     }
 }

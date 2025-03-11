@@ -4,11 +4,11 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import org.hl7.fhir.r4.model.Condition;
@@ -189,7 +189,7 @@ class ReferenceResolverIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = new Medication();
             testResource.setId("testResource");
-            coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
+            coreBundle.mergingPut(new ResourceGroupWrapper(testResource, Set.of()));
 
             Mono<ResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle, attributeGroupMap);
 
@@ -203,7 +203,7 @@ class ReferenceResolverIT {
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = new Patient();
             patient.setId("testPatient");
-            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
             ResourceBundle coreBundle = new ResourceBundle();
             Boolean applyConsent = true;
 
@@ -225,8 +225,8 @@ class ReferenceResolverIT {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
 
 
-            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
-            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             // Validate the result using StepVerifier
@@ -263,8 +263,8 @@ class ReferenceResolverIT {
             patient.setId("VHF00006");
             ResourceBundle coreBundle = new ResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
-            patientBundle.put(new ResourceGroupWrapper(patient, Set.of("Patient1")));
-            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of("Patient1")));
+            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             StepVerifier.create(result)
@@ -291,7 +291,7 @@ class ReferenceResolverIT {
             // Create patient bundle with condition
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
 
-            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             ResourceBundle coreBundle = new ResourceBundle();
 

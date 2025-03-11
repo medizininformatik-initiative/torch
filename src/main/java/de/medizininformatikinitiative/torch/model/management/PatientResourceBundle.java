@@ -46,21 +46,14 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.get(id);
     }
 
-    public boolean put(ResourceGroupWrapper wrapper) {
-        return bundle.put(wrapper);
+    public boolean mergingPut(ResourceGroupWrapper wrapper) {
+        return bundle.mergingPut(wrapper);
     }
 
-    public Boolean isValidReference(ResourceIdGroup group) {
-        return bundle.isValidReference(group);
+    public boolean overwritingPut(ResourceGroupWrapper wrapper) {
+        return bundle.overwritingPut(wrapper);
     }
 
-    public Boolean knownReference(String reference) {
-        return bundle.knownReference(reference);
-    }
-
-    public String getResourceIDFromReferenceString(String reference) {
-        return bundle.getResourceIDFromReferenceString(reference);
-    }
 
     public void remove(String id) {
         bundle.remove(id);
@@ -79,7 +72,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.values();
     }
 
-    public ResourceBundle toResourceBundle() {
+    public ResourceBundle getResourceBundle() {
         return bundle;
     }
 

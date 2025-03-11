@@ -61,7 +61,7 @@ public class FhirTestHelper {
     public void validate(PatientBatchWithConsent actualBundles, Map<String, Bundle> expectedBundles) throws PatientIdNotFoundException {
 
         for (String key : actualBundles.keySet()) {
-            Bundle bundle = actualBundles.get(key).toResourceBundle().toFhirBundle();
+            Bundle bundle = actualBundles.get(key).getResourceBundle().toFhirBundle();
             Bundle expectedBundle = expectedBundles.get(key);
 
             removeMetaLastUpdatedFromEntries(bundle);
