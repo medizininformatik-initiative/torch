@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -42,16 +43,13 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
-    public Mono<ResourceGroupWrapper> get(String id) {
+    public Mono<Resource> get(String id) {
         return bundle.get(id);
     }
 
+
     public boolean mergingPut(ResourceGroupWrapper wrapper) {
         return bundle.mergingPut(wrapper);
-    }
-
-    public boolean overwritingPut(ResourceGroupWrapper wrapper) {
-        return bundle.overwritingPut(wrapper);
     }
 
 
@@ -68,10 +66,6 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.keySet();
     }
 
-    public Collection<ResourceGroupWrapper> values() {
-        return bundle.values();
-    }
-
     public ResourceBundle getResourceBundle() {
         return bundle;
     }
@@ -81,4 +75,11 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
 
+    public void put(Resource resource) {
+        bundle.put(resource);
+    }
+
+    public Boolean put(Resource resource, String groupId, boolean b) {
+        return bundle().put(resource, groupId, b);
+    }
 }

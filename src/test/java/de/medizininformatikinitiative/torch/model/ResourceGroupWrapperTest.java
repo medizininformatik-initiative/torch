@@ -16,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class ResourceGroupWrapperTest {
 
     public static final AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
-    public static final ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of(), "group1");
+    public static final ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of(), "group1", "test");
     public static final AnnotatedAttributeGroup group1 = new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), false);
     public static final AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("group2", "2345", "reference", List.of(), List.of(), false);
     Patient patient1 = new Patient();

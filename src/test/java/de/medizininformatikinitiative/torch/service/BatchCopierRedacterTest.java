@@ -2,17 +2,14 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -99,9 +96,11 @@ class BatchCopierRedacterTest {
 
     @Nested
     class Transform {
+        Observation src;
+
         @BeforeEach
         void setUp() {
-            Observation src = new Observation();
+            src = new Observation();
             src.setId("123");
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType(OBSERVATION)));
@@ -109,8 +108,7 @@ class BatchCopierRedacterTest {
 
             AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Observation1", OBSERVATION, List.of(effective, metaAttribute, id, subject), List.of());
             groupMap.put(group.id(), group);
-
-            wrapper = new ResourceGroupWrapper(src, Set.of(group.id()));
+            
         }
 
 
@@ -118,12 +116,12 @@ class BatchCopierRedacterTest {
         void successAttributeCopy() throws Exception {
 
 
-            ResourceGroupWrapper result = transformer.transform(wrapper, groupMap);
+            Resource result = transformer.transform(src, groupMap, Set.of("Observation1"));
 
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(effective));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(metaAttribute));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(id));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(subject));
+            Mockito.verify(copier).copy(eq(src), any(), eq(effective));
+            Mockito.verify(copier).copy(eq(src), any(), eq(metaAttribute));
+            Mockito.verify(copier).copy(eq(src), any(), eq(id));
+            Mockito.verify(copier).copy(eq(src), any(), eq(subject));
 
 
         }

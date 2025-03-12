@@ -9,20 +9,18 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuples;
 
 import javax.annotation.Nullable;
 import java.util.Map;
-import java.util.Set;
 
 /**
  * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
@@ -51,7 +49,7 @@ public class ReferenceResolver {
      * Resolves references within the coreBundle.
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return Flux.fromIterable(coreBundle.values())
+        return Flux.fromIterable(coreBundle.resourceGroupValid().keySet())
                 .expand(wrapper -> processResourceWrapper(wrapper, null, coreBundle, false, groupMap))
                 .then(Mono.just(coreBundle));
     }
@@ -77,8 +75,8 @@ public class ReferenceResolver {
             Boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        return Flux.fromIterable(patientBundle.values())
-                //Input alle direkt geladenen PAtientenresourcen und expanden auf returnwert
+        return Flux.fromIterable(patientBundle.bundle().resourceGroupValid().keySet())
+                //Input alle direkt geladenen resourceGroup und expanden auf returnwert
                 .expand(wrapper -> processResourceWrapper(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
                 .then(Mono.just(patientBundle));
     }
@@ -86,47 +84,31 @@ public class ReferenceResolver {
     /**
      * Processes a ResourceGroupWrapper and updates the PatientResourceBundle accordingly.
      */
-    private Flux<ResourceGroupWrapper> processResourceWrapper(ResourceGroupWrapper wrapper, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+    private Flux<ResourceGroup> processResourceWrapper(ResourceGroup resourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+        System.out.println("Processing resource group: " + resourceGroup);
+        Mono<Resource> resourceMono = null;
+        boolean patientResource = compartmentManager.isInCompartment(resourceGroup);
+        if (patientResource && patientBundle == null) {
 
-        if (compartmentManager.isInCompartment(wrapper.resource()) && patientBundle == null) {
             return Flux.error(new ResourceTypeMissmatchException("Handling a Patient Resource Bundle without a Patient Resource Bundle"));
         }
+        ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
+        if (patientResource) {
+            resourceMono = processingBundle.get(resourceGroup.resourceId());
+        } else {
+            resourceMono = coreBundle.get(resourceGroup.resourceId());
+        }
 
-        return Flux.fromIterable(wrapper.groupSet())
-                .flatMap(group -> Mono.fromCallable(() -> referenceExtractor.extract(wrapper, groupMap, group))
+
+        return resourceMono
+                .flatMapMany(resource -> Mono.fromCallable(() -> referenceExtractor.extract(resource, groupMap, resourceGroup.groupId()))
                         .flatMapMany(references -> referenceHandler.handleReferences(references, patientBundle, coreBundle, applyConsent, groupMap))
-                        .map(resourceGroupWrapper -> Tuples.of(group, resourceGroupWrapper))
                         .onErrorResume(MustHaveViolatedException.class, e -> {
-                            ResourceGroupWrapper updatedWrapper = wrapper.removeGroups(Set.of(group));
-                            if (patientBundle != null) {
-                                patientBundle.overwritingPut(updatedWrapper);
-                            } else {
-                                coreBundle.overwritingPut(updatedWrapper);
-                            }// Mark this group for deletion
-                            return Flux.empty(); // Skip processing for this group
-                        }))
-                .flatMap(results -> {
-                    String group = results.getT1();
-                    ResourceGroupWrapper resourceGroupWrapper = results.getT2();
-                    ResourceBundle bundle;
-                    if (patientBundle != null) {
-                        bundle = patientBundle.getResourceBundle();
-                    } else {
-                        bundle = coreBundle;
-                    }
 
-                    if (patientBundle != null && compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
-                        boolean updated = patientBundle.mergingPut(resourceGroupWrapper);
-                        return updated ? Mono.just(resourceGroupWrapper) : Mono.empty();
-                    } else {
-                        if (compartmentManager.isInCompartment(resourceGroupWrapper.resource())) {
-                            logger.warn("Resource {} has been ignored since it is a Patient Resource that has been found within a core bundle processing", ResourceUtils.getRelativeURL(resourceGroupWrapper.resource()));
-                            return Mono.empty();
-                        }
-                        coreBundle.mergingPut(resourceGroupWrapper);
-                        return Mono.just(resourceGroupWrapper);
-                    }
-                });
+                            processingBundle.addResourceGroupValidity(resourceGroup, false);
+
+                            return Flux.empty(); // Skip processing for this group
+                        }));
     }
 
 

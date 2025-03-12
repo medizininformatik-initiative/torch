@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,6 +116,11 @@ public class ResourceUtils {
 
     public static String getRelativeURL(Resource resource) {
         return resource.fhirType() + "/" + resource.getIdPart();
+
+    }
+
+    public static String getRelativeURL(ResourceGroupWrapper resourceWrapper) {
+        return getRelativeURL(resourceWrapper.resource());
 
     }
 

@@ -24,20 +24,28 @@ public class ProfileMustHaveChecker {
     }
 
     public Boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
+        if (group == null) {
+            return false;
+        }
+        if (src == null) {
+            return false;
+        }
         DomainResource resource = (DomainResource) src;
         List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).toList();
+
         if (profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {
-                return group.attributes().stream().filter(AnnotatedAttribute::mustHave).allMatch(attribute ->
-                        fulfilled(resource, attribute));
+                boolean allMustHaveFulfilled = group.attributes().stream()
+                        .filter(AnnotatedAttribute::mustHave)
+                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Prevent null propagation
 
+                return allMustHaveFulfilled; // Ensures true or false
             }
-
             return true;
         }
-
         return false;
     }
+
 
     public Boolean fulfilled(DomainResource src, AnnotatedAttribute attribute) {
         List<Base> elements;

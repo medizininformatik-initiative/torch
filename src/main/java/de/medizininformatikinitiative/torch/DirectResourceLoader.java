@@ -5,12 +5,12 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
@@ -43,6 +43,7 @@ public class DirectResourceLoader {
     private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
     private final ProfileMustHaveChecker profileMustHaveChecker;
+    private final AnnotatedAttribute genericAttribute = new AnnotatedAttribute("direct", "direct", "direct", false);
 
     @Autowired
     public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
@@ -121,11 +122,14 @@ public class DirectResourceLoader {
         logger.trace("Processing attribute group: {}", group);
         AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
         return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {
-            String resourceId = resource.getId();
-            logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
+            String id = ResourceUtils.getRelativeURL(resource);
+            logger.trace("Storing resource {} under ID: {}", id, id);
             if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
+
                 atLeastOneResource.set(true);
-                resourceBundle.mergingPut(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                resourceBundle.put(resource, group.id(), true);
+            } else {
+                resourceBundle.put(resource, group.id(), false);
             }
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {
@@ -165,12 +169,15 @@ public class DirectResourceLoader {
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
-                        String id = ResourceUtils.patientId((DomainResource) resource);
+                        String patientId = ResourceUtils.patientId((DomainResource) resource);
+                        PatientResourceBundle bundle = mutableBundles.get(patientId);
 
-                        if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
-                            safeGroup.add(id);
-                            PatientResourceBundle bundle = mutableBundles.get(id);
-                            bundle.mergingPut(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                        if (profileMustHaveChecker.fulfilled(resource, group)) {
+
+                            safeGroup.add(patientId);
+                            bundle.put(resource, group.id(), true);
+                        } else {
+                            bundle.put(resource, group.id(), false);
                         }
 
                     } catch (PatientIdNotFoundException e) {

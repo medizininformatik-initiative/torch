@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Medication;
@@ -21,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 import java.util.HashMap;
@@ -212,10 +213,10 @@ class ReferenceHandlerIT {
             coreBundle.mergingPut(new ResourceGroupWrapper(testResource, Set.of()));
             System.out.println("CORE Bundle" + coreBundle.keySet());
 
-            Mono<List<ResourceGroupWrapper>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup"), null, coreBundle, false, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
 
             StepVerifier.create(result)
-                    .assertNext(medication -> assertThat(medication.getFirst().groupSet()).isEqualTo(Set.of("Medication1")))
+                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup("Medication/testMedication", "Medication1")))
                     .verifyComplete();
         }
 

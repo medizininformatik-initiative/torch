@@ -5,7 +5,7 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeAll;
@@ -15,7 +15,6 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -72,10 +71,10 @@ class ReferenceExtractorTest {
             condition.setId("Condition1");
             condition.setSubject(new Reference("Patient1"));
             condition.setAsserter(new Reference("Asserter1"));
-            ResourceGroupWrapper wrapper = new ResourceGroupWrapper(condition, Set.of("Test"));
+            ResourceGroup resourceGroup = new ResourceGroup("Condition/Condition1", "Test");
 
 
-            assertThat(referenceExtractor.extract(wrapper, GROUPS, "Test")).containsExactly(new ReferenceWrapper(ATTRIBUTE, List.of("Patient1"), "Test"), new ReferenceWrapper(ATTRIBUTE_2, List.of("Asserter1"), "Test"));
+            assertThat(referenceExtractor.extract(condition, GROUPS, "Test")).containsExactly(new ReferenceWrapper(ATTRIBUTE, List.of("Patient1"), "Test", "Condition/Condition1"), new ReferenceWrapper(ATTRIBUTE_2, List.of("Asserter1"), "Test", "Condition/Condition1"));
         }
 
         @Test
@@ -83,9 +82,9 @@ class ReferenceExtractorTest {
             ReferenceExtractor referenceExtractor = new ReferenceExtractor(fhirContext);
             Condition condition = new Condition();
             condition.setId("Condition1");
-            ResourceGroupWrapper wrapper = new ResourceGroupWrapper(condition, Set.of("Test"));
+            ResourceGroup resourceGroup = new ResourceGroup("Condition/Condition1", "Test");
             assertThatThrownBy(() -> {
-                referenceExtractor.extract(wrapper, GROUPS, "Test");
+                referenceExtractor.extract(condition, GROUPS, "Test");
             }).isInstanceOf(MustHaveViolatedException.class);
         }
 

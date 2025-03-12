@@ -5,8 +5,12 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import java.util.List;
 
 public record ReferenceWrapper(AnnotatedAttribute refAttribute,
-                               List<String> references, String groupId) {
+                               List<String> references, String groupId, String parentId) {
 
+
+    public ResourceAttribute toResourceAttributeGroup() {
+        return new ResourceAttribute(parentId, refAttribute);
+    }
 
 
     /*
