@@ -116,10 +116,10 @@ class ResourceBundleTest {
             assertThat(cache.resourceAttributeToChildResourceGroup().get(ATTRIBUTE_1))
                     .containsExactly(CHILD_1);
 
-            assertThat(cache.childToAttributeMap())
+            assertThat(cache.childResourceGroupToResourceAttributesMap())
                     .containsKey(CHILD_1);
 
-            assertThat(cache.childToAttributeMap().get(CHILD_1))
+            assertThat(cache.childResourceGroupToResourceAttributesMap().get(CHILD_1))
                     .containsExactly(ATTRIBUTE_1);
         }
 
@@ -135,10 +135,10 @@ class ResourceBundleTest {
             assertThat(cache.resourceAttributeToParentResourceGroup().get(ATTRIBUTE_2))
                     .containsExactly(PARENT_1);
 
-            assertThat(cache.parentToAttributesMap())
+            assertThat(cache.parentResourceGroupToResourceAttributesMap())
                     .containsKey(PARENT_1);
 
-            assertThat(cache.parentToAttributesMap().get(PARENT_1))
+            assertThat(cache.parentResourceGroupToResourceAttributesMap().get(PARENT_1))
                     .containsExactly(ATTRIBUTE_2);
         }
 
@@ -155,13 +155,13 @@ class ResourceBundleTest {
             assertThat(cache.resourceAttributeToChildResourceGroup().get(ATTRIBUTE_3))
                     .containsExactlyInAnyOrder(CHILD_1, CHILD_2);
 
-            assertThat(cache.childToAttributeMap())
+            assertThat(cache.childResourceGroupToResourceAttributesMap())
                     .containsKeys(CHILD_1, CHILD_2);
 
-            assertThat(cache.childToAttributeMap().get(CHILD_1))
+            assertThat(cache.childResourceGroupToResourceAttributesMap().get(CHILD_1))
                     .containsExactly(ATTRIBUTE_3);
 
-            assertThat(cache.childToAttributeMap().get(CHILD_2))
+            assertThat(cache.childResourceGroupToResourceAttributesMap().get(CHILD_2))
                     .containsExactly(ATTRIBUTE_3);
         }
 
@@ -178,13 +178,13 @@ class ResourceBundleTest {
             assertThat(cache.resourceAttributeToParentResourceGroup().get(ATTRIBUTE_4))
                     .containsExactlyInAnyOrder(PARENT_1, PARENT_2);
 
-            assertThat(cache.parentToAttributesMap())
+            assertThat(cache.parentResourceGroupToResourceAttributesMap())
                     .containsKeys(PARENT_1, PARENT_2);
 
-            assertThat(cache.parentToAttributesMap().get(PARENT_1))
+            assertThat(cache.parentResourceGroupToResourceAttributesMap().get(PARENT_1))
                     .containsExactly(ATTRIBUTE_4);
 
-            assertThat(cache.parentToAttributesMap().get(PARENT_2))
+            assertThat(cache.parentResourceGroupToResourceAttributesMap().get(PARENT_2))
                     .containsExactly(ATTRIBUTE_4);
         }
 

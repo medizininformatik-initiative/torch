@@ -19,12 +19,12 @@ import java.util.concurrent.atomic.AtomicReference;
 /**
  * Generic bundle that handles Resources
  *
- * @param resourceAttributeToParentResourceGroup Bundle level map managing a resource group combination pointing to a ReferenceGroup calling it i.e. which context created this reference
- * @param resourceAttributeToChildResourceGroup  Bundle level map managing a resource group combination pointing to a ReferenceGroup it calls i.e. which resources are called because of that reference
- * @param resourceGroupValidity                  Is this reference valid i.e. has this reference
- * @param resourceAttributeValidity              Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
- * @param parentToAttributesMap
- * @param childToAttributeMap
+ * @param resourceAttributeToParentResourceGroup     Bundle level map managing a resource group combination pointing to a ReferenceGroup calling it i.e. which context created this reference
+ * @param resourceAttributeToChildResourceGroup      Bundle level map managing a resource group combination pointing to a ReferenceGroup it calls i.e. which resources are called because of that reference
+ * @param resourceGroupValidity                      Is this reference valid i.e. has this reference
+ * @param resourceAttributeValidity                  Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
+ * @param parentResourceGroupToResourceAttributesMap
+ * @param childResourceGroupToResourceAttributesMap
  * @param cache
  */
 public record ResourceBundle(
@@ -32,8 +32,8 @@ public record ResourceBundle(
         ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
         ConcurrentHashMap<ResourceGroup, Boolean> resourceGroupValidity,
         ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentToAttributesMap,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childToAttributeMap,
+        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
+        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<String, Resource> cache) {
     private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
@@ -60,7 +60,7 @@ public record ResourceBundle(
                 .add(child);
 
         // Ensure child-to-attribute mapping is updated
-        childToAttributeMap
+        childResourceGroupToResourceAttributesMap
                 .computeIfAbsent(child, k -> ConcurrentHashMap.newKeySet())
                 .add(attribute);
     }
@@ -73,7 +73,7 @@ public record ResourceBundle(
                 .add(parent);
 
         // Ensure parent-to-attribute mapping is updated
-        parentToAttributesMap
+        parentResourceGroupToResourceAttributesMap
                 .computeIfAbsent(parent, k -> ConcurrentHashMap.newKeySet())
                 .add(attribute);
     }
@@ -114,7 +114,7 @@ public record ResourceBundle(
     public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
 
-        parentToAttributesMap.computeIfPresent(group, (key, set) -> {
+        parentResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
             set.remove(attribute);
             if (set.isEmpty()) {
                 isEmpty.set(true);
@@ -151,7 +151,7 @@ public record ResourceBundle(
         AtomicBoolean isEmpty = new AtomicBoolean(false);
 
 
-        childToAttributeMap.computeIfPresent(group, (key, set) -> {
+        childResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
             set.remove(attribute);
             if (set.isEmpty()) {
                 isEmpty.set(true);
@@ -174,7 +174,7 @@ public record ResourceBundle(
      */
     public boolean removeChildRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
-        
+
         resourceAttributeToChildResourceGroup.computeIfPresent(attribute, (key, set) -> {
             set.remove(group);
             if (set.isEmpty()) {
@@ -200,7 +200,7 @@ public record ResourceBundle(
     public boolean removeChildAttributeFromParentRG(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmptyOrAbsent = new AtomicBoolean(false);
 
-        parentToAttributesMap.compute(group, (key, set) -> {
+        parentResourceGroupToResourceAttributesMap.compute(group, (key, set) -> {
             if (set == null) {
                 isEmptyOrAbsent.set(true);  // Key was absent
                 return null;

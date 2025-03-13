@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -8,6 +9,13 @@ import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import java.util.*;
 
 public class CascadingDelete {
+
+    PatientBatchWithConsent handlePatientBatch(PatientBatchWithConsent patientBatch, Map<String, AnnotatedAttributeGroup> groupMap) {
+        patientBatch.bundles().values().forEach(bundle -> {
+            handleBundle(bundle.bundle(), groupMap);
+        });
+        return patientBatch;
+    }
 
     void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
@@ -32,7 +40,7 @@ public class CascadingDelete {
      */
     Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
-        Set<ResourceAttribute> resourceAttributes = resourceBundle.parentToAttributesMap().get(parentRG);
+        Set<ResourceAttribute> resourceAttributes = resourceBundle.parentResourceGroupToResourceAttributesMap().get(parentRG);
         if (resourceAttributes == null) {
             return Set.of();
         }
@@ -75,7 +83,7 @@ public class CascadingDelete {
      */
     Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup parentRG) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
-        Set<ResourceAttribute> resourceAttributes = resourceBundle.childToAttributeMap().getOrDefault(parentRG, Set.of());
+        Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(parentRG, Set.of());
 
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
             boolean wasLastParent = resourceBundle.removeParentAttributeFromChildRG(parentRG, resourceAttribute);

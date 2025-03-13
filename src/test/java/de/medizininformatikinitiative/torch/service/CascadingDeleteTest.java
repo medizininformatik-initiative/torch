@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
@@ -47,6 +49,36 @@ class CascadingDeleteTest {
     }
 
     @Nested
+    class HandleBatch {
+
+        @Test
+        void testSimpleChain() {
+            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            coreResourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+
+            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            coreResourceBundle.setResourceAttributeValid(resourceAttribute2);
+            coreResourceBundle.addResourceGroupValidity(resourceGroup, false);
+            coreResourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            coreResourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+            PatientBatchWithConsent patientBatchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("Core", coreResourceBundle)));
+
+            cascadingDelete.handlePatientBatch(patientBatchWithConsent, groupMap);
+
+            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
+            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
+            assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
+            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
+            assertThat(patientBatchWithConsent.bundles().get("Core")).isEqualTo(new PatientResourceBundle("Core", coreResourceBundle));
+        }
+
+    }
+
+    @Nested
     class HandleBundle {
         @Test
         void testSimpleChain() {
@@ -86,7 +118,7 @@ class CascadingDeleteTest {
 
             Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
 
-            assertThat(coreResourceBundle.childToAttributeMap()).doesNotContainKey(resourceGroup);
+            assertThat(coreResourceBundle.childResourceGroupToResourceAttributesMap()).doesNotContainKey(resourceGroup);
             assertThat(result).isEmpty();
             assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
         }
