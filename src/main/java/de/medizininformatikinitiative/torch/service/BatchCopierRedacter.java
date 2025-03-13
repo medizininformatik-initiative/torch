@@ -65,7 +65,7 @@ public class BatchCopierRedacter {
 
         // Step 1: Group valid resource groups by resourceId
         HashMap<String, Set<String>> groupedResources = new HashMap<>();
-        ConcurrentHashMap.KeySetView<ResourceGroup, Boolean> validResourceGroups = bundle.bundle().resourceGroupValid().keySet();
+        ConcurrentHashMap.KeySetView<ResourceGroup, Boolean> validResourceGroups = bundle.bundle().resourceGroupValidity().keySet();
 
         validResourceGroups.forEach(group ->
                 groupedResources.computeIfAbsent(group.groupId(), k -> new HashSet<>()).add(group.resourceId())

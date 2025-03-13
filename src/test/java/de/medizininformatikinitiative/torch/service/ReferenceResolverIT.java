@@ -3,15 +3,11 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
+import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
+import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
@@ -142,22 +138,23 @@ class ReferenceResolverIT {
     private DataStore dataStore;
 
     @Autowired
-    private ProfileMustHaveChecker profileMustHaveChecker;
+    private ReferenceHandler referenceHandler;
 
     @Autowired
-    private CompartmentManager compartmentManager;
-
-    @MockBean
-    private ConsentHandler consentHandler;
+    ReferenceExtractor referenceExtractor;
 
     @Autowired
-    FhirContext fhirContext;
+    CompartmentManager compartmentManager;
+
 
     private ReferenceResolver referenceResolver;
 
     private IParser parser;
 
     AnnotatedAttributeGroup patientGroup;
+
+    AnnotatedAttribute conditionSubject;
+    ResourceAttribute expectedAttribute;
 
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -169,15 +166,17 @@ class ReferenceResolverIT {
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
         patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of());
 
-        AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
         AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of());
+
+        expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
 
         attributeGroupMap.put("Patient1", patientGroup);
         attributeGroupMap.put("Condition1", conditionGroup);
 
 
-        this.referenceResolver = new ReferenceResolver(fhirContext, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+        this.referenceResolver = new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
@@ -235,9 +234,29 @@ class ReferenceResolverIT {
                     .assertNext(bundle -> {
                         System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
                         assertThat(bundle.isEmpty()).isFalse();
-                        assertThat(bundle.bundle().resourceGroupValid()).containsExactlyInAnyOrderEntriesOf(
+
+                        // Check attribute mappings in processingBundle
+                        ResourceBundle processingBundle = bundle.bundle();
+
+
+                        assertThat(processingBundle.resourceAttributeToChildResourceGroup())
+                                .containsKey(expectedAttribute);
+                        assertThat(processingBundle.resourceAttributeToChildResourceGroup().get(expectedAttribute))
+                                .contains(new ResourceGroup("Patient/VHF00006", "Patient1"));
+
+                        // Validate child-to-parent attribute mapping
+                        assertThat(processingBundle.resourceAttributeToParentResourceGroup())
+                                .containsKey(expectedAttribute);
+                        assertThat(processingBundle.resourceAttributeToParentResourceGroup().get(expectedAttribute))
+                                .contains(new ResourceGroup("Condition/2", "Condition1"));
+
+
+                        assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
                                 Map.of(new ResourceGroup("Condition/2", "Condition1"), true,
                                         new ResourceGroup("Patient/VHF00006", "Patient1"), true)
+                        );
+                        assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
+                                Map.of(expectedAttribute, true)
                         );
                     })
                     .verifyComplete();
@@ -256,11 +275,16 @@ class ReferenceResolverIT {
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             StepVerifier.create(result)
                     .assertNext(bundle -> {
+                                // Check attribute mappings in processingBundle
+                                ResourceBundle processingBundle = bundle.bundle();
                                 System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
                                 assertThat(bundle.isEmpty()).isFalse();
-                                assertThat(bundle.bundle().resourceGroupValid()).containsExactlyInAnyOrderEntriesOf(
+                                assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
                                                 new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                                );
+                                assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
+                                        Map.of(expectedAttribute, false)
                                 );
                             }
                     )

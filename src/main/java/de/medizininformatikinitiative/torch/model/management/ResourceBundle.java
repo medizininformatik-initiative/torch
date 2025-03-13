@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
-import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,8 +21,8 @@ import java.util.concurrent.atomic.AtomicReference;
  *
  * @param resourceAttributeToParentResourceGroup Bundle level map managing a resource group combination pointing to a ReferenceGroup calling it i.e. which context created this reference
  * @param resourceAttributeToChildResourceGroup  Bundle level map managing a resource group combination pointing to a ReferenceGroup it calls i.e. which resources are called because of that reference
- * @param resourceGroupValid                     Is this reference valid i.e. has this reference
- * @param resourceAGToReferenceWrapper           Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
+ * @param resourceGroupValidity                  Is this reference valid i.e. has this reference
+ * @param resourceAttributeValidity              Manages the references pointing to a unique resource e.g. loaded by absolute url and pointing at something.
  * @param parentToAttributesMap
  * @param childToAttributeMap
  * @param cache
@@ -31,8 +30,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public record ResourceBundle(
         ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
         ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
-        ConcurrentHashMap<ResourceGroup, Boolean> resourceGroupValid,
-        ConcurrentHashMap<ResourceAttribute, List<ReferenceWrapper>> resourceAGToReferenceWrapper,
+        ConcurrentHashMap<ResourceGroup, Boolean> resourceGroupValidity,
+        ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentToAttributesMap,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childToAttributeMap,
         ConcurrentHashMap<String, Resource> cache) {
@@ -79,7 +78,7 @@ public record ResourceBundle(
     }
 
 
-    public boolean removeParentAttribute(ResourceGroup group, ResourceAttribute attribute) {
+    public boolean removeParentAttributeFromChildRG(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
 
 
@@ -95,7 +94,15 @@ public record ResourceBundle(
         return isEmpty.get();
     }
 
-    public boolean removeChildAttribute(ResourceGroup group, ResourceAttribute attribute) {
+    /**
+     * Removes a child attribute from the given resource group.
+     * If the attribute is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeChildAttributeFromParentRG(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmptyOrAbsent = new AtomicBoolean(false);
 
         parentToAttributesMap.compute(group, (key, set) -> {
@@ -116,7 +123,6 @@ public record ResourceBundle(
 
     public boolean put(Resource resource, String groupId, boolean valid) {
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        System.out.println("Resource URL: " + resourceUrl);
         ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
         addResourceGroupValidity(group, valid);
         return cache.putIfAbsent(resourceUrl, resource) == null;
@@ -169,7 +175,7 @@ public record ResourceBundle(
     public ConcurrentHashMap<ResourceGroup, Boolean> getInvalid() {
         ConcurrentHashMap<ResourceGroup, Boolean> invalidEntries = new ConcurrentHashMap<>();
 
-        resourceGroupValid.forEach((key, value) -> {
+        resourceGroupValidity.forEach((key, value) -> {
             if (!value) { // If value is false, add to the new map
                 invalidEntries.put(key, false);
             }
@@ -179,7 +185,7 @@ public record ResourceBundle(
     }
 
     public Set<ResourceGroup> getKnownResourceGroups() {
-        return resourceGroupValid.keySet();
+        return resourceGroupValidity.keySet();
     }
 
     /**
@@ -238,11 +244,11 @@ public record ResourceBundle(
     }
 
     public Boolean isValidResourceGroup(ResourceGroup group) {
-        return resourceGroupValid.get(group);
+        return resourceGroupValidity.get(group);
     }
 
     public Boolean addResourceGroupValidity(ResourceGroup group, boolean valid) {
-        return resourceGroupValid.put(group, valid);
+        return resourceGroupValidity.put(group, valid);
     }
 
 
@@ -259,7 +265,7 @@ public record ResourceBundle(
     }
 
     public boolean contains(ResourceGroup ref) {
-        return resourceGroupValid.containsKey(ref);
+        return resourceGroupValidity.containsKey(ref);
     }
 
     public boolean contains(String ref) {

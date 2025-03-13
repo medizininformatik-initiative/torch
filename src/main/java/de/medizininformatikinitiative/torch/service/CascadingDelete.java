@@ -47,10 +47,8 @@ public class CascadingDelete {
             Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
 
             for (ResourceGroup group : childrenResourceGroups) {
-                boolean patientRemoved = true;
 
-                // Always check core resource removal separately
-                if (resourceBundle.removeChildAttribute(group, resourceAttribute)) {
+                if (resourceBundle.removeChildAttributeFromParentRG(group, resourceAttribute)) {
                     resourceGroups.add(group);
                 }
             }

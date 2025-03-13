@@ -104,8 +104,18 @@ public class AppConfig {
     }
 
     @Bean
-    ReferenceResolver referenceResolver(FhirContext ctx, DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, ProfileMustHaveChecker profileMustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
-        return new ReferenceResolver(ctx, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+    ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
+        return new ReferenceHandler(dataStore, mustHaveChecker, compartmentManager, consentHandler);
+    }
+
+    @Bean
+    ReferenceExtractor referenceExtractor(FhirContext ctx) {
+        return new ReferenceExtractor(ctx);
+    }
+
+    @Bean
+    ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor) {
+        return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
     }
 
     @Bean
