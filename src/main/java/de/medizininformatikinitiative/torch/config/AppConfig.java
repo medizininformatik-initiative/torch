@@ -78,6 +78,16 @@ public class AppConfig {
     private String compartmentPath;
 
     @Bean
+    public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
+        return searchParametersFile;
+    }
+
+    @Bean
+    public FilterService filterService(FhirContext ctx, String searchParametersFile) {
+        return new FilterService(ctx, searchParametersFile);
+    }
+
+    @Bean
     public CompartmentManager compartmentManager() throws IOException {
         return new CompartmentManager(compartmentPath);
     }
