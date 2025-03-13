@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 public class CascadingDelete {
 
@@ -25,7 +26,36 @@ public class CascadingDelete {
             processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
+        cleanupDanglingReferences(resourceBundle, groupMap);
 
+    }
+
+    private void cleanupDanglingReferences(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        // Identify orphaned attributes: attributes with no parents or children
+        Set<ResourceAttribute> orphanedAttributes = resourceBundle.resourceAttributeToParentResourceGroup().entrySet().stream()
+                .filter(entry -> entry.getValue().isEmpty()) // No parent groups
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        // Remove orphaned attributes and their child connections
+        for (ResourceAttribute attr : orphanedAttributes) {
+            resourceBundle.setResourceAttributeInValid(attr);
+            resourceBundle.resourceAttributeToChildResourceGroup().remove(attr);
+        }
+
+        // Identify orphaned child groups (groups that lost all attributes)
+        Set<ResourceGroup> orphanedGroups = resourceBundle.childResourceGroupToResourceAttributesMap().entrySet().stream()
+                .filter(entry -> entry.getValue().isEmpty()) // No attributes linked
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+
+        // Only invalidate groups that have includeReferenceOnly() == true
+        for (ResourceGroup group : orphanedGroups) {
+            AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
+            if (attributeGroup != null && attributeGroup.includeReferenceOnly()) {
+                resourceBundle.addResourceGroupValidity(group, false);
+            }
+        }
     }
 
 
