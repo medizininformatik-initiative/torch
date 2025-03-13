@@ -65,6 +65,7 @@ public record ResourceBundle(
                 .add(attribute);
     }
 
+
     public void addAttributeToParent(ResourceAttribute attribute, ResourceGroup parent) {
         // Link the parent to the attribute in resourceAttributeToParentResourceGroup
         resourceAttributeToParentResourceGroup
@@ -78,6 +79,39 @@ public record ResourceBundle(
     }
 
 
+    /**
+     * Removes a parent resourceGroup for the given attribute.
+     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeParentRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+
+
+        resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
+            set.remove(group);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
+
+    /**
+     * Removes a parent attribute for the given resource group.
+     * If the attribute is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
     public boolean removeParentAttributeFromChildRG(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
 

@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -10,8 +9,6 @@ import java.util.*;
 
 public class CascadingDelete {
 
-    private final AnnotatedAttribute genericAttribute = new AnnotatedAttribute("direct", "direct", "direct", false);
-
     void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
         // Use a local queue for processing
@@ -19,10 +16,10 @@ public class CascadingDelete {
         // Process the queue
         while (!processingQueue.isEmpty()) {
             ResourceGroup invalidResourceGroup = processingQueue.poll();
-            Set<ResourceAttribute> childrenAttributes = resourceBundle.parentToAttributesMap().get(invalidResourceGroup);
-            if (!childrenAttributes.isEmpty()) {
-                processingQueue.addAll(handleChildren(childrenAttributes, resourceBundle));
-            }
+
+
+            processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
+
             Set<ResourceAttribute> parents = resourceBundle.childToAttributeMap().get(invalidResourceGroup);
 
 
@@ -35,24 +32,30 @@ public class CascadingDelete {
     /**
      * given a list of attributes it invalidates the connection from children down.
      *
-     * @param resourceAttributes the resourceAttributes to be invalidated
-     * @param resourceBundle     coreResourcebundle to be handled
+     * @param resourceBundle coreResourcebundle to be handled
+     * @param groupMap       known attributeGroups
+     * @param parentRG       parentRG that triggered the deletion process.
      * @return children to be deleted
      */
-    Set<ResourceGroup> handleChildren(Set<ResourceAttribute> resourceAttributes,
-                                      ResourceBundle resourceBundle) {
+    Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
-
+        Set<ResourceAttribute> resourceAttributes = resourceBundle.parentToAttributesMap().get(parentRG);
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
-            Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
+            if (resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
+                Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
 
-            for (ResourceGroup group : childrenResourceGroups) {
-
-                if (resourceBundle.removeChildAttributeFromParentRG(group, resourceAttribute)) {
-                    resourceGroups.add(group);
+                for (ResourceGroup group : childrenResourceGroups) {
+                    if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
+                        AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
+                        if (attributeGroup.includeReferenceOnly()) {
+                            resourceGroups.add(group);
+                            resourceBundle.addResourceGroupValidity(group, false);
+                        }
+                    }
                 }
+                resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
             }
-            resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
+
         }
 
         return resourceGroups;

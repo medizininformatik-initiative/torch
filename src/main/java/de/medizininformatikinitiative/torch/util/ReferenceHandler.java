@@ -168,9 +168,9 @@ public class ReferenceHandler {
      * For a unknown reference it gets the resource.
      * If consent is applied to patientResources, it uses the patientbundle to check consent.
      *
-     * @param patientBundle
-     * @param applyConsent
-     * @param reference
+     * @param patientBundle used for consent
+     * @param applyConsent  should consent be used.
+     * @param reference     reference string to be fetched from server. Only relative URLs are handled.
      * @return
      */
     public Mono<Resource> getResourceMono(@Nullable PatientResourceBundle patientBundle, Boolean applyConsent, String reference) {
