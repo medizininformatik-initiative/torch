@@ -103,6 +103,41 @@ public record ResourceBundle(
         return isEmpty.get();
     }
 
+    /**
+     * Removes a attribute for the given parent resourceGroup.
+     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+
+        parentToAttributesMap.computeIfPresent(group, (key, set) -> {
+            set.remove(attribute);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
+    public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.put(attribute, true);
+    }
+
+    public Boolean setResourceAttributeInValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.put(attribute, false);
+    }
+
+    public Boolean resourceAttributeValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.getOrDefault(attribute, false);
+    }
+
 
     /**
      * Removes a parent attribute for the given resource group.
@@ -127,6 +162,32 @@ public record ResourceBundle(
 
         return isEmpty.get();
     }
+
+    /**
+     * Removes a child resourceGroup for an attribute calling it.
+     * If the child resourceGroup is the last one in the set, the entire group is removed from the map.
+     * An attribute without children is automatically invalid.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeChildRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+        
+        resourceAttributeToChildResourceGroup.computeIfPresent(attribute, (key, set) -> {
+            set.remove(group);
+            if (set.isEmpty()) {
+                setResourceAttributeInValid(attribute);
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
 
     /**
      * Removes a child attribute from the given resource group.

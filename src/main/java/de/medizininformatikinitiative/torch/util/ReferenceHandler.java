@@ -152,13 +152,12 @@ public class ReferenceHandler {
                 .flatMapMany(list -> {
                     ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
                     if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
-
-                        processingBundle.resourceAttributeValidity().put(referenceAttribute, Boolean.FALSE);
+                        processingBundle.setResourceAttributeInValid(referenceAttribute);
                         return Flux.error(new MustHaveViolatedException(
                                 "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
                         ));
                     }
-                    processingBundle.resourceAttributeValidity().put(referenceAttribute, Boolean.TRUE);
+                    processingBundle.setResourceAttributeValid(referenceAttribute);
                     return Flux.just(list);
                 });
     }

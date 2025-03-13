@@ -11,18 +11,11 @@ public class CascadingDelete {
 
     void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
-        // Use a local queue for processing
         Queue<ResourceGroup> processingQueue = new LinkedList<>(invalidResourceGroups);
-        // Process the queue
         while (!processingQueue.isEmpty()) {
             ResourceGroup invalidResourceGroup = processingQueue.poll();
-
-
             processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
-
-            Set<ResourceAttribute> parents = resourceBundle.childToAttributeMap().get(invalidResourceGroup);
-
-
+            processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
 
 
@@ -30,7 +23,7 @@ public class CascadingDelete {
 
 
     /**
-     * given a list of attributes it invalidates the connection from children down.
+     * given a parent ResourceGroup it invalidates the connection from children down.
      *
      * @param resourceBundle coreResourcebundle to be handled
      * @param groupMap       known attributeGroups
@@ -40,22 +33,72 @@ public class CascadingDelete {
     Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
         Set<ResourceAttribute> resourceAttributes = resourceBundle.parentToAttributesMap().get(parentRG);
+        if (resourceAttributes == null) {
+            return Set.of();
+        }
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
-            if (resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
-                Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
+            if (resourceBundle.resourceAttributeValid(resourceAttribute)) {
+                if (resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
+                    resourceBundle.removeAttributefromParentRG(parentRG, resourceAttribute);
+                    resourceBundle.setResourceAttributeInValid(resourceAttribute);
+                    Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
 
-                for (ResourceGroup group : childrenResourceGroups) {
-                    if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
-                        AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
-                        if (attributeGroup.includeReferenceOnly()) {
-                            resourceGroups.add(group);
-                            resourceBundle.addResourceGroupValidity(group, false);
+                    for (ResourceGroup group : childrenResourceGroups) {
+                        resourceBundle.removeChildRGFromAttribute(group, resourceAttribute);
+                        if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
+
+                            AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
+                            if (attributeGroup.includeReferenceOnly()) {
+                                resourceGroups.add(group);
+                                resourceBundle.addResourceGroupValidity(group, false);
+                            }
                         }
                     }
+                    resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
                 }
-                resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
             }
 
+
+        }
+
+        return resourceGroups;
+    }
+
+
+    /**
+     * given a list of attributes it invalidates the connection to Parents up.
+     *
+     * @param resourceBundle coreResourcebundle to be handled
+     * @param groupMap       known attributeGroups
+     * @param parentRG       parentRG that triggered the deletion process.
+     * @return children to be deleted
+     */
+    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup parentRG) {
+        Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
+        Set<ResourceAttribute> resourceAttributes = resourceBundle.childToAttributeMap().getOrDefault(parentRG, Set.of());
+
+        for (ResourceAttribute resourceAttribute : resourceAttributes) {
+            boolean wasLastParent = resourceBundle.removeParentAttributeFromChildRG(parentRG, resourceAttribute);
+            resourceBundle.removeChildRGFromAttribute(parentRG, resourceAttribute);
+
+            if (wasLastParent) {
+                resourceBundle.setResourceAttributeInValid(resourceAttribute);
+
+                // If it's a must-have attribute, escalate to all parent groups of the attribute
+                if (resourceAttribute.annotatedAttribute().mustHave()) {
+                    Set<ResourceGroup> parentGroups = resourceBundle.resourceAttributeToParentResourceGroup()
+                            .getOrDefault(resourceAttribute, Set.of());
+
+                    // Add all parent groups to be invalidated
+                    resourceGroups.addAll(parentGroups);
+
+                    // Ensure invalidation is applied recursively
+                    for (ResourceGroup parentGroup : parentGroups) {
+                        resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
+                        resourceBundle.addResourceGroupValidity(parentGroup, false);
+                    }
+                }
+            }
         }
 
         return resourceGroups;
