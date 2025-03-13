@@ -47,6 +47,7 @@ public class CrtdlProcessingService {
     private final int maxConcurrency;
     private final ReferenceResolver referenceResolver;
     private final BatchCopierRedacter batchCopierRedacter;
+    private final CascadingDelete cascadingDelete;
 
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
@@ -59,7 +60,7 @@ public class CrtdlProcessingService {
                                   DirectResourceLoader directResourceLoader,
                                   ReferenceResolver referenceResolver,
                                   BatchCopierRedacter batchCopierRedacter,
-                                  @Value("5") int maxConcurrency) {
+                                  @Value("5") int maxConcurrency, CascadingDelete cascadingDelete) {
         this.webClient = webClient;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
@@ -72,6 +73,7 @@ public class CrtdlProcessingService {
         this.maxConcurrency = maxConcurrency;
         this.referenceResolver = referenceResolver;
         this.batchCopierRedacter = batchCopierRedacter;
+        this.cascadingDelete = cascadingDelete;
     }
 
 
@@ -106,9 +108,9 @@ public class CrtdlProcessingService {
                                         ).doOnSuccess(patientBatch -> {
                                             logger.debug("Batch resolved successfully {} with ids {}", patientBatch.keySet(), patientBatch.bundles().values());
                                         })
-                                        //TODO: Cascading delete
-                                        .map(patientBatch -> batchCopierRedacter.transformBatch(Mono.just(patientBatch), groupsToProcess.allGroups()))
-                                        .flatMap(transformedBatch -> resultFileManager.saveBatchToNDJSON(jobID, transformedBatch)),
+                                        .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
+                                        .flatMap(patientBatch -> batchCopierRedacter.transformBatch(Mono.just(patientBatch), groupsToProcess.allGroups()))
+                                        .flatMap(transformedBatch -> resultFileManager.saveBatchToNDJSON(jobID, Mono.just(transformedBatch))),
                         maxConcurrency
                 )
                 .then(
@@ -122,12 +124,11 @@ public class CrtdlProcessingService {
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(
                             Map.of("CORE", corePatientBundle), false
                     );
-                    //TODO: Cascading delete
 
                     // Save the final core bundle batch
                     return resultFileManager.saveBatchToNDJSON(
                             jobID, batchCopierRedacter.transformBatch(
-                                    Mono.just(coreBundleBatch),
+                                    Mono.just(cascadingDelete.handlePatientBatch(coreBundleBatch, groupsToProcess.allGroups())),
                                     groupsToProcess.allGroups()
                             )
                     );

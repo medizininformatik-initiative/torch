@@ -26,7 +26,6 @@ public class CascadingDelete {
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
 
-
     }
 
 

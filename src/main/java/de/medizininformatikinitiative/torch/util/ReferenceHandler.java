@@ -126,13 +126,16 @@ public class ReferenceHandler {
                         List<ResourceGroup> validGroups = referenceWrapper.refAttribute().linkedGroups().stream()
                                 .map(groupMap::get)
                                 .map(group -> {
+                                    logger.debug("Checking group {} for Reference: {}", group.id(), reference);
                                     ResourceGroup resourceGroup = new ResourceGroup(resourceUrl, group.id());
 
                                     // Check if the resource group is new
                                     Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
 
-                                    if (isValid == null) { // Unknown group, check validity
+                                    if (isValid == null) {
+                                        logger.debug("Unknown group {} for Reference: {}", group.id(), reference);// Unknown group, check validity
                                         Boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
+                                        logger.debug("Group {} for Reference: {}", group, fulfilled);
                                         isValid = Boolean.TRUE.equals(fulfilled); // Ensure `null` defaults to `false`
                                         processingBundle.addResourceGroupValidity(resourceGroup, isValid);
                                     }

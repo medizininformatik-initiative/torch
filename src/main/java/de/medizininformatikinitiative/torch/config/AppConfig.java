@@ -88,6 +88,11 @@ public class AppConfig {
     }
 
     @Bean
+    public CascadingDelete cascadingDelete() {
+        return new CascadingDelete();
+    }
+
+    @Bean
     public CompartmentManager compartmentManager() throws IOException {
         return new CompartmentManager(compartmentPath);
     }
@@ -102,6 +107,7 @@ public class AppConfig {
     public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {
         return new ProcessedGroupFactory(manager);
     }
+
 
     @Bean
     ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
@@ -198,12 +204,13 @@ public class AppConfig {
             BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
-            @Value("5") int maxConcurrency
+            @Value("5") int maxConcurrency,
+            CascadingDelete cascadingDelete
     ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, batchSize, useCql, directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency);
+                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete);
     }
 
 

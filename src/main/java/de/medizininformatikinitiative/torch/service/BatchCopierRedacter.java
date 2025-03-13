@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.model.management.PatientResourceBund
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.Resource;
@@ -47,7 +48,7 @@ public class BatchCopierRedacter {
     public Mono<PatientBatchWithConsent> transformBatch(Mono<PatientBatchWithConsent> batchMono, Map<String, AnnotatedAttributeGroup> groupMap) {
         return batchMono.flatMap(batch ->
                 Flux.fromIterable(batch.bundles().values()) // Convert bundles into a Flux
-                        .map(bundle -> transform(bundle, groupMap)) // Transform each bundle asynchronously
+                        .flatMap(bundle -> transform(bundle, groupMap)) // Transform each bundle asynchronously
                         .collectList() // Collect transformed bundles
                         .map(transformedBundles -> batch) // Map back to the original batch
         );
@@ -63,13 +64,18 @@ public class BatchCopierRedacter {
      */
     public Mono<PatientResourceBundle> transform(PatientResourceBundle bundle, Map<String, AnnotatedAttributeGroup> groupMap) {
 
+
         // Step 1: Group valid resource groups by resourceId
         HashMap<String, Set<String>> groupedResources = new HashMap<>();
         ConcurrentHashMap.KeySetView<ResourceGroup, Boolean> validResourceGroups = bundle.bundle().resourceGroupValidity().keySet();
 
+        logger.debug("ResourceGroups: {}", validResourceGroups);
+
         validResourceGroups.forEach(group ->
-                groupedResources.computeIfAbsent(group.groupId(), k -> new HashSet<>()).add(group.resourceId())
+                groupedResources.computeIfAbsent(group.resourceId(), k -> new HashSet<>()).add(group.groupId())
         );
+
+        logger.debug("validResourceGroups: {}", groupedResources);
 
         // Step 2: Process each resource asynchronously
         return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
@@ -90,10 +96,15 @@ public class BatchCopierRedacter {
                                         bundle.remove(resourceId);
                                         return Mono.empty();
                                     })
-                            )
-                            .doOnNext(bundle::put); // Store transformed resource
+                            );
 
                 })
+                .flatMap(transformed -> { // Use flatMap to ensure update completes
+                    bundle.remove(ResourceUtils.getRelativeURL(transformed));
+                    bundle.put(transformed);
+                    return Mono.just(transformed);
+                })
+                .collectList()
                 .then(Mono.just(bundle)); // Return the modified bundle once all resources are processed
     }
 
@@ -108,7 +119,6 @@ public class BatchCopierRedacter {
      * @throws TargetClassCreationException If target class creation fails
      */
     public Resource transform(DomainResource srcResource, Map<String, AnnotatedAttributeGroup> groupMap, Set<String> groups) throws MustHaveViolatedException, TargetClassCreationException {
-
         DomainResource tgt = createTargetResource(srcResource.getClass());
 
         if (groups.isEmpty()) {
@@ -119,10 +129,12 @@ public class BatchCopierRedacter {
 
         // Step 4: Copy only the highest-level attributes
         for (AnnotatedAttribute attribute : highestLevelAttributes.values()) {
+            System.out.println("Copying " + attribute.attributeRef());
             copier.copy(srcResource, tgt, attribute);
         }
 
         redaction.redact(tgt);
+        logger.debug("Transformed resource: {}", tgt);
         return tgt;
     }
 
