@@ -45,6 +45,7 @@ public class CrtdlProcessingService {
     private final ReferenceResolver referenceResolver;
     private final BatchCopierRedacter batchCopierRedacter;
     private final CascadingDelete cascadingDelete;
+    private final PatientBatchToCoreBundleWriter batchToCoreWriter;
 
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
@@ -57,7 +58,7 @@ public class CrtdlProcessingService {
                                   DirectResourceLoader directResourceLoader,
                                   ReferenceResolver referenceResolver,
                                   BatchCopierRedacter batchCopierRedacter,
-                                  @Value("5") int maxConcurrency, CascadingDelete cascadingDelete) {
+                                  @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer) {
         this.webClient = webClient;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
@@ -71,6 +72,7 @@ public class CrtdlProcessingService {
         this.referenceResolver = referenceResolver;
         this.batchCopierRedacter = batchCopierRedacter;
         this.cascadingDelete = cascadingDelete;
+        this.batchToCoreWriter = writer;
     }
 
 
@@ -117,6 +119,7 @@ public class CrtdlProcessingService {
                                                 .flatMap(patientBatch -> batchCopierRedacter.transformBatch(Mono.just(patientBatch), groupsToProcess.allGroups())
                                                 )
                                                 .flatMap(transformedBatch -> {
+                                                            batchToCoreWriter.updateCore(transformedBatch, coreBundle);
                                                             return resultFileManager.saveBatchToNDJSON(jobID, Mono.just(transformedBatch));
                                                         }
 

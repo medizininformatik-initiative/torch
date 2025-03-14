@@ -137,12 +137,17 @@ public class TestConfig {
             BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
-            @Value("5") int maxConcurrency, CascadingDelete cascadingDelete
+            @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer
     ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, batchSize, useCql, directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete);
+                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
+    }
+
+    @Bean
+    PatientBatchToCoreBundleWriter patientBatchToCoreBundleWriter(CompartmentManager compartmentManager) {
+        return new PatientBatchToCoreBundleWriter(compartmentManager);
     }
 
 

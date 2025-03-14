@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 
 import java.util.*;
@@ -13,6 +14,19 @@ import java.util.stream.Collectors;
 public class PatientBatchToCoreBundleWriter {
 
     private final CompartmentManager compartmentManager;
+
+
+    /**
+     * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
+     * and merging them into a single consolidated ImmutableResourceBundle.
+     * Then merges that into the coreBundle.
+     *
+     * @param patientBundles List of patient-specific ResourceBundles.
+     */
+    public void updateCore(PatientBatchWithConsent batch, ResourceBundle coreBundle) {
+        coreBundle.merge(processPatientBatch(batch));
+    }
+
 
     /**
      * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
@@ -63,7 +77,7 @@ public class PatientBatchToCoreBundleWriter {
             }
         }
         System.out.println(" ParentMap = " + parentMap);
-        
+
         for (Map.Entry<ResourceAttribute, Set<ResourceGroup>> entry : patientResourceBundle.resourceAttributeToChildResourceGroup().entrySet()) {
             ResourceAttribute attribute = entry.getKey();
             Set<ResourceGroup> children = entry.getValue();

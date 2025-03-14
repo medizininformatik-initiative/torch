@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -97,6 +98,7 @@ public class Redaction {
         int finalRecursion = recursion;
         String finalElementID = elementID;
 
+        String finalElementID1 = elementID;
         base.children().forEach(child -> {
 
             String childID = finalElementID + "." + child.getName();
@@ -133,9 +135,16 @@ public class Redaction {
 
             } else {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
-                    //TODO Backbone Element Handling and nested Extensions
-                    Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
-                    base.setProperty(child.getName(), element);
+                    if (Objects.equals(type, "BackBoneElement")) {
+                        logger.warn("Found empty BackBoneElement {} {}", finalElementID1, child.getName());
+                    }
+                    try {
+                        Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
+                        base.setProperty(child.getName(), element);
+                    } catch (FHIRException e) {
+                        logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementID1, child.getName(), type, min);
+                    }
+
                 }
             }
 
