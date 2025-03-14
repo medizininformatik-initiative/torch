@@ -77,6 +77,7 @@ public class BatchCopierRedacter {
 
         logger.debug("validResourceGroups: {}", groupedResources);
 
+
         // Step 2: Process each resource asynchronously
         return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
                 .flatMap(entry -> {

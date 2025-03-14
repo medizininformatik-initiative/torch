@@ -45,13 +45,6 @@ public record ResourceBundle(
     }
 
 
-    /**
-     * @return immutable copy without the resourcecache
-     */
-    public ImmutableResourceBundle toImmutable() {
-        return new ImmutableResourceBundle(this);
-    }
-
     public Mono<Resource> get(String id) {
         Resource cached = cache.get(id);
         if (cached != null) {
@@ -59,6 +52,35 @@ public record ResourceBundle(
         }
         return Mono.empty();
     }
+    
+
+    /**
+     * Merges new information from an ImmutableResourceBundle i.e. bundle without ResourceCache into the resourcebundle.
+     *
+     * @param extractedData Bundle with extracted information to be merged
+     */
+    public void merge(ImmutableResourceBundle extractedData) {
+        // Merge resource group validity
+        extractedData.resourceGroupValidity().forEach(this::addResourceGroupValidity);
+
+        // Merge parent-child relationships
+        extractedData.resourceAttributeToParentResourceGroup().forEach((attribute, groups) ->
+                groups.forEach(group -> this.addAttributeToParent(attribute, group)));
+
+        extractedData.resourceAttributeToChildResourceGroup().forEach((attribute, groups) ->
+                groups.forEach(group -> this.addAttributeToChild(attribute, group)));
+
+        // Merge group-attribute relationships
+        extractedData.parentResourceGroupToResourceAttributesMap().forEach((group, attributes) ->
+                attributes.forEach(attribute -> this.addAttributeToParent(attribute, group)));
+
+        extractedData.childResourceGroupToResourceAttributesMap().forEach((group, attributes) ->
+                attributes.forEach(attribute -> this.addAttributeToChild(attribute, group)));
+
+        // Merge attribute validity
+        extractedData.resourceAttributeValidity().keySet().forEach(this::setResourceAttributeValid);
+    }
+
 
     public void addAttributeToChild(ResourceAttribute attribute, ResourceGroup child) {
         // Link the child to the attribute in resourceAttributeToChildResourceGroup
@@ -234,12 +256,11 @@ public record ResourceBundle(
     /**
      * Adds the wrapper into the underlying concurrent hashmap.
      * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
-     * Merges the groups assignment.
      *
      * @param wrapper wrapper to be added to the resourcebundle
      * @return boolean containing info if the wrapper is new or updated.
      */
-    public boolean mergingPut(ResourceGroupWrapper wrapper) {
+    public boolean put(ResourceGroupWrapper wrapper) {
         AtomicReference<Boolean> result = new AtomicReference<>(false);
         if (wrapper == null) {
             return result.get();
@@ -253,23 +274,6 @@ public record ResourceBundle(
             addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true);
         });
         cache.put(resourceUrl, resource);
-        /*resourceCache.compute(resourceUrl, (id, existingWrapper) -> {
-            if (existingWrapper == null) {
-                // No existing wrapper, add the new one
-                result.set(true);
-                return wrapper;
-            } else {
-                // Merge attribute groups into a new mutable set
-                HashSet<String> mergedGroups = new HashSet<>(existingWrapper.groupSet());
-                mergedGroups.addAll(wrapper.groupSet());
-                if (mergedGroups.equals(existingWrapper.groupSet())) {
-                    result.set(false);
-                } else {
-                    result.set(true);
-                }
-                return new ResourceGroupWrapper(existingWrapper.resource(), mergedGroups);
-            }
-        });*/
 
         return result.get();
     }
@@ -288,39 +292,6 @@ public record ResourceBundle(
 
     public Set<ResourceGroup> getKnownResourceGroups() {
         return resourceGroupValidity.keySet();
-    }
-
-    /**
-     * Adds the wrapper into the underlying concurrent hashmap.
-     * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
-     *
-     * @param wrapper wrapper to be added to the resourcebundle
-     * @return boolean containing info if the wrapper is new or updated.
-     */
-    public boolean overwritingPut(ResourceGroupWrapper wrapper) {
-        AtomicReference<Boolean> result = new AtomicReference<>(false);
-        if (wrapper == null) {
-            return result.get();
-        }
-        //set Cache Key to relative URL
-        DomainResource resource = wrapper.resource();
-        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        cache.put(resourceUrl, resource);
-       /* resourceCache.compute(resourceUrl, (id, existingWrapper) -> {
-            if (existingWrapper == null) {
-                // No existing wrapper, add the new one
-                result.set(true);
-            } else {
-                if (wrapper.groupSet().equals(existingWrapper.groupSet())) {
-                    result.set(false);
-                } else {
-                    result.set(true);
-                }
-            }
-            return wrapper;
-        });*/
-
-        return result.get();
     }
 
 

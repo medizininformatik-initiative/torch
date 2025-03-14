@@ -188,7 +188,7 @@ class ReferenceResolverIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = new Medication();
             testResource.setId("testResource");
-            coreBundle.mergingPut(new ResourceGroupWrapper(testResource, Set.of()));
+            coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
 
             Mono<ResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle, attributeGroupMap);
 

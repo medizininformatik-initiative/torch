@@ -58,7 +58,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
 
 
     public boolean mergingPut(ResourceGroupWrapper wrapper) {
-        return bundle.mergingPut(wrapper);
+        return bundle.put(wrapper);
     }
 
 

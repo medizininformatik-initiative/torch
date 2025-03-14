@@ -49,7 +49,7 @@ class ResourceBundleTest {
         @Test
         void getMatch() {
             ResourceBundle cache = new ResourceBundle();
-            cache.mergingPut(wrapper1);
+            cache.put(wrapper1);
 
             Mono<Resource> result = cache.get(id);
 
@@ -72,7 +72,7 @@ class ResourceBundleTest {
         @Test
         void removeExistingEntry() {
             ResourceBundle cache = new ResourceBundle();
-            cache.mergingPut(wrapper1);
+            cache.put(wrapper1);
             cache.remove(id);
 
             Mono<Resource> result = cache.get(id);

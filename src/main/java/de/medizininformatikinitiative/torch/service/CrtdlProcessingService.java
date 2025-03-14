@@ -99,7 +99,7 @@ public class CrtdlProcessingService {
                 .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                 .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                         .thenReturn(updatedCoreBundle)) // Ensure sequential execution
-                .map(ResourceBundle::toImmutable) // Create immutable snapshot after processing
+                .map(ImmutableResourceBundle::new) // Create immutable snapshot after processing
                 .cache(); // Ensure it runs only once
 
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
@@ -117,7 +117,6 @@ public class CrtdlProcessingService {
                                                 .flatMap(patientBatch -> batchCopierRedacter.transformBatch(Mono.just(patientBatch), groupsToProcess.allGroups())
                                                 )
                                                 .flatMap(transformedBatch -> {
-                                                            //fill coreResource
                                                             return resultFileManager.saveBatchToNDJSON(jobID, Mono.just(transformedBatch));
                                                         }
 
@@ -127,8 +126,8 @@ public class CrtdlProcessingService {
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File
                 Mono.defer(() -> {
-                    ImmutableResourceBundle finalCoreSnapshot = coreBundle.toImmutable();
-                    PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", finalCoreSnapshot);
+
+                    PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
 
                     return resultFileManager.saveBatchToNDJSON(
