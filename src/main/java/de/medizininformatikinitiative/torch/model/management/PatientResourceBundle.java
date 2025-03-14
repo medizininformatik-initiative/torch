@@ -34,10 +34,19 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         this(patientID, Provisions.of(), bundle);
     }
 
+    public PatientResourceBundle(String patientID, ImmutableResourceBundle immutableResourceBundle) {
+        this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
+    }
+
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
         this(patientID, provisions, new ResourceBundle());
     }
+
+    public PatientResourceBundle updateConsent(Provisions provisions) {
+        return new PatientResourceBundle(patientId, provisions, bundle);
+    }
+
 
     public PatientResourceBundle updateConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);

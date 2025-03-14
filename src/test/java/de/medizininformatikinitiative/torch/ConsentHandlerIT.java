@@ -2,9 +2,11 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -12,8 +14,10 @@ import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +27,10 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Flux;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -38,11 +40,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class ConsentHandlerIT {
 
-
-    public static final PatientBatch BATCH = PatientBatch.of("VHF00006");
-    public static final PatientBatch BATCH_INVALID = PatientBatch.of("INVALID");
-    public static final String OBSERVATION_PATH = "src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json";
     public static final String PATIENT_ID = "VHF00006";
+    public static final String INVALID_PATIENT_ID = "InvalidPatientId";
+    public static final PatientBatchWithConsent BATCH = PatientBatchWithConsent.fromBatch(PatientBatch.of(PATIENT_ID));
+    public static final PatientBatchWithConsent BATCH_INVALID = PatientBatchWithConsent.fromBatch(PatientBatch.of(INVALID_PATIENT_ID));
+    public static final String OBSERVATION_PATH = "src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json";
+
     @Autowired
     ResourceReader resourceReader;
 
@@ -78,6 +81,9 @@ class ConsentHandlerIT {
     ConsentHandler consentHandler;
 
     @Autowired
+    ConsentValidator consentValidator;
+
+    @Autowired
     public ConsentHandlerIT(DirectResourceLoader transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
         this.transformer = transformer;
         this.dataStore = dataStore;
@@ -99,154 +105,72 @@ class ConsentHandlerIT {
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
     }
 
-    /*
-    @Test
-    public void testHandlerWithUpdate() throws IOException {
-        private Observation getObservationWithTime(String s) throws IOException {
-            Observation observation = (Observation) resourceReader.readResource(OBSERVATION_PATH);
-            DateTimeType time = new DateTimeType(s);
-            observation.setEffective(time);
-            return observation;
-        }
-
-        Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
-        consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, BATCH);
-
-
-        List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-        Assertions.assertNotNull(consentInfoList);
-        for (Map<String, Map<String, ConsentInfo.NonContinousPeriod>> consentInfo : consentInfoList) {
-            Boolean consentInfoResult = consentHandler.checkConsent((Observation) observation, consentInfo);
-            assertThat(consentInfoResult).isTrue();
-        }
-    }
-
-
-
 
     @Test
-    public void testHandlerWithoutUpdate() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2022-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+    public void invalidConsentCode() throws IOException {
+        // Execute the method and block for the result
+        PatientBatchWithConsent resultBatch = consentHandler.buildingConsentInfo("yes-no-no-yes", BATCH).block();
 
-            consentInfoFlux = consentHandler.updateConsentPeriodsByPatientEncounters(consentInfoFlux, batch);
+        assertThat(resultBatch).isNotNull();
+        assertThat(resultBatch.bundles()).isNotEmpty(); // Ensure there are patient bundles
+        assertThat(resultBatch.keySet()).containsExactly(PATIENT_ID);
 
-
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
+        PatientResourceBundle patientResourceBundle = resultBatch.bundles().get(PATIENT_ID);
 
 
-            Assertions.assertNotNull(consentInfoList);
-            for (ConsentInfo consentInfo : consentInfoList) {
-
-
-                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-
-                System.out.println("consent Check Result: " + consentInfoResult);
-                Assertions.assertTrue(consentInfoResult);
-            }
-
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-
-
+        assertThat(patientResourceBundle).isNotNull();
+        assertThat(patientResourceBundle.patientId()).isEqualTo(PATIENT_ID);
+        assertThat(patientResourceBundle.provisions()).isNotNull();
+        assertThat(patientResourceBundle.provisions().periods()).isEmpty(); // Ensure provisions are added
     }
 
     @Test
-    public void testHandlerWithUpdatingFail() {
-        PatientBatch batch = PatientBatch.of("VHF00006");
+    public void success() throws IOException {
+        // Execute the method and block for the result
+        PatientBatchWithConsent resultBatch = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH).block();
 
-        Resource observation;
-        try {
-            observation = resourceReader.readResource("src/test/resources/InputResources/Observation/Observation_lab_vhf_00006.json");
-            DateTimeType time = new DateTimeType("2026-01-01T00:00:00+01:00");
-            ((Observation) observation).setEffective(time);
+        assertThat(resultBatch).isNotNull();
+        assertThat(resultBatch.bundles()).isNotEmpty(); // Ensure there are patient bundles
+        assertThat(resultBatch.keySet()).containsExactly(PATIENT_ID); // Ensure there are patient bundles
 
-            Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", batch);
+        // Pick a patient from the batch
+        PatientResourceBundle patientResourceBundle = resultBatch.bundles().get(PATIENT_ID);
 
-            List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
+        assertThat(patientResourceBundle).isNotNull();
+        assertThat(patientResourceBundle.patientId()).isEqualTo(PATIENT_ID);
+        assertThat(patientResourceBundle.provisions()).isNotNull();
+        assertThat(patientResourceBundle.provisions().periods()).isNotEmpty(); // Ensure provisions are added
 
+        // Print provision details for debugging
+        System.out.println("Provisions for patient " + PATIENT_ID + ": " + patientResourceBundle.provisions());
+        patientResourceBundle.provisions().periods().forEach((key, period) ->
+                System.out.println("Consent key: " + key + " -> Periods: " + period)
+        );
 
-            Assertions.assertTrue(consentInfoList != null && !consentInfoList.isEmpty());
-
-
-            for (ConsentInfo consentInfo : consentInfoList) {
-                System.out.println("Evaluating consentInfo: " + consentInfo);
-                Boolean consentInfoResult = consentHandler.checkConsent((DomainResource) observation, consentInfo);
-                Assertions.assertFalse(consentInfoResult);
-            }
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
+        Observation observation = new Observation();
+        observation.setId("12345");
+        observation.setSubject(new Reference("Patient/" + PATIENT_ID));
+        observation.setEffective(new DateTimeType("2021-01-02T00:00:00+01:00"));
+        assertThat(consentValidator.checkConsent(observation, resultBatch)).isTrue();
+        observation.setEffective(new DateTimeType("2020-01-01T00:00:00+01:00"));
+        assertThat(consentValidator.checkConsent(observation, resultBatch)).isFalse();
     }
 
 
-      @Test
-    public void testHandlerWithoutUpdatingFail() throws IOException {
-        Observation observation = getObservationWithTime("2020-01-01T00:00:00+01:00");
+    @Test
+    public void invalidBatch() throws IOException {
+        // Execute the method and block for the result
+        PatientBatchWithConsent resultBatch = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID).block();
+        assertThat(resultBatch.keySet()).containsExactly(INVALID_PATIENT_ID);
+
+        // Pick a patient from the batch
+        PatientResourceBundle patientResourceBundle = resultBatch.bundles().get(INVALID_PATIENT_ID);
 
 
-        Flux<ConsentInfo> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
-
-        List<ConsentInfo> consentInfoList = consentInfoFlux.collectList().block();
-        ConsentInfo consentInfo = consentInfoList.getFirst();
-
-        assertThat(consentInfo.patientId()).isEqualTo(PATIENT_ID);
-        //Boolean consentInfoResult = consentHandler.checkConsent(observation, consentInfo);
-    }
-     */
-
-    @Nested
-    class UpdatePatientPatientBatchWithConsent {
-        @Test
-        public void success() throws IOException {
-            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
-
-            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
-            assert patientConsentInfoList != null;
-            PatientResourceBundle patientConsentInfo = patientConsentInfoList.getFirst();
-
-            assertThat(patientConsentInfo.patientId()).isEqualTo(PATIENT_ID);
-        }
-
-        @Test
-        public void invalidBatch() throws IOException {
-            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
-
-            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
-            assertThat(patientConsentInfoList).isEmpty();
-        }
-
-
-    }
-
-
-    @Nested
-    class BuildPatientPatientBatchWithConsent {
-        @Test
-        public void success() throws IOException {
-            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH);
-
-            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
-            assert patientConsentInfoList != null;
-            PatientResourceBundle patientConsentInfo = patientConsentInfoList.getFirst();
-
-            assertThat(patientConsentInfo.patientId()).isEqualTo(PATIENT_ID);
-        }
-
-        @Test
-        public void invalidBatch() throws IOException {
-            Flux<PatientResourceBundle> consentInfoFlux = consentHandler.buildingConsentInfo("yes-yes-yes-yes", BATCH_INVALID);
-
-            List<PatientResourceBundle> patientConsentInfoList = consentInfoFlux.collectList().block();
-            assertThat(patientConsentInfoList).isEmpty();
-        }
-
+        assertThat(patientResourceBundle).isNotNull();
+        assertThat(patientResourceBundle.patientId()).isEqualTo(INVALID_PATIENT_ID);
+        assertThat(patientResourceBundle.provisions()).isNotNull();
+        assertThat(patientResourceBundle.provisions().isEmpty()).isTrue(); // Ensure provisions are added
     }
 
 

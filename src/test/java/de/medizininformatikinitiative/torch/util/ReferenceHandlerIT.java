@@ -3,8 +3,8 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
@@ -157,7 +157,7 @@ class ReferenceHandlerIT {
     private CompartmentManager compartmentManager;
 
     @MockBean
-    private ConsentHandler consentHandler;
+    private ConsentValidator consentValidator;
 
     @Autowired
     FhirContext fhirContext;
@@ -199,7 +199,7 @@ class ReferenceHandlerIT {
 
         this.extractor = new ReferenceExtractor(fhirContext);
 
-        this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+        this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentValidator);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 

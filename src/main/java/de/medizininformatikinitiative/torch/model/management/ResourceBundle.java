@@ -45,6 +45,13 @@ public record ResourceBundle(
     }
 
 
+    /**
+     * @return immutable copy without the resourcecache
+     */
+    public ImmutableResourceBundle toImmutable() {
+        return new ImmutableResourceBundle(this);
+    }
+
     public Mono<Resource> get(String id) {
         Resource cached = cache.get(id);
         if (cached != null) {

@@ -53,5 +53,9 @@ public record Provisions
         ));
     }
 
+    public boolean isEmpty() {
+        return periods().isEmpty();
+    }
+
 
 }

@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -36,14 +36,14 @@ public class ReferenceHandlerTest {
     private CompartmentManager compartmentManager;
 
     @Mock
-    private ConsentHandler consentHandler;
+    private ConsentValidator consentValidator;
 
     @InjectMocks
     private ReferenceHandler referenceHandler;
 
     @BeforeEach
     void setUp() {
-        referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+        referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentValidator);
     }
 
 
@@ -127,7 +127,7 @@ public class ReferenceHandlerTest {
 
 
             when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentHandler.checkConsent(patientResource, patientBundle)).thenReturn(true);
+            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(true);
 
 
             Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");
@@ -169,7 +169,7 @@ public class ReferenceHandlerTest {
 
             when(dataStore.fetchDomainResource("Patient/123")).thenReturn(Mono.just(patientResource));
             when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentHandler.checkConsent(patientResource, patientBundle)).thenReturn(false);
+            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(false);
 
 
             Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");

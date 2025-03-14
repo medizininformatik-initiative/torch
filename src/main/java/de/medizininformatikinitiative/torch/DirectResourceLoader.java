@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.ConsentHandler;
@@ -39,6 +40,7 @@ public class DirectResourceLoader {
     private final DataStore dataStore;
 
     private final ConsentHandler handler;
+    private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
@@ -46,9 +48,9 @@ public class DirectResourceLoader {
     private final AnnotatedAttribute genericAttribute = new AnnotatedAttribute("direct", "direct", "direct", false);
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
+    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
         this.dataStore = dataStore;
-
+        this.consentValidator = validator;
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
@@ -56,16 +58,25 @@ public class DirectResourceLoader {
     }
 
     /**
+     * Extracts resources grouped by Patient ID for a given batch.
+     *
      * @param attributeGroups CRTDL to be applied on batch
-     * @param batch           Batch of PatIDs
-     * @param consentKey      string key encoding the applicable consent code (optional)
-     * @return extracted Resources grouped by PatientID
+     * @param batch           Batch of Patient IDs
+     * @param consentKey      Optional string key encoding the applicable consent code
+     * @return Mono containing processed PatientBatchWithConsent
      */
-    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(List<AnnotatedAttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
+    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
+            List<AnnotatedAttributeGroup> attributeGroups,
+            PatientBatchWithConsent batch,
+            Optional<String> consentKey) {
+
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
-        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch).flatMap(patientBatchWithConsent -> processBatchWithConsent(attributeGroups, patientBatchWithConsent))).orElseGet(() -> processBatchWithConsent(attributeGroups, PatientBatchWithConsent.fromBatch(batch)));
+
+        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
+                .flatMap(updatedBatch -> processBatchWithConsent(attributeGroups, updatedBatch))).orElseGet(() -> processBatchWithConsent(attributeGroups, batch));
     }
+
 
     private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
 
@@ -99,7 +110,7 @@ public class DirectResourceLoader {
     }
 
     private Mono<Resource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
-        if (!patientBatchWithConsent.applyConsent() || handler.checkConsent(resource, patientBatchWithConsent)) {
+        if (!patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent)) {
             return Mono.just(resource);
         } else {
             logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());

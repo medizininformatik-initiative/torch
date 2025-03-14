@@ -1,11 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -28,16 +28,16 @@ public class ReferenceHandler {
     private final DataStore dataStore;
     private final ProfileMustHaveChecker profileMustHaveChecker;
     private final CompartmentManager compartmentManager;
-    private final ConsentHandler consentHandler;
+    private final ConsentValidator consentValidator;
 
     public ReferenceHandler(DataStore dataStore,
                             ProfileMustHaveChecker profileMustHaveChecker,
                             CompartmentManager compartmentManager,
-                            ConsentHandler consentHandler) {
+                            ConsentValidator consentValidator) {
         this.dataStore = dataStore;
         this.profileMustHaveChecker = profileMustHaveChecker;
         this.compartmentManager = compartmentManager;
-        this.consentHandler = consentHandler;
+        this.consentValidator = consentValidator;
     }
 
     /**
@@ -186,7 +186,7 @@ public class ReferenceHandler {
 
                                 if (ResourceUtils.patientId(resource).equals(patientBundle.patientId())) {
                                     if (applyConsent) {
-                                        if (consentHandler.checkConsent(resource, patientBundle)) {
+                                        if (consentValidator.checkConsent(resource, patientBundle)) {
                                             return Mono.just(resource);
                                         } else {
                                             return Mono.error(new ConsentViolatedException("Consent Violated in Patient Resource"));

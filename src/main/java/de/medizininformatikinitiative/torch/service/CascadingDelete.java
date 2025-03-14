@@ -18,7 +18,7 @@ public class CascadingDelete {
         return patientBatch;
     }
 
-    void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    ResourceBundle handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
         Queue<ResourceGroup> processingQueue = new LinkedList<>(invalidResourceGroups);
         while (!processingQueue.isEmpty()) {
@@ -27,6 +27,8 @@ public class CascadingDelete {
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
         cleanupDanglingReferences(resourceBundle, groupMap);
+
+        return resourceBundle;
 
     }
 
