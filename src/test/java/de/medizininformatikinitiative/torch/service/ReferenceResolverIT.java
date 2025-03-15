@@ -232,7 +232,7 @@ class ReferenceResolverIT {
             // Validate the result using StepVerifier
             StepVerifier.create(result)
                     .assertNext(bundle -> {
-                        System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
+
                         assertThat(bundle.isEmpty()).isFalse();
 
                         // Check attribute mappings in processingBundle
@@ -277,7 +277,6 @@ class ReferenceResolverIT {
                     .assertNext(bundle -> {
                                 // Check attribute mappings in processingBundle
                                 ResourceBundle processingBundle = bundle.bundle();
-                                System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
                                 assertThat(bundle.isEmpty()).isFalse();
                                 assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
@@ -316,14 +315,14 @@ class ReferenceResolverIT {
             when(consentHandler.checkConsent(eq(patient), any(PatientResourceBundle.class)))
                     .thenReturn(true);
 
-            System.out.println("Checker Result" + profileMustHaveChecker.fulfilled(patient, patientGroup));
+
             // Call method under test
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, true, attributeGroupMap);
 
             // Validate the result using StepVerifier
             StepVerifier.create(result)
                     .assertNext(bundle -> {
-                        System.out.println("Bundle ID " + bundle.patientId() + " " + bundle.keySet());
+
                         assertThat(bundle.isEmpty()).isFalse();
                         Mono<ResourceGroupWrapper> resultCondition = bundle.get("Condition/2");
 

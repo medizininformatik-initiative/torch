@@ -52,7 +52,7 @@ public record ResourceBundle(
         }
         return Mono.empty();
     }
-    
+
 
     /**
      * Merges new information from an ImmutableResourceBundle i.e. bundle without ResourceCache into the resourcebundle.
@@ -269,7 +269,6 @@ public record ResourceBundle(
         DomainResource resource = wrapper.resource();
 
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        System.out.println("Resource URL: " + resourceUrl);
         wrapper.groupSet().forEach(group -> {
             addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true);
         });

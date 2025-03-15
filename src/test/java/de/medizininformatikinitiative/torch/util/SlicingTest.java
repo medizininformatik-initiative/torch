@@ -21,7 +21,7 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
         Base base = Mockito.mock(Base.class);
 
-        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", structureDefinition);
+        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", snapshot);
 
         assertThat(result).isNull();
     }

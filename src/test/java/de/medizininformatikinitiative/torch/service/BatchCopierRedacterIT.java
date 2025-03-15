@@ -160,6 +160,8 @@ public class BatchCopierRedacterIT {
             }""";
 
 
+    String CONDITION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
+
     @Autowired
     ElementCopier copier;
 
@@ -192,7 +194,7 @@ public class BatchCopierRedacterIT {
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
         conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", "Condition.meta", true, List.of("Patient1"));
         conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true, List.of("Patient1"));
-        conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject, conditionMeta, conditionId), List.of());
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of());
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
@@ -209,11 +211,11 @@ public class BatchCopierRedacterIT {
     class transformResource {
 
         @Test
-        public void testResourceWithKnownAttributes() throws TargetClassCreationException, MustHaveViolatedException {
+        public void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 
-            Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(), Map.of(), new HashSet<>(conditionGroup.attributes())));
+            Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), new HashSet<>(conditionGroup.attributes())));
 
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result))
                     .isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));

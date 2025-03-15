@@ -112,7 +112,7 @@ public class ReferenceResolver {
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
     private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
-        System.out.println("Processing resource group: " + parentResourceGroup);
+
         Mono<Resource> resourceMono = null;
         boolean patientResource = compartmentManager.isInCompartment(parentResourceGroup);
         if (patientResource && patientBundle == null) {

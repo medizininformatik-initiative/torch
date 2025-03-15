@@ -161,11 +161,10 @@ public class BatchCopierRedacter {
 
         // Step 4: Copy only the highest-level attributes
         for (AnnotatedAttribute attribute : extractionRedactionWrapper.attributes()) {
-            System.out.println("Copying " + attribute.attributeRef());
             copier.copy(extractionRedactionWrapper.resource(), tgt, attribute);
         }
 
-        redaction.redact(tgt);
+        redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
         logger.debug("Transformed resource: {}", tgt);
         return tgt;
     }

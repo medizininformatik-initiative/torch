@@ -56,7 +56,6 @@ public class ReferenceHandler {
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
 
         Set<ResourceGroup> knownGroups = processingBundle.getKnownResourceGroups();
-        System.out.println("Known Groups: " + knownGroups);
 
         return Flux.fromIterable(references)
                 .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, applyConsent, groupMap).doOnNext(

@@ -57,7 +57,6 @@ public class PatientBatchToCoreBundleWriter {
                 .filter(entry -> entry.getValue() && !compartmentManager.isInCompartment(entry.getKey())) // Exclude patient groups
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        System.out.println("validGroups = " + validGroups);
 
         // Step 2: Collect attributes linked to valid parent groups
         Map<ResourceAttribute, Set<ResourceGroup>> parentMap = new HashMap<>();
@@ -76,7 +75,6 @@ public class PatientBatchToCoreBundleWriter {
                 attributeValidity.put(attribute, true); // Mark attribute as valid
             }
         }
-        System.out.println(" ParentMap = " + parentMap);
 
         for (Map.Entry<ResourceAttribute, Set<ResourceGroup>> entry : patientResourceBundle.resourceAttributeToChildResourceGroup().entrySet()) {
             ResourceAttribute attribute = entry.getKey();

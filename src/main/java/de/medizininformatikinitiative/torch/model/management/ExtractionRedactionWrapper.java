@@ -25,4 +25,8 @@ public record ExtractionRedactionWrapper(DomainResource resource, Set<String> pr
         references = Map.copyOf(references);
     }
 
+    public ExtractionRedactionWrapper updateWithResource(DomainResource resource) {
+        return new ExtractionRedactionWrapper(resource, profiles, references, attributes);
+    }
+
 }

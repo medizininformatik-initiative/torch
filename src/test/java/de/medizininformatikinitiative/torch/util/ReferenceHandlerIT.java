@@ -211,8 +211,6 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            System.out.println("CORE Bundle" + coreBundle.keySet());
-
             Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
 
             StepVerifier.create(result)

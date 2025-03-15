@@ -1,15 +1,13 @@
 package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.util.ResourceReader;
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Set;
 
 /**
@@ -66,12 +64,12 @@ public class StructureDefinitionHandler {
      * @param urls A list of URLs for which to find the corresponding StructureDefinition.
      * @return The first non-null StructureDefinition found, or null if none are found.
      */
-    public StructureDefinition getDefinition(List<CanonicalType> urls) {
-        urls = legalUrls(urls);
-        if (urls.isEmpty()) {
-            return null;
-        }
-        return getDefinition(urls.getFirst().getValue());
+    public Set<StructureDefinition> getDefinitions(Set<String> urls) {
+        Set<StructureDefinition> definitions = new HashSet<>();
+        urls.forEach(url -> {
+            definitions.add(getDefinition(url));
+        });
+        return definitions;
     }
 
     /**
@@ -81,16 +79,14 @@ public class StructureDefinitionHandler {
      * @param urls A list of URLs for which to find the corresponding StructureDefinition.
      * @return The first non-null StructureDefinition found, or null if none are found.
      */
-    public List<CanonicalType> legalUrls(List<CanonicalType> urls) {
-        List<CanonicalType> legalUrls = new ArrayList<>();
-        for (CanonicalType url : urls) {
-            StructureDefinition definition = getDefinition(url.getValue());
-            if (definition != null) {
-                legalUrls.add(url);
-            }
-        }
-        return legalUrls;
+    public Set<StructureDefinition.StructureDefinitionSnapshotComponent> getSnapshots(Set<String> urls) {
+        Set<StructureDefinition.StructureDefinitionSnapshotComponent> definitions = new HashSet<>();
+        urls.forEach(url -> {
+            definitions.add(getSnapshot(url));
+        });
+        return definitions;
     }
+
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
         if (definitionsMap.get(url) != null) {

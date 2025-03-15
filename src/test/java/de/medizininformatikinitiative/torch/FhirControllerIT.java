@@ -227,7 +227,7 @@ public class FhirControllerIT {
         Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
-        System.out.println("Keyset" + result.keySet());
+
         Assertions.assertTrue(result.bundles().isEmpty());
         fis.close();
     }

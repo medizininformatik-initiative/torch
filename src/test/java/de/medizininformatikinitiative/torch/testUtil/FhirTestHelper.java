@@ -70,8 +70,6 @@ public class FhirTestHelper {
             Map<String, Resource> actualResourceMap = mapResourcesByID(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByID(expectedBundle);
 
-            System.out.println("Expected: " + expectedResourceMap.keySet());
-            System.out.println("Actual: " + actualResourceMap.keySet());
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
                 String profileKey = expectedEntry.getKey();
                 Resource expectedResource = expectedEntry.getValue();

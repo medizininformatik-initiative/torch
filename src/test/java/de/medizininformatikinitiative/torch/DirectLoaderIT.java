@@ -118,8 +118,6 @@ public class DirectLoaderIT {
 
         StepVerifier.create(result)
                 .expectNextMatches(map -> {
-                    // Print the key set before checking assertions
-                    System.out.println("PatientBatchWithConsent KeySet: " + map.bundles().keySet());
                     return map.bundles().containsKey("VHF00006");
                 })
                 .verifyComplete();

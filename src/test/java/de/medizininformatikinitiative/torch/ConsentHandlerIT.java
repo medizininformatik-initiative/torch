@@ -141,12 +141,6 @@ class ConsentHandlerIT {
         assertThat(patientResourceBundle.provisions()).isNotNull();
         assertThat(patientResourceBundle.provisions().periods()).isNotEmpty(); // Ensure provisions are added
 
-        // Print provision details for debugging
-        System.out.println("Provisions for patient " + PATIENT_ID + ": " + patientResourceBundle.provisions());
-        patientResourceBundle.provisions().periods().forEach((key, period) ->
-                System.out.println("Consent key: " + key + " -> Periods: " + period)
-        );
-
         Observation observation = new Observation();
         observation.setId("12345");
         observation.setSubject(new Reference("Patient/" + PATIENT_ID));
