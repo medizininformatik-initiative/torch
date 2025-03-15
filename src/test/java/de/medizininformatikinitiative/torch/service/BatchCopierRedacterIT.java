@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
@@ -26,10 +27,7 @@ import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -176,6 +174,10 @@ public class BatchCopierRedacterIT {
     AnnotatedAttributeGroup patientGroup;
 
     ResourceAttribute expectedAttribute;
+    AnnotatedAttribute conditionSubject;
+    AnnotatedAttribute conditionMeta;
+    AnnotatedAttribute conditionId;
+    AnnotatedAttributeGroup conditionGroup;
 
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -187,10 +189,10 @@ public class BatchCopierRedacterIT {
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
         patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of());
 
-        AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
-        AnnotatedAttribute conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", "Condition.meta", true, List.of("Patient1"));
-        AnnotatedAttribute conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true, List.of("Patient1"));
-        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject, conditionMeta, conditionId), List.of());
+        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", "Condition.meta", true, List.of("Patient1"));
+        conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true, List.of("Patient1"));
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject, conditionMeta, conditionId), List.of());
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
@@ -207,11 +209,11 @@ public class BatchCopierRedacterIT {
     class transformResource {
 
         @Test
-        public void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
+        public void testResourceWithKnownAttributes() throws TargetClassCreationException, MustHaveViolatedException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 
-            Resource result = batchCopierRedacter.transform(condition, attributeGroupMap, Set.of("Condition1"));
+            Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(), Map.of(), new HashSet<>(conditionGroup.attributes())));
 
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result))
                     .isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
