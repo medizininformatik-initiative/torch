@@ -1,6 +1,6 @@
 <mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.0.16 Chrome/132.0.6834.196 Electron/34.2.0 Safari/537.36" version="26.0.16">
   <diagram name="Page-1" id="rQ9JmWwxd0XCxTemWs2_">
-    <mxGraphModel dx="3290" dy="1447" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+    <mxGraphModel dx="2218" dy="958" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -34,29 +34,29 @@
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-8" target="4xT_OSYhyHWeqmXZpx4W-12" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4xT_OSYhyHWeqmXZpx4W-31" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-8" target="4xT_OSYhyHWeqmXZpx4W-30" edge="1">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-13" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="4xT_OSYhyHWeqmXZpx4W-8" target="4xT_OSYhyHWeqmXZpx4W-30">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-8" value="GroupsToBeProcessed" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" parent="1" vertex="1">
-          <mxGeometry x="175" y="670" width="150" height="60" as="geometry" />
+          <mxGeometry x="175" y="550" width="150" height="60" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-12" target="4xT_OSYhyHWeqmXZpx4W-15" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-12" value="Direct Load Core&amp;nbsp;" style="rounded=0;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="190" y="790" width="120" height="60" as="geometry" />
+          <mxGeometry x="190" y="670" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="lnOtOtBOv3MNs2cxyj5u-1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-15" target="S8sVybLB9j99WlBHO61R-1" edge="1">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="4xT_OSYhyHWeqmXZpx4W-15" target="dPbkpnWYBUF9-aR2UFQX-6">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-15" value="CoreResourceBundle" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" parent="1" vertex="1">
-          <mxGeometry x="170" y="905" width="160" height="70" as="geometry" />
+          <mxGeometry x="170" y="785" width="160" height="70" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-17" target="4xT_OSYhyHWeqmXZpx4W-19" edge="1">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-17" value="Get Cohort" style="whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="350" y="350" width="120" height="60" as="geometry" />
+          <mxGeometry x="350" y="350" width="121" height="60" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-25" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-19" target="4xT_OSYhyHWeqmXZpx4W-22" edge="1">
           <mxGeometry relative="1" as="geometry" />
@@ -94,22 +94,22 @@
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-50" value="Cascading Delete" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" parent="1" vertex="1">
           <mxGeometry x="515" y="1010" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="4xT_OSYhyHWeqmXZpx4W-51" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-52" target="4xT_OSYhyHWeqmXZpx4W-55" edge="1">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-15" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="4xT_OSYhyHWeqmXZpx4W-52" target="dPbkpnWYBUF9-aR2UFQX-14">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="4xT_OSYhyHWeqmXZpx4W-52" value="Extraction" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" parent="1" vertex="1">
+        <mxCell id="4xT_OSYhyHWeqmXZpx4W-52" value="Extraction on PatientBatch" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" parent="1" vertex="1">
           <mxGeometry x="515" y="1110" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-53" value="Bundles" style="ellipse;whiteSpace=wrap;html=1;" parent="1" vertex="1">
-          <mxGeometry x="534.03" y="1310" width="80" height="80" as="geometry" />
+          <mxGeometry x="534.03" y="1410" width="80" height="80" as="geometry" />
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-54" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="4xT_OSYhyHWeqmXZpx4W-55" edge="1">
           <mxGeometry relative="1" as="geometry">
-            <mxPoint x="575" y="1310" as="targetPoint" />
+            <mxPoint x="575" y="1410" as="targetPoint" />
           </mxGeometry>
         </mxCell>
         <mxCell id="4xT_OSYhyHWeqmXZpx4W-55" value="Write out Results" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" parent="1" vertex="1">
-          <mxGeometry x="515" y="1210" width="120" height="60" as="geometry" />
+          <mxGeometry x="515" y="1310" width="120" height="60" as="geometry" />
         </mxCell>
         <mxCell id="S8sVybLB9j99WlBHO61R-4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="S8sVybLB9j99WlBHO61R-1" target="4xT_OSYhyHWeqmXZpx4W-50" edge="1">
           <mxGeometry relative="1" as="geometry" />
@@ -578,59 +578,48 @@
         <mxCell id="chFQT4W4ltyFBvcAaWwt-37" value="Child2" style="whiteSpace=wrap;html=1;aspect=fixed;" parent="1" vertex="1">
           <mxGeometry x="1620" y="2740" width="80" height="80" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-1" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 12px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(251, 251, 251); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Cascading Delete&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+        <mxCell id="pPBBn8mwb3La13eMEMgU-1" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 12px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(251, 251, 251); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Cascading Delete&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" parent="1" vertex="1">
           <mxGeometry x="-290" y="1110" width="150" height="30" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-3" target="pPBBn8mwb3La13eMEMgU-11">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-9" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-6" target="dPbkpnWYBUF9-aR2UFQX-8">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-3" value="updated List of PatientBatch&lt;div&gt;WithConsent&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;" vertex="1" parent="1">
-          <mxGeometry x="60" y="1482.5" width="220" height="115" as="geometry" />
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-6" value="Resolve and extract referenced&lt;div&gt;resources&lt;/div&gt;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="190" y="890" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-16" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-6" target="pPBBn8mwb3La13eMEMgU-8">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-11" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-8" target="4xT_OSYhyHWeqmXZpx4W-22">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="410" y="490" as="targetPoint" />
+            <Array as="points">
+              <mxPoint x="400" y="1025" />
+              <mxPoint x="400" y="490" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-8" target="dPbkpnWYBUF9-aR2UFQX-14">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-6" value="Get Core Batch" style="whiteSpace=wrap;html=1;strokeWidth=2;rounded=1;arcSize=12;" vertex="1" parent="1">
-          <mxGeometry x="-125" y="1255" width="150" height="75" as="geometry" />
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-8" value="preprocessed CoreResourceBundle&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;" vertex="1" parent="1">
+          <mxGeometry x="170" y="990" width="160" height="70" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-8" target="pPBBn8mwb3La13eMEMgU-11">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-14" target="4xT_OSYhyHWeqmXZpx4W-55">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-8" value="Cascading Delete Within Core Bundle" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
-          <mxGeometry x="-145" y="1374" width="190" height="82" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-11" target="pPBBn8mwb3La13eMEMgU-13">
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-14" target="dPbkpnWYBUF9-aR2UFQX-18">
           <mxGeometry relative="1" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-11" value="For Every Patient Batch" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="-110" y="1510" width="120" height="60" as="geometry" />
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-14" value="update CoreBundle" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="514.03" y="1200" width="120" height="60" as="geometry" />
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-13" target="pPBBn8mwb3La13eMEMgU-19">
-          <mxGeometry relative="1" as="geometry" />
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-20" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="dPbkpnWYBUF9-aR2UFQX-18" target="4xT_OSYhyHWeqmXZpx4W-55">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="770" y="1340" />
+            </Array>
+          </mxGeometry>
         </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-13" value="Cascading Delete Within PatientBundle" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
-          <mxGeometry x="-145" y="1605" width="190" height="82" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-14" value="updated List of PatientBatch&lt;div&gt;WithConsent&lt;/div&gt;&lt;div&gt;with Core as its own PatientBatch&lt;/div&gt;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rounded=1;arcSize=20;strokeWidth=2;" vertex="1" parent="1">
-          <mxGeometry x="-150" y="1951.75" width="200" height="96.5" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-15" target="pPBBn8mwb3La13eMEMgU-14">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-15" value="Cascading Delete Within CoreBundle with new Information" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
-          <mxGeometry x="-145" y="1833" width="190" height="82" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-21" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-19" target="pPBBn8mwb3La13eMEMgU-15">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-19" value="After all Batches Finished" style="rounded=1;whiteSpace=wrap;html=1;" vertex="1" parent="1">
-          <mxGeometry x="-110" y="1730" width="120" height="60" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="pPBBn8mwb3La13eMEMgU-25" target="pPBBn8mwb3La13eMEMgU-6">
-          <mxGeometry relative="1" as="geometry" />
-        </mxCell>
-        <mxCell id="pPBBn8mwb3La13eMEMgU-25" value="&lt;div&gt;Core Bundle&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;" vertex="1" parent="1">
-          <mxGeometry x="-125" y="1140" width="150" height="75" as="geometry" />
+        <mxCell id="dPbkpnWYBUF9-aR2UFQX-18" value="Extraction on CoreBundle" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="714.03" y="1200" width="120" height="60" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
