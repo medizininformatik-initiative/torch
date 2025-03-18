@@ -33,7 +33,7 @@ public class CascadingDelete {
     }
 
     private void cleanupDanglingReferences(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        // Identify orphaned attributes: attributes with no parents or children
+        // Identify orphaned attributes: attributes with no parents
         Set<ResourceAttribute> orphanedAttributes = resourceBundle.resourceAttributeToParentResourceGroup().entrySet().stream()
                 .filter(entry -> entry.getValue().isEmpty()) // No parent groups
                 .map(Map.Entry::getKey)
@@ -105,22 +105,19 @@ public class CascadingDelete {
 
 
     /**
-     * given a list of attributes it invalidates the connection to Parents up.
-     *
-     * @param resourceBundle coreResourcebundle to be handled
-     * @param groupMap       known attributeGroups
-     * @param parentRG       parentRG that triggered the deletion process.
-     * @return children to be deleted
+     * @param resourceBundle resourceBundle to be handled
+     * @param childRG        rg whose parents have to be handled
+     * @return removes the connection of a invalid ResourceGroup to its parents propagates up if must have attribute.
      */
-    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup parentRG) {
+    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup childRG) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
-        Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(parentRG, Set.of());
+        Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(childRG, Set.of());
 
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
-            boolean wasLastParent = resourceBundle.removeParentAttributeFromChildRG(parentRG, resourceAttribute);
-            resourceBundle.removeChildRGFromAttribute(parentRG, resourceAttribute);
+            boolean wasLastChild = resourceBundle.removeParentAttributeFromChildRG(childRG, resourceAttribute);
+            resourceBundle.removeChildRGFromAttribute(childRG, resourceAttribute);
 
-            if (wasLastParent) {
+            if (wasLastChild) {
                 resourceBundle.setResourceAttributeInValid(resourceAttribute);
 
                 // If it's a must-have attribute, escalate to all parent groups of the attribute
