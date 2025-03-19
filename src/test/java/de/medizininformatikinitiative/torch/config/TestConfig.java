@@ -302,7 +302,7 @@ public class TestConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
         return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
