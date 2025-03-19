@@ -1,0 +1,123 @@
+{
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "display": "",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "system": "http://snomed.info/sct",
+              "display": "Geschlecht"
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0",
+            "display": "Patient"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              },
+              {
+                "code": "male",
+                "display": "Male",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "1234",
+        "name": "Observation",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.encounter",
+            "mustHave": true,
+            "linkedGroups": [
+              "Encounter1"
+            ]
+          }
+        ],
+        "filter": [
+        ]
+      },
+      {
+        "id": "Observation2",
+        "name": "Observation2",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.encounter",
+            "mustHave": true,
+            "linkedGroups": [
+              "Encounter1"
+            ]
+          }
+        ],
+        "filter": []
+      },
+      {
+        "id": "Encounter1",
+        "name": "Encounter",
+        "includeReferenceOnly": true,
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+        "attributes": [
+          {
+            "attributeRef": "Encounter.id",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "MedicationAdministration1",
+        "name": "MedicationAdministrationToEcounterAndMedication",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration",
+        "attributes": [
+          {
+            "attributeRef": "MedicationAdministration.context",
+            "mustHave": true,
+            "linkedGroups": [
+              "Encounter1"
+            ]
+          },
+          {
+            "attributeRef": "MedicationAdministration.medication[x]",
+            "mustHave": true,
+            "linkedGroups": [
+              "Medication1"
+            ]
+          }
+        ]
+      },
+      {
+        "id": "Medication1",
+        "name": "Medication1",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "Medication.code",
+            "mustHave": true
+          }
+        ]
+      }
+    ]
+  }
+}
+

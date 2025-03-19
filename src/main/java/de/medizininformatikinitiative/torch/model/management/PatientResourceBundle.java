@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
@@ -22,7 +23,6 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     public PatientResourceBundle {
         Objects.requireNonNull(patientId);
         Objects.requireNonNull(provisions);
-
     }
 
     public PatientResourceBundle(String patientID) {
@@ -33,34 +33,33 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         this(patientID, Provisions.of(), bundle);
     }
 
+    public PatientResourceBundle(String patientID, ImmutableResourceBundle immutableResourceBundle) {
+        this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
+    }
+
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
         this(patientID, provisions, new ResourceBundle());
     }
 
+    public PatientResourceBundle updateConsent(Provisions provisions) {
+        return new PatientResourceBundle(patientId, provisions, bundle);
+    }
+
+
     public PatientResourceBundle updateConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
-    public Mono<ResourceGroupWrapper> get(String id) {
+    public Mono<Resource> get(String id) {
         return bundle.get(id);
     }
 
-    public boolean put(ResourceGroupWrapper wrapper) {
+
+    public boolean mergingPut(ResourceGroupWrapper wrapper) {
         return bundle.put(wrapper);
     }
 
-    public Boolean isValidReference(ResourceIdGroup group) {
-        return bundle.isValidReference(group);
-    }
-
-    public Boolean knownReference(String reference) {
-        return bundle.knownReference(reference);
-    }
-
-    public String getResourceIDFromReferenceString(String reference) {
-        return bundle.getResourceIDFromReferenceString(reference);
-    }
 
     public void remove(String id) {
         bundle.remove(id);
@@ -75,11 +74,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
         return bundle.keySet();
     }
 
-    public Collection<ResourceGroupWrapper> values() {
-        return bundle.values();
-    }
-
-    public ResourceBundle toResourceBundle() {
+    public ResourceBundle getResourceBundle() {
         return bundle;
     }
 
@@ -88,4 +83,11 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     }
 
 
+    public void put(Resource resource) {
+        bundle.put(resource);
+    }
+
+    public Boolean put(Resource resource, String groupId, boolean b) {
+        return bundle().put(resource, groupId, b);
+    }
 }

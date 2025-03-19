@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 
@@ -8,6 +10,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.multiStringValue;
 
 /**
  * @param bundles      Map of bundles keyed with Patient ID
@@ -20,9 +24,19 @@ public record PatientBatchWithConsent(
         bundles = Map.copyOf(bundles);
     }
 
+    private static String patientSearchParam(String type) {
+        return "Patient".equals(type) ? "_id" : "patient";
+    }
+
 
     public PatientBatch patientBatch() {
         return new PatientBatch(bundles.keySet().stream().toList());
+    }
+
+
+    public static PatientBatchWithConsent fromBatchWithStaticInfo(PatientBatch batch, ImmutableResourceBundle resourceBundle) {
+        return new PatientBatchWithConsent(batch.ids().stream().collect(
+                Collectors.toMap(Function.identity(), id -> new PatientResourceBundle(id, resourceBundle))), false);
     }
 
     public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
@@ -51,5 +65,24 @@ public record PatientBatchWithConsent(
 
         return new PatientBatchWithConsent(filtered, applyConsent);
     }
+
+    /**
+     * Returns a search param which selects all resources of Compartment of patients defined in this batch.
+     *
+     * @param resourceType FHIR resource type to be searched for
+     * @return Search Param
+     */
+    public QueryParams compartmentSearchParam(String resourceType) {
+        return QueryParams.of(patientSearchParam(resourceType), searchPatientParamValue(resourceType));
+    }
+
+    private QueryParams.Value searchPatientParamValue(String type) {
+        if ("Patient".equals(type)) {
+            return multiStringValue(keySet().stream().toList());
+        } else {
+            return multiStringValue(keySet().stream().map(id -> "Patient/" + id).toList());
+        }
+    }
+
 
 }

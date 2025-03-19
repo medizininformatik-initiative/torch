@@ -1,16 +1,17 @@
 package de.medizininformatikinitiative.torch;
 
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
@@ -39,15 +40,17 @@ public class DirectResourceLoader {
     private final DataStore dataStore;
 
     private final ConsentHandler handler;
+    private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
     private final ProfileMustHaveChecker profileMustHaveChecker;
+    private final AnnotatedAttribute genericAttribute = new AnnotatedAttribute("direct", "direct", "direct", false);
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
+    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
         this.dataStore = dataStore;
-
+        this.consentValidator = validator;
         this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
@@ -55,16 +58,25 @@ public class DirectResourceLoader {
     }
 
     /**
+     * Extracts resources grouped by Patient ID for a given batch.
+     *
      * @param attributeGroups CRTDL to be applied on batch
-     * @param batch           Batch of PatIDs
-     * @param consentKey      string key encoding the applicable consent code (optional)
-     * @return extracted Resources grouped by PatientID
+     * @param batch           Batch of Patient IDs
+     * @param consentKey      Optional string key encoding the applicable consent code
+     * @return Mono containing processed PatientBatchWithConsent
      */
-    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(List<AnnotatedAttributeGroup> attributeGroups, PatientBatch batch, Optional<String> consentKey) {
+    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
+            List<AnnotatedAttributeGroup> attributeGroups,
+            PatientBatchWithConsent batch,
+            Optional<String> consentKey) {
+
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
-        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch).flatMap(patientBatchWithConsent -> processBatchWithConsent(attributeGroups, patientBatchWithConsent))).orElseGet(() -> processBatchWithConsent(attributeGroups, PatientBatchWithConsent.fromBatch(batch)));
+
+        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
+                .flatMap(updatedBatch -> processBatchWithConsent(attributeGroups, updatedBatch))).orElseGet(() -> processBatchWithConsent(attributeGroups, batch));
     }
+
 
     private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
 
@@ -98,7 +110,7 @@ public class DirectResourceLoader {
     }
 
     private Mono<Resource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
-        if (!patientBatchWithConsent.applyConsent() || handler.checkConsent(resource, patientBatchWithConsent)) {
+        if (!patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent)) {
             return Mono.just(resource);
         } else {
             logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
@@ -121,11 +133,14 @@ public class DirectResourceLoader {
         logger.trace("Processing attribute group: {}", group);
         AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
         return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {
-            String resourceId = resource.getId();
-            logger.trace("Storing resource {} under ID: {}", resourceId, resourceId);
+            String id = ResourceUtils.getRelativeURL(resource);
+            logger.trace("Storing resource {} under ID: {}", id, id);
             if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
+
                 atLeastOneResource.set(true);
-                resourceBundle.put(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                resourceBundle.put(resource, group.id(), true);
+            } else {
+                resourceBundle.put(resource, group.id(), false);
             }
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {
@@ -165,12 +180,15 @@ public class DirectResourceLoader {
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
-                        String id = ResourceUtils.patientId((DomainResource) resource);
+                        String patientId = ResourceUtils.patientId((DomainResource) resource);
+                        PatientResourceBundle bundle = mutableBundles.get(patientId);
 
-                        if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
-                            safeGroup.add(id);
-                            PatientResourceBundle bundle = mutableBundles.get(id);
-                            bundle.put(new ResourceGroupWrapper((DomainResource) resource, Set.of(group.id())));
+                        if (profileMustHaveChecker.fulfilled(resource, group)) {
+
+                            safeGroup.add(patientId);
+                            bundle.put(resource, group.id(), true);
+                        } else {
+                            bundle.put(resource, group.id(), false);
                         }
 
                     } catch (PatientIdNotFoundException e) {

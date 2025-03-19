@@ -4,12 +4,11 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 
 import java.util.Objects;
 
-public record ResourceAttributeGroup(String resourceId, AnnotatedAttribute annotatedAttribute, String groupId) {
+public record ResourceAttribute(String resourceId, AnnotatedAttribute annotatedAttribute) {
 
-    public ResourceAttributeGroup {
+    public ResourceAttribute {
         Objects.requireNonNull(annotatedAttribute);
         Objects.requireNonNull(resourceId);
-        Objects.requireNonNull(groupId);
     }
 
 

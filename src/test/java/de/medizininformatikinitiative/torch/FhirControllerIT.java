@@ -3,11 +3,11 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -22,7 +22,6 @@ import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
-import org.hl7.fhir.r4.model.Bundle;
 import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,7 +46,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Scanner;
 
@@ -224,12 +222,12 @@ public class FhirControllerIT {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        PatientBatch patients = PatientBatch.of("3");
+        PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
         Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
-        System.out.println("Keyset" + result.keySet());
+
         Assertions.assertTrue(result.bundles().isEmpty());
         fis.close();
     }
@@ -250,65 +248,9 @@ public class FhirControllerIT {
         fis.close();
     }
 
-    private void executeTest(List<String> expectedResourceFilePaths, List<String> filePaths) throws IOException, PatientIdNotFoundException, ValidationException {
-        Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
-        expectedResources.values().forEach(Assertions::assertNotNull);
-        PatientBatch patients = new PatientBatch(expectedResources.keySet().stream().toList());
-
-        for (String filePath : filePaths) {
-            processFile(filePath, patients, expectedResources);
-        }
-    }
-
-
-    private void processFile(String filePath, PatientBatch patients, Map<String, Bundle> expectedResources) throws IOException, ValidationException {
-        try (FileInputStream fis = new FileInputStream(filePath)) {
-            AnnotatedCrtdl crtdl = validatorService.validate(objectMapper.readValue(fis, Crtdl.class));
-
-            Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(crtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
-
-            StepVerifier.create(collectedResourcesMono).expectNextMatches(patientBatchWithConsent -> {
-                try {
-                    fhirTestHelper.validate(patientBatchWithConsent, expectedResources);
-                } catch (PatientIdNotFoundException e) {
-                    throw new RuntimeException(e);
-                }
-
-                return true;
-            }).expectComplete().verify();
-        }
-
-
-    }
 
     public void testExecutor(List<String> filePaths, String url, HttpHeaders headers) {
         TestRestTemplate restTemplate = new TestRestTemplate();
-        filePaths.forEach(filePath -> {
-            try {
-                String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
-
-                HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
-                try {
-                    ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-                    assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
-
-                    // Polling the status endpoint
-                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
-                } catch (HttpStatusCodeException e) {
-                    logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
-                    Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
-                }
-
-            } catch (IOException e) {
-                logger.error("CRTDL file not found", e);
-            }
-        });
-    }
-
-    public void testExecutor(List<String> filePaths, List<String> expectedResourceFilePaths, String url, HttpHeaders headers) throws PatientIdNotFoundException, IOException {
-        TestRestTemplate restTemplate = new TestRestTemplate();
-        Map<String, Bundle> expectedResources = fhirTestHelper.loadExpectedResources(expectedResourceFilePaths);
-        expectedResources.values().forEach(Assertions::assertNotNull);
         filePaths.forEach(filePath -> {
             try {
                 String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);

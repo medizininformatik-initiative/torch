@@ -1,0 +1,52 @@
+{
+  "resourceType": "Condition",
+  "id": "mii-exa-diagnose-condition-minimal",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose|2024.0.0"
+    ]
+  },
+  "clinicalStatus": {
+    "coding": [
+      {
+        "code": "active",
+        "system": "http://terminology.hl7.org/CodeSystem/condition-clinical"
+      }
+    ]
+  },
+  "code": {
+    "coding": [
+      {
+        "version": "2020",
+        "code": "S50.0",
+        "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+        "display": "Prellung des Ellenbogens"
+      },
+      {
+        "code": "91613004",
+        "system": "http://snomed.info/sct",
+        "version": "http://snomed.info/sct/900000000000207008/version/20230731",
+        "display": "Contusion of elbow (disorder)"
+      }
+    ],
+    "text": "Prellung des linken Ellenbogens"
+  },
+  "subject": {
+    "_reference": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "unknown"
+        }
+      ]
+    }
+  },
+  "encounter": {
+    "reference": "Encounter/12345"
+  },
+  "onsetPeriod": {
+    "start": "2020-02-26T12:00:00+01:00",
+    "end": "2020-03-05T13:00:00+01:00"
+  },
+  "recordedDate": "2020-02-26T12:00:00+01:00"
+}

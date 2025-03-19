@@ -2,13 +2,16 @@ package de.medizininformatikinitiative.torch.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
+import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -71,7 +74,7 @@ public class AppConfig {
     @Value("${torch.mapping.consent}")
     private String consentFilePath;
 
-    @Value("${torch.mapping.type_to_consent}")
+    @Value("${torch.mapping.typeToConsent:mappings/type_to_consent.json}")
     private String consentToProfileFilePath;
 
     @Value("compartmentdefinition-patient.json")
@@ -85,6 +88,11 @@ public class AppConfig {
     @Bean
     public FilterService filterService(FhirContext ctx, String searchParametersFile) {
         return new FilterService(ctx, searchParametersFile);
+    }
+
+    @Bean
+    public CascadingDelete cascadingDelete() {
+        return new CascadingDelete();
     }
 
     @Bean
@@ -103,9 +111,20 @@ public class AppConfig {
         return new ProcessedGroupFactory(manager);
     }
 
+
     @Bean
-    ReferenceResolver referenceResolver(FhirContext ctx, DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, ProfileMustHaveChecker profileMustHaveChecker, CompartmentManager compartmentManager, ConsentHandler consentHandler) {
-        return new ReferenceResolver(ctx, dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+    ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentValidator consentValidator) {
+        return new ReferenceHandler(dataStore, mustHaveChecker, compartmentManager, consentValidator);
+    }
+
+    @Bean
+    ReferenceExtractor referenceExtractor(FhirContext ctx) {
+        return new ReferenceExtractor(ctx);
+    }
+
+    @Bean
+    ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor) {
+        return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
     }
 
     @Bean
@@ -188,12 +207,19 @@ public class AppConfig {
             BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
-            @Value("5") int maxConcurrency
+            @Value("5") int maxConcurrency,
+            CascadingDelete cascadingDelete,
+            PatientBatchToCoreBundleWriter writer
     ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, batchSize, useCql, directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency);
+                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
+    }
+
+    @Bean
+    PatientBatchToCoreBundleWriter patientBatchToCoreBundleWriter(CompartmentManager compartmentManager) {
+        return new PatientBatchToCoreBundleWriter(compartmentManager);
     }
 
 
@@ -304,14 +330,20 @@ public class AppConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
-        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker);
+        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, cds, ctx, objectMapper);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, String consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, ctx, objectMapper);
+    }
+
+    @Bean
+    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper, String consentToProfileFilePath) throws IOException {
+        JsonNode resourcetoField = mapper.readTree(new File(consentToProfileFilePath).getAbsoluteFile());
+        return new ConsentValidator(ctx, resourcetoField);
     }
 
     @Bean

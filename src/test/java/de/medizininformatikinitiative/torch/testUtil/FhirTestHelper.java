@@ -61,7 +61,7 @@ public class FhirTestHelper {
     public void validate(PatientBatchWithConsent actualBundles, Map<String, Bundle> expectedBundles) throws PatientIdNotFoundException {
 
         for (String key : actualBundles.keySet()) {
-            Bundle bundle = actualBundles.get(key).toResourceBundle().toFhirBundle();
+            Bundle bundle = actualBundles.get(key).getResourceBundle().toFhirBundle();
             Bundle expectedBundle = expectedBundles.get(key);
 
             removeMetaLastUpdatedFromEntries(bundle);
@@ -70,8 +70,6 @@ public class FhirTestHelper {
             Map<String, Resource> actualResourceMap = mapResourcesByID(bundle);
             Map<String, Resource> expectedResourceMap = mapResourcesByID(expectedBundle);
 
-            System.out.println("Expected: " + expectedResourceMap.keySet());
-            System.out.println("Actual: " + actualResourceMap.keySet());
             for (Map.Entry<String, Resource> expectedEntry : expectedResourceMap.entrySet()) {
                 String profileKey = expectedEntry.getKey();
                 Resource expectedResource = expectedEntry.getValue();

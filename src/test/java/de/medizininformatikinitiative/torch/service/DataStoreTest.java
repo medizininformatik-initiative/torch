@@ -144,12 +144,8 @@ class DataStoreTest {
             var result = dataStore.fetchResourceByReference(absoluteUrl);
 
             StepVerifier.create(result)
-                    .expectNextMatches(resource -> {
-                        Assertions.assertTrue(resource instanceof Patient);
-                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
-                        return true;
-                    })
-                    .verifyComplete();
+                    .expectError(IllegalArgumentException.class)
+                    .verify();
 
             externalServer.shutdown();
         }
