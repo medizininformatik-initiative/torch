@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.util;
+package de.medizininformatikinitiative.torch.consent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

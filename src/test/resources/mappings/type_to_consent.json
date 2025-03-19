@@ -1,15 +1,15 @@
 {
-  "MedicationStatement": "MedicationStatement.effective[x]",
+  "MedicationStatement": "MedicationStatement.effective",
   "List": "List.date",
   "MedicationRequest": "MedicationRequest.authoredOn",
   "Medication": "",
-  "MedicationAdministration": "MedicationAdministration.effective[x]",
-  "Observation": "Observation.effective[x]",
-  "Procedure": "Procedure.performed[x]",
+  "MedicationAdministration": "MedicationAdministration.effective",
+  "Observation": "Observation.effective",
+  "Procedure": "Procedure.performed",
   "Device": "",
   "Substance": "",
   "Organization": "",
-  "Specimen": "Specimen.collection.collected[x]",
+  "Specimen": "Specimen.collection.collected",
   "Condition": "Condition.recordedDate",
   "DocumentReference": "DocumentReference.date",
   "Questionnaire": "",
@@ -21,7 +21,7 @@
   "Encounter": "Encounter.period",
   "Task": "Task.authoredOn",
   "FamilyMemberHistory": "FamilyMemberHistory.date",
-  "DiagnosticReport": "DiagnosticReport.effective[x]",
+  "DiagnosticReport": "DiagnosticReport.effective",
   "ServiceRequest": "ServiceRequest.authoredOn",
-  "RiskAssessment": "RiskAssessment.occurrence[x]"
+  "RiskAssessment": "RiskAssessment.occurrence"
 }

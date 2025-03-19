@@ -19,7 +19,6 @@ class ProfileMustHaveCheckerTest {
     private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
     private static final Observation src = new Observation();
 
-
     @BeforeAll
     static void setup() {
         Meta meta = new Meta();
@@ -31,7 +30,6 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void groupNoMustHave() {
-
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.effective", "Observation.effective", "Observation.effective", false);
         AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(effective), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
@@ -41,7 +39,6 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void groupMustHave() {
-
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true);
         AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(effective), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
@@ -68,6 +65,47 @@ class ProfileMustHaveCheckerTest {
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
 
         assertThat(checker.fulfilled(src, group)).isFalse();
-
     }
+
+    /**
+     * New Tests to Handle Null Scenarios
+     */
+
+    @Test
+    void shouldHandleNullProfileInMeta() {
+        Observation src = new Observation();
+        src.setMeta(null); // No meta data
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of());
+        ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
+
+        assertThat(checker.fulfilled(src, group)).isFalse();
+    }
+
+    @Test
+    void shouldHandleNullProfilesList() {
+        Observation src = new Observation();
+        src.setMeta(new Meta()); // Meta exists but has no profiles
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of());
+        ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
+
+        assertThat(checker.fulfilled(src, group)).isFalse();
+    }
+
+
+    @Test
+    void shouldHandleEmptyAnnotatedAttributes() {
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of()); // Empty attributes
+        ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
+
+        assertThat(checker.fulfilled(src, group)).isTrue();
+    }
+
+    @Test
+    void shouldHandleNullResource() {
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of());
+        ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
+
+        assertThat(checker.fulfilled(null, group)).isFalse(); // Null resource should return false
+    }
+
 }

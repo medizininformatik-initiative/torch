@@ -3,12 +3,13 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Medication;
@@ -21,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
-import reactor.core.publisher.Mono;
+import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
 import java.util.HashMap;
@@ -156,7 +157,7 @@ class ReferenceHandlerIT {
     private CompartmentManager compartmentManager;
 
     @MockBean
-    private ConsentHandler consentHandler;
+    private ConsentValidator consentValidator;
 
     @Autowired
     FhirContext fhirContext;
@@ -198,7 +199,7 @@ class ReferenceHandlerIT {
 
         this.extractor = new ReferenceExtractor(fhirContext);
 
-        this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentHandler);
+        this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentValidator);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
@@ -210,13 +211,10 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            System.out.println(coreBundle.knownReference("Medication/testMedication"));
-            System.out.println("CORE Bundle" + coreBundle.keySet());
-
-            Mono<List<ResourceGroupWrapper>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup"), null, coreBundle, false, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
 
             StepVerifier.create(result)
-                    .assertNext(medication -> assertThat(medication.getFirst().groupSet()).isEqualTo(Set.of("Medication1")))
+                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup("Medication/testMedication", "Medication1")))
                     .verifyComplete();
         }
 

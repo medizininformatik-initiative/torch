@@ -3,9 +3,9 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -48,7 +48,8 @@ class CrtdlProcessingServiceIT {
     protected WebClient webClient;
     private AnnotatedCrtdl CRTDL_ALL_OBSERVATIONS;
     private AnnotatedCrtdl CRTDL_NO_PATIENTS;
-    private AnnotatedCrtdl CRTDL_DIAGNOSIS_LINKED;
+    private AnnotatedCrtdl CRTDL_OBSERVATION_LINKED;
+    private AnnotatedCrtdl CRTDL_OBSERVATION_MEDICATION_LINKED;
 
     String jobId;
     Path jobDir;
@@ -84,7 +85,10 @@ class CrtdlProcessingServiceIT {
         CRTDL_NO_PATIENTS = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_linked_encounter.json");
-        CRTDL_DIAGNOSIS_LINKED = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        CRTDL_OBSERVATION_LINKED = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        fis.close();
+        fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_MedicationAdministraion_linked_encounter_linked_medication.json");
+        CRTDL_OBSERVATION_MEDICATION_LINKED = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
 
         manager.startContainers();
@@ -163,7 +167,25 @@ class CrtdlProcessingServiceIT {
         String jobId = "processwithrefs";
         jobDir = resultFileManager.initJobDir(jobId).block();
 
-        Mono<Void> result = service.process(CRTDL_DIAGNOSIS_LINKED, jobId, List.of());
+        Mono<Void> result = service.process(CRTDL_OBSERVATION_LINKED, jobId, List.of());
+
+
+        Assertions.assertDoesNotThrow(() -> result.block());
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(jobDir)) {
+            boolean filesExist = stream.iterator().hasNext();
+            assertTrue(filesExist, "Job directory should contain files.");
+        } catch (IOException e) {
+            logger.trace(e.getMessage());
+            throw new RuntimeException("Failed to read job directory.");
+        }
+    }
+
+    @Test
+    void processReferencesOutsidePatientBundle() {
+        String jobId = "processWithRefsCoreAndPatient";
+        jobDir = resultFileManager.initJobDir(jobId).block();
+
+        Mono<Void> result = service.process(CRTDL_OBSERVATION_MEDICATION_LINKED, jobId, List.of());
 
 
         Assertions.assertDoesNotThrow(() -> result.block());

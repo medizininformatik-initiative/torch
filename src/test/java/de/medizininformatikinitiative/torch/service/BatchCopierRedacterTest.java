@@ -1,18 +1,17 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
+import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -55,6 +54,7 @@ class BatchCopierRedacterTest {
     AnnotatedAttribute metaAttribute = new AnnotatedAttribute("Observation.meta", "Observation.meta", "Observation.meta", false);
     AnnotatedAttribute id = new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false);
     AnnotatedAttribute subject = new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false);
+    ExtractionRedactionWrapper extractionWrapper;
 
 
     @InjectMocks
@@ -99,18 +99,18 @@ class BatchCopierRedacterTest {
 
     @Nested
     class Transform {
+        Observation src;
+
         @BeforeEach
         void setUp() {
-            Observation src = new Observation();
+            src = new Observation();
             src.setId("123");
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType(OBSERVATION)));
             src.setSubject(new Reference("Patient/123"));
 
-            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Observation1", OBSERVATION, List.of(effective, metaAttribute, id, subject), List.of());
-            groupMap.put(group.id(), group);
 
-            wrapper = new ResourceGroupWrapper(src, Set.of(group.id()));
+            extractionWrapper = new ExtractionRedactionWrapper(src, Set.of(), Map.of(), Set.of(effective, metaAttribute, id, subject));
         }
 
 
@@ -118,12 +118,12 @@ class BatchCopierRedacterTest {
         void successAttributeCopy() throws Exception {
 
 
-            ResourceGroupWrapper result = transformer.transform(wrapper, groupMap);
+            Resource result = transformer.transform(extractionWrapper);
 
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(effective));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(metaAttribute));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(id));
-            Mockito.verify(copier).copy(eq(wrapper.resource()), any(), eq(subject));
+            Mockito.verify(copier).copy(eq(src), any(), eq(effective));
+            Mockito.verify(copier).copy(eq(src), any(), eq(metaAttribute));
+            Mockito.verify(copier).copy(eq(src), any(), eq(id));
+            Mockito.verify(copier).copy(eq(src), any(), eq(subject));
 
 
         }
@@ -163,17 +163,19 @@ class BatchCopierRedacterTest {
             List<AnnotatedAttribute> attributes2 = List.of(mockAttribute3, mockAttribute4);
             when(mockGroup1.attributes()).thenReturn(attributes1);
             when(mockGroup2.attributes()).thenReturn(attributes2);
+            when(mockGroup1.groupReference()).thenReturn("Profile1");
+            when(mockGroup2.groupReference()).thenReturn("Profile2");
 
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
             groupMap.put("group1", mockGroup1);
             groupMap.put("group2", mockGroup2);
 
-            Map<String, AnnotatedAttribute> result = transformer.collectHighestLevelAttributes(groupMap, groups);
+            ProfileAttributeCollection result = transformer.collectHighestLevelAttributes(groupMap, groups);
 
             // Expected: "Patient.identifier" should exclude "Patient.identifier.system"
-            assertThat(result.keySet()).containsExactlyInAnyOrder("Patient.identifier", "Patient.name");
-            assertThat(result).containsEntry("Patient.identifier", mockAttribute1);
+            assertThat(result.attributes()).containsExactlyInAnyOrder(mockAttribute1, mockAttribute3);
+            assertThat(result.profiles()).containsExactlyInAnyOrder("Profile1", "Profile2");
         }
 
 

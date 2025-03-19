@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -94,7 +94,6 @@ class BatchReferenceProcessorTest {
 
         StepVerifier.create(result)
                 .assertNext(updatedBatches -> {
-                    System.out.println("Updated Batches: " + updatedBatches);
 
                     // We should have 3 batches in total: 2 for patients and 1 for the core bundle
                     assertThat(updatedBatches).hasSize(3);

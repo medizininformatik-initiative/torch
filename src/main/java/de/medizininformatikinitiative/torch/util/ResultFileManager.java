@@ -127,11 +127,12 @@ public class ResultFileManager {
                         if (batch.keySet().equals(Set.of("CORE"))) {
                             ndjsonFile = jobDir.resolve("core.ndjson");
                         } else {
-                            ndjsonFile = jobDir.resolve(UUID.randomUUID().toString() + ".ndjson");
+                            ndjsonFile = jobDir.resolve(UUID.randomUUID() + ".ndjson");
                         }
-
+                        Files.deleteIfExists(ndjsonFile);
                         return ndjsonFile;
                     })
+                    .subscribeOn(Schedulers.boundedElastic())
                     .flatMap(ndjsonFile ->
                             Flux.fromIterable(batch.bundles().values()) // Process each bundle asynchronously
                                     .flatMap(bundle -> saveBundleToNDJSON(ndjsonFile, bundle.bundle().toFhirBundle()))

@@ -2,15 +2,15 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.management.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -112,14 +112,12 @@ public class DirectLoaderIT {
 
         Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
                 crtdl.dataExtraction().attributeGroups(),
-                new PatientBatch(List.of("1", "2", "4", "VHF00006")),
+                PatientBatchWithConsent.fromBatch(new PatientBatch(List.of("1", "2", "4", "VHF00006"))),
                 crtdl.consentKey()
         );
 
         StepVerifier.create(result)
                 .expectNextMatches(map -> {
-                    // Print the key set before checking assertions
-                    System.out.println("PatientBatchWithConsent KeySet: " + map.bundles().keySet());
                     return map.bundles().containsKey("VHF00006");
                 })
                 .verifyComplete();

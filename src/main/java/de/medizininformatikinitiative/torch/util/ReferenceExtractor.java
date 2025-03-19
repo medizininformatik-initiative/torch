@@ -6,7 +6,6 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
@@ -28,19 +27,18 @@ public class ReferenceExtractor {
     /**
      * Extracts for a given group all references from a resource.
      *
-     * @param wrapper  containing the resource from which the references should be extracted
+     * @param resource containing the resource from which the references should be extracted
      * @param groupMap Map of group IDs to their corresponding AnnotatedAttributeGroup
      * @param groupId  group to be extracted from
      * @return List of ReferenceWrapper containing the references and associated attributes of a resource
      * @throws MustHaveViolatedException if a must-have field has no reference at all
      */
-    public List<ReferenceWrapper> extract(ResourceGroupWrapper wrapper, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
-        Resource resource = wrapper.resource();
+    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
         try {
             return groupMap.get(groupId).refAttributes().stream()
                     .map(refAttribute -> {
                         try {
-                            return new ReferenceWrapper(refAttribute, getReferences(resource, refAttribute), groupId);
+                            return new ReferenceWrapper(refAttribute, getReferences(resource, refAttribute), groupId, ResourceUtils.getRelativeURL(resource));
                         } catch (MustHaveViolatedException e) {
                             throw new RuntimeException(e); // Wrapping the exception first
                         }
@@ -57,8 +55,6 @@ public class ReferenceExtractor {
 
 
     List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
-        //fhirpath call
-        //musthaveviolated if empty and must have ->mark for deletion
 
         List<String> elements;
         elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class).stream()

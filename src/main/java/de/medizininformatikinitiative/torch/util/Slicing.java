@@ -6,7 +6,10 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
 
@@ -20,14 +23,45 @@ public class Slicing {
     /**
      * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
-     * @param base                Hapi Base (Element) which should be checked
-     * @param elementID           Element ID of the above element.
-     * @param structureDefinition Struturedefinition of the Ressource to which the element belongs
+     * @param base               Hapi Base (Element) which should be checked
+     * @param elementIDs         Set of ElementIDs of the above element. Branching due to slicing at an earlier stage in recursive walk.
+     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
+     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
+     */
+    public static Set<ElementDefinition> checkSlicing(Base base, Set<String> elementIDs, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
+
+        return elementIDs.stream().map(elementId ->
+                snapshotComponents.stream().map(snapshotComponent ->
+                                checkSlicing(base, elementId, snapshotComponent)).filter(Objects::nonNull)
+                        .collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
+    }
+
+
+    /**
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
+     *
+     * @param base               Hapi Base (Element) which should be checked
+     * @param elementID          Element ID of the above element.
+     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
+     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
+     */
+    public static Set<ElementDefinition> checkSlicing(Base base, String elementID, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
+
+        return snapshotComponents.stream().map(snapshotComponent -> checkSlicing(base, elementID, snapshotComponent)).filter(Objects::nonNull).collect(Collectors.toSet());
+
+    }
+
+
+    /**
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
+     *
+     * @param base              Hapi Base (Element) which should be checked
+     * @param elementID         Element ID of the above element.
+     * @param snapshotComponent Struturedefinition of the Ressource to which the element belongs
      * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
      */
-    public static ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition slicedElement = snapshot.getElementById(elementID);
+    public static ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshotComponent) {
+        ElementDefinition slicedElement = snapshotComponent.getElementById(elementID);
 
 
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
@@ -40,7 +74,7 @@ public class Slicing {
         }
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), structureDefinition.getSnapshot());
+        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), snapshotComponent);
         elementDefinitions.forEach(element -> {
 
             boolean foundSlice = true;
@@ -65,7 +99,7 @@ public class Slicing {
                         }
 
                     }
-                    if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
+                    if (!resolveDiscriminator(base, element, discriminator, snapshotComponent)) {
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }

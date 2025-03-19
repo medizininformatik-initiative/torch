@@ -18,18 +18,9 @@ public record ResourceGroupWrapper(DomainResource resource, Set<String> groupSet
     }
 
     public ResourceGroupWrapper addGroups(Set<String> newGroups) {
-        System.out.println("addGroups called");
-
-        System.out.println("resource: " + resource);
-        System.out.println("newGroups: " + newGroups);
-        System.out.println("groupSet: " + groupSet);
-
         Set<String> updatedGroups = new HashSet<>(groupSet);
         updatedGroups.addAll(newGroups);
-
         ResourceGroupWrapper wrapper = new ResourceGroupWrapper(resource, updatedGroups);
-        System.out.println("Returning new ResourceGroupWrapper: " + wrapper);
-
         return wrapper;
     }
 
