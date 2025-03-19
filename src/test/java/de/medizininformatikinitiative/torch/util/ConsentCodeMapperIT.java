@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 

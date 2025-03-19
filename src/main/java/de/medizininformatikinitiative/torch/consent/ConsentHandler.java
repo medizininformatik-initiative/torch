@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch.management;
+package de.medizininformatikinitiative.torch.consent;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -11,8 +11,6 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ConsentCodeMapper;
-import de.medizininformatikinitiative.torch.util.ConsentProcessor;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
 import org.hl7.fhir.r4.model.Encounter;
