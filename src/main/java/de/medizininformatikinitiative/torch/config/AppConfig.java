@@ -73,7 +73,7 @@ public class AppConfig {
     @Value("${torch.mapping.consent}")
     private String consentFilePath;
 
-    @Value("${torch.mapping.type_to_consent}")
+    @Value("${torch.mapping.typeToConsent:mappings/type_to_consent.json}")
     private String consentToProfileFilePath;
 
     @Value("compartmentdefinition-patient.json")
@@ -329,18 +329,18 @@ public class AppConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
         return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper,  consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, ctx, objectMapper);
     }
 
     @Bean
-    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper) throws IOException {
+    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper, consentToProfileFilePath) throws IOException {
         JsonNode resourcetoField = mapper.readTree(new File(consentToProfileFilePath).getAbsoluteFile());
         return new ConsentValidator(ctx, resourcetoField);
     }
