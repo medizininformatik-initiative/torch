@@ -5,7 +5,6 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeAll;
@@ -47,7 +46,7 @@ class ReferenceExtractorTest {
         }
 
         @Test
-        void getReferenceViolated() throws MustHaveViolatedException {
+        void getReferenceViolated() {
             ReferenceExtractor referenceExtractor = new ReferenceExtractor(fhirContext);
             Condition condition = new Condition();
             condition.setId("Condition1");
@@ -71,18 +70,15 @@ class ReferenceExtractorTest {
             condition.setId("Condition1");
             condition.setSubject(new Reference("Patient1"));
             condition.setAsserter(new Reference("Asserter1"));
-            ResourceGroup resourceGroup = new ResourceGroup("Condition/Condition1", "Test");
-
 
             assertThat(referenceExtractor.extract(condition, GROUPS, "Test")).containsExactly(new ReferenceWrapper(ATTRIBUTE, List.of("Patient1"), "Test", "Condition/Condition1"), new ReferenceWrapper(ATTRIBUTE_2, List.of("Asserter1"), "Test", "Condition/Condition1"));
         }
 
         @Test
-        void violated() throws MustHaveViolatedException {
+        void violated() {
             ReferenceExtractor referenceExtractor = new ReferenceExtractor(fhirContext);
             Condition condition = new Condition();
             condition.setId("Condition1");
-            ResourceGroup resourceGroup = new ResourceGroup("Condition/Condition1", "Test");
             assertThatThrownBy(() -> {
                 referenceExtractor.extract(condition, GROUPS, "Test");
             }).isInstanceOf(MustHaveViolatedException.class);

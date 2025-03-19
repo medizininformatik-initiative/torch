@@ -161,9 +161,8 @@ public class ConsentHandler {
      * their consent provisions accordingly. It ensures that consents are valid in the context of the
      * patient's encounters.
      *
-     * @param patientBundles A {@link Flux} emitting maps of consent information structured by patient ID and consent codes.
-     * @param batch          A list of patient IDs to process in this batch.
-     * @return A {@link Flux} emitting updated maps of consent information.
+     * @param batch The patientBatch to be processed
+     * @return A {@link Mono} emitting the batch with added consent information
      */
     public Mono<PatientBatchWithConsent> updateConsentPeriodsByPatientEncounters(
             PatientBatchWithConsent batch) {

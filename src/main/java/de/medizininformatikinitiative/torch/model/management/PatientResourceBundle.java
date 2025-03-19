@@ -23,7 +23,6 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
     public PatientResourceBundle {
         Objects.requireNonNull(patientId);
         Objects.requireNonNull(provisions);
-
     }
 
     public PatientResourceBundle(String patientID) {

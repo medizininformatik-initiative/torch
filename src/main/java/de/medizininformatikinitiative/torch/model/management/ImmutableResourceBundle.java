@@ -4,6 +4,10 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+/*
+Reference Parent-Child relation
+ResourceGroup<->ResourceAttribute<->ResourceGroup
+ */
 public record ImmutableResourceBundle(
         Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
         Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,

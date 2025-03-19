@@ -57,8 +57,8 @@ public class BatchCopierRedacter {
     /**
      * Transforms a PatientResourceBundle using the given attribute group map.
      *
-     * @param bundle   PatientResourceBundle to transform
-     * @param groupMap Immutable AttributeGroup Map shared between all Batches
+     * @param patientResourceBundle PatientResourceBundle to transform
+     * @param groupMap              Immutable AttributeGroup Map shared between all Batches
      * @return Mono of Transformed PatientResourceBundle
      */
     public Mono<PatientResourceBundle> transform(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
@@ -112,7 +112,6 @@ public class BatchCopierRedacter {
         return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
                 .flatMap(entry -> {
                     String resourceId = entry.getKey();
-                    Set<String> groupIds = entry.getValue();
 
                     return bundle.get(resourceId)
                             .flatMap(resource -> Mono.fromCallable(() -> {
@@ -150,9 +149,8 @@ public class BatchCopierRedacter {
     /**
      * Transforms a ResourceGroupWrapper by copying attributes and applying redaction.
      *
-     * @param resource                   Resource wrapper containing the original FHIR resource
-     * @param extractionRedactionWrapper
-     * @return Transformed ResourceGroupWrapper
+     * @param extractionRedactionWrapper wrapper containing all the extraction relevant information
+     * @return Transformed Resource
      * @throws MustHaveViolatedException    If required attributes are missing
      * @throws TargetClassCreationException If target class creation fails
      */

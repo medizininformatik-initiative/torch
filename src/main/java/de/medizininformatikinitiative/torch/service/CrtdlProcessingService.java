@@ -81,7 +81,7 @@ public class CrtdlProcessingService {
      *
      * @param crtdl      CRTDL to be processed
      * @param jobID      JobID of the current job used to identify the extraction
-     * @param patientIds
+     * @param patientIds Patient cohort passed as parameter
      * @return mono finishes when complete
      */
     public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID, List<String> patientIds) {
@@ -95,7 +95,7 @@ public class CrtdlProcessingService {
         }
         ResourceBundle coreBundle = new ResourceBundle();
 
-// Step 1: Preprocess Core Bundle (but don't write it yet)
+// Step 1: Preprocess Core Bundle (but don't write it out yet)
         Mono<ImmutableResourceBundle> preprocessedCoreBundle = directResourceLoader
                 .proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
                 .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
@@ -122,14 +122,12 @@ public class CrtdlProcessingService {
                                                             batchToCoreWriter.updateCore(transformedBatch, coreBundle);
                                                             return resultFileManager.saveBatchToNDJSON(jobID, Mono.just(transformedBatch));
                                                         }
-
                                                 ),
                                 maxConcurrency
                         )
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File
                 Mono.defer(() -> {
-
                     PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
 

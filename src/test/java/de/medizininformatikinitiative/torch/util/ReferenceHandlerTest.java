@@ -94,13 +94,9 @@ public class ReferenceHandlerTest {
 
         @Test
         public void notResourceFound() {
-            DomainResource coreResource = mock(DomainResource.class);
-
             when(dataStore.fetchDomainResource("Medication/123")).thenReturn(Mono.empty());
-
-
+            
             Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
 
             StepVerifier.create(result)
                     .expectErrorMatches(throwable ->
