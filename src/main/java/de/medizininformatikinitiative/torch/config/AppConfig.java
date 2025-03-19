@@ -7,11 +7,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
@@ -336,12 +336,12 @@ public class AppConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper,  consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, String consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, ctx, objectMapper);
     }
 
     @Bean
-    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper, consentToProfileFilePath) throws IOException {
+    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper, String consentToProfileFilePath) throws IOException {
         JsonNode resourcetoField = mapper.readTree(new File(consentToProfileFilePath).getAbsoluteFile());
         return new ConsentValidator(ctx, resourcetoField);
     }
