@@ -43,8 +43,14 @@ jobs:
           languages: java
           queries: security-and-quality
 
-      - name: Download Ontology and Build
-        run: mvn -Pdownload-ontology -B verify
+      - name: Download Ontology and Build without Integration Tests
+        run: mvn -Pdownload-ontology -B package
+
+      - name: Build Docker Image for Integration Tests
+        run: docker build -f Dockerfile -t torch:test .
+
+      - name: Build with Integration Tests
+        run: mvn -B verify
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v4

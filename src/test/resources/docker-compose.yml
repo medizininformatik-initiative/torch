@@ -29,3 +29,36 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+  torch:
+    restart: unless-stopped
+    image: torch:test
+    ports:
+      - "8080"
+    environment:
+      SERVER_PORT: 8080
+      TORCH_PROFILE_DIR: /app/structureDefinitions
+      TORCH_MAPPING_CONSENT: /app/mappings/consent-mappings_fhir.json
+      TORCH_MAPPING_TYPE_TO_CONSENT: /app/mappings/type_to_consent.json
+      TORCH_FHIR_URL: http://blaze:8080/fhir
+      TORCH_RESULTS_DIR: /app/output
+      LOG_LEVEL: debug
+      NGINX_FILELOCATION: http://localhost:8085
+      TORCH_BATCHSIZE: 100
+      TORCH_MAXCONCURRENCY: 4
+      TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
+      TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
+      TORCH_USECQL: true
+    volumes:
+      - torch-data-store:/app/output
+  nginx:
+    restart: unless-stopped
+    image: nginxinc/nginx-unprivileged:1.25.5-alpine
+    ports:
+      - "8080"
+    volumes:
+      - torch-data-store:/app/output
+      - ./nginx.conf.template:/etc/nginx/nginx.conf.template
+      - ./start-nginx.sh:/start-nginx.sh  # Shared with torch service
+    entrypoint: [ "/bin/sh", "/start-nginx.sh" ]
+volumes:
+  torch-data-store:
