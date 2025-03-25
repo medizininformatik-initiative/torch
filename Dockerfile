@@ -14,6 +14,7 @@ COPY target/torch.jar /app/
 COPY structureDefinitions /app/structureDefinitions
 COPY mappings  /app/mappings
 COPY ontology /app/ontology
+COPY search-parameters.json /app/
 
 RUN mkdir -p $CERTIFICATE_PATH $TRUSTSTORE_PATH
 RUN mkdir /app/output
