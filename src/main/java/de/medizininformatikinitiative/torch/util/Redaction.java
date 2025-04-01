@@ -39,6 +39,7 @@ public class Redaction {
     public Base redact(ExtractionRedactionWrapper wrapper) {
         DomainResource resource = wrapper.resource();
         Map<String, Set<String>> references = wrapper.references();
+
         if (resource.hasMeta()) {
             Meta meta = resource.getMeta();
 
@@ -165,8 +166,11 @@ public class Redaction {
                 //List Handling
                 int finalMin = min;
                 if (finalType.equals("Reference")) {
+
                     List<Base> childReferenceField = child.getValues();
+
                     Set<String> legalReferences = childIDs.stream().map(references::get).filter(Objects::nonNull).collect(Collectors.toSet()).stream().flatMap(Set::stream).collect(Collectors.toSet());
+
                     childReferenceField.forEach(referenceValue -> {
                         String reference = ((Reference) referenceValue).getReference();
                         if (!legalReferences.contains(reference)) {

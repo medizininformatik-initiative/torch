@@ -1,8 +1,9 @@
 services:
   blaze:
-    image: samply/blaze:0.30
+    image: samply/blaze:pr-2575
     environment:
       - LOG_LEVEL=info
+      - ALLOW_MULTIPLE_DELETE=true
     ports:
       - "8080"
     healthcheck:

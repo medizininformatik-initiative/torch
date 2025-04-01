@@ -75,9 +75,9 @@ public class BatchCopierRedacter {
                     groupedResources.computeIfAbsent(group.resourceId(), k -> new HashSet<>()).add(group.groupId());
                 });
 
-        logger.debug("validResourceIds: {}", groupedResources.keySet());
-        logger.debug("validResourceGroups: {}", groupedResources);
-        logger.debug("validAttributes: {}", bundle.resourceAttributeValidity().entrySet());
+        logger.trace("validResourceIds: {}", groupedResources.keySet());
+        logger.trace("validResourceGroups: {}", groupedResources);
+        logger.trace("validAttributes: {}", bundle.resourceAttributeValidity().entrySet());
 
 
         Map<String, Map<String, Set<String>>> attributeStringGroupedWithReferenceString = new HashMap<>();
@@ -91,7 +91,7 @@ public class BatchCopierRedacter {
 
                     // Get the linked groups from attribute validity
                     Set<ResourceGroup> validResourceGroups = bundle.resourceAttributeToChildResourceGroup().getOrDefault(resourceAttribute, Set.of());
-                    logger.debug("Valid RG {} found for {} -> {}", validResourceGroups, resourceId, attributeRef);
+                    logger.trace("Valid RG {} found for {} -> {}", validResourceGroups, resourceId, attributeRef);
                     // Filter valid resource groups
                     Set<String> validReferences = validResourceGroups.stream()
                             .filter(bundle::isValidResourceGroup)
@@ -106,7 +106,7 @@ public class BatchCopierRedacter {
                     }
                 });
 
-
+        logger.debug("attributeStringGroupedWithReferenceString: {}", attributeStringGroupedWithReferenceString);
         // Step 2: Process each resource asynchronously
         return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
                 .flatMap(entry -> {

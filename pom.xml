@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>7.4.5</Hapi.version>
-        <ontology-tag>v3.0.0-alpha.1</ontology-tag>
+        <ontology-tag>v3.2.1</ontology-tag>
     </properties>
 
 
@@ -171,7 +171,7 @@
         <dependency>
             <groupId>de.medizininformatik-initiative</groupId>
             <artifactId>sq2cql</artifactId>
-            <version>v0.5.0-alpha.1</version>
+            <version>1.0.0</version>
         </dependency>
 
         <dependency>
@@ -212,7 +212,7 @@
         <profile>
             <id>download-ontology</id>
             <activation>
-                <activeByDefault>false</activeByDefault>
+                <activeByDefault>true</activeByDefault>
             </activation>
             <build>
                 <plugins>
@@ -261,7 +261,7 @@
                                     <arguments>
                                         <argument>-L</argument>
                                         <argument>
-                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/releases/download/${ontology-tag}/mapping.zip
                                         </argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
