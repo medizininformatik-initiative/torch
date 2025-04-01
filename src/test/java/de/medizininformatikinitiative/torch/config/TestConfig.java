@@ -211,6 +211,7 @@ public class TestConfig {
     @Lazy
     @Bean
     Translator createCqlTranslator(ObjectMapper jsonUtil) throws IOException {
+        logger.info("Mapping File {}", torchProperties.mappingsFile());
         var mappings = jsonUtil.readValue(new File(torchProperties.mappingsFile()), Mapping[].class);
         var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.conceptTreeFile()), MappingTreeModuleRoot[].class)).toList());
 
