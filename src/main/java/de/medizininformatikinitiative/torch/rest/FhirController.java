@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
@@ -130,39 +129,32 @@ public class FhirController {
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
-                .flatMap(decodedCrtdlcontent ->
-                        Mono.fromCallable(() -> validatorService.validate(decodedCrtdlcontent.crtdl))
-                                .flatMap(crtdl -> {
-                                    List<String> patientList = decodedCrtdlcontent.patientIds;
+                .flatMap(decoded -> {
+                    List<String> patientList = decoded.patientIds;
+                    var jobId = UUID.randomUUID().toString();
+                    logger.info("Create data extraction job id: {}", jobId);
+                    resultFileManager.setStatus(jobId, "Processing");
 
-                                    // Generate jobId based on the request body hashCode
-                                    var jobId = UUID.randomUUID().toString();
-                                    logger.info("Create data extraction job id: {}", jobId);
-                                    resultFileManager.setStatus(jobId, "Processing");
-
-                                    return resultFileManager.initJobDir(jobId)
-                                            .flatMap(jobDir ->
-                                                    crtdlProcessingService.process(crtdl, jobId, patientList)
-                                                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
-                                                            .doOnError(e -> {
-                                                                logger.error("Error processing CRTDL for jobId: {}", jobId, e);
-                                                                resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                                                            })
-                                                            .subscribeOn(Schedulers.boundedElastic()) // Run async, but remain reactive
-                                                            .thenReturn(jobId)
-                                            );
-                                })
-                )
+                    return resultFileManager.initJobDir(jobId)
+                            .flatMap(jobDir ->
+                                    Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
+                                            .subscribeOn(Schedulers.boundedElastic())
+                                            .flatMap(validated ->
+                                                    crtdlProcessingService.process(validated, jobId, patientList)
+                                            )
+                            )
+                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
+                            .doOnError(e -> {
+                                logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
+                                resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
+                            })
+                            .onErrorResume(e -> Mono.empty()) // swallow background errors
+                            .thenReturn(jobId); // continue with 202 response
+                })
                 .flatMap(jobId -> accepted()
                         .header("Content-Location", "/fhir/__status/" + jobId)
                         .build()
                 )
-                .onErrorResume(ValidationException.class, e -> {
-                    logger.warn("Invalid CRTDL: {}", e.getMessage());
-                    return badRequest()
-                            .contentType(MEDIA_TYPE_FHIR_JSON)
-                            .bodyValue(new Error(e.getMessage()));
-                })
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());
                     return badRequest()
@@ -170,7 +162,7 @@ public class FhirController {
                             .bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(Exception.class, e -> {
-                    logger.error("Unexpected error: {}", e.getMessage());
+                    logger.error("Unexpected error: {}", e.getMessage(), e);
                     return status(500)
                             .contentType(MEDIA_TYPE_FHIR_JSON)
                             .bodyValue(new Error(e.getMessage()));
