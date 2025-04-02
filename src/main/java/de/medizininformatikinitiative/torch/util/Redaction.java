@@ -43,18 +43,13 @@ public class Redaction {
             Meta meta = resource.getMeta();
 
             // Convert resource profiles to a list of strings
-            List<CanonicalType> resourceProfiles = meta.getProfile().stream()
-                    .filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile)))
-                    .toList();
+            List<CanonicalType> resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
 
 
-            Set<String> validProfiles = wrapper.profiles().stream()
-                    .filter(profile -> resourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile)))
-                    .collect(Collectors.toSet());
+            Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> resourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
 
             if (!validProfiles.equals(wrapper.profiles())) {
-                logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}",
-                        resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
+                logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
                 throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
             }
 
@@ -88,8 +83,7 @@ public class Redaction {
 
         recursion++;
         Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshots = structureDefinitions.stream().map(StructureDefinition::getSnapshot).collect(Collectors.toSet());
-        Set<ElementDefinition> definitions = elementIDs.stream().map(elementId ->
-                snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)).filter(Objects::nonNull).collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
+        Set<ElementDefinition> definitions = elementIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)).filter(Objects::nonNull).collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
         if (definitions.isEmpty()) {
             throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementIDs + "in StructureDefinition " + structureDefinitions.stream().map(StructureDefinition::getUrl));
         }
@@ -115,28 +109,20 @@ public class Redaction {
 
         int finalRecursion = recursion;
 
-        Set<String> finalElementIDs = Stream.concat(unslicedElements.stream(), slicedElements.stream())
-                .map(ElementDefinition::getId)
-                .collect(Collectors.toSet());
+        Set<String> finalElementIDs = Stream.concat(unslicedElements.stream(), slicedElements.stream()).map(ElementDefinition::getId).collect(Collectors.toSet());
         base.children().forEach(child -> {
 
 
-            Set<String> childIDs = finalElementIDs.stream()
-                    .map(elementId -> elementId + "." + child.getName()).collect(Collectors.toSet());
+            Set<String> childIDs = finalElementIDs.stream().map(elementId -> elementId + "." + child.getName()).collect(Collectors.toSet());
             Set<ElementDefinition> childDefinitions = Set.of();
             logger.trace("Children to be handled {}", childIDs);
             String type = "";
             int min = 0;
             try {
-                childDefinitions = childIDs.stream()
-                        .map(elementId ->
-                                snapshots.stream()
-                                        .map(snapshot -> snapshot.getElementById(elementId)) // May return null
-                                        .filter(Objects::nonNull) // Keep only non-null elements
-                                        .collect(Collectors.toSet()) // Collect valid elements
-                        )
-                        .flatMap(Set::stream)
-                        .collect(Collectors.toSet());
+                childDefinitions = childIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)) // May return null
+                        .filter(Objects::nonNull) // Keep only non-null elements
+                        .collect(Collectors.toSet()) // Collect valid elements
+                ).flatMap(Set::stream).collect(Collectors.toSet());
 
                 // Ensure childDefinitions is not empty before extracting elements
                 if (childDefinitions.isEmpty()) {
@@ -145,11 +131,9 @@ public class Redaction {
 
                 // Get type if available, otherwise fallback
                 try {
-                    type = childDefinitions.stream()
-                            .flatMap(def -> def.getType().stream()) // Get all TypeRefComponents
+                    type = childDefinitions.stream().flatMap(def -> def.getType().stream()) // Get all TypeRefComponents
                             .map(ElementDefinition.TypeRefComponent::getWorkingCode) // Extract type codes
-                            .findFirst()
-                            .orElseThrow(() -> new NoSuchElementException("No valid type found in any definition"));
+                            .findFirst().orElseThrow(() -> new NoSuchElementException("No valid type found in any definition"));
                 } catch (NoSuchElementException e) {
 
 
@@ -159,8 +143,7 @@ public class Redaction {
 
                 // Get minimum cardinality if available, otherwise fallback
                 try {
-                    min = childDefinitions.stream()
-                            .map(ElementDefinition::getMin) // Extract min values
+                    min = childDefinitions.stream().map(ElementDefinition::getMin) // Extract min values
                             .max(Integer::compareTo) // Get the largest one
                             .orElseThrow(() -> new NoSuchElementException("No minimum cardinality found in any definition"));
                 } catch (NoSuchElementException e) {
@@ -183,8 +166,7 @@ public class Redaction {
                 int finalMin = min;
                 if (finalType.equals("Reference")) {
                     List<Base> childReferenceField = child.getValues();
-                    Set<String> legalReferences = childIDs.stream().map(references::get).filter(Objects::nonNull)
-                            .collect(Collectors.toSet()).stream().flatMap(Set::stream).collect(Collectors.toSet());
+                    Set<String> legalReferences = childIDs.stream().map(references::get).filter(Objects::nonNull).collect(Collectors.toSet()).stream().flatMap(Set::stream).collect(Collectors.toSet());
                     childReferenceField.forEach(referenceValue -> {
                         String reference = ((Reference) referenceValue).getReference();
                         if (!legalReferences.contains(reference)) {
@@ -210,16 +192,8 @@ public class Redaction {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
 
                     if (Objects.equals(type, "BackboneElement")) {
-                        if (base instanceof DomainResource) {
-
-                            String fieldName = child.getName();
-
-                            ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
-                        } else {
-                            logger.warn("BackboneElement not in a DomainResource {} ", base.fhirType());
-                        }
-
-                        logger.warn("Found empty BackboneElement {} {}", finalElementIDs, child.getName());
+                        String fieldName = child.getName();
+                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
                     }
                     /*
                     TODO find a good way to only work with reflection here?
