@@ -62,7 +62,7 @@ public class Redaction {
             Set<StructureDefinition> structureDefinitions = CDS.getDefinitions(wrapper.profiles());
             if (structureDefinitions.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                throw new RuntimeException("Trying to redact Base Element that is not a KDS resource");
+                throw new RuntimeException("Trying to redact Base Element that is not a resource");
             }
 
             meta.setProfile(resourceProfiles);
@@ -84,7 +84,7 @@ public class Redaction {
      * @param references
      * @return redacted Base
      */
-    public Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
+    public <T> Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
 
         recursion++;
         Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshots = structureDefinitions.stream().map(StructureDefinition::getSnapshot).collect(Collectors.toSet());
@@ -208,8 +208,19 @@ public class Redaction {
 
             } else {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
-                    if (Objects.equals(type, "BackBoneElement")) {
-                        logger.warn("Found empty BackBoneElement {} {}", finalElementIDs, child.getName());
+
+                    if (Objects.equals(type, "BackboneElement")) {
+                        System.out.println("Backbone of " + base.fhirType());
+                        if (base instanceof DomainResource) {
+                            DomainResource resourceBase = ResourceUtils.castBaseToItsFhirType(base);
+                            String fieldName = child.getName();
+
+                            ResourceUtils.setField(base, fieldName);
+                        } else {
+                            logger.warn("BackboneElement not in a DomainResource {} ", base.fhirType());
+                        }
+
+                        logger.warn("Found empty BackboneElement {} {}", finalElementIDs, child.getName());
                     }
                     try {
                         Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
@@ -225,6 +236,4 @@ public class Redaction {
         });
         return base;
     }
-
-
 }
