@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.lang.reflect.InvocationTargetException;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -155,7 +154,7 @@ public class BatchCopierRedacter {
      * @throws TargetClassCreationException If target class creation fails
      */
     public Resource transform(ExtractionRedactionWrapper extractionRedactionWrapper) throws MustHaveViolatedException, TargetClassCreationException {
-        DomainResource tgt = createTargetResource(extractionRedactionWrapper.resource().getClass());
+        DomainResource tgt = ResourceUtils.createTargetResource(extractionRedactionWrapper.resource().getClass());
 
         // Step 4: Copy only the highest-level attributes
         for (AnnotatedAttribute attribute : extractionRedactionWrapper.attributes()) {
@@ -227,22 +226,6 @@ public class BatchCopierRedacter {
             }
         }
         return false;
-    }
-
-    /**
-     * Creates a new instance of a FHIR DomainResource subclass.
-     *
-     * @param resourceClass Class of the FHIR resource
-     * @return New instance of the specified FHIR resource class
-     * @throws TargetClassCreationException If instantiation fails
-     */
-    private static <T extends DomainResource> T createTargetResource(Class<T> resourceClass) throws TargetClassCreationException {
-        try {
-            return resourceClass.getDeclaredConstructor().newInstance();
-        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
-                 NoSuchMethodException e) {
-            throw new TargetClassCreationException(resourceClass);
-        }
     }
 
 }

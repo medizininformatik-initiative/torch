@@ -62,12 +62,15 @@ public class StructureDefinitionHandler {
      * Iterates over the list of URLs, returning the first valid StructureDefinition.
      *
      * @param urls A list of URLs for which to find the corresponding StructureDefinition.
-     * @return The first non-null StructureDefinition found, or null if none are found.
+     * @return The first non-null StructureDefinition found, or empty if none are found.
      */
     public Set<StructureDefinition> getDefinitions(Set<String> urls) {
         Set<StructureDefinition> definitions = new HashSet<>();
         urls.forEach(url -> {
-            definitions.add(getDefinition(url));
+            StructureDefinition def = definitionsMap.get(url);
+            if (def != null) {
+                definitions.add(def);
+            }
         });
         return definitions;
     }
