@@ -186,11 +186,11 @@ public class ResourceUtils {
         try {
             String capitalized = fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
             String setterName = "set" + capitalized;
-            System.out.println("Looking for setter: " + setterName + " on class: " + base.getClass().getSimpleName());
+
 
             Method setter = ResourceUtils.getMethodWithOneParam(base, setterName);
 
-            System.out.println("Found setter: " + setter.getName());
+
             Type[] genericParameterTypes = setter.getGenericParameterTypes();
 
             Object valueToSet;
@@ -199,12 +199,11 @@ public class ResourceUtils {
                 // Handle List<T>
                 ParameterizedType paramType = (ParameterizedType) genericParameterTypes[0];
                 Type actualType = paramType.getActualTypeArguments()[0];
-                System.out.println("Setter takes a generic List parameter: " + actualType.getTypeName());
 
                 Class<?> genericClass = Class.forName(actualType.getTypeName());
                 Object instance = genericClass.getDeclaredConstructor().newInstance();
                 Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
-                System.out.println("Instantiated element of list: " + instance.getClass().getSimpleName());
+
 
                 List<Object> list = new ArrayList<>();
                 addExtension.invoke(instance, extension);
@@ -214,20 +213,18 @@ public class ResourceUtils {
             } else {
                 // Handle single object
                 Class<?> paramClass = setter.getParameterTypes()[0];
-                System.out.println("Setter takes a single parameter of type: " + paramClass.getSimpleName());
+
 
                 Object instance = paramClass.getDeclaredConstructor().newInstance();
                 Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
 
-                System.out.println("Instantiated parameter object: " + instance.getClass().getSimpleName());
+
                 addExtension.invoke(instance, extension);
                 valueToSet = instance;
             }
 
             // Call the setter
-            System.out.println("Invoking setter with value: " + valueToSet);
             setter.invoke(base, valueToSet);
-            System.out.println("Setter invoked successfully!");
 
 
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
