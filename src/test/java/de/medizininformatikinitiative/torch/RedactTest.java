@@ -137,8 +137,7 @@ public class RedactTest {
         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(medication, Set.of(MEDICATION), Map.of(), Set.of());
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
-        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
-        System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedMedication));
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedMedication));
     }
 
 

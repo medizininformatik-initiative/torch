@@ -210,7 +210,6 @@ public class Redaction {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
 
                     if (Objects.equals(type, "BackboneElement")) {
-                        System.out.println("Backbone of " + base.fhirType());
                         if (base instanceof DomainResource) {
 
                             String fieldName = child.getName();
@@ -222,6 +221,11 @@ public class Redaction {
 
                         logger.warn("Found empty BackboneElement {} {}", finalElementIDs, child.getName());
                     }
+                    /*
+                    TODO find a good way to only work with reflection here?
+                    Potential issue is primitive types don't have addExtension, somehow generic setField results in dem being set.
+                    E.g. RecordedDate in Condition
+                     */
                     try {
                         Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
                         base.setProperty(child.getName(), element);
