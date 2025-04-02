@@ -166,69 +166,77 @@ public class ResourceUtils {
         }
     }
 
-    public static Method getSetterMethod(Object obj, String setterName) {
+    /**
+     * Reflects the method with one param for a given object used for setter and add extension methods
+     *
+     * @param obj        object to be reflected
+     * @param methodName method to be found
+     * @return Method
+     */
+    public static Method getMethodWithOneParam(Object obj, String methodName) throws NoSuchMethodException {
         for (Method method : obj.getClass().getMethods()) {
-            if (method.getName().equals(setterName) && method.getParameterCount() == 1) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == 1) {
                 return method;
             }
         }
-        return null; // or throw exception
+        throw new NoSuchMethodException("No such method with one parameter: " + methodName);
     }
 
-    public static Base setField(Base base, String fieldName, Extension extension) {
+    public static void setField(Base base, String fieldName, Extension extension) {
         try {
             String capitalized = fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
             String setterName = "set" + capitalized;
             System.out.println("Looking for setter: " + setterName + " on class: " + base.getClass().getSimpleName());
 
-            Method setter = ResourceUtils.getSetterMethod(base, setterName);
+            Method setter = ResourceUtils.getMethodWithOneParam(base, setterName);
 
-            if (setter != null) {
-                System.out.println("Found setter: " + setter.getName());
-                Type[] genericParameterTypes = setter.getGenericParameterTypes();
+            System.out.println("Found setter: " + setter.getName());
+            Type[] genericParameterTypes = setter.getGenericParameterTypes();
 
-                Object valueToSet;
+            Object valueToSet;
 
-                if (genericParameterTypes.length == 1 && genericParameterTypes[0] instanceof ParameterizedType) {
-                    // Handle List<T>
-                    ParameterizedType paramType = (ParameterizedType) genericParameterTypes[0];
-                    Type actualType = paramType.getActualTypeArguments()[0];
-                    System.out.println("Setter takes a generic List parameter: " + actualType.getTypeName());
+            if (genericParameterTypes.length == 1 && genericParameterTypes[0] instanceof ParameterizedType) {
+                // Handle List<T>
+                ParameterizedType paramType = (ParameterizedType) genericParameterTypes[0];
+                Type actualType = paramType.getActualTypeArguments()[0];
+                System.out.println("Setter takes a generic List parameter: " + actualType.getTypeName());
 
-                    Class<?> genericClass = Class.forName(actualType.getTypeName());
-                    Object instance = genericClass.getDeclaredConstructor().newInstance();
-                    System.out.println("Instantiated element of list: " + instance.getClass().getSimpleName());
+                Class<?> genericClass = Class.forName(actualType.getTypeName());
+                Object instance = genericClass.getDeclaredConstructor().newInstance();
+                Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
+                System.out.println("Instantiated element of list: " + instance.getClass().getSimpleName());
 
-                    List<Object> list = new ArrayList<>();
-                    list.add(instance);
-                    valueToSet = list;
-
-                } else {
-                    // Handle single object
-                    Class<?> paramClass = setter.getParameterTypes()[0];
-                    System.out.println("Setter takes a single parameter of type: " + paramClass.getSimpleName());
-
-                    Object instance = paramClass.getDeclaredConstructor().newInstance();
-                    System.out.println("Instantiated parameter object: " + instance.getClass().getSimpleName());
-
-                    valueToSet = instance;
-                }
-
-                // Call the setter
-                System.out.println("Invoking setter with value: " + valueToSet);
-                setter.invoke(base, valueToSet);
-                System.out.println("Setter invoked successfully!");
+                List<Object> list = new ArrayList<>();
+                addExtension.invoke(instance, extension);
+                list.add(instance);
+                valueToSet = list;
 
             } else {
-                System.out.println("No setter found for field: " + fieldName);
+                // Handle single object
+                Class<?> paramClass = setter.getParameterTypes()[0];
+                System.out.println("Setter takes a single parameter of type: " + paramClass.getSimpleName());
+
+                Object instance = paramClass.getDeclaredConstructor().newInstance();
+                Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
+
+                System.out.println("Instantiated parameter object: " + instance.getClass().getSimpleName());
+                addExtension.invoke(instance, extension);
+                valueToSet = instance;
             }
 
-        } catch (Exception e) {
-            System.out.println("Error while setting field: " + fieldName);
-            e.printStackTrace();
-        }
+            // Call the setter
+            System.out.println("Invoking setter with value: " + valueToSet);
+            setter.invoke(base, valueToSet);
+            System.out.println("Setter invoked successfully!");
 
-        return base;
+
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                 InstantiationException e) {
+            logger.error("Could not set field: {} in class {} due to: {}", fieldName, base.getClass().getSimpleName(), e.getMessage());
+        } catch (ClassNotFoundException e) {
+            logger.error("Class not Found for {} {}", fieldName, base.getClass().getSimpleName());
+            throw new RuntimeException(e);
+        }
     }
 
 
