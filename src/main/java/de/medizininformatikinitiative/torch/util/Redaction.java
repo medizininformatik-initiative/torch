@@ -212,10 +212,10 @@ public class Redaction {
                     if (Objects.equals(type, "BackboneElement")) {
                         System.out.println("Backbone of " + base.fhirType());
                         if (base instanceof DomainResource) {
-                            DomainResource resourceBase = ResourceUtils.castBaseToItsFhirType(base);
+
                             String fieldName = child.getName();
 
-                            ResourceUtils.setField(base, fieldName);
+                            ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
                         } else {
                             logger.warn("BackboneElement not in a DomainResource {} ", base.fhirType());
                         }

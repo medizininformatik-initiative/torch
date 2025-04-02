@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class RedactTest {
@@ -125,10 +126,19 @@ public class RedactTest {
         medication.setId("medication-id");
         medication.setMeta(meta);
 
+        Medication expectedMedication = new Medication();
+        expectedMedication.setId("medication-id");
+        expectedMedication.setMeta(meta);
+        Medication.MedicationIngredientComponent ingredient = new Medication.MedicationIngredientComponent();
+        ingredient.addExtension(createAbsentReasonExtension("masked"));
+        expectedMedication.setIngredient(List.of(ingredient));
+
+
         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(medication, Set.of(MEDICATION), Map.of(), Set.of());
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
-        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(medication));
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
+        System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedMedication));
     }
 
 
