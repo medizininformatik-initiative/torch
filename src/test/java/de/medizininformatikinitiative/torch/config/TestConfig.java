@@ -117,33 +117,10 @@ public class TestConfig {
         return new BatchCopierRedacter(copier, redaction);
     }
 
-
     @Bean
-    BatchProcessingPipeline batchProcessingPipeline(DirectResourceLoader directLoader,
-                                                    BatchReferenceProcessor batchReferenceProcessor,
-                                                    BatchCopierRedacter batchCopierRedacter,
-                                                    @Value("5") int maxConcurrency) {
-        return new BatchProcessingPipeline(directLoader, batchReferenceProcessor, batchCopierRedacter, maxConcurrency);
-    }
+    public CrtdlProcessingService crtdlProcessingService(@Qualifier("flareClient") WebClient webClient, Translator cqlQueryTranslator, CqlClient cqlClient, ResultFileManager resultFileManager, ProcessedGroupFactory processedGroupFactory, @Value("2") int batchSize, @Value("${torch.useCql}") boolean useCql, DirectResourceLoader directResourceLoader, ReferenceResolver referenceResolver, BatchCopierRedacter batchCopierRedacter, @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer) {
 
-    @Bean
-    public CrtdlProcessingService crtdlProcessingService(
-            @Qualifier("flareClient") WebClient webClient,
-            Translator cqlQueryTranslator,
-            CqlClient cqlClient,
-            ResultFileManager resultFileManager,
-            ProcessedGroupFactory processedGroupFactory,
-            @Value("2") int batchSize,
-            @Value("${torch.useCql}") boolean useCql,
-            BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
-            ReferenceResolver referenceResolver,
-            BatchCopierRedacter batchCopierRedacter,
-            @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer
-    ) {
-
-        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                processedGroupFactory, batchSize, useCql, directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, processedGroupFactory, batchSize, useCql, directResourceLoader, referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
     }
 
     @Bean
@@ -159,16 +136,9 @@ public class TestConfig {
         String blazeBaseUrl = containerManager.getBlazeBaseUrl();
         logger.info("Initializing FHIR WebClient with URL: {}", blazeBaseUrl);
 
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
-                .build();
+        ConnectionProvider provider = ConnectionProvider.builder("data-store").maxConnections(4).pendingAcquireMaxCount(500).build();
         HttpClient httpClient = HttpClient.create(provider);
-        return WebClient.builder()
-                .baseUrl(blazeBaseUrl)
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .defaultHeader("Accept", "application/fhir+json")
-                .build();
+        return WebClient.builder().baseUrl(blazeBaseUrl).clientConnector(new ReactorClientHttpConnector(httpClient)).defaultHeader("Accept", "application/fhir+json").build();
     }
 
 
@@ -179,15 +149,9 @@ public class TestConfig {
         String flareBaseUrl = containerManager.getFlareBaseUrl();
         logger.info("Initializing Flare WebClient with URL: {}", flareBaseUrl);
 
-        ConnectionProvider provider = ConnectionProvider.builder("flare-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
-                .build();
+        ConnectionProvider provider = ConnectionProvider.builder("flare-store").maxConnections(4).pendingAcquireMaxCount(500).build();
         HttpClient httpClient = HttpClient.create(provider);
-        return WebClient.builder()
-                .baseUrl(flareBaseUrl)
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .build();
+        return WebClient.builder().baseUrl(flareBaseUrl).clientConnector(new ReactorClientHttpConnector(httpClient)).build();
     }
 
 
@@ -228,8 +192,7 @@ public class TestConfig {
     }
 
     @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
-                               @Value("${torch.fhir.pageCount}") int pageCount) {
+    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock, @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, pageCount);
     }
 
@@ -244,32 +207,7 @@ public class TestConfig {
         var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
         var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
 
-        return Translator.of(MappingContext.of(
-                Stream.of(mappings)
-                        .collect(Collectors.toMap(Mapping::key, Function.identity(), (a, b) -> a)),
-                mappingTreeBase,
-                Map.ofEntries(entry("http://fhir.de/CodeSystem/bfarm/icd-10-gm", "icd10"),
-                        entry("mii.abide", "abide"),
-                        entry("http://fhir.de/CodeSystem/bfarm/ops", "ops"),
-                        entry("http://dicom.nema.org/resources/ontology/DCM", "dcm"),
-                        entry("https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus", "vitalstatus"),
-                        entry("http://loinc.org", "loinc"),
-                        entry("https://fhir.bbmri.de/CodeSystem/SampleMaterialType", "sample"),
-                        entry("http://fhir.de/CodeSystem/bfarm/atc", "atc"),
-                        entry("http://snomed.info/sct", "snomed"),
-                        entry("http://terminology.hl7.org/CodeSystem/condition-ver-status", "cvs"),
-                        entry("http://hl7.org/fhir/administrative-gender", "gender"),
-                        entry("urn:oid:1.2.276.0.76.5.409", "urn409"),
-                        entry(
-                                "https://www.netzwerk-universitaetsmedizin.de/fhir/CodeSystem/ecrf-parameter-codes",
-                                "numecrf"),
-                        entry("urn:iso:std:iso:3166", "iso3166"),
-                        entry("https://www.netzwerk-universitaetsmedizin.de/fhir/CodeSystem/frailty-score",
-                                "frailtyscore"),
-                        entry("http://terminology.hl7.org/CodeSystem/consentcategorycodes", "consentcategory"),
-                        entry("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "consent"),
-                        entry("http://hl7.org/fhir/sid/icd-o-3", "icdo3"),
-                        entry("http://hl7.org/fhir/consent-provision-type", "provisiontype"))));
+        return Translator.of(MappingContext.of(Stream.of(mappings).collect(Collectors.toMap(Mapping::key, Function.identity(), (a, b) -> a)), mappingTreeBase, Map.ofEntries(entry("http://fhir.de/CodeSystem/bfarm/icd-10-gm", "icd10"), entry("mii.abide", "abide"), entry("http://fhir.de/CodeSystem/bfarm/ops", "ops"), entry("http://dicom.nema.org/resources/ontology/DCM", "dcm"), entry("https://www.medizininformatik-initiative.de/fhir/core/modul-person/CodeSystem/Vitalstatus", "vitalstatus"), entry("http://loinc.org", "loinc"), entry("https://fhir.bbmri.de/CodeSystem/SampleMaterialType", "sample"), entry("http://fhir.de/CodeSystem/bfarm/atc", "atc"), entry("http://snomed.info/sct", "snomed"), entry("http://terminology.hl7.org/CodeSystem/condition-ver-status", "cvs"), entry("http://hl7.org/fhir/administrative-gender", "gender"), entry("urn:oid:1.2.276.0.76.5.409", "urn409"), entry("https://www.netzwerk-universitaetsmedizin.de/fhir/CodeSystem/ecrf-parameter-codes", "numecrf"), entry("urn:iso:std:iso:3166", "iso3166"), entry("https://www.netzwerk-universitaetsmedizin.de/fhir/CodeSystem/frailty-score", "frailtyscore"), entry("http://terminology.hl7.org/CodeSystem/consentcategorycodes", "consentcategory"), entry("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "consent"), entry("http://hl7.org/fhir/sid/icd-o-3", "icdo3"), entry("http://hl7.org/fhir/consent-provision-type", "provisiontype"))));
     }
 
 
@@ -279,9 +217,7 @@ public class TestConfig {
     }
 
     @Bean
-    CqlClient createCqlQueryClient(
-            FhirHelper fhirHelper,
-            DataStore dataStore) {
+    CqlClient createCqlQueryClient(FhirHelper fhirHelper, DataStore dataStore) {
 
         return new CqlClient(fhirHelper, dataStore);
     }

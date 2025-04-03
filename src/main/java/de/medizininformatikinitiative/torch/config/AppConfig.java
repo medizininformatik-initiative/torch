@@ -187,13 +187,6 @@ public class AppConfig {
         return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager);
     }
 
-    @Bean
-    BatchProcessingPipeline batchProcessingPipeline(DirectResourceLoader directLoader,
-                                                    BatchReferenceProcessor batchReferenceProcessor,
-                                                    BatchCopierRedacter batchCopierRedacter,
-                                                    @Value("5") int maxConcurrency) {
-        return new BatchProcessingPipeline(directLoader, batchReferenceProcessor, batchCopierRedacter, maxConcurrency);
-    }
 
     @Bean
     public CrtdlProcessingService crtdlProcessingService(
@@ -202,12 +195,12 @@ public class AppConfig {
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ProcessedGroupFactory processedGroupFactory,
-            @Value("2") int batchSize,
+            @Value("${torch.batchSize:2}") int batchSize,
             @Value("${torch.useCql}") boolean useCql,
-            BatchProcessingPipeline batchProcessingPipeline, DirectResourceLoader directResourceLoader,
+            DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
-            @Value("5") int maxConcurrency,
+            @Value("${torch.maxConcurrency:5}") int maxConcurrency,
             CascadingDelete cascadingDelete,
             PatientBatchToCoreBundleWriter writer
     ) {
