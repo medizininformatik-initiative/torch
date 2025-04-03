@@ -5,11 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Resource;
+import org.springframework.core.io.ClassPathResource;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.HashSet;
-import java.util.Objects;
 import java.util.Set;
 
 public class CompartmentManager {
@@ -17,8 +16,10 @@ public class CompartmentManager {
     private final Set<String> compartment;
 
     public CompartmentManager(String fileName) throws IOException {
-        File file = new File(Objects.requireNonNull(getClass().getClassLoader().getResource(fileName)).getFile());
-        JsonNode rootNode = new ObjectMapper().readTree(file);
+        ClassPathResource resource = new ClassPathResource(fileName);
+        JsonNode rootNode = new ObjectMapper().readTree(resource.getInputStream());
+
+
         Set<String> codes = new HashSet<>();
         if (rootNode.has("resource")) {
             rootNode.get("resource").forEach(resourceNode -> {

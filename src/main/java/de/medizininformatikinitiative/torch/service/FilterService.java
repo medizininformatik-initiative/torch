@@ -6,19 +6,10 @@ import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import jakarta.annotation.PostConstruct;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.Enumerations;
-import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.SearchParameter;
+import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.core.io.DefaultResourceLoader;
-import org.springframework.core.io.ResourceLoader;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -60,13 +51,13 @@ public class FilterService {
         IParser parser = fhirContext.newJsonParser();
         Bundle searchParams = parser.parseResource(Bundle.class, readSearchParams());
 
-        this.searchParameters = searchParams.getEntry().stream().map(e -> (SearchParameter)e.getResource())
+        this.searchParameters = searchParams.getEntry().stream().map(e -> (SearchParameter) e.getResource())
                 .filter(FilterService::isValidSearchParam)
                 .flatMap(searchParam -> searchParam.getBase().stream().map(base ->
-                            Map.entry(
-                                    List.of(searchParam.getCode(), searchParam.getType().toCode(), base.getCode()),
-                                    buildExpression(searchParam.getExpression(), base.getCode())
-                            )
+                                Map.entry(
+                                        List.of(searchParam.getCode(), searchParam.getType().toCode(), base.getCode()),
+                                        buildExpression(searchParam.getExpression(), base.getCode())
+                                )
                         )
                 ).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
@@ -76,7 +67,7 @@ public class FilterService {
      * The predicate can be evaluated on as many resources as needed.
      *
      * @param attributeGroupFilters the filters to be preprocessed
-     * @param resourceType the resource type of the resource that the filters should later be applied on
+     * @param resourceType          the resource type of the resource that the filters should later be applied on
      * @return the compiled filters containing parsed FHIRPath expressions that are ready to be evaluated
      */
     public Predicate<Resource> compileFilter(List<Filter> attributeGroupFilters, String resourceType) {
@@ -105,9 +96,9 @@ public class FilterService {
     }
 
     private String readSearchParams() {
-        ResourceLoader resourceLoader = new DefaultResourceLoader();
         try {
-            return resourceLoader.getResource("classpath:"+searchParametersFile).getContentAsString(StandardCharsets.UTF_8);
+            ClassPathResource resource = new ClassPathResource(searchParametersFile);
+            return new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -120,12 +111,12 @@ public class FilterService {
     }
 
     private static boolean isValidSearchParam(SearchParameter searchParam) {
-        return  searchParam.hasCode() &&
+        return searchParam.hasCode() &&
                 searchParam.hasType() &&
                 searchParam.hasBase() &&
                 searchParam.hasExpression() &&
-                (   searchParam.getType().equals(Enumerations.SearchParamType.TOKEN) ||
-                    searchParam.getType().equals(Enumerations.SearchParamType.DATE));
+                (searchParam.getType().equals(Enumerations.SearchParamType.TOKEN) ||
+                        searchParam.getType().equals(Enumerations.SearchParamType.DATE));
     }
 
     private record CompiledFilter(List<ParsedFilter> filters,
@@ -151,13 +142,13 @@ public class FilterService {
         }
 
         private boolean evaluateToken(Base found, Filter filter) {
-            return filter.codes().stream().anyMatch( filterCode -> resourceContainsFilterCode(found, filterCode));
+            return filter.codes().stream().anyMatch(filterCode -> resourceContainsFilterCode(found, filterCode));
         }
 
         private boolean resourceContainsFilterCode(Base found, Code filterCode) {
             if (found instanceof CodeableConcept codeableConcept) {
                 return codeableConcept.getCoding().stream()
-                        .anyMatch(resourceCode->(codingMatchesFilterCode(resourceCode, filterCode)));
+                        .anyMatch(resourceCode -> (codingMatchesFilterCode(resourceCode, filterCode)));
             }
 
             if (found instanceof Coding coding) {
@@ -173,12 +164,12 @@ public class FilterService {
         }
 
         private boolean greaterEquals(LocalDate resourceStartDate, LocalDate resourceEndDate, LocalDate filterDate) {
-            return  resourceStartDate.isAfter(filterDate) || resourceStartDate.isEqual(filterDate) ||
+            return resourceStartDate.isAfter(filterDate) || resourceStartDate.isEqual(filterDate) ||
                     resourceEndDate.isAfter(filterDate) || resourceEndDate.isEqual(filterDate);
         }
 
         private boolean lessEquals(LocalDate resourceStartDate, LocalDate resourceEndDate, LocalDate filterDate) {
-            return  resourceStartDate.isBefore(filterDate) || resourceStartDate.isEqual(filterDate) ||
+            return resourceStartDate.isBefore(filterDate) || resourceStartDate.isEqual(filterDate) ||
                     resourceEndDate.isBefore(filterDate) || resourceEndDate.isEqual(filterDate);
         }
 
@@ -192,14 +183,14 @@ public class FilterService {
             }
 
             if (filter.start() != null && filter.end() == null) {
-                return  greaterEquals(resourceStartDate, resourceEndDate, filter.start());
+                return greaterEquals(resourceStartDate, resourceEndDate, filter.start());
             }
 
             if (filter.start() == null && filter.end() != null) {
                 return lessEquals(resourceStartDate, resourceEndDate, filter.end());
             }
 
-            return  greaterEquals(resourceStartDate, resourceEndDate, filter.start()) &&
+            return greaterEquals(resourceStartDate, resourceEndDate, filter.start()) &&
                     lessEquals(resourceStartDate, resourceEndDate, filter.end());
         }
 
@@ -217,5 +208,6 @@ public class FilterService {
         }
     }
 
-    private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {}
+    private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
+    }
 }

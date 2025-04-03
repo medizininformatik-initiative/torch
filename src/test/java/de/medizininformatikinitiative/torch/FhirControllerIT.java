@@ -50,6 +50,7 @@ import java.util.Objects;
 import java.util.Scanner;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -157,6 +158,16 @@ public class FhirControllerIT {
             List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json");
             testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
         }
+
+        @Test
+        public void testValidationAsync() throws PatientIdNotFoundException, IOException {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameter_AsyncTest.json");
+            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+        }
+
+
     }
 
 
@@ -228,7 +239,7 @@ public class FhirControllerIT {
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assert result != null;
 
-        Assertions.assertTrue(result.bundles().isEmpty());
+        assertTrue(result.bundles().isEmpty());
         fis.close();
     }
 
@@ -257,8 +268,18 @@ public class FhirControllerIT {
 
                 HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
                 try {
+                    // Start timing
+                    long startTime = System.nanoTime();
+
                     ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+
+                    // End timing
+                    long durationMs = (System.nanoTime() - startTime) / 1_000_000;
+
+                    // Assert 202 and timing
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
+                    assertTrue(durationMs < 1000, "Initial response took too long: " + durationMs + "ms");
+
 
                     // Polling the status endpoint
                     pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
