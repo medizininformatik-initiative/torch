@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.*;
@@ -8,6 +9,8 @@ import org.slf4j.LoggerFactory;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.ParameterizedType;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -122,6 +125,115 @@ public class ResourceUtils {
     public static String getRelativeURL(ResourceGroupWrapper resourceWrapper) {
         return getRelativeURL(resourceWrapper.resource());
 
+    }
+
+
+    /**
+     * Creates a new instance of a FHIR DomainResource subclass.
+     *
+     * @param resourceClass Class of the FHIR resource
+     * @return New instance of the specified FHIR resource class
+     * @throws TargetClassCreationException If instantiation fails
+     */
+    public static <T extends DomainResource> T createTargetResource(Class<T> resourceClass) throws TargetClassCreationException {
+        try {
+            return resourceClass.getDeclaredConstructor().newInstance();
+        } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
+                 NoSuchMethodException e) {
+            throw new TargetClassCreationException(resourceClass);
+        }
+    }
+
+    /**
+     * @param base base to be casted to its fhirtype
+     * @param <T>  fhirType e.g. Medication
+     * @return cast of base
+     */
+    @SuppressWarnings("unchecked")
+    public static <T> T castBaseToItsFhirType(Base base) {
+        String typeName = base.fhirType(); // e.g., "Patient", "Observation"
+        String basePackage = DomainResource.class.getPackage().getName(); // dynamically resolves package
+
+        try {
+            Class<?> clazz = Class.forName(basePackage + "." + typeName);
+            if (clazz.isInstance(base)) {
+                return (T) clazz.cast(base);
+            } else {
+                throw new IllegalArgumentException("Base is not instance of " + typeName);
+            }
+        } catch (ClassNotFoundException e) {
+            throw new RuntimeException("Unknown FHIR type: " + typeName, e);
+        }
+    }
+
+    /**
+     * Reflects the method with one param for a given object used for setter and add extension methods
+     *
+     * @param obj        object to be reflected
+     * @param methodName method to be found
+     * @return Method
+     */
+    public static Method getMethodWithOneParam(Object obj, String methodName) throws NoSuchMethodException {
+        for (Method method : obj.getClass().getMethods()) {
+            if (method.getName().equals(methodName) && method.getParameterCount() == 1) {
+                return method;
+            }
+        }
+        throw new NoSuchMethodException("No such method with one parameter: " + methodName);
+    }
+
+    public static void setField(Base base, String fieldName, Extension extension) {
+        try {
+            String capitalized = fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+            String setterName = "set" + capitalized;
+
+
+            Method setter = ResourceUtils.getMethodWithOneParam(base, setterName);
+
+
+            Type[] genericParameterTypes = setter.getGenericParameterTypes();
+
+            Object valueToSet;
+
+            if (genericParameterTypes.length == 1 && genericParameterTypes[0] instanceof ParameterizedType) {
+                // Handle List<T>
+                ParameterizedType paramType = (ParameterizedType) genericParameterTypes[0];
+                Type actualType = paramType.getActualTypeArguments()[0];
+
+                Class<?> genericClass = Class.forName(actualType.getTypeName());
+                Object instance = genericClass.getDeclaredConstructor().newInstance();
+                Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
+
+
+                List<Object> list = new ArrayList<>();
+                addExtension.invoke(instance, extension);
+                list.add(instance);
+                valueToSet = list;
+
+            } else {
+                // Handle single object
+                Class<?> paramClass = setter.getParameterTypes()[0];
+
+
+                Object instance = paramClass.getDeclaredConstructor().newInstance();
+                Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
+
+
+                addExtension.invoke(instance, extension);
+                valueToSet = instance;
+            }
+
+            // Call the setter
+            setter.invoke(base, valueToSet);
+
+
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
+                 InstantiationException e) {
+            logger.error("Could not set field: {} in class {} due to: {}", fieldName, base.getClass().getSimpleName(), e.getMessage());
+        } catch (ClassNotFoundException e) {
+            logger.error("Class not Found for {} {}", fieldName, base.getClass().getSimpleName());
+            throw new RuntimeException(e);
+        }
     }
 
 
