@@ -8,48 +8,49 @@ import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 
 public class CompartmentManager {
 
-    private final Set<String> compartment;
+    private final Map<String, List<String>> compartmentMap;
 
     public CompartmentManager(String fileName) throws IOException {
         ClassPathResource resource = new ClassPathResource(fileName);
         JsonNode rootNode = new ObjectMapper().readTree(resource.getInputStream());
 
 
-        Set<String> codes = new HashSet<>();
+        Map<String, List<String>> map = new HashMap<>();
         if (rootNode.has("resource")) {
             rootNode.get("resource").forEach(resourceNode -> {
-                if (resourceNode.has("code")) {
-                    if (resourceNode.has("param")) {
-                        if (!resourceNode.get("param").isEmpty()) {
-                            codes.add(resourceNode.get("code").asText());
-                        }
-                    }
-
+                if (resourceNode.has("code") && resourceNode.has("param")) {
+                    String code = resourceNode.get("code").asText();
+                    List<String> params = new ArrayList<>();
+                    resourceNode.get("param").forEach(paramNode -> params.add(paramNode.asText()));
+                    map.put(code, params);
                 }
             });
         }
-        this.compartment = Set.copyOf(codes);
+        this.compartmentMap = Map.copyOf(map);
+    }
+
+    public List<String> getParams(String resourceType) {
+        return compartmentMap.get(resourceType);
     }
 
     public boolean isInCompartment(Resource resource) {
-        return compartment.contains(resource.fhirType());
+        return compartmentMap.containsKey(resource.fhirType());
     }
 
     public boolean isInCompartment(String resourceType) {
-        return compartment.contains(resourceType);
+        return compartmentMap.containsKey(resourceType);
     }
 
     public boolean isInCompartment(ResourceGroup resourceGroup) {
         String resourceType = resourceGroup.resourceId().split("/")[0];
-        return compartment.contains(resourceType);
+        return compartmentMap.containsKey(resourceType);
     }
 
     public Set<String> getCompartment() {
-        return compartment;
+        return compartmentMap.keySet();
     }
 }

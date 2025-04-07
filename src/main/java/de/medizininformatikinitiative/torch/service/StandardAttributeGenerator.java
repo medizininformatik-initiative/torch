@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class StandardAttributeGenerator {
 
@@ -17,31 +18,32 @@ public class StandardAttributeGenerator {
      *
      * @param attributeGroup attribute group to be handled
      * @param resourceType   resource Type to be applied to attribute group
+     * @param patientGroups
      * @return attribute group with added standard attributes
      */
 
+    static Set<String> standardPatientFields = Set.of("patient", "subject");
 
-    public static AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager) {
+    public static AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager, List<String> patientGroups) {
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>();
 
         String id = resourceType + ".id";
-        tempAttributes.add(new AnnotatedAttribute(id, id, id, true));
+        tempAttributes.add(new AnnotatedAttribute(id, id, id, false));
         String profile = resourceType + ".meta.profile";
-        tempAttributes.add(new AnnotatedAttribute(profile, profile, profile, true));
+        tempAttributes.add(new AnnotatedAttribute(profile, profile, profile, false));
 
-        /*
-        TODO: Handle how to deal with linked groups in this case
+
         if (manager.isInCompartment(resourceType)) {
-            if (!"Patient".equals(resourceType) && !"Consent".equals(resourceType)) {
-                String subject = resourceType + ".subject";
-                tempAttributes.add(new AnnotatedAttribute(subject, subject, subject, true));
-            }
-            if ("Consent".equals(resourceType)) {
-                String pReference = resourceType + ".patient.reference";
-                tempAttributes.add(new AnnotatedAttribute(pReference, pReference, pReference, true));
-            }
+            List<String> params = manager.getParams(resourceType);
+            params.forEach(param -> {
+                if (standardPatientFields.contains(param)) {
+                    String attributeString = resourceType + "." + param;
+                    tempAttributes.add(new AnnotatedAttribute(attributeString, attributeString, attributeString, false, patientGroups));
+                }
+
+            });
         }
-        */
+
         return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), attributeGroup.includeReferenceOnly());
     }
 }

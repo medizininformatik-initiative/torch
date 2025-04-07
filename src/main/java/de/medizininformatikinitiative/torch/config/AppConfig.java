@@ -48,6 +48,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -63,6 +64,10 @@ import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterN
 @Profile("active")
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
+
+    @Value("${torch.patient}")
+    private List<String> profileList;
+
 
     @Value("${torch.mappingsFile}")
     private String mappingsFile;
@@ -184,7 +189,7 @@ public class AppConfig {
 
     @Bean
     public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager);
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, profileList);
     }
 
 
