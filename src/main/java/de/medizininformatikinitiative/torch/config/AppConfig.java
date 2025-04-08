@@ -48,7 +48,6 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Clock;
 import java.util.Arrays;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -65,25 +64,17 @@ import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterN
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 
-    @Value("${torch.patient}")
-    private List<String> profileList;
-
-
-    @Value("${torch.mappingsFile}")
-    private String mappingsFile;
-    @Value("${torch.conceptTreeFile}")
-    private String conceptTreeFile;
-    @Value("${torch.dseMappingTreeFile}")
-    private String dseMappingTreeFile;
-
-    @Value("${torch.mapping.consent}")
-    private String consentFilePath;
-
-    @Value("${torch.mapping.typeToConsent:mappings/type_to_consent.json}")
-    private String consentToProfileFilePath;
 
     @Value("compartmentdefinition-patient.json")
     private String compartmentPath;
+
+
+    private final TorchProperties torchProperties;
+
+    public AppConfig(TorchProperties torchProperties) {
+        this.torchProperties = torchProperties;
+    }
+
 
     @Bean
     public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
@@ -189,7 +180,7 @@ public class AppConfig {
 
     @Bean
     public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, profileList);
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, torchProperties.patient());
     }
 
 
@@ -200,8 +191,6 @@ public class AppConfig {
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
             ProcessedGroupFactory processedGroupFactory,
-            @Value("${torch.batchSize:2}") int batchSize,
-            @Value("${torch.useCql}") boolean useCql,
             DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
@@ -211,7 +200,7 @@ public class AppConfig {
     ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                processedGroupFactory, batchSize, useCql, directResourceLoader,
+                processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader,
                 referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
     }
 
@@ -237,7 +226,7 @@ public class AppConfig {
 
     @Bean
     public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
-        return new ConsentCodeMapper(consentFilePath, objectMapper);
+        return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
     }
 
     @Bean
@@ -248,14 +237,14 @@ public class AppConfig {
 
     @Bean
     public DseMappingTreeBase dseMappingTreeBase(ObjectMapper jsonUtil) throws IOException {
-        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
+        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.dseMappingTreeFile()), DseTreeRoot[].class)).toList());
     }
 
     @Lazy
     @Bean
     Translator createCqlTranslator(ObjectMapper jsonUtil) throws IOException {
-        var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
-        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
+        var mappings = jsonUtil.readValue(new File(torchProperties.mappingsFile()), Mapping[].class);
+        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.conceptTreeFile()), MappingTreeModuleRoot[].class)).toList());
 
         return Translator.of(MappingContext.of(
                 Stream.of(mappings)
@@ -355,8 +344,8 @@ public class AppConfig {
     }
 
     @Bean
-    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
-        return new ResultFileManager(resultsDir, duration, fhirContext, hostname, fileserverName);
+    public ResultFileManager resultFileManager(FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
+        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext, hostname, fileserverName);
     }
 
     @Bean
