@@ -1,4 +1,4 @@
-Instance: torch-test-diag-enc-diag-bundle
+Instance: test-diag-enc-diag
 InstanceOf: Bundle
 * type = #transaction
 * timestamp = "2024-03-14T10:58:00+01:00"

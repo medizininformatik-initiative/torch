@@ -27,20 +27,25 @@ fhirVersion: 4.0.1 # https://www.hl7.org/fhir/valueset-FHIR-version.html
 dependencies:
   de.medizininformatikinitiative.kerndatensatz.person: 2024.0.0
   de.medizininformatikinitiative.kerndatensatz.diagnose: 2024.0.0
-  de.medizininformatikinitiative.kerndatensatz.prozedur: 2024.0.0
-  de.medizininformatikinitiative.kerndatensatz.medikation: 2.0.0
-  de.medizininformatikinitiative.kerndatensatz.laborbefund: 1.0.7-alpha1
   de.medizininformatikinitiative.kerndatensatz.fall: 2024.0.1
-  de.medizininformatikinitiative.kerndatensatz.biobank: 1.0.8
-  de.medizininformatikinitiative.kerndatensatz.consent: 1.0.7
   de.medizininformatikinitiative.kerndatensatz.meta: 1.0.3
-  de.medizininformatikinitiative.kerndatensatz.icu: 1.0.0
-  de.medizininformatikinitiative.kerndatensatz.mikrobiologie: 2024.0.0
-  de.medizininformatikinitiative.kerndatensatz.molgen: 1.0.0
-  de.medizininformatikinitiative.kerndatensatz.patho: 1.0.0
-  de.medizininformatikinitiative.kerndatensatz.studie: 1.0.0
-  de.basisprofil.r4: 1.4.0
-  de.einwilligungsmanagement: 1.0.1
+
+  #de.medizininformatikinitiative.kerndatensatz.person: 2024.0.0
+  #de.medizininformatikinitiative.kerndatensatz.diagnose: 2024.0.0
+  #de.medizininformatikinitiative.kerndatensatz.prozedur: 2024.0.0
+  #de.medizininformatikinitiative.kerndatensatz.medikation: 2.0.0
+  #de.medizininformatikinitiative.kerndatensatz.laborbefund: 1.0.7-alpha1
+  #de.medizininformatikinitiative.kerndatensatz.fall: 2024.0.1
+  #de.medizininformatikinitiative.kerndatensatz.biobank: 1.0.8
+  #de.medizininformatikinitiative.kerndatensatz.consent: 1.0.7
+  #de.medizininformatikinitiative.kerndatensatz.meta: 1.0.3
+  #de.medizininformatikinitiative.kerndatensatz.icu: 1.0.0
+  #de.medizininformatikinitiative.kerndatensatz.mikrobiologie: 2024.0.0
+  #de.medizininformatikinitiative.kerndatensatz.molgen: 1.0.0
+  #de.medizininformatikinitiative.kerndatensatz.patho: 1.0.0
+  #de.medizininformatikinitiative.kerndatensatz.studie: 1.0.0
+  #de.basisprofil.r4: 1.4.0
+  #de.einwilligungsmanagement: 1.0.1
 #   hl7.fhir.us.mcode:
 #     id: mcode
 #     uri: http://hl7.org/fhir/us/mcode/ImplementationGuide/hl7.fhir.us.mcode

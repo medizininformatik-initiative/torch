@@ -39,7 +39,7 @@ InstanceOf: https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose
 * insert AddDiagnose(E13.0, 2023, torch-test-diag-enc-diag-pat-1, 2024-02-12, Diabetes)
 * onsetDateTime = "2024-02-21"
 * recordedDate = "2024-02-21"
-
+* encounter =  Reference(torch-test-diag-enc-diag-enc-1)
 
 // Other Diag Ref by Diab Enc
 Instance: torch-test-diag-enc-diag-diag-2

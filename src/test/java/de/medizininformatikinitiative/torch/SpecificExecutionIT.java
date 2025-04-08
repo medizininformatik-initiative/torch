@@ -2,9 +2,9 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.torch.assertions.Assertions;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,8 +41,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @Testcontainers
-public class BundleIT {
-    private static final Logger logger = LoggerFactory.getLogger(BundleIT.class);
+public class SpecificExecutionIT extends BaseExecutionIT{
+    private static final Logger logger = LoggerFactory.getLogger(SpecificExecutionIT.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final FhirContext context = FhirContext.forR4();
@@ -101,19 +101,19 @@ public class BundleIT {
                 .build();
     }
 
-    @BeforeAll
-    static void setUp() throws IOException {
-        logger.info("Uploading test data...");
-        var bundle = "kds/Bundle-mii-exa-test-data-bundle.json";
+    private static String slurp(String path) throws IOException {
+        return Files.readString(Path.of(path));
+    }
+
+    static  void uploadTestdata(String testName) throws IOException{
+        logger.info("Uploading test data...for test" + testName);
+        var testdataFolder = "testdata/shorthand/fsh-generated/resources/";
+        var testBundle = testdataFolder + "Bundle-test-" + testName + ".json" ;
         blazeClient.post()
-                .bodyValue(slurp(bundle))
+                .bodyValue(slurp(testBundle))
                 .retrieve()
                 .toBodilessEntity()
                 .block();
-    }
-
-    private static String slurp(String path) throws IOException {
-        return Files.readString(Path.of("src/test/resources/" + path));
     }
 
     private static TestUtils.TorchBundleUrls getOutputUrls(ResponseEntity<String> response) throws IOException {
@@ -133,7 +133,10 @@ public class BundleIT {
         return new TestUtils.TorchBundleUrls(coreBundle, patientBundles);
     }
 
-    private static String loadCrtdl(String path) throws IOException {
+    private static String loadCrtdl(String testName) throws IOException {
+
+        var crtdlTestFolder = "src/test/resources/CrtdlItTests/";
+        var path = crtdlTestFolder + "CRTDL_test_" + testName + ".json";
         var crtdl = Base64.getEncoder().encodeToString(slurp(path).getBytes(StandardCharsets.UTF_8));
 
         var node = mapper.createObjectNode();
@@ -174,6 +177,60 @@ public class BundleIT {
         var statusUrl = pollExtractRequest(crtdlFile).get("Content-Location").getFirst();
         var bundleLocationResponse = torchClient.get().uri(statusUrl).retrieve().toEntity(String.class).block();
         return getOutputUrls(bundleLocationResponse);
+    }
+
+
+    public void executeStandardTests(List<Bundle> patientBundles, Bundle coreBundle){
+
+        // test if referenced IDs match the actual patient's IDs
+        assertThat(patientBundles).allSatisfy(bundle -> Assertions.assertThat(bundle).extractOnlyPatient().satisfies(patient ->
+                Assertions.assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(condition ->
+                        Assertions.assertThat(condition).extractChildrenStringsAt("subject.reference").hasSize(1).first().isEqualTo(patient.getId()))));
+
+        // test that IDs are properly formatted
+        assertThat(patientBundles).allSatisfy(bundle ->
+                assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
+                        r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
+                ));
+    }
+
+
+    @Test
+    public void testDoubleRefResolve() throws IOException{
+
+        var testName = "diag-enc-diag";
+        uploadTestdata(testName);
+        var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
+        var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
+        var patientBundles = fetchBundles(bundleUrls.patientBundles());
+
+        assertThat(coreBundle).containsNEntries(0);
+        assertThat(patientBundles).hasSize(1);
+
+        executeStandardTests(patientBundles, coreBundle);
+
+        // all conditions in all patient bundles must have the given top fields
+        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition)
+                .allSatisfy(
+                        r -> assertThat(r).extractTopElementNames()
+                                .containsExactlyInAnyOrder("id", "resourceType", "meta", "clinicalStatus", "verificationStatus", "code", "subject", "recordedDate", "encounter")));
+
+        // diab encounter included
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
+                assertThat(bundle).extractResourceById("Encounter", "torch-test-diag-enc-diag-enc-1").isNotNull());
+
+        // diab condition included
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
+                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-1").isNotNull());
+
+        // other linked condition included
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
+                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-2").isNotNull());
+
+        // other not linked condition not included
+        assertThat(patientBundles).noneSatisfy(bundle ->
+                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-3"));
+
     }
 
     @Test
