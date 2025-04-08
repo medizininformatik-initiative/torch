@@ -198,6 +198,18 @@ public class SpecificExecutionIT extends BaseExecutionIT{
     @Test
     public void testDoubleRefResolve() throws IOException{
 
+        /*
+        Diabetes Condition .encounter -> Encounter
+        Diabetes Encounter .diagnosis -> Conditions not diabetes
+        One diagnosis not referenced by encounter
+
+        CRTDL to extract Diabetes Condition, the Encounter, the diagnoses referenced by the Diabetes encounter
+        and all resources linked to Patient via .subject
+
+        Should extract all resources except the not from ecnounter referenced condition "torch-test-diag-enc-diag-diag-3"
+        All resources should link to the patient
+         */
+
         var testName = "diag-enc-diag";
         uploadTestdata(testName);
         var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
@@ -230,6 +242,12 @@ public class SpecificExecutionIT extends BaseExecutionIT{
         // other not linked condition not included
         assertThat(patientBundles).noneSatisfy(bundle ->
                 assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-3"));
+
+
+        // condition with given id must have a data absent reason at its recordedDate (primitive type)
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
+                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-4-diagnose-1").isNotNull()
+                        .hasDataAbsentReasonAt("recordedDate", "masked"));
 
     }
 
