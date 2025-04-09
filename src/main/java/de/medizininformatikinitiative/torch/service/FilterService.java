@@ -199,6 +199,10 @@ public class FilterService {
                 return evaluatePeriod(date.getValue(), date.getValue(), filter);
             }
 
+            if (found instanceof DateType date) {
+                return evaluatePeriod(date.getValue(), date.getValue(), filter);
+            }
+
             if (found instanceof Period period) {
                 return evaluatePeriod(period.getStart(), period.getEnd(), filter);
             }

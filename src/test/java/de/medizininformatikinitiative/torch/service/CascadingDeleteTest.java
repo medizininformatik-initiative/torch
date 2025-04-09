@@ -47,10 +47,10 @@ class CascadingDeleteTest {
         parentResourceGroup2 = new ResourceGroup("resourceP2", "group4");
 
 
-        groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", List.of(), List.of(), true));
-        groupMap.put("group2", new AnnotatedAttributeGroup("", "group2", "", List.of(), List.of(), true));
-        groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", List.of(), List.of(), true));
-        groupMap.put("group4", new AnnotatedAttributeGroup("", "group4", "", List.of(), List.of(), false));
+        groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", List.of(), List.of(), null, true));
+        groupMap.put("group2", new AnnotatedAttributeGroup("", "group2", "", List.of(), List.of(), null, true));
+        groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", List.of(), List.of(), null, true));
+        groupMap.put("group4", new AnnotatedAttributeGroup("", "group4", "", List.of(), List.of(), null, false));
 
 
     }
@@ -167,9 +167,9 @@ class CascadingDeleteTest {
             coreResourceBundle.setResourceAttributeValid(resourceAttribute3);
 
             // Define resource groups with `includeReferenceOnly`
-            groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", List.of(), List.of(), true));  // Can be deleted
-            groupMap.put("group2", new AnnotatedAttributeGroup("", "group2", "", List.of(), List.of(), true));  // Can be deleted
-            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", List.of(), List.of(), false)); // Protected (refOnly == false)
+            groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", List.of(), List.of(), null, true));  // Can be deleted
+            groupMap.put("group2", new AnnotatedAttributeGroup("", "group2", "", List.of(), List.of(), null, true));  // Can be deleted
+            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", List.of(), List.of(), null, false)); // Protected (refOnly == false)
 
             // Set resource group validity (Trigger cascading deletion)
             coreResourceBundle.addResourceGroupValidity(resourceGroup, false); // Mark invalid, triggers deletion
@@ -211,11 +211,11 @@ class CascadingDeleteTest {
                 ResourceGroup leaf2 = new ResourceGroup("leaf2", "groupL2");
 
                 // Define all groups
-                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), true));
-                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), true));
-                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), true));
-                groupMap.put("groupL1", new AnnotatedAttributeGroup("", "groupL1", "", List.of(), List.of(), true));
-                groupMap.put("groupL2", new AnnotatedAttributeGroup("", "groupL2", "", List.of(), List.of(), true));
+                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), null, true));
+                groupMap.put("groupL1", new AnnotatedAttributeGroup("", "groupL1", "", List.of(), List.of(), null, true));
+                groupMap.put("groupL2", new AnnotatedAttributeGroup("", "groupL2", "", List.of(), List.of(), null, true));
 
                 // Create branching structure:
                 //   root → attr1 → branch1 → attr2 → leaf1
@@ -265,9 +265,9 @@ class CascadingDeleteTest {
                 ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
 
                 // Define groups with branch2 protected
-                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), true));
-                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), true));
-                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), false)); // Protected group
+                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), null, false)); // Protected group
 
                 // Create branching structure:
                 //   root → attr1 → branch1 (deletable)
@@ -305,10 +305,10 @@ class CascadingDeleteTest {
                 ResourceGroup leaf1 = new ResourceGroup("leaf1", "groupL1");
 
                 // Define groups
-                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), true));
-                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), true));
-                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), true)); // Should be deleted
-                groupMap.put("groupL1", new AnnotatedAttributeGroup("", "groupL1", "", List.of(), List.of(), true));
+                groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB1", new AnnotatedAttributeGroup("", "groupB1", "", List.of(), List.of(), null, true));
+                groupMap.put("groupB2", new AnnotatedAttributeGroup("", "groupB2", "", List.of(), List.of(), null, true)); // Should be deleted
+                groupMap.put("groupL1", new AnnotatedAttributeGroup("", "groupL1", "", List.of(), List.of(), null, true));
 
                 // Create asymmetric branching structure:
                 //   root → attr1 → branch1 → attr2 → leaf1

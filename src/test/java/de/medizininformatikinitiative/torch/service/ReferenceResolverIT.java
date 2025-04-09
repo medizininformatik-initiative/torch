@@ -3,6 +3,8 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
+import de.medizininformatikinitiative.torch.model.crtdl.Code;
+import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.*;
@@ -22,6 +24,8 @@ import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
+import java.io.IOException;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,11 +156,13 @@ class ReferenceResolverIT {
     private IParser parser;
 
     AnnotatedAttributeGroup patientGroup;
+    AnnotatedAttributeGroup conditionGroup;
 
     AnnotatedAttribute conditionSubject;
     ResourceAttribute expectedAttribute;
 
-    Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
+    @Autowired
+    private FilterService filterService;
 
     @BeforeAll
     void setUp() {
@@ -164,16 +170,17 @@ class ReferenceResolverIT {
 
         AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of());
+
+        var filter = new Filter("date", "birthdate", LocalDate.of(2000, 1, 1), LocalDate.of(2005, 1, 1));
+        var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
 
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
-        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of());
+
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
-
-        attributeGroupMap.put("Patient1", patientGroup);
-        attributeGroupMap.put("Condition1", conditionGroup);
 
 
         this.referenceResolver = new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
@@ -182,6 +189,11 @@ class ReferenceResolverIT {
 
     @Nested
     class noReferences {
+        Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+            put("Patient1", patientGroup);
+            put("Condition1", conditionGroup);
+        }};
+
 
         @Test
         void resolveCoreBundle_success() {
@@ -217,8 +229,14 @@ class ReferenceResolverIT {
 
     @Nested
     class KnownReferences {
+
         @Test
         void resolvePatientBundle_success() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
+
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = parser.parseResource(Patient.class, PATIENT);
             ResourceBundle coreBundle = new ResourceBundle();
@@ -264,6 +282,10 @@ class ReferenceResolverIT {
 
         @Test
         void resolvePatientBundle_failure() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = new Patient();
             patient.setId("VHF00006");
@@ -289,6 +311,47 @@ class ReferenceResolverIT {
                     )
                     .verifyComplete();
         }
+
+        @Test
+        void resolvePatientBundle_failure_unsatisfiedFilter() {
+            AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
+            AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+            var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
+            var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
+            AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+                put("Patient1", patientGroupWithUnsatisfiedFilter);
+                put("Condition1", conditionGroup);
+            }};
+
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            ResourceBundle coreBundle = new ResourceBundle();
+            Condition condition = parser.parseResource(Condition.class, CONDITION);
+
+
+            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+
+            Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
+            // Validate the result using StepVerifier
+            StepVerifier.create(result)
+                    .assertNext(bundle -> {
+                                // Check attribute mappings in processingBundle
+                                ResourceBundle processingBundle = bundle.bundle();
+                                assertThat(bundle.isEmpty()).isFalse();
+                                assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
+                                        Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
+                                                new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                                );
+                                assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
+                                        Map.of(expectedAttribute, false)
+                                );
+                            }
+                    )
+                    .verifyComplete();
+        }
+
 
 
     }
