@@ -134,6 +134,9 @@ public class ReferenceHandler {
                                     if (isValid == null) {
                                         logger.debug("Unknown group {} for Reference: {}", group.id(), reference);// Unknown group, check validity
                                         Boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
+                                        if (group.compiledFilter() != null) {
+                                            fulfilled = fulfilled && group.compiledFilter().test(resource);
+                                        }
                                         logger.debug("Group {} for Reference: {}", group, fulfilled);
                                         isValid = Boolean.TRUE.equals(fulfilled); // Ensure `null` defaults to `false`
                                         processingBundle.addResourceGroupValidity(resourceGroup, isValid);

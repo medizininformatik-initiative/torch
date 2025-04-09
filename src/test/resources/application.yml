@@ -11,6 +11,7 @@ torch:
   mapping:
     consent: mappings/consent-mappings_fhir.json
     type_to_consent: mappings/type_to_consent.json
+  search_parameters_file: search-parameters.json
   fhir:
     url: http://localhost:8082/fhir
     pageCount: 500

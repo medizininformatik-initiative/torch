@@ -5,9 +5,11 @@ import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.Resource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Predicate;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
@@ -19,6 +21,7 @@ public record AnnotatedAttributeGroup(
         String groupReference,
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
+        Predicate<Resource> compiledFilter,
         Boolean includeReferenceOnly) {
 
     /**
@@ -29,8 +32,9 @@ public record AnnotatedAttributeGroup(
     public AnnotatedAttributeGroup(String id,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
-                                   List<Filter> filter) {
-        this("", id, groupReference, attributes, filter, false); // Default value for includeReferenceOnly
+                                   List<Filter> filter,
+                                   Predicate<Resource> compiledFilter) {
+        this("", id, groupReference, attributes, filter, compiledFilter, false); // Default value for includeReferenceOnly
     }
 
 
@@ -86,7 +90,11 @@ public record AnnotatedAttributeGroup(
 
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AnnotatedAttributeGroup(name, id, groupReference, tempAttributes, filter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(name, id, groupReference, tempAttributes, filter, compiledFilter, includeReferenceOnly);
+    }
+
+    public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
+        return new AnnotatedAttributeGroup(name, id, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
     public String resourceType() {

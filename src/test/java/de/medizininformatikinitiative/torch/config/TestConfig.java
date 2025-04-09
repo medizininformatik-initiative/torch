@@ -61,6 +61,11 @@ public class TestConfig {
     @Value("compartmentdefinition-patient.json")
     private String compartmentPath;
 
+    @Bean
+    public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
+        return searchParametersFile;
+    }
+
 
     private final TorchProperties torchProperties;
 
@@ -158,8 +163,13 @@ public class TestConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, torchProperties.patient());
+    public FilterService filterService(FhirContext ctx, String searchParametersFile) {
+        return new FilterService(ctx, searchParametersFile);
+    }
+
+    @Bean
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager, FilterService filterService) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, torchProperties.patient(), filterService);
     }
 
 
