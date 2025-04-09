@@ -1,2 +1,7 @@
 
-fsh-generated
+fsh-generated/data
+fsh-generated/fsh-index.txt
+
+fsh-generated/resources/*
+!fsh-generated/resources/
+!fsh-generated/resources/Bundle*.json

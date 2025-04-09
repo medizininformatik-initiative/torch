@@ -25,6 +25,7 @@ fhirVersion: 4.0.1 # https://www.hl7.org/fhir/valueset-FHIR-version.html
 # use cases, the value can be an object with keys for id, uri, and version.
 #
 dependencies:
+  de.basisprofil.r4: 1.4.0
   de.medizininformatikinitiative.kerndatensatz.person: 2024.0.0
   de.medizininformatikinitiative.kerndatensatz.diagnose: 2024.0.0
   de.medizininformatikinitiative.kerndatensatz.fall: 2024.0.1

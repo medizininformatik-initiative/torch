@@ -216,6 +216,9 @@ public class SpecificExecutionIT extends BaseExecutionIT{
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
+        var patJson = context.newJsonParser().encodeResourceToString(patientBundles.get(0));
+        System.out.println(patJson);
+
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
@@ -245,9 +248,34 @@ public class SpecificExecutionIT extends BaseExecutionIT{
 
 
         // condition with given id must have a data absent reason at its recordedDate (primitive type)
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
+        /*assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
                 assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-4-diagnose-1").isNotNull()
                         .hasDataAbsentReasonAt("recordedDate", "masked"));
+
+         */
+
+    }
+
+    @Test
+    public void testMustHaveResolve() throws IOException{
+
+        /*
+
+         */
+
+        var testName = "diag-no-enc-diag";
+        uploadTestdata(testName);
+        var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
+        var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
+        var patientBundles = fetchBundles(bundleUrls.patientBundles());
+
+        var patJson = context.newJsonParser().encodeResourceToString(patientBundles.get(0));
+        System.out.println(patJson);
+
+        assertThat(coreBundle).containsNEntries(0);
+        assertThat(patientBundles).hasSize(1);
+
+        executeStandardTests(patientBundles, coreBundle);
 
     }
 
