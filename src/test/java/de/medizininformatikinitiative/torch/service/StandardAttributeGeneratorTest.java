@@ -24,12 +24,12 @@ class StandardAttributeGeneratorTest {
     void patient() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Patient", compartmentManager);
+        var standardAddedGroup = generate(attributeGroup, "Patient", compartmentManager, List.of("patientGroup"));
 
-        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true),
-                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", true)
+                new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", false),
+                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", false)
         );
     }
 
@@ -37,13 +37,14 @@ class StandardAttributeGeneratorTest {
     void consent() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Consent", compartmentManager);
+        var standardAddedGroup = generate(attributeGroup, "Consent", compartmentManager, List.of());
 
-        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
 
-                new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", true),
-                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", true)
+                new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", false),
+                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", false),
+                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false)
         );
     }
 
@@ -51,12 +52,13 @@ class StandardAttributeGeneratorTest {
     void observation() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Observation", compartmentManager);
+        var standardAddedGroup = generate(attributeGroup, "Observation", compartmentManager, List.of("group1"));
 
-        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true),
-                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true)
+                new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
+                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("group1"))
         );
     }
 
@@ -64,12 +66,12 @@ class StandardAttributeGeneratorTest {
     void coreCase() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Medication", compartmentManager);
+        var standardAddedGroup = generate(attributeGroup, "Medication", compartmentManager, List.of());
 
-        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true),
-                new AnnotatedAttribute("Medication.meta.profile", "Medication.meta.profile", "Medication.meta.profile", true)
+                new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", false),
+                new AnnotatedAttribute("Medication.meta.profile", "Medication.meta.profile", "Medication.meta.profile", false)
         );
 
     }
@@ -79,12 +81,12 @@ class StandardAttributeGeneratorTest {
     void defaultCase() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Condition.code", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager);
+        var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager, List.of());
 
-        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).contains(
-                new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true),
-                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", true)
+                new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", false),
+                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", false)
         );
 
     }

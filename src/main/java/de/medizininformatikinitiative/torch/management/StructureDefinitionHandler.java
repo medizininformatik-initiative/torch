@@ -38,6 +38,14 @@ public class StructureDefinitionHandler {
     }
 
     /**
+     * @param profile to check if known
+     * @return returns if profile is known.
+     */
+    public Boolean known(String profile) {
+        return definitionsMap.containsKey(profile);
+    }
+
+    /**
      * Reads a StructureDefinition from a file and stores it in the definitionsMap
      */
     public void readStructureDefinition(String filePath) throws IOException {
