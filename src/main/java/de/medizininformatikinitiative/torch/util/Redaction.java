@@ -209,8 +209,6 @@ public class Redaction {
 
                 }
             }
-
-
         });
         return base;
     }

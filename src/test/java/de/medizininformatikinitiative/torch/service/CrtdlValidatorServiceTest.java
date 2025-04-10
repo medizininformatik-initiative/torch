@@ -21,7 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
-    private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(), new CompartmentManager("compartmentdefinition-patient.json"));
+    private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
+            new CompartmentManager("compartmentdefinition-patient.json"), List.of("https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"));
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     CrtdlValidatorServiceTest() throws IOException {
@@ -67,8 +68,9 @@ class CrtdlValidatorServiceTest {
 
         assertThat(validatorService.validate(crtdl).dataExtraction().attributeGroups().get(0).attributes()).isEqualTo(
                 List.of(
-                        new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true),
-                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", true)
+                        new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
+                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
+                        new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("586871713"))
                 ));
 
     }
