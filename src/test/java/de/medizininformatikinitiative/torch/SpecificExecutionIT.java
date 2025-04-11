@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @Testcontainers
-public class SpecificExecutionIT extends BaseExecutionIT{
+public class SpecificExecutionIT extends BaseExecutionIT {
     private static final Logger logger = LoggerFactory.getLogger(SpecificExecutionIT.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -67,7 +67,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
                 .withExposedService("torch", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("torch", new Slf4jLogConsumer(logger).withPrefix("torch"))
-            .withExposedService("nginx", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+                .withExposedService("nginx", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("nginx", new Slf4jLogConsumer(logger).withPrefix("nginx"));
         environment.start();
         blazeHost = environment.getServiceHost("blaze", 8080);
@@ -105,10 +105,10 @@ public class SpecificExecutionIT extends BaseExecutionIT{
         return Files.readString(Path.of(path));
     }
 
-    static  void uploadTestdata(String testName) throws IOException{
+    static void uploadTestdata(String testName) throws IOException {
         logger.info("Uploading test data...for test" + testName);
         var testdataFolder = "testdata/shorthand/fsh-generated/resources/";
-        var testBundle = testdataFolder + "Bundle-test-" + testName + ".json" ;
+        var testBundle = testdataFolder + "Bundle-test-" + testName + ".json";
         blazeClient.post()
                 .bodyValue(slurp(testBundle))
                 .retrieve()
@@ -124,7 +124,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
         for (int i = 0; i < output.size(); i++) {
             var bundleUrl = URLDecoder.decode(mapper.writeValueAsString(output.get(i).get("url")), StandardCharsets.UTF_8);
             bundleUrl = bundleUrl.replace("8085", String.valueOf(nginxPort)).replace("\"", "");
-            if(bundleUrl.contains("core.ndjson")) {
+            if (bundleUrl.contains("core.ndjson")) {
                 coreBundle = bundleUrl;
             } else {
                 patientBundles.add(bundleUrl);
@@ -163,11 +163,11 @@ public class SpecificExecutionIT extends BaseExecutionIT{
     private static HttpHeaders pollExtractRequest(String crtdlFile) throws IOException {
         var crtdl = loadCrtdl(crtdlFile);
         return torchClient.post()
-                        .uri("/fhir/$extract-data")
-                        .bodyValue(crtdl)
-                        .retrieve()
-                        .onStatus(status -> !status.is2xxSuccessful(), ClientResponse::createException)
-                        .toEntity(String.class)
+                .uri("/fhir/$extract-data")
+                .bodyValue(crtdl)
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), ClientResponse::createException)
+                .toEntity(String.class)
                 .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY))
                 .map(HttpEntity::getHeaders)
                 .block();
@@ -180,7 +180,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
     }
 
 
-    public void executeStandardTests(List<Bundle> patientBundles, Bundle coreBundle){
+    public void executeStandardTests(List<Bundle> patientBundles, Bundle coreBundle) {
 
         // test if referenced IDs match the actual patient's IDs
         assertThat(patientBundles).allSatisfy(bundle -> Assertions.assertThat(bundle).extractOnlyPatient().satisfies(patient ->
@@ -196,7 +196,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
 
 
     @Test
-    public void testDoubleRefResolve() throws IOException{
+    public void testDoubleRefResolve() throws IOException {
 
         /*
         Diabetes Condition .encounter -> Encounter
@@ -257,7 +257,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
     }
 
     @Test
-    public void testMustHaveResolve() throws IOException{
+    public void testMustHaveResolve() throws IOException {
 
         /*
 
@@ -270,6 +270,7 @@ public class SpecificExecutionIT extends BaseExecutionIT{
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
         var patJson = context.newJsonParser().encodeResourceToString(patientBundles.get(0));
+
         System.out.println(patJson);
 
         assertThat(coreBundle).containsNEntries(0);

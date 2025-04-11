@@ -134,7 +134,6 @@ public class ReferenceResolver {
                             boolean shouldProcess = references.stream().anyMatch(reference -> {
                                 ResourceAttribute resourceAttribute = new ResourceAttribute(parentResourceGroup.resourceId(), reference.refAttribute());
                                 Boolean isValid = processingBundle.resourceAttributeValidity().get(resourceAttribute);
-
                                 if (Boolean.TRUE.equals(isValid)) {
                                     return false; // Skip processing if already validated as true
                                 } else if (Boolean.FALSE.equals(isValid)) {
