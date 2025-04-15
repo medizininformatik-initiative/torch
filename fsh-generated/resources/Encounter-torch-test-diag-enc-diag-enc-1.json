@@ -1,0 +1,146 @@
+{
+  "resourceType": "Encounter",
+  "id": "torch-test-diag-enc-diag-enc-1",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+    ]
+  },
+  "identifier": [
+    {
+      "type": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+            "code": "VN"
+          }
+        ]
+      },
+      "system": "https://www.charite.de/fhir/NamingSystem/Aufnahmenummern",
+      "value": "MII_0000001"
+    }
+  ],
+  "type": [
+    {
+      "coding": [
+        {
+          "system": "http://fhir.de/CodeSystem/Kontaktebene",
+          "code": "einrichtungskontakt"
+        }
+      ]
+    },
+    {
+      "coding": [
+        {
+          "system": "http://fhir.de/CodeSystem/kontaktart-de",
+          "code": "normalstationaer"
+        }
+      ]
+    }
+  ],
+  "serviceType": {
+    "coding": [
+      {
+        "system": "http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel",
+        "code": "0100"
+      }
+    ]
+  },
+  "period": {
+    "start": "2024-02-14",
+    "end": "2024-02-22"
+  },
+  "diagnosis": [
+    {
+      "condition": {
+        "reference": "Condition/torch-test-diag-enc-diag-diag-1"
+      },
+      "use": {
+        "coding": [
+          {
+            "code": "AD",
+            "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+            "display": "Admission diagnosis"
+          }
+        ]
+      },
+      "rank": 1
+    },
+    {
+      "condition": {
+        "reference": "Condition/torch-test-diag-enc-diag-diag-2"
+      },
+      "use": {
+        "coding": [
+          {
+            "code": "AD",
+            "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+            "display": "Admission diagnosis"
+          }
+        ]
+      },
+      "rank": 2
+    }
+  ],
+  "location": [
+    {
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Zimmernummern",
+          "value": "RHC-06-210b"
+        },
+        "display": "RHC-06-210b"
+      },
+      "physicalType": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+            "code": "ro"
+          }
+        ]
+      }
+    },
+    {
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Bettennummern",
+          "value": "RHC-06-210b-02"
+        },
+        "display": "RHC-06-210b-02"
+      },
+      "physicalType": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+            "code": "bd"
+          }
+        ]
+      }
+    },
+    {
+      "location": {
+        "identifier": {
+          "system": "https://www.charite.de/fhir/sid/Stationsnummern",
+          "value": "RHC-06"
+        },
+        "display": "RHC-06"
+      },
+      "physicalType": {
+        "coding": [
+          {
+            "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+            "code": "wa"
+          }
+        ]
+      }
+    }
+  ],
+  "status": "finished",
+  "class": {
+    "code": "IMP",
+    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode"
+  },
+  "subject": {
+    "reference": "Patient/torch-test-diag-enc-diag-pat-1"
+  }
+}

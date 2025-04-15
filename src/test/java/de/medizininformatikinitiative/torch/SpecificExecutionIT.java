@@ -5,6 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.assertions.Assertions;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,10 +31,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
@@ -105,15 +103,20 @@ public class SpecificExecutionIT extends BaseExecutionIT {
         return Files.readString(Path.of(path));
     }
 
-    static void uploadTestdata(String testName) throws IOException {
-        logger.info("Uploading test data...for test" + testName);
+    static Set<String> uploadTestdata(String testName) throws IOException {
+        logger.info("Uploading test data...for test {}", testName);
         var testdataFolder = "testdata/shorthand/fsh-generated/resources/";
         var testBundle = testdataFolder + "Bundle-test-" + testName + ".json";
+        var bundleString = slurp(testBundle);
         blazeClient.post()
-                .bodyValue(slurp(testBundle))
+                .bodyValue(bundleString)
                 .retrieve()
                 .toBodilessEntity()
                 .block();
+        Bundle bundle = context.newJsonParser().parseResource(Bundle.class, bundleString);
+        Set<String> resourceTypes = new HashSet<>();
+        bundle.getEntry().forEach(entry -> resourceTypes.add(entry.getResource().getResourceType().name()));
+        return resourceTypes;
     }
 
     private static TestUtils.TorchBundleUrls getOutputUrls(ResponseEntity<String> response) throws IOException {
@@ -211,7 +214,7 @@ public class SpecificExecutionIT extends BaseExecutionIT {
          */
 
         var testName = "diag-enc-diag";
-        uploadTestdata(testName);
+        var testData = uploadTestdata(testName);
         var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
@@ -254,6 +257,7 @@ public class SpecificExecutionIT extends BaseExecutionIT {
 
          */
 
+        cleanup(testData);
     }
 
     @Test
@@ -264,7 +268,7 @@ public class SpecificExecutionIT extends BaseExecutionIT {
          */
 
         var testName = "diag-no-enc-diag";
-        uploadTestdata(testName);
+        var testData = uploadTestdata(testName);
         var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
@@ -272,11 +276,15 @@ public class SpecificExecutionIT extends BaseExecutionIT {
         var patJson = context.newJsonParser().encodeResourceToString(patientBundles.get(0));
 
         System.out.println(patJson);
+        System.out.println("Size: " + patientBundles.size());
 
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles, coreBundle);
+
+        cleanup(testData);
+
 
     }
 
@@ -287,7 +295,7 @@ public class SpecificExecutionIT extends BaseExecutionIT {
             =>      mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
         */
 
-        var bundleUrls = sendCrtdlAndGetOutputUrls("it-kds-crtdl.json");
+        var bundleUrls = sendCrtdlAndGetOutputUrls("it-kds-crtdl");
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
@@ -346,5 +354,38 @@ public class SpecificExecutionIT extends BaseExecutionIT {
                 assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
                         r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
                 ));
+
+
+    }
+
+    static public void cleanup(Set<String> resourceTypes) {
+        Bundle bundle = new Bundle();
+        bundle.setType(Bundle.BundleType.TRANSACTION);
+        bundle.setId(UUID.randomUUID().toString());
+
+        logger.info(resourceTypes.toString());
+        resourceTypes.forEach(resourceType -> {
+            Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
+            Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
+
+            request.setUrl("/" + resourceType + "?_lastUpdated=gt1900-01-01");
+            request.setMethod(Bundle.HTTPVerb.DELETE);
+            entryComponent.setRequest(request);
+            bundle.addEntry(entryComponent);
+        });
+        var bundleString = context.newJsonParser().encodeToString(bundle);
+        logger.info(bundleString);
+        blazeClient.post()
+                .bodyValue(bundleString)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+
+    }
+
+
+    @AfterAll
+    public static void cleanup() {
+        environment.stop();
     }
 }
