@@ -169,7 +169,7 @@ public class TestConfig {
 
     @Bean
     public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager, FilterService filterService) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, torchProperties.patient(), filterService);
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, filterService);
     }
 
 

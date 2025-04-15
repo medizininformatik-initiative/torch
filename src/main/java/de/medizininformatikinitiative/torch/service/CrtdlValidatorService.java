@@ -6,7 +6,6 @@ import de.medizininformatikinitiative.torch.management.StructureDefinitionHandle
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -16,11 +15,7 @@ import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.*;
 
 public class CrtdlValidatorService {
 
@@ -32,26 +27,9 @@ public class CrtdlValidatorService {
     private final FilterService filterService;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager, List<String> standardPatientProfiles, FilterService filterService) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager,FilterService filterService) throws IOException {
         this.profileHandler = profileHandler;
         this.compartmentManager = compartmentManager;
-        assert (standardPatientProfiles != null);
-        standardPatientProfiles.forEach(profile -> {
-                    if (!profileHandler.known(profile)) {
-                        try {
-                            throw new ValidationException("Profile " + profile + " not known in torch");
-                        } catch (ValidationException e) {
-                            throw new RuntimeException(e);
-                        }
-                    }
-
-                }
-        );
-        this.standardPatientGroupNames = standardPatientProfiles.stream()
-                .map(s -> String.valueOf(s.hashCode()))  // or Integer.toHexString(s.hashCode())
-                .collect(Collectors.toList());
-        this.standardPatientProfiles = standardPatientProfiles;
-
         this.filterService = filterService;
     }
 
@@ -65,15 +43,35 @@ public class CrtdlValidatorService {
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
-
+        Boolean exactlyOnePatientGroup = false;
+        String patientAttributeGroupId = "";
 
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
             StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
             if (definition != null) {
+                if (Objects.equals(definition.getType(), "Patient")) {
+                    if (exactlyOnePatientGroup) {
+                        throw new ValidationException(" More than one Patient Attribute Group");
+                    } else {
+                        exactlyOnePatientGroup = true;
+                        patientAttributeGroupId = attributeGroup.id();
+                    }
+
+                }
+            }
+        }
+        if (!exactlyOnePatientGroup) {
+            throw new ValidationException("No Patient Attribute Group");
+        }
+
+        for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
+            StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
+            if (definition != null) {
+
                 for (Attribute attribute : attributeGroup.attributes()) {
                     linkedGroups.addAll(attribute.linkedGroups());
                 }
-                annotatedAttributeGroups.add(annotateGroup(attributeGroup, definition));
+                annotatedAttributeGroups.add(annotateGroup(attributeGroup, definition, patientAttributeGroupId));
                 successfullyAnnotatedGroups.add(attributeGroup.id());
 
 
@@ -87,16 +85,12 @@ public class CrtdlValidatorService {
             throw new ValidationException("Missing defintion for linked groups: " + linkedGroups);
         }
 
-        standardPatientProfiles.forEach(profile -> {
-            AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(new AttributeGroup(String.valueOf(profile.hashCode()), profile, List.of(), List.of()), "Patient", compartmentManager, standardPatientProfiles);
-            annotatedAttributeGroups.add(standardGroup);
-        });
-
 
         return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups));
     }
 
-    private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, StructureDefinition definition) throws ValidationException {
+    private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, StructureDefinition
+            definition, String patientGroupId) throws ValidationException {
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
 
         for (Attribute attribute : attributeGroup.attributes()) {
@@ -117,12 +111,13 @@ public class CrtdlValidatorService {
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
 
-        AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(attributeGroup, definition.getType(), compartmentManager, standardPatientGroupNames);
+        AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(attributeGroup, definition.getType(), compartmentManager, patientGroupId);
 
         return standardGroup
                 .addAttributes(annotatedAttributes)
                 .setCompiledFilter(filterService.compileFilter(attributeGroup.filter(), definition.getType()));
     }
+
 
 }
 

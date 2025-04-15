@@ -24,7 +24,7 @@ class StandardAttributeGeneratorTest {
     void patient() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Patient", compartmentManager, List.of("patientGroup"));
+        var standardAddedGroup = generate(attributeGroup, "Patient", compartmentManager, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -37,14 +37,14 @@ class StandardAttributeGeneratorTest {
     void consent() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Consent", compartmentManager, List.of());
+        var standardAddedGroup = generate(attributeGroup, "Consent", compartmentManager, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
 
                 new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", false),
                 new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", false),
-                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false)
+                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false, List.of("patientGroup"))
         );
     }
 
@@ -52,7 +52,7 @@ class StandardAttributeGeneratorTest {
     void observation() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Observation", compartmentManager, List.of("group1"));
+        var standardAddedGroup = generate(attributeGroup, "Observation", compartmentManager, "group1");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -66,7 +66,7 @@ class StandardAttributeGeneratorTest {
     void coreCase() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Medication", compartmentManager, List.of());
+        var standardAddedGroup = generate(attributeGroup, "Medication", compartmentManager, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -81,7 +81,7 @@ class StandardAttributeGeneratorTest {
     void defaultCase() {
         var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Condition.code", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager, List.of());
+        var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).contains(

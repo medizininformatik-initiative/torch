@@ -24,7 +24,7 @@ public class StandardAttributeGenerator {
 
     static Set<String> standardPatientFields = Set.of("patient", "subject");
 
-    public static AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager, List<String> patientGroups) {
+    public static AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String resourceType, CompartmentManager manager, String patientGroupId) {
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>();
 
         String id = resourceType + ".id";
@@ -38,7 +38,7 @@ public class StandardAttributeGenerator {
             params.forEach(param -> {
                 if (standardPatientFields.contains(param)) {
                     String attributeString = resourceType + "." + param;
-                    tempAttributes.add(new AnnotatedAttribute(attributeString, attributeString, attributeString, false, patientGroups));
+                    tempAttributes.add(new AnnotatedAttribute(attributeString, attributeString, attributeString, false, List.of(patientGroupId)));
                 }
 
             });
