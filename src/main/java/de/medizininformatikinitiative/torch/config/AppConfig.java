@@ -179,8 +179,8 @@ public class AppConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager, FilterService filterService) throws IOException {
-        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager, torchProperties.patient(), filterService);
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, CompartmentManager compartmentManager) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler, compartmentManager);
     }
 
 
