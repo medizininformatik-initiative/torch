@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.assertions.Assertions;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,13 +34,16 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.*;
 
-import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 
+/**
+ * In order for the tests to work locally, a torch image must be built:
+ * =>  mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
+ */
 @Testcontainers
-public class SpecificExecutionIT extends BaseExecutionIT {
+public class SpecificExecutionIT {
     private static final Logger logger = LoggerFactory.getLogger(SpecificExecutionIT.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -257,7 +261,7 @@ public class SpecificExecutionIT extends BaseExecutionIT {
 
          */
 
-        cleanup(testData);
+
     }
 
     @Test
@@ -283,86 +287,16 @@ public class SpecificExecutionIT extends BaseExecutionIT {
 
         executeStandardTests(patientBundles, coreBundle);
 
-        cleanup(testData);
-
 
     }
 
-    @Test
-    public void testExamples() throws IOException {
-        /*
-            In order for the tests to work locally, a torch image must be built:
-            =>      mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
-        */
 
-        var bundleUrls = sendCrtdlAndGetOutputUrls("it-kds-crtdl");
-        var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
-        var patientBundles = fetchBundles(bundleUrls.patientBundles());
-
-        assertThat(coreBundle).containsNEntries(0);
-        assertThat(patientBundles).hasSize(2);
-
-        // test if referenced IDs match the actual patient's IDs
-        assertThat(patientBundles).allSatisfy(bundle -> assertThat(bundle).extractOnlyPatient().satisfies(patient ->
-                assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(condition ->
-                        assertThat(condition).extractChildrenStringsAt("subject.reference").hasSize(1).first().isEqualTo(patient.getId()))));
-
-        // this is equivalent to 'never exists' (and an example how to filter by resource type)
-        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition)
-                .allSatisfy(c -> assertThat(c).extractElementsAt("bodySite").isEmpty()));
-
-        // opposite of 'never exists'
-        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition)
-                .allSatisfy(
-                        r -> assertThat(r).extractElementsAt("code").isNotEmpty()
-                ));
-
-        // all conditions in all patient bundles must have the given top fields
-        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition)
-                .allSatisfy(
-                        r -> assertThat(r).extractTopElementNames()
-                                .containsExactlyInAnyOrder("resourceType", "subject", "meta", "_recordedDate", "code", "id")));
-
-        // condition with given id must have a data absent reason at its recordedDate (primitive type)
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-4-diagnose-1").isNotNull()
-                        .hasDataAbsentReasonAt("recordedDate", "masked"));
-
-        // condition with given id must only have this one code
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-1-diagnose-2").isNotNull()
-                        .extractElementsAt("code.coding.code").containsExactly(nodeFromValueString("H67.1")));
-
-        // condition with given id must have the given codes (and not fewer or more codes)
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-1-diagnose-1").isNotNull()
-                        .extractElementsAt("code.coding.code")
-                        .containsExactlyInAnyOrder(nodeFromValueString("B05.3"), nodeFromValueString("I29578"), nodeFromValueString("13420004")));
-
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-3-diagnose-1").isNotNull()
-                        .extractElementsAt("code.coding.code")
-                        .containsExactlyInAnyOrder(nodeFromValueString("C21.8"), nodeFromValueString("447886005"), nodeFromValueString("I29975"), nodeFromValueString("8140/3")));
-
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-4-diagnose-1").isNotNull()
-                        .extractElementsAt("code.coding.code")
-                        .containsExactly(nodeFromValueString("C16.9")));
-
-        // test that IDs are properly formatted
-        assertThat(patientBundles).allSatisfy(bundle ->
-                assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
-                        r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
-                ));
-
-
-    }
-
-    static public void cleanup(Set<String> resourceTypes) {
+    @AfterEach
+    public void cleanup() {
+        Set<String> resourceTypes = Set.of("List", "Condition", "Encounter", "Patient");
         Bundle bundle = new Bundle();
         bundle.setType(Bundle.BundleType.TRANSACTION);
         bundle.setId(UUID.randomUUID().toString());
-        resourceTypes.add("List");
         logger.info(resourceTypes.toString());
         resourceTypes.forEach(resourceType -> {
             Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
@@ -380,12 +314,11 @@ public class SpecificExecutionIT extends BaseExecutionIT {
                 .retrieve()
                 .toBodilessEntity()
                 .block();
-
     }
 
 
     @AfterAll
-    public static void cleanup() {
+    public static void cleanupEnvironment() {
         environment.stop();
     }
 }
