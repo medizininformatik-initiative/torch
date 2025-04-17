@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.management.StructureDefinitionHandle
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -28,9 +29,10 @@ public class CrtdlValidatorService {
     private final CompartmentManager compartmentManager;
     private final List<String> standardPatientProfiles;
     private final List<String> standardPatientGroupNames;
+    private final FilterService filterService;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager, List<String> standardPatientProfiles) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager, List<String> standardPatientProfiles, FilterService filterService) throws IOException {
         this.profileHandler = profileHandler;
         this.compartmentManager = compartmentManager;
         assert (standardPatientProfiles != null);
@@ -50,6 +52,7 @@ public class CrtdlValidatorService {
                 .collect(Collectors.toList());
         this.standardPatientProfiles = standardPatientProfiles;
 
+        this.filterService = filterService;
     }
 
     /**
@@ -116,7 +119,9 @@ public class CrtdlValidatorService {
 
         AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(attributeGroup, definition.getType(), compartmentManager, standardPatientGroupNames);
 
-        return standardGroup.addAttributes(annotatedAttributes);
+        return standardGroup
+                .addAttributes(annotatedAttributes)
+                .setCompiledFilter(filterService.compileFilter(attributeGroup.filter(), definition.getType()));
     }
 
 }
