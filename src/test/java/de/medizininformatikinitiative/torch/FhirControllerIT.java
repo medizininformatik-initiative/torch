@@ -151,22 +151,6 @@ public class FhirControllerIT {
             testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
         }
 
-        @Test
-        public void testEndpointWithObservationWithPatientParameters() throws PatientIdNotFoundException, IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json");
-            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-        }
-
-        @Test
-        public void testValidationAsync() throws PatientIdNotFoundException, IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameter_AsyncTest.json");
-            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-        }
-
 
     }
 

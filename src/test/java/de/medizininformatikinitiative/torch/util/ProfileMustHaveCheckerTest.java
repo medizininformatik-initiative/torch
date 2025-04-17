@@ -67,7 +67,7 @@ class ProfileMustHaveCheckerTest {
     @Test
     void groupProfileIgnoredForPatient() {
         Patient src = new Patient();
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of());
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of(), null);
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
 
         assertThat(checker.fulfilled(src, group)).isTrue();
