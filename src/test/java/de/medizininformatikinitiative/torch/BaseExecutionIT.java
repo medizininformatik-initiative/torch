@@ -245,7 +245,14 @@ public class BaseExecutionIT {
 
     @AfterEach
     public void cleanup() {
-        Set<String> resourceTypes = Set.of("List", "Condition", "Encounter", "Patient");
+        Set<String> resourceTypes = Set.of(
+                "Substance", "Device", "Specimen", "MedicationStatement", "MedicationRequest", "MedicationAdministration",
+                "Medication", "Procedure", "ResearchSubject", "Observation", "Consent", "DiagnosticReport",
+                "List", "Condition", "Encounter", "Patient", "Composition", "Organization", "ServiceRequest", "Media",
+                "ImagingStudy", "DeviceMetric", "PractitionerRole", "Practitioner", "DocumentReference", "EvidenceVariable",
+                "Group", "Library", "ResearchStudy", "Task", "FamilyMemberHistory"
+        );
+
         Bundle bundle = new Bundle();
         bundle.setType(Bundle.BundleType.TRANSACTION);
         bundle.setId(UUID.randomUUID().toString());
