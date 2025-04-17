@@ -65,26 +65,29 @@ public record AnnotatedAttributeGroup(
     }
 
     private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
-        List<QueryParams> codeParams = filter.stream()
-                .filter(f -> "token".equals(f.type()))
-                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
-                .toList();
+        if ("Patient".equals(resourceType())) {
+            return List.of();
+        }
 
-        QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
+        QueryParams dateParams = filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
                 .orElse(EMPTY);
 
+        List<QueryParams> codeParams = filter.stream()
+                .filter(f -> "token".equals(f.type()))
+                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
+                .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
+                .toList();
+
         if (codeParams.isEmpty()) {
-            // Add a single QueryParams with the date filter (if available) and profile parameter
             return List.of(dateParams.appendParam("_profile", stringValue(groupReference)));
-        } else {
-            return codeParams.stream()
-                    .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
-                    .toList();
         }
+
+        return codeParams;
     }
+
 
     public AnnotatedAttributeGroup addAttributes(List<AnnotatedAttribute> newAttributes) {
 

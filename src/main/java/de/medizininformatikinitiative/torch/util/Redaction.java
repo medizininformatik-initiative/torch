@@ -41,16 +41,22 @@ public class Redaction {
         Map<String, Set<String>> references = wrapper.references();
         if (resource.hasMeta()) {
             Meta meta = resource.getMeta();
+            List<CanonicalType> resourceProfiles = List.of();
+            if (!resource.getResourceType().toString().equals("Patient")) {
+                // Convert resource profiles to a list of strings
+                resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
 
-            // Convert resource profiles to a list of strings
-            List<CanonicalType> resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
 
+                List<CanonicalType> finalResourceProfiles = resourceProfiles;
+                Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
 
-            Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> resourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
+                if (!validProfiles.equals(wrapper.profiles())) {
+                    logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
+                    throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
+                }
 
-            if (!validProfiles.equals(wrapper.profiles())) {
-                logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
-                throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
+            } else {
+                resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).collect(Collectors.toList());
             }
 
 

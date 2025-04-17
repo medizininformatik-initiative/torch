@@ -3,10 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -67,9 +64,15 @@ class ProfileMustHaveCheckerTest {
         assertThat(checker.fulfilled(src, group)).isFalse();
     }
 
-    /**
-     * New Tests to Handle Null Scenarios
-     */
+    @Test
+    void groupProfileIgnoredForPatient() {
+        Patient src = new Patient();
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Test", List.of(), List.of());
+        ProfileMustHaveChecker checker = new ProfileMustHaveChecker(INTEGRATION_TEST_SETUP.fhirContext());
+
+        assertThat(checker.fulfilled(src, group)).isTrue();
+    }
+
 
     @Test
     void shouldHandleNullProfileInMeta() {
