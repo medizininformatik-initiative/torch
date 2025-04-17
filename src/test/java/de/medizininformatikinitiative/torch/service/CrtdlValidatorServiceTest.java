@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
@@ -7,6 +8,7 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.*;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -20,7 +22,7 @@ class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private static final FilterService filterService = new FilterService(FhirContext.forR4(), "search-parameters.json");
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
-            new CompartmentManager("compartmentdefinition-patient.json"));
+            new CompartmentManager("compartmentdefinition-patient.json"), filterService);
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());
@@ -69,8 +71,7 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void validInput() throws ValidationException {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of()))));
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of(new Filter("token", "code", List.of(new Code("some-system", "some-code"))))))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of(new Filter("token", "code", List.of(new Code("some-system", "some-code"))))))));
 
         assertThat(validatorService.validate(crtdl).dataExtraction().attributeGroups().get(0).attributes()).isEqualTo(
                 List.of(

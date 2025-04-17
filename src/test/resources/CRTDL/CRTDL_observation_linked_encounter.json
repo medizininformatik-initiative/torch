@@ -75,6 +75,14 @@
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
         "attributes": [
         ]
+      },
+      {
+        "id": "Patient",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+        ],
+        "filter": [
+        ]
       }
     ]
   }

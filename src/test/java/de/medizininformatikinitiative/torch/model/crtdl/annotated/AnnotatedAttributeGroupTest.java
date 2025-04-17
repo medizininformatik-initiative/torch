@@ -38,7 +38,7 @@ class AnnotatedAttributeGroupTest {
         void oneCode() {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1));
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(tokenFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(tokenFilter), null);
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
@@ -52,7 +52,7 @@ class AnnotatedAttributeGroupTest {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2));
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(tokenFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(tokenFilter), null);
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
@@ -65,7 +65,7 @@ class AnnotatedAttributeGroupTest {
         @Test
         void dateFilter() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(dateFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false)), List.of(dateFilter), null);
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
@@ -77,7 +77,7 @@ class AnnotatedAttributeGroupTest {
         @Test
         void filtersIgnoredForPatient() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Patient.name", "Patient.name", "Patient.name", false)), List.of(dateFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(new AnnotatedAttribute("Patient.name", "Patient.name", "Patient.name", false)), List.of(dateFilter), null);
 
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 

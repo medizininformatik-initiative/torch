@@ -22,12 +22,10 @@ public class CrtdlValidatorService {
     private final StructureDefinitionHandler profileHandler;
 
     private final CompartmentManager compartmentManager;
-    private final List<String> standardPatientProfiles;
-    private final List<String> standardPatientGroupNames;
     private final FilterService filterService;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager,FilterService filterService) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager, FilterService filterService) throws IOException {
         this.profileHandler = profileHandler;
         this.compartmentManager = compartmentManager;
         this.filterService = filterService;
