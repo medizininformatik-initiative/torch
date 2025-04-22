@@ -37,7 +37,7 @@ public record ResourceBundle(
         ConcurrentHashMap<String, Resource> cache) {
     private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
 
-    static final org.hl7.fhir.r4.model.Bundle.HTTPVerb method = Bundle.HTTPVerb.PUT;
+    static final org.hl7.fhir.r4.model.Bundle.HTTPVerb METHOD = Bundle.HTTPVerb.PUT;
 
 
     public ResourceBundle() {
@@ -290,7 +290,7 @@ public record ResourceBundle(
     }
 
     public Set<ResourceGroup> getKnownResourceGroups() {
-        return resourceGroupValidity.keySet();
+        return Set.copyOf(resourceGroupValidity.keySet());
     }
 
 
@@ -310,7 +310,7 @@ public record ResourceBundle(
         entryComponent.setResource(resource);
         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
         request.setUrl(resource.getId());
-        request.setMethod(method);
+        request.setMethod(METHOD);
         entryComponent.setRequest(request);
         return entryComponent;
     }
