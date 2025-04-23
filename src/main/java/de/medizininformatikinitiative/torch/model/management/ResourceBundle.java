@@ -290,7 +290,7 @@ public record ResourceBundle(
     }
 
     public Set<ResourceGroup> getKnownResourceGroups() {
-        return resourceGroupValidity.keySet();
+        return Set.copyOf(resourceGroupValidity.keySet());
     }
 
 
