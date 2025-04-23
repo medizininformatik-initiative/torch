@@ -4,6 +4,8 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -30,10 +32,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
-import java.util.Base64;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Scanner;
+import java.util.*;
 
 import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
@@ -41,8 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 
 @Testcontainers
-public class BundleIT {
-    private static final Logger logger = LoggerFactory.getLogger(BundleIT.class);
+public class BaseExecutionIT {
+    private static final Logger logger = LoggerFactory.getLogger(BaseExecutionIT.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
     private static final FhirContext context = FhirContext.forR4();
@@ -67,7 +66,7 @@ public class BundleIT {
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
                 .withExposedService("torch", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("torch", new Slf4jLogConsumer(logger).withPrefix("torch"))
-            .withExposedService("nginx", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+                .withExposedService("nginx", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("nginx", new Slf4jLogConsumer(logger).withPrefix("nginx"));
         environment.start();
         blazeHost = environment.getServiceHost("blaze", 8080);
@@ -124,7 +123,7 @@ public class BundleIT {
         for (int i = 0; i < output.size(); i++) {
             var bundleUrl = URLDecoder.decode(mapper.writeValueAsString(output.get(i).get("url")), StandardCharsets.UTF_8);
             bundleUrl = bundleUrl.replace("8085", String.valueOf(nginxPort)).replace("\"", "");
-            if(bundleUrl.contains("core.ndjson")) {
+            if (bundleUrl.contains("core.ndjson")) {
                 coreBundle = bundleUrl;
             } else {
                 patientBundles.add(bundleUrl);
@@ -160,11 +159,11 @@ public class BundleIT {
     private static HttpHeaders pollExtractRequest(String crtdlFile) throws IOException {
         var crtdl = loadCrtdl(crtdlFile);
         return torchClient.post()
-                        .uri("/fhir/$extract-data")
-                        .bodyValue(crtdl)
-                        .retrieve()
-                        .onStatus(status -> !status.is2xxSuccessful(), ClientResponse::createException)
-                        .toEntity(String.class)
+                .uri("/fhir/$extract-data")
+                .bodyValue(crtdl)
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), ClientResponse::createException)
+                .toEntity(String.class)
                 .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY))
                 .map(HttpEntity::getHeaders)
                 .block();
@@ -183,7 +182,7 @@ public class BundleIT {
             =>      mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
         */
 
-        var bundleUrls = sendCrtdlAndGetOutputUrls("it-kds-crtdl.json");
+        var bundleUrls = sendCrtdlAndGetOutputUrls("CrtdlItTests/CRTDL_test_it-kds-crtdl.json");
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
@@ -242,5 +241,42 @@ public class BundleIT {
                 assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
                         r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
                 ));
+    }
+
+    @AfterEach
+    public void cleanup() {
+        Set<String> resourceTypes = Set.of(
+                "Substance", "Device", "Specimen", "MedicationStatement", "MedicationRequest", "MedicationAdministration",
+                "Medication", "Procedure", "ResearchSubject", "Observation", "Consent", "DiagnosticReport",
+                "List", "Condition", "Encounter", "Patient", "Composition", "Organization", "ServiceRequest", "Media",
+                "ImagingStudy", "DeviceMetric", "PractitionerRole", "Practitioner", "DocumentReference", "EvidenceVariable",
+                "Group", "Library", "ResearchStudy", "Task", "FamilyMemberHistory"
+        );
+
+        Bundle bundle = new Bundle();
+        bundle.setType(Bundle.BundleType.TRANSACTION);
+        bundle.setId(UUID.randomUUID().toString());
+        logger.info(resourceTypes.toString());
+        resourceTypes.forEach(resourceType -> {
+            Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
+            Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
+
+            request.setUrl(resourceType + "?");
+            request.setMethod(Bundle.HTTPVerb.DELETE);
+            entryComponent.setRequest(request);
+            bundle.addEntry(entryComponent);
+        });
+        var bundleString = context.newJsonParser().encodeToString(bundle);
+        logger.info(bundleString);
+        blazeClient.post()
+                .bodyValue(bundleString)
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+    }
+
+    @AfterAll
+    public static void cleanupEnvironment() {
+        environment.stop();
     }
 }
