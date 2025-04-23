@@ -259,11 +259,11 @@ public class FhirControllerIT {
 
                     // End timing
                     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
-                    ;
+                    logger.debug("Duration: {} ms", durationMs);
 
                     // Assert 202 and timing
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
-                    assertTrue(durationMs < 200, "Initial response took too long: " + durationMs + "ms");
+                    assertTrue(durationMs < 100, "Initial response took too long: " + durationMs + "ms");
 
 
                     // Polling the status endpoint

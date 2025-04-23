@@ -131,29 +131,29 @@ public class FhirController {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
                 .flatMap(decoded -> {
-                    List<String> patientList = decoded.patientIds;
                     String jobId = UUID.randomUUID().toString();
                     logger.info("Create data extraction job id: {}", jobId);
                     resultFileManager.setStatus(jobId, "Processing");
 
-                    return resultFileManager.initJobDir(jobId)
-                            .then(Mono.defer(() ->
-                                    Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
-                                            .subscribeOn(Schedulers.boundedElastic())
-                            ))
-                            .flatMap(validated -> crtdlProcessingService.process(validated, jobId, patientList))
-                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
-                            .doOnError(e -> {
-                                logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
-                                resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                            })
-                            .onErrorResume(e -> Mono.empty()) // swallow background errors
-                            .thenReturn(jobId);
+                    // Fire off background processing (no chaining!)
+                    Mono.fromRunnable(() -> {
+                        resultFileManager.initJobDir(jobId)
+                                .then(Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
+                                        .subscribeOn(Schedulers.boundedElastic()))
+                                .flatMap(validated -> crtdlProcessingService.process(validated, jobId, decoded.patientIds))
+                                .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
+                                .doOnError(e -> {
+                                    logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
+                                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
+                                })
+                                .onErrorResume(e -> Mono.empty())
+                                .subscribe(); // important: fire & forget
+                    }).subscribeOn(Schedulers.boundedElastic()).subscribe();
+
+                    return ServerResponse.accepted()
+                            .header("Content-Location", "/fhir/__status/" + jobId)
+                            .build();
                 })
-                .flatMap(jobId -> ServerResponse.accepted()
-                        .header("Content-Location", "/fhir/__status/" + jobId)
-                        .build()
-                )
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());
                     return ServerResponse.badRequest()
