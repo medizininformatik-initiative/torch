@@ -4,20 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [v1.0.0-alpha.2] - 2024-11-14
+## [v1.0.0-test1] - 2024-04-23
 
 ### Added
 
-### Changed
-
-### Deprecated
-
-### Removed
+- Rework of Batching with async writing operation to File
+- Reference Resolve with Automatic Patient Group Linking
+- Fetching resources by reference
+- Support of core resources
+- Filter Operation on Resources
+- Validation of CRTDL
 
 ### Fixed
 
-### Security
+- Diverse Bug Fixes in extraction process and reactive chain
 
+### Removed
+
+- Dummy Patient and Encounter
 
 ## [v1.0.0-alpha.3] - 2024-11-15
 

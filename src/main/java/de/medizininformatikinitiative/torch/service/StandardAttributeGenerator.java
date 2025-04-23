@@ -51,7 +51,7 @@ public class StandardAttributeGenerator {
                 String fieldString = resourceType + "." + field;
                 ElementDefinition elementDefinition = definition.getSnapshot().getElementById(fieldString);
                 if (elementDefinition != null) {
-                    tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, fieldString, false, List.of(patientGroupId)));
+                    tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, fieldString, true, List.of(patientGroupId)));
                 }
             }
         }
