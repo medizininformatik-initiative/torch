@@ -258,7 +258,7 @@ public class FhirControllerIT {
                     ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
 
                     // End timing
-                    long durationMs = (System.nanoTime() - startTime) / 1_000_000;
+                    long durationMs = (System.nanoTime() - startTime) / 100_000;
 
                     // Assert 202 and timing
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
