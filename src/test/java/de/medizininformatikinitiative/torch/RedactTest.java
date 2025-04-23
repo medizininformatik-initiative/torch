@@ -23,6 +23,7 @@ public class RedactTest {
     public static final String OBSERVATION_LAB = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
     public static final String DIAGNOSIS = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
     public static final String MEDICATION = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication";
+    public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
 
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
 
@@ -138,6 +139,29 @@ public class RedactTest {
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedMedication));
+    }
+
+    @Test
+    public void patient() {
+        Meta meta = new Meta();
+        meta.addProfile("anyprofile");
+        Patient patient = new Patient();
+        patient.setId("patient-id");
+        patient.setMeta(meta);
+
+        Patient expectedPatient = new Patient();
+        expectedPatient.setId("patient-id");
+        Meta metaModified = new Meta();
+        metaModified.addProfile(PATIENT);
+        expectedPatient.setMeta(metaModified);
+        Identifier identifier = new Identifier();
+        identifier.addExtension(createAbsentReasonExtension("masked"));
+        expectedPatient.setIdentifier(List.of(identifier));
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(patient, Set.of(PATIENT), Map.of(), Set.of());
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedPatient));
     }
 
 

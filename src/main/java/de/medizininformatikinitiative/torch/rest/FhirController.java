@@ -31,7 +31,8 @@ import java.util.concurrent.ExecutorService;
 
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
-import static org.springframework.web.reactive.function.server.ServerResponse.*;
+import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
+import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
 
 @RestController
 public class FhirController {
@@ -130,40 +131,38 @@ public class FhirController {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .flatMap(this::parseCrtdl)
                 .flatMap(decoded -> {
-                    List<String> patientList = decoded.patientIds;
-                    var jobId = UUID.randomUUID().toString();
+                    String jobId = UUID.randomUUID().toString();
                     logger.info("Create data extraction job id: {}", jobId);
                     resultFileManager.setStatus(jobId, "Processing");
 
-                    return resultFileManager.initJobDir(jobId)
-                            .flatMap(jobDir ->
-                                    Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
-                                            .subscribeOn(Schedulers.boundedElastic())
-                                            .flatMap(validated ->
-                                                    crtdlProcessingService.process(validated, jobId, patientList)
-                                            )
-                            )
-                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
-                            .doOnError(e -> {
-                                logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
-                                resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
-                            })
-                            .onErrorResume(e -> Mono.empty()) // swallow background errors
-                            .thenReturn(jobId); // continue with 202 response
+                    // Fire off background processing (no chaining!)
+                    Mono.fromRunnable(() -> {
+                        resultFileManager.initJobDir(jobId)
+                                .then(Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
+                                        .subscribeOn(Schedulers.boundedElastic()))
+                                .flatMap(validated -> crtdlProcessingService.process(validated, jobId, decoded.patientIds))
+                                .doOnSuccess(v -> resultFileManager.setStatus(jobId, "Completed"))
+                                .doOnError(e -> {
+                                    logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
+                                    resultFileManager.setStatus(jobId, "Failed: " + e.getMessage());
+                                })
+                                .onErrorResume(e -> Mono.empty())
+                                .subscribe(); // important: fire & forget
+                    }).subscribeOn(Schedulers.boundedElastic()).subscribe();
+
+                    return ServerResponse.accepted()
+                            .header("Content-Location", "/fhir/__status/" + jobId)
+                            .build();
                 })
-                .flatMap(jobId -> accepted()
-                        .header("Content-Location", "/fhir/__status/" + jobId)
-                        .build()
-                )
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());
-                    return badRequest()
+                    return ServerResponse.badRequest()
                             .contentType(MEDIA_TYPE_FHIR_JSON)
                             .bodyValue(new Error(e.getMessage()));
                 })
                 .onErrorResume(Exception.class, e -> {
                     logger.error("Unexpected error: {}", e.getMessage(), e);
-                    return status(500)
+                    return ServerResponse.status(500)
                             .contentType(MEDIA_TYPE_FHIR_JSON)
                             .bodyValue(new Error(e.getMessage()));
                 });

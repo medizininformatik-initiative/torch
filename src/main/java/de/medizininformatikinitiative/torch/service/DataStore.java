@@ -58,6 +58,7 @@ public class DataStore {
      * @return the resources found in {@param reference}
      */
     public Mono<Resource> fetchResourceByReference(String reference) {
+        logger.debug("Fetching resource by reference {}", reference);
         if (reference.startsWith("http") || reference.startsWith("https")) { // Absolute URL
             return Mono.error(new IllegalArgumentException("Absolute reference " + reference + "not supported"));
         } else if (reference.contains("/")) { // Relative reference

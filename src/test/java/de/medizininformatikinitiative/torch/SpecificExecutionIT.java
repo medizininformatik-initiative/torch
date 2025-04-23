@@ -12,6 +12,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -117,13 +118,16 @@ public class SpecificExecutionIT {
                 .retrieve()
                 .toBodilessEntity()
                 .block();
-        Bundle bundle = context.newJsonParser().parseResource(Bundle.class, bundleString);
+        Bundle bundle = parser.parseResource(Bundle.class, bundleString);
         Set<String> resourceTypes = new HashSet<>();
         bundle.getEntry().forEach(entry -> resourceTypes.add(entry.getResource().getResourceType().name()));
         return resourceTypes;
     }
 
     private static TestUtils.TorchBundleUrls getOutputUrls(ResponseEntity<String> response) throws IOException {
+
+        System.out.println(response.getBody());
+
         var body = mapper.readTree(response.getBody());
         var output = body.get("output");
         var coreBundle = "";
@@ -167,22 +171,29 @@ public class SpecificExecutionIT {
         return bundles;
     }
 
-    private static HttpHeaders pollExtractRequest(String crtdlFile) throws IOException {
+    private static HttpHeaders sendExtractRequest(String crtdlFile) throws IOException {
         var crtdl = loadCrtdl(crtdlFile);
         return torchClient.post()
                 .uri("/fhir/$extract-data")
                 .bodyValue(crtdl)
                 .retrieve()
-                .onStatus(status -> !status.is2xxSuccessful(), ClientResponse::createException)
                 .toEntity(String.class)
-                .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY))
                 .map(HttpEntity::getHeaders)
                 .block();
     }
 
+    private static ResponseEntity<String> pollAndGetBundleLocationResponse(String statusUrl) throws IOException {
+
+        return torchClient.get().uri(statusUrl).retrieve()
+                .onStatus(status -> status.isSameCodeAs(HttpStatusCode.valueOf(202)), ClientResponse::createException)
+                .toEntity(String.class)
+                .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY))
+                .block();
+    }
+
     private static TestUtils.TorchBundleUrls sendCrtdlAndGetOutputUrls(String crtdlFile) throws IOException {
-        var statusUrl = pollExtractRequest(crtdlFile).get("Content-Location").getFirst();
-        var bundleLocationResponse = torchClient.get().uri(statusUrl).retrieve().toEntity(String.class).block();
+        var statusUrl = sendExtractRequest(crtdlFile).get("Content-Location").getFirst();
+        var bundleLocationResponse =pollAndGetBundleLocationResponse(statusUrl);
         return getOutputUrls(bundleLocationResponse);
     }
 
@@ -223,7 +234,7 @@ public class SpecificExecutionIT {
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
-        context.newJsonParser().encodeResourceToString(patientBundles.get(0));
+        parser.encodeResourceToString(patientBundles.get(0));
 
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
@@ -271,9 +282,6 @@ public class SpecificExecutionIT {
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
-        context.newJsonParser().encodeResourceToString(patientBundles.get(0));
-
-
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
@@ -299,7 +307,7 @@ public class SpecificExecutionIT {
             entryComponent.setRequest(request);
             bundle.addEntry(entryComponent);
         });
-        var bundleString = context.newJsonParser().encodeToString(bundle);
+        var bundleString = parser.encodeToString(bundle);
         logger.info(bundleString);
         blazeClient.post()
                 .bodyValue(bundleString)

@@ -4,27 +4,31 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.List;
 
-import static de.medizininformatikinitiative.torch.service.StandardAttributeGenerator.generate;
 import static org.assertj.core.api.Assertions.assertThat;
+
 
 class StandardAttributeGeneratorTest {
 
 
-    CompartmentManager compartmentManager = new CompartmentManager("compartmentdefinition-patient.json");
+    private final CompartmentManager compartmentManager = new CompartmentManager("compartmentdefinition-patient.json");
+    private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
+    private final StandardAttributeGenerator standardAttributeGenerator;
 
     StandardAttributeGeneratorTest() throws IOException {
+        standardAttributeGenerator = new StandardAttributeGenerator(compartmentManager, integrationTestSetup.structureDefinitionHandler());
     }
 
     @Test
     void patient() {
-        var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
+        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(new Attribute("Patient.name", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Patient", compartmentManager, List.of("patientGroup"));
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -35,24 +39,24 @@ class StandardAttributeGeneratorTest {
 
     @Test
     void consent() {
-        var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Consent.identifier", false)), List.of());
+        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", List.of(new Attribute("Consent.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Consent", compartmentManager, List.of());
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
 
                 new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", false),
                 new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", false),
-                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false)
+                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false, List.of("patientGroup"))
         );
     }
 
     @Test
     void observation() {
-        var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Observation.identifier", false)), List.of());
+        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.identifier", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Observation", compartmentManager, List.of("group1"));
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "group1");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -64,9 +68,9 @@ class StandardAttributeGeneratorTest {
 
     @Test
     void coreCase() {
-        var attributeGroup = new AttributeGroup("test", "groupRef", List.of(), List.of());
+        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Medication", compartmentManager, List.of());
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
@@ -79,14 +83,15 @@ class StandardAttributeGeneratorTest {
 
     @Test
     void defaultCase() {
-        var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Condition.code", false)), List.of());
+        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(new Attribute("Condition.code", false)), List.of());
 
-        var standardAddedGroup = generate(attributeGroup, "Condition", compartmentManager, List.of());
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
-        assertThat(standardAddedGroup.attributes()).contains(
+        assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", false),
-                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", false)
+                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", false),
+                new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", false, List.of("patientGroup"))
         );
 
     }
