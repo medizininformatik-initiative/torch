@@ -2,11 +2,8 @@ package de.medizininformatikinitiative.torch.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-import java.util.List;
-
 @ConfigurationProperties(prefix = "torch")
 public record TorchProperties(
-        List<String> patient,
         Profile profile,
         Mapping mapping,
         Fhir fhir,

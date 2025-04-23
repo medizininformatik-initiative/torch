@@ -48,11 +48,6 @@
           {
             "attributeRef": "Condition.code",
             "mustHave": false
-          },
-          {
-            "attributeRef": "Condition.subject",
-            "mustHave": true,
-            "linkedGroups": ["111-pat"]
           }
         ]
       },

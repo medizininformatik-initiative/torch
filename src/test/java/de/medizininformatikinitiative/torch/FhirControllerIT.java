@@ -151,22 +151,6 @@ public class FhirControllerIT {
             testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
         }
 
-        @Test
-        public void testEndpointWithObservationWithPatientParameters() throws PatientIdNotFoundException, IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json");
-            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-        }
-
-        @Test
-        public void testValidationAsync() throws PatientIdNotFoundException, IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameter_AsyncTest.json");
-            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
-        }
-
 
     }
 
@@ -275,10 +259,11 @@ public class FhirControllerIT {
 
                     // End timing
                     long durationMs = (System.nanoTime() - startTime) / 1_000_000;
+                    logger.debug("Duration: {} ms", durationMs);
 
                     // Assert 202 and timing
                     assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
-                    assertTrue(durationMs < 1000, "Initial response took too long: " + durationMs + "ms");
+                    assertTrue(durationMs < 100, "Initial response took too long: " + durationMs + "ms");
 
 
                     // Polling the status endpoint

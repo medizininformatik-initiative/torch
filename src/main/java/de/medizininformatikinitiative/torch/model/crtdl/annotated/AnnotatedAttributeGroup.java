@@ -59,6 +59,9 @@ public record AnnotatedAttributeGroup(
     }
 
     public List<Query> queries(DseMappingTreeBase mappingTreeBase, String resourceType) {
+        if (resourceType.equals("Patient")) {
+            return List.of(Query.ofType("Patient"));
+        }
         return queryParams(mappingTreeBase).stream()
                 .map(params -> Query.of(resourceType, params))
                 .toList();
@@ -85,6 +88,7 @@ public record AnnotatedAttributeGroup(
                     .toList();
         }
     }
+
 
     public AnnotatedAttributeGroup addAttributes(List<AnnotatedAttribute> newAttributes) {
 
