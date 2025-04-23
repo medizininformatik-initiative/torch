@@ -3,9 +3,6 @@
 server:
   port: 8080
 torch:
-  patient:
-    - https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient
-    - https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert
   profile:
     dir: structureDefinitions
   mapping:

@@ -261,7 +261,7 @@
                                     <arguments>
                                         <argument>-L</argument>
                                         <argument>
-                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/releases/download/${ontology-tag}/mapping.zip
                                         </argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
