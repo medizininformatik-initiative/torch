@@ -44,11 +44,6 @@
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
           {
-            "attributeRef": "Condition.subject",
-            "mustHave": true,
-            "linkedGroups": ["pat-1-main"]
-          },
-          {
             "attributeRef": "Condition.encounter",
             "mustHave": true,
             "linkedGroups": ["enc-1-diab-enc"]
@@ -91,11 +86,6 @@
         "includeReferenceOnly": true,
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
-          {
-            "attributeRef": "Condition.subject",
-            "mustHave": true,
-            "linkedGroups": ["pat-1-main"]
-          },
           {
             "attributeRef": "Condition.encounter",
             "mustHave": false,
@@ -143,11 +133,6 @@
         "name": "Diabetes Encounter",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
         "attributes": [
-          {
-            "attributeRef": "Encounter.subject",
-            "mustHave": true,
-            "linkedGroups": ["pat-1-main"]
-          },
           {
             "attributeRef": "Encounter.status",
             "mustHave": false
