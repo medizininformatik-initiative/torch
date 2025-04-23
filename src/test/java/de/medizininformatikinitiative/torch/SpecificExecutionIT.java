@@ -118,7 +118,7 @@ public class SpecificExecutionIT {
                 .retrieve()
                 .toBodilessEntity()
                 .block();
-        Bundle bundle = context.newJsonParser().parseResource(Bundle.class, bundleString);
+        Bundle bundle = parser.parseResource(Bundle.class, bundleString);
         Set<String> resourceTypes = new HashSet<>();
         bundle.getEntry().forEach(entry -> resourceTypes.add(entry.getResource().getResourceType().name()));
         return resourceTypes;
@@ -234,7 +234,7 @@ public class SpecificExecutionIT {
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
-        context.newJsonParser().encodeResourceToString(patientBundles.get(0));
+        parser.encodeResourceToString(patientBundles.get(0));
 
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
@@ -282,9 +282,6 @@ public class SpecificExecutionIT {
         var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
         var patientBundles = fetchBundles(bundleUrls.patientBundles());
 
-        context.newJsonParser().encodeResourceToString(patientBundles.get(0));
-
-
         assertThat(coreBundle).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
@@ -310,7 +307,7 @@ public class SpecificExecutionIT {
             entryComponent.setRequest(request);
             bundle.addEntry(entryComponent);
         });
-        var bundleString = context.newJsonParser().encodeToString(bundle);
+        var bundleString = parser.encodeToString(bundle);
         logger.info(bundleString);
         blazeClient.post()
                 .bodyValue(bundleString)
