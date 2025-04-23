@@ -5,7 +5,6 @@ import ca.uhn.fhir.parser.IParser;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
@@ -243,7 +242,7 @@ public class BaseExecutionIT {
                 ));
     }
 
-    @AfterEach
+
     public void cleanup() {
         Set<String> resourceTypes = Set.of(
                 "Substance", "Device", "Specimen", "MedicationStatement", "MedicationRequest", "MedicationAdministration",

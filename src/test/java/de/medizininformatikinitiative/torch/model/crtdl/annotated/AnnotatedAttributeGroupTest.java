@@ -82,6 +82,7 @@ class AnnotatedAttributeGroupTest {
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 
             assertThat(result).containsExactly(
+                    Query.ofType("Patient")
             );
         }
     }

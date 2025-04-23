@@ -59,33 +59,34 @@ public record AnnotatedAttributeGroup(
     }
 
     public List<Query> queries(DseMappingTreeBase mappingTreeBase, String resourceType) {
+        if (resourceType.equals("Patient")) {
+            return List.of(Query.ofType("Patient"));
+        }
         return queryParams(mappingTreeBase).stream()
                 .map(params -> Query.of(resourceType, params))
                 .toList();
     }
 
     private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
-        if ("Patient".equals(resourceType())) {
-            return List.of();
-        }
+        List<QueryParams> codeParams = filter.stream()
+                .filter(f -> "token".equals(f.type()))
+                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
+                .toList();
 
-        QueryParams dateParams = filter.stream()
+        QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)
                 .orElse(EMPTY);
 
-        List<QueryParams> codeParams = filter.stream()
-                .filter(f -> "token".equals(f.type()))
-                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
-                .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
-                .toList();
-
         if (codeParams.isEmpty()) {
+            // Add a single QueryParams with the date filter (if available) and profile parameter
             return List.of(dateParams.appendParam("_profile", stringValue(groupReference)));
+        } else {
+            return codeParams.stream()
+                    .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
+                    .toList();
         }
-
-        return codeParams;
     }
 
 
