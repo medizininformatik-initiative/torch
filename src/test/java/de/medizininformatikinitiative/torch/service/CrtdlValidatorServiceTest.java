@@ -22,7 +22,7 @@ class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private static final FilterService filterService = new FilterService(FhirContext.forR4(), "search-parameters.json");
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
-            new CompartmentManager("compartmentdefinition-patient.json"), filterService);
+            new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()), filterService);
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());

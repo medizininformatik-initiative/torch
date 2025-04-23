@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
@@ -13,21 +12,24 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataE
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
 
 public class CrtdlValidatorService {
+    private static final Logger logger = LoggerFactory.getLogger(CrtdlValidatorService.class);
 
     private final StructureDefinitionHandler profileHandler;
 
-    private final CompartmentManager compartmentManager;
+    private final StandardAttributeGenerator attributeGenerator;
     private final FilterService filterService;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, CompartmentManager compartmentManager, FilterService filterService) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) throws IOException {
         this.profileHandler = profileHandler;
-        this.compartmentManager = compartmentManager;
+        this.attributeGenerator = attributeGenerator;
         this.filterService = filterService;
     }
 
@@ -53,6 +55,7 @@ public class CrtdlValidatorService {
                     } else {
                         exactlyOnePatientGroup = true;
                         patientAttributeGroupId = attributeGroup.id();
+                        logger.debug("Found Patient Attribute Group {}", patientAttributeGroupId);
                     }
 
                 }
@@ -109,7 +112,7 @@ public class CrtdlValidatorService {
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
 
-        AnnotatedAttributeGroup standardGroup = StandardAttributeGenerator.generate(attributeGroup, definition.getType(), compartmentManager, patientGroupId);
+        AnnotatedAttributeGroup standardGroup = attributeGenerator.generate(attributeGroup, patientGroupId);
 
         return standardGroup
                 .addAttributes(annotatedAttributes)
