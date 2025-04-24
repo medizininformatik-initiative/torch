@@ -32,8 +32,6 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
-  patient:
-    - https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient
 nginx:
   servername: http://localhost:8080
   filelocation: http://localhost:8080/output

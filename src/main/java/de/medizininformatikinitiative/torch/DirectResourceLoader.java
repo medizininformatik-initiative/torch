@@ -103,7 +103,7 @@ public class DirectResourceLoader {
 
 
     Flux<Resource> executeQueryWithBatch(PatientBatch batch, Query query) {
-        Query finalQuery = Query.of(query.type(), query.params().appendParams(batch.compartmentSearchParam(query.type())));
+        Query finalQuery = Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params()));
         logger.debug("Query for Patients {}", finalQuery);
 
         return dataStore.search(finalQuery);
