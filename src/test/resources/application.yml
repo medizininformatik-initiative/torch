@@ -31,6 +31,7 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: false
+  bufferSize: 100
 nginx:
   servername: localhost:8080
   filelocation: localhost:8080/output
@@ -38,10 +39,11 @@ nginx:
 logging:
   level:
     root: WARN
-    org.springframework.web.reactive.function.client: WARN
+    org.springframework.web.reactive.function.client: DEBUG
     reactor.netty: WARN
     reactor: WARN
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
+    de.medizininformatikinitiative.torch.service: ${LOG_LEVEL:debug}
     de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:debug}
     de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:debug}
     org.springframework: ${LOG_LEVEL:debug}

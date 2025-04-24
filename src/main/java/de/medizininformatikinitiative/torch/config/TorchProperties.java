@@ -11,6 +11,7 @@ public record TorchProperties(
         Results results,
         int batchsize,
         int maxConcurrency,
+        int bufferSize,
         String mappingsFile,
         String conceptTreeFile,
         String dseMappingTreeFile,

@@ -32,6 +32,7 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
+  bufferSize: 100
 nginx:
   servername: http://localhost:8080
   filelocation: http://localhost:8080/output

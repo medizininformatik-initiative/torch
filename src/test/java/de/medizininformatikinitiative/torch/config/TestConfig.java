@@ -35,6 +35,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
@@ -131,16 +132,32 @@ public class TestConfig {
     }
 
 
-    // Bean for the FHIR WebClient initialized with the dynamically determined URL
     @Bean
     @Qualifier("fhirClient")
     public WebClient fhirWebClient(ContainerManager containerManager) {
         String blazeBaseUrl = containerManager.getBlazeBaseUrl();
         logger.info("Initializing FHIR WebClient with URL: {}", blazeBaseUrl);
 
-        ConnectionProvider provider = ConnectionProvider.builder("data-store").maxConnections(4).pendingAcquireMaxCount(500).build();
+        ConnectionProvider provider = ConnectionProvider.builder("data-store")
+                .maxConnections(4)
+                .pendingAcquireMaxCount(500)
+                .build();
+
         HttpClient httpClient = HttpClient.create(provider);
-        return WebClient.builder().baseUrl(blazeBaseUrl).clientConnector(new ReactorClientHttpConnector(httpClient)).defaultHeader("Accept", "application/fhir+json").build();
+
+        // Configure buffer size to 10MB
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(configurer -> configurer
+                        .defaultCodecs()
+                        .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
+                .build();
+
+        return WebClient.builder()
+                .baseUrl(blazeBaseUrl)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .exchangeStrategies(strategies)
+                .defaultHeader("Accept", "application/fhir+json")
+                .build();
     }
 
 
