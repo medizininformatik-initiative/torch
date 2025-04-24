@@ -3,7 +3,9 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import ca.uhn.fhir.rest.server.exceptions.ResourceNotFoundException;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -18,18 +20,18 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
+import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
@@ -169,7 +171,7 @@ class ReferenceHandlerIT {
     AnnotatedAttributeGroup patientGroup;
     private Organization organization;
     private AnnotatedAttribute medicationID;
-    private AnnotatedAttribute medicationRef;
+    private AnnotatedAttribute referenceAttribute;
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
     @BeforeAll
@@ -187,7 +189,7 @@ class ReferenceHandlerIT {
         AnnotatedAttributeGroup medicationGroup = new AnnotatedAttributeGroup("Medication1", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID), List.of(), null);
 
 
-        medicationRef = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
+        referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
 
         attributeGroupMap.put("Patient1", patientGroup);
         attributeGroupMap.put("Condition1", conditionGroup);
@@ -211,13 +213,76 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(medicationRef, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup("Medication/testMedication", "Medication1")))
                     .verifyComplete();
+
+            // Assuming the method returns a Map<ResourceGroup, Boolean>
+            assertThat(coreBundle.resourceGroupValidity())
+                    .containsExactly(entry(new ResourceGroup("Medication/testMedication", "Medication1"), true));
         }
 
+        @Test
+        void resolveCoreBundle_fail_MustHave() {
+            // Arrange: Mock the behavior of DataStore to return a 404 error (resource not found)
+            String invalidReference = "Medication/invalidReference";
+            Mockito.when(dataStore.fetchResourceByReference(invalidReference))
+                    .thenReturn(Mono.error(new ResourceNotFoundException("Resource not found for reference: " + invalidReference)));
+
+
+            ResourceBundle coreBundle = new ResourceBundle();
+
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(
+                    new ReferenceWrapper(referenceAttribute, List.of(invalidReference), "EncounterGroup", "parent"),
+                    null,
+                    coreBundle,
+                    false,
+                    attributeGroupMap
+            );
+
+            // Act & Assert: Expect the MustHaveViolatedException to be thrown
+            StepVerifier.create(result)
+                    .expectError(MustHaveViolatedException.class)  // Expect the MustHaveViolatedException to be thrown
+                    .verify();
+
+            assertThat(coreBundle.resourceGroupValidity())
+                    .containsExactly(entry(new ResourceGroup("Medication/invalidReference", "Medication1"), false));
+
+
+        }
+
+        @Test
+        void resolveCoreBundle_fail() {
+            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", false, List.of("Medication1"));
+
+
+            // Arrange: Mock the behavior of DataStore to return a 404 error (resource not found)
+            String invalidReference = "Medication/invalidReference";
+            Mockito.when(dataStore.fetchResourceByReference(invalidReference))
+                    .thenReturn(Mono.error(new ResourceNotFoundException("Resource not found for reference: " + invalidReference)));
+
+
+            ResourceBundle coreBundle = new ResourceBundle();
+
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(
+                    new ReferenceWrapper(referenceAttribute, List.of(invalidReference), "EncounterGroup", "parent"),
+                    null,
+                    coreBundle,
+                    false,
+                    attributeGroupMap
+            );
+
+            // Act & Assert: Expect an empty list to be returned
+            StepVerifier.create(result)
+                    .expectNext(Collections.emptyList())  // Expect an empty list to be returned
+                    .verifyComplete();  // Complete the sequence after returning the empty list
+
+            assertThat(coreBundle.resourceGroupValidity())
+                    .containsExactly(entry(new ResourceGroup("Medication/invalidReference", "Medication1"), false));
+
+        }
 
     }
 

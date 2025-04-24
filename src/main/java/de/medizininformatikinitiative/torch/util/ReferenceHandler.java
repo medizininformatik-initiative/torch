@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -109,35 +110,49 @@ public class ReferenceHandler {
                         logger.debug("Reference {} not found in patientBundle or coreBundle, attempting fetch.", reference);
                         referenceResource = getResourceMono(patientBundle, applyConsent, reference)
                                 .doOnSuccess(resource -> {
-                                    if (compartmentManager.isInCompartment(resource)) {
-                                        if (patientBundle != null) {
-                                            patientBundle.put(resource);
+                                    if (resource != null) {
+
+
+                                        if (compartmentManager.isInCompartment(resource)) {
+                                            if (patientBundle != null) {
+                                                patientBundle.put(resource);
+                                            }
+                                        } else {
+                                            coreBundle.put(resource);
                                         }
-                                    } else {
-                                        coreBundle.put(resource);
                                     }
+                                })
+                                .onErrorResume(e -> {
+                                    logger.error("Error fetching resource for reference {}: {}", reference, e.getMessage());
+                                    // Return an empty list on error
+                                    referenceWrapper.refAttribute().linkedGroups()
+                                            .forEach(groupId -> {
+                                                ResourceGroup resourceGroup = new ResourceGroup(reference, groupId);
+                                                // Check if the resource group is new
+                                                processingBundle.addResourceGroupValidity(resourceGroup, false);
+                                            });
+                                    return Mono.empty();
                                 });
+
                     }
 
                     return referenceResource.flatMap(resource -> {
                         String resourceUrl = ResourceUtils.getRelativeURL(resource);
-
                         List<ResourceGroup> validGroups = referenceWrapper.refAttribute().linkedGroups().stream()
-                                .map(groupMap::get)
-                                .map(group -> {
-                                    logger.debug("Checking group {} for Reference: {}", group.id(), reference);
-                                    ResourceGroup resourceGroup = new ResourceGroup(resourceUrl, group.id());
-
+                                .map(groupId -> {
+                                    logger.debug("Checking group {} for Reference: {}", groupId, reference);
+                                    ResourceGroup resourceGroup = new ResourceGroup(resourceUrl, groupId);
                                     // Check if the resource group is new
                                     Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
 
                                     if (isValid == null) {
-                                        logger.debug("Unknown group {} for Reference: {}", group.id(), reference);// Unknown group, check validity
+                                        AnnotatedAttributeGroup group = groupMap.get(groupId);
+                                        logger.debug("Unknown group {} for Reference: {}", groupId, reference);// Unknown group, check validity
                                         Boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
                                         if (group.compiledFilter() != null) {
                                             fulfilled = fulfilled && group.compiledFilter().test(resource);
                                         }
-                                        logger.debug("Group {} for Reference: {}", group, fulfilled);
+                                        logger.debug("Group {} for Reference: {}", groupId, fulfilled);
                                         isValid = Boolean.TRUE.equals(fulfilled); // Ensure `null` defaults to `false`
                                         processingBundle.addResourceGroupValidity(resourceGroup, isValid);
                                     }
@@ -178,17 +193,17 @@ public class ReferenceHandler {
      * @return
      */
     public Mono<Resource> getResourceMono(@Nullable PatientResourceBundle patientBundle, Boolean applyConsent, String reference) {
-        return dataStore.fetchDomainResource(reference)
-                .switchIfEmpty(Mono.error(new RuntimeException("Failed to fetch resource: received empty response")))
+        logger.debug("Getting resource for {}", reference);
+        return dataStore.fetchResourceByReference(reference)
                 .flatMap(resource -> {
                     if (compartmentManager.isInCompartment(resource)) {
                         if (patientBundle != null) {
 
                             try {
 
-                                if (ResourceUtils.patientId(resource).equals(patientBundle.patientId())) {
+                                if (ResourceUtils.patientId((DomainResource) resource).equals(patientBundle.patientId())) {
                                     if (applyConsent) {
-                                        if (consentValidator.checkConsent(resource, patientBundle)) {
+                                        if (consentValidator.checkConsent((DomainResource) resource, patientBundle)) {
                                             return Mono.just(resource);
                                         } else {
                                             return Mono.error(new ConsentViolatedException("Consent Violated in Patient Resource"));
@@ -207,8 +222,9 @@ public class ReferenceHandler {
                         }
                     }
 
-                    return Mono.just(resource);
+                    return Mono.just(resource); // If not in a compartment, return the resource
                 });
     }
+
 
 }
