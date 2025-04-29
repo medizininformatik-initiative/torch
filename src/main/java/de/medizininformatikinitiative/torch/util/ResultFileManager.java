@@ -222,7 +222,7 @@ public class ResultFileManager {
                     if (fileName.endsWith(".ndjson")) {
                         fileEntry.put("type", "NDJSON Bundle");
                         outputFiles.add(fileEntry);
-                    } else if (fileName.contains("err")) {
+                    } else if (fileName.equals("error.json")) {
                         fileEntry.put("type", "OperationOutcome");
                         errorFiles.add(fileEntry);
                     } else if (fileName.contains("del")) {

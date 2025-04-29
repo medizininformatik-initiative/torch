@@ -22,6 +22,7 @@ import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
+import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -68,6 +69,9 @@ public class FhirControllerIT {
 
     @Autowired
     FhirTestHelper fhirTestHelper;
+
+    @Autowired
+    FhirContext context;
 
     @Autowired
     CrtdlValidatorService validatorService;
@@ -312,6 +316,9 @@ public class FhirControllerIT {
                     logger.info("Final status code {} received after {} polls", expectedCode, i);
                     assertEquals(expectedCode, response.getStatusCode().value(), "Status endpoint returned unexpected code");
                     logger.debug(response.getBody());
+                    if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
+                        assertThat(context.newJsonParser().parseResource(response.getBody())).isInstanceOf(OperationOutcome.class);
+                    }
                 } else if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     Assertions.fail("Polling failed with unexpected error status: " + response.getStatusCode());
                     completed = true;
