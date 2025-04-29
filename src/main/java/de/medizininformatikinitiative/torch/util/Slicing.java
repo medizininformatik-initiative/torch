@@ -77,9 +77,11 @@ public class Slicing {
         List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), snapshotComponent);
         elementDefinitions.forEach(element -> {
 
+
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
+
                     if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
 
                         if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {

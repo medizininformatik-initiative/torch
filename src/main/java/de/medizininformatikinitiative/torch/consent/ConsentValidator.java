@@ -71,9 +71,8 @@ public class ConsentValidator {
     public boolean checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
         JsonNode fieldValue = null;
         if (resourcetoField.has(resource.getResourceType().toString())) {
-            logger.debug("Handling the following Profile {}", resource.getResourceType());
+            logger.trace("Handling the following Profile {}", resource.getResourceType());
             fieldValue = resourcetoField.get(resource.getResourceType().toString());
-            logger.debug("Fieldvalue {}", fieldValue);
         }
 
         if (fieldValue == null) {
@@ -81,14 +80,13 @@ public class ConsentValidator {
             return false;
         }
         if (fieldValue.asText().isEmpty()) {
-            logger.debug("Field value is empty, consent is automatically granted if patient has consents in general.");
+            logger.trace("Field value is empty, consent is automatically granted if patient has consents in general.");
             return true;
         }
 
-        logger.debug("Fieldvalue to be handled {} as FhirPath", fieldValue.asText());
-        List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
-        logger.debug("Evaluated FHIRPath expression, found {} values.", values.size());
 
+        List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
+        
         for (Base value : values) {
             Period period;
             if (value instanceof org.hl7.fhir.r4.model.Period) {

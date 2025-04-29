@@ -64,7 +64,7 @@ public class Redaction {
             Set<StructureDefinition> structureDefinitions = CDS.getDefinitions(wrapper.profiles());
             if (structureDefinitions.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                throw new RuntimeException("Trying to redact Base Element that is not a resource");
+                throw new RuntimeException("Tryng to handle unknown profiles: " + wrapper.profiles());
             }
 
             meta.setProfile(resourceProfiles);

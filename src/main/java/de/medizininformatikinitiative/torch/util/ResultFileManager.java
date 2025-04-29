@@ -78,7 +78,6 @@ public class ResultFileManager {
                             if (ndjsonExists) {
                                 logger.debug("Loaded existing job with jobId: {}", jobId);
                                 setStatus(jobId, HttpStatus.OK);
-                                logger.debug("Status set {}", jobStatusMap.get(jobId));
                             } else {
                                 logger.warn("No .ndjson file found for jobId: {}", jobId);
                             }

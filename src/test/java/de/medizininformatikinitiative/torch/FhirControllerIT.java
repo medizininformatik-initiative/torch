@@ -53,8 +53,6 @@ import java.util.Objects;
 import java.util.Scanner;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
@@ -142,7 +140,7 @@ public class FhirControllerIT {
         HttpEntity<String> entity = new HttpEntity<>(null, headers);
 
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
-        assertEquals(200, response.getStatusCode().value(), "Capability statement not working");
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
 
     @Nested
@@ -197,7 +195,7 @@ public class FhirControllerIT {
         List<String> patientIds = objectMapper.readValue(responseBody, TypeFactory.defaultInstance().constructCollectionType(List.class, String.class));
 
         int patientCount = patientIds.size();
-        assertEquals(4, patientCount);
+        assertThat(patientCount).isEqualTo(4);
     }
 
     @Test
@@ -248,9 +246,9 @@ public class FhirControllerIT {
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
         Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
-        assert result != null;
+        assertThat(result).isNotNull();
 
-        assertTrue(result.bundles().isEmpty());
+        assertThat(result.bundles()).isEmpty();
         fis.close();
     }
 
@@ -283,8 +281,8 @@ public class FhirControllerIT {
                 long durationMs = (System.nanoTime() - startTime) / 1_000_000;
 
                 logger.debug("Duration: {} ms", durationMs);
-                assertEquals(202, response.getStatusCode().value(), "Expected 202 from initial POST");
-                assertTrue(durationMs < 100, "Initial response took too long: " + durationMs + "ms");
+                assertThat(response.getStatusCode().value()).isEqualTo(202);
+                assertThat(durationMs).isLessThan(100);
 
                 String statusUrl = "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
                 pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);
@@ -314,7 +312,7 @@ public class FhirControllerIT {
                 if (response.getStatusCode().value() == expectedCode) {
                     completed = true;
                     logger.info("Final status code {} received after {} polls", expectedCode, i);
-                    assertEquals(expectedCode, response.getStatusCode().value(), "Status endpoint returned unexpected code");
+                    assertThat(expectedCode).isEqualTo(response.getStatusCode().value());
                     logger.debug(response.getBody());
                     if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                         assertThat(context.newJsonParser().parseResource(response.getBody())).isInstanceOf(OperationOutcome.class);

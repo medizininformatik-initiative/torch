@@ -26,28 +26,28 @@ public class ResourceAssert extends AbstractAssert<ResourceAssert, Resource> {
     static {
         try {
             DATA_ABSENT_REASON = nodeFromTreeString("""
-                                                    {
-                                                        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                                                        "valueCode": ""
-                                                    }
-                                                    """);
+                    {
+                        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                        "valueCode": ""
+                    }
+                    """);
             DATA_ABSENT_REASON_EXTENSION = nodeFromTreeString("""
-                                                    {
-                                                    "extension": [
-                                                            {
-                                                                "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                                                                "valueCode": ""
-                                                            }
-                                                        ]
-                                                    }
-                                                    """);
+                    {
+                    "extension": [
+                            {
+                                "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                                "valueCode": ""
+                            }
+                        ]
+                    }
+                    """);
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private final FhirContext ctx = FhirContext.forR4();
-    private final IFhirPath fhirPathEngine = FhirContext.forR4().newFhirPath();
+    private final static FhirContext ctx = FhirContext.forR4();
+    private final static IFhirPath fhirPathEngine = FhirContext.forR4().newFhirPath();
 
     protected ResourceAssert(Resource resource) {
         super(resource, ResourceAssert.class);
@@ -58,7 +58,7 @@ public class ResourceAssert extends AbstractAssert<ResourceAssert, Resource> {
         IParser fhirParser = ctx.newJsonParser();
 
         List<String> parsed = new LinkedList<>();
-        for(Base base : found) {
+        for (Base base : found) {
             if (base.isPrimitive()) {
                 parsed.add(fhirParser.encodeToString(base));
             } else {
@@ -75,7 +75,7 @@ public class ResourceAssert extends AbstractAssert<ResourceAssert, Resource> {
         List<Base> found = fhirPathEngine.evaluate(actual, path, Base.class);
 
         List<JsonNode> parsed = new LinkedList<>();
-        for(Base base : found) {
+        for (Base base : found) {
             var encoded = fhirParser.encodeToString(base);
 
             if (base.isPrimitive()) {
@@ -125,17 +125,18 @@ public class ResourceAssert extends AbstractAssert<ResourceAssert, Resource> {
             if (found.size() != 1 || found.getFirst().isPrimitive())
                 failWithMessage("Expected extension at '%s', but did not find one", path);
 
-            ((ObjectNode)DATA_ABSENT_REASON).set("valueCode", mapper.valueToTree(absentReason));
+            ((ObjectNode) DATA_ABSENT_REASON).set("valueCode", mapper.valueToTree(absentReason));
             if (!mapper.readTree(fhirParser.encodeToString(found.getFirst())).equals(DATA_ABSENT_REASON)) {
                 failWithMessage("Expected data absent reason at '%s', but did not fine one", path);
             }
 
         } else {
             try {
-                ((ObjectNode)DATA_ABSENT_REASON_EXTENSION.get("extension").get(0)).set("valueCode", mapper.valueToTree(absentReason));
-                if(!mapper.readTree(encoded).equals(DATA_ABSENT_REASON_EXTENSION)) {
+                ((ObjectNode) DATA_ABSENT_REASON_EXTENSION.get("extension").get(0)).set("valueCode", mapper.valueToTree(absentReason));
+                if (!mapper.readTree(encoded).equals(DATA_ABSENT_REASON_EXTENSION)) {
                     failWithMessage("Expected data absent reason at '%s', but found: '%s'", path, encoded);
-                };
+                }
+                ;
             } catch (JsonProcessingException e) {
                 failWithMessage("Could not parse value to JsonNode: %s", encoded);
             }
