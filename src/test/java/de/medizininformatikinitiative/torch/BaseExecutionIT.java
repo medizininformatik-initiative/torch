@@ -182,6 +182,21 @@ public class BaseExecutionIT {
         return getOutputUrls(bundleLocationResponse);
     }
 
+
+    @Test
+    public void testValueXVitalstatus() throws IOException {
+
+        var bundleUrls = sendCrtdlAndGetOutputUrls("CrtdlItTests/CRTDL_test_it-kds-vitalstatus-crtdl.json");
+        var patientBundles = fetchBundles(bundleUrls.patientBundles());
+        var patientBundle = patientBundles.get(0);
+        System.out.println(context.newJsonParser().encodeResourceToString(patientBundle));
+
+        assertThat(patientBundle).extractResourceById("Observation", "mii-exa-test-data-patient-1-vitalstatus-1").isNotNull()
+                .extractElementsAt("valueCodeableConcept.coding.code")
+                .containsExactlyInAnyOrder(nodeFromValueString("T"));
+
+    }
+
     @Test
     public void testExamples() throws IOException {
         /*
