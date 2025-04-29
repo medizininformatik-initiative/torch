@@ -23,6 +23,8 @@ import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.junit.jupiter.api.*;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -49,6 +51,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -122,10 +125,8 @@ public class FhirControllerIT {
 
         manager.startContainers();
 
-
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
         logger.info("Data Import on {}", webClient.options());
-
     }
 
 
@@ -143,12 +144,34 @@ public class FhirControllerIT {
     @Nested
     class Endpoint {
 
-        @Test
-        public void testEndpointWithObservation() throws PatientIdNotFoundException, IOException {
+        @ParameterizedTest
+        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json"})
+        public void validObservation(String parametersFile) throws PatientIdNotFoundException, IOException {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
-            List<String> filePaths = List.of("src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json");
-            testExecutor(filePaths, "http://localhost:" + port + "/fhir/$extract-data", headers);
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
+        }
+
+        @Test
+        public void emptyRequestBodyReturnsBadRequest() {
+            TestRestTemplate restTemplate = new TestRestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.valueOf("application/fhir+json"));
+            HttpEntity<String> entity = new HttpEntity<>("", headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity("http://localhost:" + port + "/fhir/$extract-data", entity, String.class);
+
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+            assertThat(response.getBody()).contains("OperationOutcome");
+            assertThat(response.getBody()).contains("Empty request body");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
+        public void invalidCRTDLReturnsValidationException(String parametersFile) throws IOException {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
         }
 
 
@@ -244,42 +267,35 @@ public class FhirControllerIT {
     }
 
 
-    public void testExecutor(List<String> filePaths, String url, HttpHeaders headers) {
+    public void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
         TestRestTemplate restTemplate = new TestRestTemplate();
-        filePaths.forEach(filePath -> {
+        try {
+            String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
+            HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+
             try {
-                String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
+                long startTime = System.nanoTime();
+                ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+                long durationMs = (System.nanoTime() - startTime) / 1_000_000;
 
-                HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
-                try {
-                    // Start timing
-                    long startTime = System.nanoTime();
+                logger.debug("Duration: {} ms", durationMs);
+                assertEquals(202, response.getStatusCode().value(), "Expected 202 from initial POST");
+                assertTrue(durationMs < 100, "Initial response took too long: " + durationMs + "ms");
 
-                    ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
+                String statusUrl = "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
+                pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);
 
-                    // End timing
-                    long durationMs = (System.nanoTime() - startTime) / 1_000_000;
-                    logger.debug("Duration: {} ms", durationMs);
-
-                    // Assert 202 and timing
-                    assertEquals(202, response.getStatusCode().value(), "Endpoint not accepting crtdl");
-                    assertTrue(durationMs < 100, "Initial response took too long: " + durationMs + "ms");
-
-
-                    // Polling the status endpoint
-                    pollStatusEndpoint(restTemplate, headers, "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst());
-                } catch (HttpStatusCodeException e) {
-                    logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
-                    Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
-                }
-
-            } catch (IOException e) {
-                logger.error("CRTDL file not found", e);
+            } catch (HttpStatusCodeException e) {
+                logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
+                Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
             }
-        });
+
+        } catch (IOException e) {
+            logger.error("CRTDL file not found", e);
+        }
     }
 
-    private void pollStatusEndpoint(TestRestTemplate restTemplate, HttpHeaders headers, String statusUrl) {
+    private void pollStatusEndpoint(TestRestTemplate restTemplate, HttpHeaders headers, String statusUrl, int expectedCode) {
         boolean completed = false;
         int i = 0;
 
@@ -287,29 +303,27 @@ public class FhirControllerIT {
             try {
                 i++;
                 HttpEntity<String> entity = new HttpEntity<>(null, headers);
-                logger.trace("Status URL {}", statusUrl);
                 ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
 
-                logger.trace("Call result {} {}", i, response);
-                logger.trace("Response Body: {}", response.getBody());
+                logger.trace("Poll {}: status={}, body={}", i, response.getStatusCode(), response.getBody());
 
-                if (response.getStatusCode().value() == 200) {
+                if (response.getStatusCode().value() == expectedCode) {
                     completed = true;
-                    assertEquals(200, response.getStatusCode().value(), "Status endpoint did not return 200");
-                    logger.trace("Final Response {}", response.getBody());
-                }
-                if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
-                    logger.error("Polling status endpoint failed with status code: {}", response.getStatusCode());
-                    Assertions.fail("Polling status endpoint failed with status code: " + response.getStatusCode());
+                    logger.info("Final status code {} received after {} polls", expectedCode, i);
+                    assertEquals(expectedCode, response.getStatusCode().value(), "Status endpoint returned unexpected code");
+                    logger.debug(response.getBody());
+                } else if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
+                    Assertions.fail("Polling failed with unexpected error status: " + response.getStatusCode());
                     completed = true;
                 }
-                if (i == 100) {
-                    Assertions.fail("Polling status endpoint failed running out of calls.");
+
+                if (i >= 100) {
+                    Assertions.fail("Polling failed: exceeded maximum attempts");
                 }
+
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                 logger.error("Response Body: {}", e.getResponseBodyAsString());
-
                 if (e.getStatusCode().is4xxClientError() || e.getStatusCode().is5xxServerError()) {
                     Assertions.fail("Polling status endpoint failed with status code: " + e.getStatusCode());
                     completed = true;
@@ -317,7 +331,7 @@ public class FhirControllerIT {
             }
 
             try {
-                Thread.sleep(200); // Delay between polls (e.g., 200ms)
+                Thread.sleep(200); // Delay between polls
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Polling was interrupted", e);

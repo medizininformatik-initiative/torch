@@ -4,13 +4,18 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -33,7 +38,7 @@ public class ResultFileManager {
     private final FhirContext fhirContext;
     private final String hostname;
     private final String fileServerName;
-    public final ConcurrentHashMap<String, String> jobStatusMap = new ConcurrentHashMap<>();
+    public final ConcurrentHashMap<String, HttpStatusCode> jobStatusMap = new ConcurrentHashMap<>();
 
     public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
@@ -72,7 +77,7 @@ public class ResultFileManager {
 
                             if (ndjsonExists) {
                                 logger.debug("Loaded existing job with jobId: {}", jobId);
-                                jobStatusMap.put(jobId, "Completed");
+                                setStatus(jobId, HttpStatus.OK);
                                 logger.debug("Status set {}", jobStatusMap.get(jobId));
                             } else {
                                 logger.warn("No .ndjson file found for jobId: {}", jobId);
@@ -141,6 +146,26 @@ public class ResultFileManager {
         }).subscribeOn(Schedulers.boundedElastic());
     }
 
+    public Mono<Void> saveErrorToJSON(String jobId, OperationOutcome outcome, HttpStatus status) {
+
+        return Mono.fromRunnable(() -> {
+                    Path jobDir = getJobDirectory(jobId);
+                    try {
+                        Files.createDirectories(jobDir); // Ensure job directory exists
+                        String errorJson = fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToString(outcome);
+                        Path errorFile;
+                        errorFile = jobDir.resolve("error.json");
+                        Files.writeString(errorFile, errorJson + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
+                        setStatus(jobId, status);
+                    } catch (IOException e) {
+                        logger.error("Failed to save errorFile for job {}: {}", jobId, e.getMessage());
+                        throw new RuntimeException("Failed to save bundle", e);
+                    }
+                })
+                .doOnError(e -> logger.error("Async write failed for job {}: {}", jobId, e.getMessage(), e))
+                .subscribeOn(Schedulers.boundedElastic()).then();
+    }
+
     public Mono<Void> saveBundleToNDJSON(Path ndjsonFile, Bundle bundle) {
         return Mono.fromRunnable(() -> {
                     try {
@@ -154,16 +179,28 @@ public class ResultFileManager {
                 .subscribeOn(Schedulers.boundedElastic()).then();
     }
 
-    public void setStatus(String jobId, String status) {
+    public void setStatus(String jobId, HttpStatusCode status) {
         jobStatusMap.put(jobId, status);
     }
 
-    public String getStatus(String jobId) {
+    public HttpStatusCode getStatus(String jobId) {
         return jobStatusMap.get(jobId);
     }
 
     public int getSize() {
         return jobStatusMap.size();
+    }
+
+    public String loadErrorFromFileSystem(String jobId) {
+        Path jobDir = getJobDirectory(jobId);
+        Path errorFile = jobDir.resolve("error.json");
+
+        try {
+            return Files.readString(errorFile, StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            logger.error("Failed to read error file for job {}: {}", jobId, e.getMessage(), e);
+            throw new UncheckedIOException("Failed to read error file for job " + jobId, e);
+        }
     }
 
     public Map<String, Object> loadBundleFromFileSystem(String jobId, String transactionTime) {

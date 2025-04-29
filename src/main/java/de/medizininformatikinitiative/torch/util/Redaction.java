@@ -200,22 +200,23 @@ public class Redaction {
 
             } else {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
-
-                    if (Objects.equals(type, "BackboneElement")) {
-                        String fieldName = child.getName();
-                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
-                    }
                     /*
                     TODO find a good way to only work with reflection here?
                     Potential issue is primitive types don't have addExtension, somehow generic setField results in dem being set.
                     E.g. RecordedDate in Condition
                      */
-                    try {
-                        Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
-                        base.setProperty(child.getName(), element);
-                    } catch (FHIRException e) {
-                        logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementIDs, child.getName(), type, min);
+                    if (Objects.equals(type, "BackboneElement")) {
+                        String fieldName = child.getName();
+                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
+                    } else {
+                        try {
+                            Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
+                            base.setProperty(child.getName(), element);
+                        } catch (FHIRException e) {
+                            logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementIDs, child.getName(), type, min);
+                        }
                     }
+
 
                 }
             }
