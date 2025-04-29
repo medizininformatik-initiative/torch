@@ -2,19 +2,19 @@ package de.medizininformatikinitiative.torch.util;
 
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
-import java.io.UncheckedIOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -38,7 +38,7 @@ public class ResultFileManager {
     private final FhirContext fhirContext;
     private final String hostname;
     private final String fileServerName;
-    public final ConcurrentHashMap<String, HttpStatusCode> jobStatusMap = new ConcurrentHashMap<>();
+    public final ConcurrentHashMap<String, HttpStatus> jobStatusMap = new ConcurrentHashMap<>();
 
     public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
@@ -70,17 +70,47 @@ public class ResultFileManager {
         try (Stream<Path> jobDirs = Files.list(resultsDirPath)) {
             jobDirs.filter(Files::isDirectory)
                     .forEach(jobDir -> {
+                        boolean fatalIssuePresent = false;
                         String jobId = jobDir.getFileName().toString();
                         try (Stream<Path> files = Files.list(jobDir)) {
                             // Find any .ndjson files in the job directory
-                            boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(".ndjson"));
+                            Path errorFilePath = jobDir.resolve("error.json");
 
-                            if (ndjsonExists) {
-                                logger.debug("Loaded existing job with jobId: {}", jobId);
-                                setStatus(jobId, HttpStatus.OK);
-                            } else {
-                                logger.warn("No .ndjson file found for jobId: {}", jobId);
+                            if (Files.exists(errorFilePath)) {
+                                try (InputStream is = Files.newInputStream(errorFilePath)) {
+                                    OperationOutcome error = (OperationOutcome) fhirContext
+                                            .newJsonParser()
+                                            .parseResource(is);
+                                    Optional<OperationOutcome.OperationOutcomeIssueComponent> fatalIssue = error.getIssue().stream()
+                                            .filter(issue -> issue.getSeverity() == OperationOutcome.IssueSeverity.FATAL)
+                                            .findFirst();
+
+                                    if (fatalIssue.isPresent()) {
+                                        fatalIssuePresent = true;
+                                        logger.debug("Fatal issue {}", fatalIssue.get().getCode());
+                                        OperationOutcome.IssueType code = fatalIssue.get().getCode();
+                                        if (code.equals(OperationOutcome.IssueType.INVALID)) {
+                                            setStatus(jobId, HttpStatus.BAD_REQUEST);
+                                        }
+                                    }
+                                } catch (IOException e) {
+                                    logger.debug("Loading error.json failed for jobId: {}", jobId, e);
+                                    setStatus(jobId, HttpStatus.NOT_FOUND);
+                                }
                             }
+
+                            if (!fatalIssuePresent) {
+                                boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(".ndjson"));
+
+                                if (ndjsonExists) {
+                                    logger.debug("Loaded existing job with jobId: {}", jobId);
+                                    setStatus(jobId, HttpStatus.OK);
+                                } else {
+                                    logger.warn("No .ndjson file found for jobId: {}", jobId);
+                                    setStatus(jobId, HttpStatus.NOT_FOUND);
+                                }
+                            }
+
                         } catch (IOException e) {
                             logger.error("Error reading job directory {}: {}", jobDir, e.getMessage());
                         }
@@ -178,11 +208,11 @@ public class ResultFileManager {
                 .subscribeOn(Schedulers.boundedElastic()).then();
     }
 
-    public void setStatus(String jobId, HttpStatusCode status) {
+    public void setStatus(String jobId, HttpStatus status) {
         jobStatusMap.put(jobId, status);
     }
 
-    public HttpStatusCode getStatus(String jobId) {
+    public HttpStatus getStatus(String jobId) {
         return jobStatusMap.get(jobId);
     }
 
@@ -197,8 +227,7 @@ public class ResultFileManager {
         try {
             return Files.readString(errorFile, StandardCharsets.UTF_8);
         } catch (IOException e) {
-            logger.error("Failed to read error file for job {}: {}", jobId, e.getMessage(), e);
-            throw new UncheckedIOException("Failed to read error file for job " + jobId, e);
+            return fhirContext.newJsonParser().encodeResourceToString(OperationOutcomeCreator.createOperationOutcome(jobId, e));
         }
     }
 

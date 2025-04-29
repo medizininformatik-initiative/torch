@@ -143,6 +143,18 @@ public class FhirControllerIT {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
 
+    @Test
+    public void testGlobalStatus() {
+        TestRestTemplate restTemplate = new TestRestTemplate();
+
+        HttpHeaders headers = new HttpHeaders();
+        HttpEntity<String> entity = new HttpEntity<>(null, headers);
+
+        ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/__status/", HttpMethod.GET, entity, String.class);
+        assertThat(response.getStatusCode().value()).isEqualTo(200);
+        logger.info(response.getBody());
+    }
+
     @Nested
     class Endpoint {
 

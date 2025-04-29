@@ -15,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.server.RouterFunction;
@@ -29,7 +28,9 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static org.springframework.web.reactive.function.server.RequestPredicates.*;
@@ -97,8 +98,29 @@ public class FhirController {
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(GET("/fhir/__status/"), this::getGlobalStatus);
     }
+
+    private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
+        return Mono.fromCallable(() -> resultFileManager.jobStatusMap)
+                .flatMap(statusMap -> {
+                    if (statusMap == null || statusMap.isEmpty()) {
+                        return ServerResponse.notFound().build();
+                    }
+
+                    // Convert map values to "200 OK" style strings
+                    Map<String, String> statusTextMap = statusMap.entrySet().stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    entry -> entry.getValue().value() + " " + entry.getValue().getReasonPhrase()
+                            ));
+
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(statusTextMap);
+                });
+    }
+
 
     private Mono<DecodedCRTDLContent> parseCrtdl(String body) {
 
@@ -211,7 +233,7 @@ public class FhirController {
         logger.debug("Size of Map {} {}", resultFileManager.getSize(), resultFileManager.jobStatusMap.entrySet());
 
 
-        HttpStatusCode status = resultFileManager.getStatus(jobId);
+        HttpStatus status = resultFileManager.getStatus(jobId);
         logger.debug("Status of jobID {} var {}", jobId, resultFileManager.jobStatusMap.get(jobId));
 
         if (status == null) {

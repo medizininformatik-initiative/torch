@@ -9,7 +9,7 @@ public class OperationOutcomeCreator {
         operationOutcome.setId("job-" + jobId + "-error");
 
         OperationOutcome.OperationOutcomeIssueComponent issueComponent = new OperationOutcome.OperationOutcomeIssueComponent();
-        issueComponent.setSeverity(OperationOutcome.IssueSeverity.ERROR);
+        issueComponent.setSeverity(OperationOutcome.IssueSeverity.FATAL);
         issueComponent.setCode(createIssueType(throwable));
         issueComponent.setDiagnostics(throwable.getClass().getSimpleName() + ": " + throwable.getMessage());
         operationOutcome.addIssue(issueComponent);
