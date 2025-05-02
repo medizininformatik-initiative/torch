@@ -1,0 +1,334 @@
+{
+  "resourceType": "Bundle",
+  "id": "test-diag-no-enc-diag",
+  "entry": [
+    {
+      "request": {
+        "method": "PUT",
+        "url": "Patient/torch-test-diag-no-enc-diag-pat-1"
+      },
+      "fullUrl": "https://www.medizininformatik-initiative.de/Patient/torch-test-diag-no-enc-diag-pat-1",
+      "resource": {
+        "resourceType": "Patient",
+        "id": "torch-test-diag-no-enc-diag-pat-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+            "http://fhir.de/ConsentManagement/StructureDefinition/Patient"
+          ]
+        },
+        "gender": "female"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/torch-test-diag-no-enc-diag-enc-1"
+      },
+      "fullUrl": "https://www.medizininformatik-initiative.de/Encounter/torch-test-diag-no-enc-diag-enc-1",
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "torch-test-diag-no-enc-diag-enc-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+          ]
+        },
+        "identifier": [
+          {
+            "type": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                  "code": "VN"
+                }
+              ]
+            },
+            "system": "https://www.charite.de/fhir/NamingSystem/Aufnahmenummern",
+            "value": "MII_0000001"
+          }
+        ],
+        "type": [
+          {
+            "coding": [
+              {
+                "system": "http://fhir.de/CodeSystem/Kontaktebene",
+                "code": "einrichtungskontakt"
+              }
+            ]
+          },
+          {
+            "coding": [
+              {
+                "system": "http://fhir.de/CodeSystem/kontaktart-de",
+                "code": "normalstationaer"
+              }
+            ]
+          }
+        ],
+        "serviceType": {
+          "coding": [
+            {
+              "system": "http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel",
+              "code": "0100"
+            }
+          ]
+        },
+        "period": {
+          "start": "2024-02-14",
+          "end": "2024-02-22"
+        },
+        "diagnosis": [
+          {
+            "condition": {
+              "reference": "Condition/torch-test-diag-no-enc-diag-diag-1"
+            },
+            "use": {
+              "coding": [
+                {
+                  "code": "AD",
+                  "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+                  "display": "Admission diagnosis"
+                }
+              ]
+            },
+            "rank": 1
+          },
+          {
+            "condition": {
+              "reference": "Condition/torch-test-diag-no-enc-diag-diag-2"
+            },
+            "use": {
+              "coding": [
+                {
+                  "code": "AD",
+                  "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+                  "display": "Admission diagnosis"
+                }
+              ]
+            },
+            "rank": 2
+          }
+        ],
+        "location": [
+          {
+            "location": {
+              "identifier": {
+                "system": "https://www.charite.de/fhir/sid/Zimmernummern",
+                "value": "RHC-06-210b"
+              },
+              "display": "RHC-06-210b"
+            },
+            "physicalType": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+                  "code": "ro"
+                }
+              ]
+            }
+          },
+          {
+            "location": {
+              "identifier": {
+                "system": "https://www.charite.de/fhir/sid/Bettennummern",
+                "value": "RHC-06-210b-02"
+              },
+              "display": "RHC-06-210b-02"
+            },
+            "physicalType": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+                  "code": "bd"
+                }
+              ]
+            }
+          },
+          {
+            "location": {
+              "identifier": {
+                "system": "https://www.charite.de/fhir/sid/Stationsnummern",
+                "value": "RHC-06"
+              },
+              "display": "RHC-06"
+            },
+            "physicalType": {
+              "coding": [
+                {
+                  "system": "http://terminology.hl7.org/CodeSystem/location-physical-type",
+                  "code": "wa"
+                }
+              ]
+            }
+          }
+        ],
+        "status": "finished",
+        "class": {
+          "code": "IMP",
+          "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode"
+        },
+        "subject": {
+          "reference": "Patient/torch-test-diag-no-enc-diag-pat-1"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "Condition/torch-test-diag-no-enc-diag-diag-1"
+      },
+      "fullUrl": "https://www.medizininformatik-initiative.de/Condition/torch-test-diag-no-enc-diag-diag-1",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "torch-test-diag-no-enc-diag-diag-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+              "code": "E13.0",
+              "version": "2023"
+            }
+          ]
+        },
+        "note": [
+          {
+            "text": "Diabetes"
+          }
+        ],
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "code": "confirmed",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/torch-test-diag-no-enc-diag-pat-1"
+        },
+        "recordedDate": "2024-02-21",
+        "onsetDateTime": "2024-02-21"
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "Condition/torch-test-diag-no-enc-diag-diag-2"
+      },
+      "fullUrl": "https://www.medizininformatik-initiative.de/Condition/torch-test-diag-no-enc-diag-diag-2",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "torch-test-diag-no-enc-diag-diag-2",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+              "code": "E13.0",
+              "version": "2023"
+            }
+          ]
+        },
+        "note": [
+          {
+            "text": "Diabetes"
+          }
+        ],
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "code": "confirmed",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/torch-test-diag-no-enc-diag-pat-1"
+        },
+        "recordedDate": "2024-02-22",
+        "onsetDateTime": "2024-02-01",
+        "encounter": {
+          "reference": "Encounter/torch-test-diag-no-enc-diag-enc-1"
+        }
+      }
+    },
+    {
+      "request": {
+        "method": "PUT",
+        "url": "Condition/torch-test-diag-no-enc-diag-diag-3"
+      },
+      "fullUrl": "https://www.medizininformatik-initiative.de/Condition/torch-test-diag-no-enc-diag-diag-3",
+      "resource": {
+        "resourceType": "Condition",
+        "id": "torch-test-diag-no-enc-diag-diag-3",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+              "code": "E-NOT-REF",
+              "version": "2023"
+            }
+          ]
+        },
+        "note": [
+          {
+            "text": "Diag not ref by diab enc"
+          }
+        ],
+        "clinicalStatus": {
+          "coding": [
+            {
+              "code": "active",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-clinical"
+            }
+          ]
+        },
+        "verificationStatus": {
+          "coding": [
+            {
+              "code": "confirmed",
+              "system": "http://terminology.hl7.org/CodeSystem/condition-ver-status"
+            }
+          ]
+        },
+        "subject": {
+          "reference": "Patient/torch-test-diag-no-enc-diag-pat-1"
+        },
+        "recordedDate": "2024-02-25"
+      }
+    }
+  ],
+  "type": "transaction",
+  "timestamp": "2024-03-14T10:58:00+01:00"
+}
