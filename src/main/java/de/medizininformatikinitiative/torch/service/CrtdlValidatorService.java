@@ -11,12 +11,14 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.*;
+import java.util.function.Predicate;
 
 public class CrtdlValidatorService {
     private static final Logger logger = LoggerFactory.getLogger(CrtdlValidatorService.class);
@@ -113,10 +115,15 @@ public class CrtdlValidatorService {
         }
 
         AnnotatedAttributeGroup standardGroup = attributeGenerator.generate(attributeGroup, patientGroupId);
+        try {
+            Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.getType());
+            return standardGroup
+                    .addAttributes(annotatedAttributes)
+                    .setCompiledFilter(filter);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
 
-        return standardGroup
-                .addAttributes(annotatedAttributes)
-                .setCompiledFilter(filterService.compileFilter(attributeGroup.filter(), definition.getType()));
     }
 
 
