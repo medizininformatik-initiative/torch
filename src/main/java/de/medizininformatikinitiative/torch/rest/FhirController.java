@@ -26,10 +26,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
@@ -49,10 +46,30 @@ public class FhirController {
     private final CrtdlProcessingService crtdlProcessingService;
     private final CrtdlValidatorService validatorService;
 
-    private static record DecodedContent(byte[] crtdl, List<String> patientIds) {
+    private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
+        return Mono.fromCallable(() -> resultFileManager.jobStatusMap)
+                .flatMap(statusMap -> {
+                    // Return empty JSON if map is null or empty
+                    if (statusMap == null || statusMap.isEmpty()) {
+                        return ServerResponse.ok()
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .bodyValue(Collections.emptyMap());
+                    }
+
+                    // Convert map values to "200 OK" style strings
+                    Map<String, String> statusTextMap = statusMap.entrySet().stream()
+                            .collect(Collectors.toMap(
+                                    Map.Entry::getKey,
+                                    entry -> entry.getValue().value() + " " + entry.getValue().getReasonPhrase()
+                            ));
+
+                    return ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(statusTextMap);
+                });
     }
 
-    private static record DecodedCRTDLContent(Crtdl crtdl, List<String> patientIds) {
+    private record DecodedContent(byte[] crtdl, List<String> patientIds) {
     }
 
     @Autowired
@@ -101,24 +118,7 @@ public class FhirController {
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(GET("/fhir/__status/"), this::getGlobalStatus);
     }
 
-    private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
-        return Mono.fromCallable(() -> resultFileManager.jobStatusMap)
-                .flatMap(statusMap -> {
-                    if (statusMap == null || statusMap.isEmpty()) {
-                        return ServerResponse.notFound().build();
-                    }
-
-                    // Convert map values to "200 OK" style strings
-                    Map<String, String> statusTextMap = statusMap.entrySet().stream()
-                            .collect(Collectors.toMap(
-                                    Map.Entry::getKey,
-                                    entry -> entry.getValue().value() + " " + entry.getValue().getReasonPhrase()
-                            ));
-
-                    return ServerResponse.ok()
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(statusTextMap);
-                });
+    private record DecodedCRTDLContent(Crtdl crtdl, List<String> patientIds) {
     }
 
 
