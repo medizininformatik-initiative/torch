@@ -206,7 +206,7 @@ class ReferenceHandlerIT {
     }
 
     @Nested
-    class coreBundle {
+    class CoreBundle {
 
         @Test
         void resolveCoreBundle_success() {

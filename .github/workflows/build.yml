@@ -3,28 +3,30 @@ name: Build
 on:
   push:
     branches:
-    - main
-    - develop
+      - main
+      - develop
     tags:
-    - 'v*.*.*'
+      - 'v*.*.*'
   pull_request:
     branches:
-    - main
-    - develop
+      - main
+      - develop
   schedule:
-  - cron: '0 1 * * *'
+    - cron: '0 1 * * *'
 
 jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@c5195efecf7bdfc987ee8bae7a71cb8b11521c00 # v4
         with:
           distribution: 'temurin'
           java-version: 21
+
+
 
       - name: Cache Local Maven Repo
         uses: actions/cache@v4
@@ -52,8 +54,11 @@ jobs:
       - name: Build with Integration Tests
         run: mvn -B verify
 
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@ad3126e916f78f00edff4ed0317cf185271ccc2d # v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
