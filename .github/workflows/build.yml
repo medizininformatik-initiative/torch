@@ -18,7 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out Git repository
+        uses: actions/checkout@v4
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -43,26 +44,8 @@ jobs:
           languages: java
           queries: security-and-quality
 
-      - name: Download Ontology and Build without Integration Tests
-        run: mvn -Pdownload-ontology -B package
-
-      - name: Build Docker Image for Integration Tests
-        run: docker build -f Dockerfile -t torch:test .
-
-      - name: Build with Integration Tests
-        run: mvn -B verify
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v4
-
-      - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
-
-      - name: Upload Torch Jar
-        uses: actions/upload-artifact@v4
-        with:
-          name: torch-jar
-          path: target/torch.jar
+      - name: Download Ontology, Build and Run Tests
+        run: mvn -P download-ontology -B verify
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -74,7 +57,19 @@ jobs:
           tags: torch:latest
           outputs: type=docker,dest=/tmp/torch.tar
 
-      - name: Upload torch Image
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@v4
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+      - name: Upload Torch Jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: torch-jar
+          path: target/torch.jar
+
+      - name: Upload Torch Image
         uses: actions/upload-artifact@v4
         with:
           name: torch-image
@@ -85,20 +80,20 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
-      - name: Download torch Image
+      - name: Download Torch Image
         uses: actions/download-artifact@v4
         with:
           name: torch-image
           path: /tmp
 
-      - name: Load torch Image
+      - name: Load Torch Image
         run: docker load --input /tmp/torch.tar
 
       - name: Check out Git repository
         uses: actions/checkout@v4
 
       - name: Run Trivy Vulnerability Scanner
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.30.0
         with:
           image-ref: torch:latest
           format: sarif
@@ -115,10 +110,47 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
+  blackbox-integration-tests:
+    needs: build
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@v4
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Cache Local Maven Repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: tests-maven-${{ hashFiles('pom.xml') }}
+
+      - uses: s4u/maven-settings-action@v3.0.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
+
+      - name: Run Blackbox Integration Tests
+        run: mvn -P blackbox-integration-tests -B verify
+
   push-image:
     needs:
-      - build
       - image-scan
+      - blackbox-integration-tests
     runs-on: ubuntu-22.04
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
 
@@ -132,24 +164,30 @@ jobs:
           distribution: 'temurin'
           java-version: 21
 
+      - name: Cache Local Maven Repo
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: tests-maven-${{ hashFiles('pom.xml') }}
+
       - uses: s4u/maven-settings-action@v3.0.0
         with:
           servers: |
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
-      - name: Download torch Jar
+      - name: Download Torch Jar
         uses: actions/download-artifact@v4
         with:
           name: torch-jar
           path: target
 
-      - name: Download torch Image
+      - name: Download Torch Image
         uses: actions/download-artifact@v4
         with:
           name: torch-image
           path: /tmp
 
-      - name: Load torch Image
+      - name: Load Torch Image
         run: docker load --input /tmp/torch.tar
 
       - name: Download Ontology

@@ -41,7 +41,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * In order for the tests to work locally, a torch image must be built:
- * =>  mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
+ * =>  mvn clean install -DskipTests && docker build -t torch:latest .
  */
 @Testcontainers
 public class SpecificExecutionIT {
