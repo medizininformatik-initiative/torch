@@ -186,7 +186,7 @@ public class BaseExecutionIT {
     public void testExamples() throws IOException {
         /*
             In order for the tests to work locally, a torch image must be built:
-            =>      mvn clean install -DskipTests && docker build -f Dockerfile -t torch:latest .
+            =>      mvn clean install -DskipTests && docker build -t torch:latest .
         */
 
         var bundleUrls = sendCrtdlAndGetOutputUrls("CrtdlItTests/CRTDL_test_it-kds-crtdl.json");

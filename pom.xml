@@ -303,6 +303,40 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>blackbox-integration-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <!-- Failsafe Plugin for System Tests -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*ExecutionIT.java</include>
+                            </includes>
+                            <!-- Override the global excludes with an empty set -->
+                            <excludes combine.self="override">
+                            </excludes>
+                            <skipTests>false</skipTests>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Skip unit tests -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <repositories>
@@ -322,21 +356,17 @@
     <build>
         <finalName>torch</finalName>
         <plugins>
+
             <!-- Failsafe Plugin for Integration Tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.1.2</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*ExecutionIT.java</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
-
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -348,6 +378,7 @@
                 </configuration>
 
             </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
