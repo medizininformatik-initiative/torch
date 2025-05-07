@@ -25,6 +25,7 @@ public class DiscriminatorResolver {
      * @return true if Discriminator could be resolved, false otherwise
      */
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        logger.info("Resolving discriminator for {} with type {}", base, discriminator.getType().toCode());
         return switch (discriminator.getType().toCode()) {
             case "pattern", "value" ->
                     resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
@@ -43,6 +44,7 @@ public class DiscriminatorResolver {
      * @return String path that has to be wandered
      */
     private static ElementDefinition resolveSlicePath(ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+        logger.debug("Resolving slice path for {}", discriminator.getPath());
         String path = discriminator.getPath();
         if (Objects.equals(path, "$this")) {
             return slice;
@@ -62,14 +64,18 @@ public class DiscriminatorResolver {
     private static Boolean resolvePattern(Base base, ElementDefinition slice,
                                           ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator,
                                           StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         if (elementContainingInfo == null) {
+            logger.trace("Could not resolve slice path for {}", discriminator.getPath());
             return false;
         }
+
         Base resolvedBase = resolveElementPath(base, discriminator);
 
         if (resolvedBase == null) {
+            logger.trace("Could not resolve base {}", base);
             return false;
         }
 
@@ -78,6 +84,13 @@ public class DiscriminatorResolver {
             Type fixedOrPatternValue = elementContainingInfo.getFixedOrPattern();
             return compareBaseToFixedOrPattern(resolvedBase, fixedOrPatternValue);
 
+        }
+
+        if (elementContainingInfo.hasBinding()) {
+
+            ElementDefinition.ElementDefinitionBindingComponent binding = elementContainingInfo.getBinding();
+            logger.warn("Valueset binding to {} passed through without check ", binding.getValueSet());
+            return true;
         }
 
         // Return false if no fixed or pattern value is found.
@@ -188,6 +201,7 @@ public class DiscriminatorResolver {
      * @return true if type can be resolved and false if not
      */
     private static Boolean resolveType(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
         // Check if the element contains any type information

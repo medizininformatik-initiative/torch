@@ -55,7 +55,11 @@ public class ReferenceResolver {
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(coreBundle.resourceGroupValidity().keySet())
-                .expand(wrapper -> processResourceGroup(wrapper, null, coreBundle, false, groupMap))
+                .expand(resourceGroup -> processResourceGroup(resourceGroup, null, coreBundle, false, groupMap).onErrorResume(e -> {
+
+                    logger.warn("Error processing resource group {} in Core Bundle: {}", resourceGroup, e.getMessage());
+                    return Flux.empty(); // Skip this resource group on error
+                }))
                 .then(Mono.just(coreBundle));
     }
 
@@ -96,7 +100,11 @@ public class ReferenceResolver {
 
         return Flux.fromIterable(patientBundle.bundle().resourceGroupValidity().keySet())
                 //Input alle direkt geladenen resourceGroup und expanden auf returnwert
-                .expand(wrapper -> processResourceGroup(wrapper, patientBundle, coreBundle, applyConsent, groupMap))
+                .expand(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, applyConsent, groupMap).onErrorResume(e -> {
+
+                    logger.warn("Error processing resource group {} in PatientBundle: {}", resourceGroup, e.getMessage());
+                    return Flux.empty(); // Skip this resource group on error
+                }))
                 .then(Mono.just(patientBundle));
     }
 
@@ -166,7 +174,10 @@ public class ReferenceResolver {
                             processingBundle.addResourceGroupValidity(parentResourceGroup, false);
 
                             return Flux.empty(); // Skip processing for this group
-                        }));
+                        })).onErrorResume(Exception.class, e -> {
+                    // Catch any other unexpected exceptions
+                    return Flux.error(new RuntimeException("Unexpected error occurred while processing resource group", e));
+                });
     }
 
 

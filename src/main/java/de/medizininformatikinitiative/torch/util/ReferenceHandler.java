@@ -140,19 +140,18 @@ public class ReferenceHandler {
                         String resourceUrl = ResourceUtils.getRelativeURL(resource);
                         List<ResourceGroup> validGroups = referenceWrapper.refAttribute().linkedGroups().stream()
                                 .map(groupId -> {
-                                    logger.debug("Checking group {} for Reference: {}", groupId, reference);
                                     ResourceGroup resourceGroup = new ResourceGroup(resourceUrl, groupId);
                                     // Check if the resource group is new
                                     Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
 
                                     if (isValid == null) {
                                         AnnotatedAttributeGroup group = groupMap.get(groupId);
-                                        logger.debug("Unknown group {} for Reference: {}", groupId, reference);// Unknown group, check validity
+                                        logger.trace("Unknown group {} for Reference: {}", groupId, reference);// Unknown group, check validity
                                         Boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
                                         if (group.compiledFilter() != null) {
                                             fulfilled = fulfilled && group.compiledFilter().test(resource);
                                         }
-                                        logger.debug("Group {} for Reference: {}", groupId, fulfilled);
+                                        logger.trace("Group {} for Reference: {}", groupId, fulfilled);
                                         isValid = Boolean.TRUE.equals(fulfilled); // Ensure `null` defaults to `false`
                                         processingBundle.addResourceGroupValidity(resourceGroup, isValid);
                                     }

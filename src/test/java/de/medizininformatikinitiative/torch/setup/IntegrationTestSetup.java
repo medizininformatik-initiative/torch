@@ -30,7 +30,7 @@ public class IntegrationTestSetup {
     public IntegrationTestSetup() {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
-        this.structHandler = new StructureDefinitionHandler("src/test/resources/StructureDefinitions/", resourceReader);
+        this.structHandler = new StructureDefinitionHandler("structureDefinitions/", resourceReader);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
 
