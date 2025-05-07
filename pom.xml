@@ -311,6 +311,28 @@
             </activation>
             <build>
                 <plugins>
+
+                    <!-- Download KDS Test Data -->
+                    <plugin>
+                        <groupId>io.github.download-maven-plugin</groupId>
+                        <artifactId>download-maven-plugin</artifactId>
+                        <version>2.0.0</version>
+                        <executions>
+                            <execution>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>wget</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <url>https://github.com/medizininformatik-initiative/mii-testdata/releases/download/v1.0.1/kds-testdata-2024.0.1.zip</url>
+                            <unpack>true</unpack>
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                            <sha256>d5fe1fdf18a0ff4df4016ebb82e72fe85efd0d68e65b8ed7d0f29a018e5d55bd</sha256>
+                        </configuration>
+                    </plugin>
+
                     <!-- Failsafe Plugin for System Tests -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
