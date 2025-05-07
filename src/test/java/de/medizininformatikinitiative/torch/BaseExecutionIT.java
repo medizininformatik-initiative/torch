@@ -38,9 +38,9 @@ import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
-
 @Testcontainers
 public class BaseExecutionIT {
+
     private static final Logger logger = LoggerFactory.getLogger(BaseExecutionIT.class);
 
     private static final ObjectMapper mapper = new ObjectMapper();
@@ -103,9 +103,8 @@ public class BaseExecutionIT {
     @BeforeAll
     static void setUp() throws IOException {
         logger.info("Uploading test data...");
-        var bundle = "kds/Bundle-mii-exa-test-data-bundle.json";
         blazeClient.post()
-                .bodyValue(slurp(bundle))
+                .bodyValue(Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json")))
                 .retrieve()
                 .toBodilessEntity()
                 .block();
