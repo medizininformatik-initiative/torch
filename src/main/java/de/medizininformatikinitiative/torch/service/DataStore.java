@@ -80,6 +80,9 @@ public class DataStore {
                 .uri(url, uriVariables)
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .flatMap(this::parseFhirResource)
                 .doOnSuccess(resource -> logger.debug("Successfully fetched resource: {}", resource.getId()))
                 .doOnError(error -> logger.error("Failed to fetch resource {}: {}", url, error.getMessage()));
@@ -104,6 +107,7 @@ public class DataStore {
         }
     }
 
+
     /**
      * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
      *
@@ -120,13 +124,14 @@ public class DataStore {
                 .bodyValue(query.params().toString())
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(3, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
+                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
                 .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds.", query,
                         "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
@@ -158,6 +163,7 @@ public class DataStore {
     }
 
     private static boolean shouldRetry(HttpStatusCode code) {
+
         return code.is5xxServerError() || code.value() == 404;
     }
 
@@ -169,6 +175,9 @@ public class DataStore {
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .doOnNext(response -> {
                     logger.trace("Received response: {}", response);
                 })
@@ -193,6 +202,9 @@ public class DataStore {
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(params))
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
+                        .filter(e -> e instanceof WebClientResponseException &&
+                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .flatMap(response -> {
                     logger.debug("Parsing response into MeasureReport.");
                     return Mono.just(fhirContext.newJsonParser().parseResource(MeasureReport.class, response));

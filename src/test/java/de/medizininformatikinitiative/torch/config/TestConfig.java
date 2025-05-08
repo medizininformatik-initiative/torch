@@ -145,7 +145,7 @@ public class TestConfig {
 
         HttpClient httpClient = HttpClient.create(provider);
 
-        // Configure buffer size to 10MB
+
         ExchangeStrategies strategies = ExchangeStrategies.builder()
                 .codecs(configurer -> configurer
                         .defaultCodecs()

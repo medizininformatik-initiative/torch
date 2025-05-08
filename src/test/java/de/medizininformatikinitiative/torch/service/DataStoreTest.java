@@ -64,8 +64,10 @@ class DataStoreTest {
     class Search {
 
         @Test
-        @DisplayName("fails after 3 unsuccessful retries")
+        @DisplayName("fails after 5 unsuccessful retries")
         void retryFails() {
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(500));
@@ -74,7 +76,7 @@ class DataStoreTest {
 
             var result = dataStore.search(Query.ofType("Observation"));
 
-            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 3/3");
+            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
 
         @Test
@@ -108,6 +110,45 @@ class DataStoreTest {
 
     @Nested
     class FetchResourceByReference {
+
+        @Test
+        @DisplayName("Fetch with retry")
+        void fetchWithRetry() {
+            String reference = "Patient/123";
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setBody(PATIENT_RESOURCE));
+
+            var result = dataStore.fetchResourceByReference(reference);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(resource -> {
+                        Assertions.assertTrue(resource instanceof Patient);
+                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
+                        return true;
+                    })
+                    .verifyComplete();
+
+        }
+
+        @Test
+        @DisplayName("fails after 5 unsuccessful retries")
+        void retryFails() {
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(500));
+            mockStore.enqueue(new MockResponse().setResponseCode(200));
+
+            String reference = "Patient/123";
+            var result = dataStore.fetchResourceByReference(reference);
+
+            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
+        }
 
 
         @Test
@@ -168,13 +209,17 @@ class DataStoreTest {
             String reference = "Patient/999";
 
             mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
+            mockStore.enqueue(new MockResponse().setResponseCode(404));
 
             var result = dataStore.fetchResourceByReference(reference);
 
-            StepVerifier.create(result)
-                    .expectErrorMatches(error -> error instanceof WebClientResponseException &&
-                            ((WebClientResponseException) error).getStatusCode().value() == 404)
-                    .verify();
+            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
     }
 }
