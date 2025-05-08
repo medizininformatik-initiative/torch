@@ -2,19 +2,22 @@ package de.medizininformatikinitiative.torch.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.BundleCreator;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
-import de.medizininformatikinitiative.torch.ConsentHandler;
-import de.medizininformatikinitiative.torch.ResourceTransformer;
+import de.medizininformatikinitiative.torch.DirectResourceLoader;
+import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
+import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.*;
 import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
@@ -37,6 +40,7 @@ import org.springframework.security.oauth2.client.registration.InMemoryReactiveC
 import org.springframework.security.oauth2.client.web.reactive.function.client.ServerOAuth2AuthorizedClientExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
@@ -61,16 +65,74 @@ import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterN
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 
-    @Value("${torch.mappingsFile}")
-    private String mappingsFile;
-    @Value("${torch.conceptTreeFile}")
-    private String conceptTreeFile;
-    @Value("${torch.dseMappingTreeFile}")
-    private String dseMappingTreeFile;
 
-    @Value("${torch.mapping.consent}")
-    private String consentFilePath;
+    @Value("compartmentdefinition-patient.json")
+    private String compartmentPath;
 
+
+    private final TorchProperties torchProperties;
+
+    public AppConfig(TorchProperties torchProperties) {
+        this.torchProperties = torchProperties;
+    }
+
+
+    @Bean
+    public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
+        return searchParametersFile;
+    }
+
+    @Bean
+    public FilterService filterService(FhirContext ctx, String searchParametersFile) {
+        return new FilterService(ctx, searchParametersFile);
+    }
+
+    @Bean
+    public CascadingDelete cascadingDelete() {
+        return new CascadingDelete();
+    }
+
+    @Bean
+    public CompartmentManager compartmentManager() throws IOException {
+        return new CompartmentManager(compartmentPath);
+    }
+
+    @Bean
+    ProfileMustHaveChecker mustHaveChecker(FhirContext ctx) {
+        return new ProfileMustHaveChecker(ctx);
+    }
+
+
+    @Bean
+    public ProcessedGroupFactory attributeGroupProcessor(CompartmentManager manager) {
+        return new ProcessedGroupFactory(manager);
+    }
+
+
+    @Bean
+    ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentValidator consentValidator) {
+        return new ReferenceHandler(dataStore, mustHaveChecker, compartmentManager, consentValidator);
+    }
+
+    @Bean
+    ReferenceExtractor referenceExtractor(FhirContext ctx) {
+        return new ReferenceExtractor(ctx);
+    }
+
+    @Bean
+    ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor) {
+        return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
+    }
+
+    @Bean
+    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
+        return new BatchReferenceProcessor(referenceResolver);
+    }
+
+    @Bean
+    BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {
+        return new BatchCopierRedacter(copier, redaction);
+    }
 
     @Bean
     @Qualifier("fhirClient")
@@ -79,6 +141,13 @@ public class AppConfig {
                                    @Value("${torch.fhir.password}") String password) {
         logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
 
+        // Configure buffer size to 10MB
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(configurer -> configurer
+                        .defaultCodecs()
+                        .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
+                .build();
+
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
@@ -86,6 +155,7 @@ public class AppConfig {
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(baseUrl)
+                .exchangeStrategies(strategies)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/fhir+json");
 
@@ -118,27 +188,42 @@ public class AppConfig {
     }
 
     @Bean
+    StandardAttributeGenerator standardAttributeGenerator(CompartmentManager compartmentManager, StructureDefinitionHandler structureDefinitionHandler) {
+        return new StandardAttributeGenerator(compartmentManager, structureDefinitionHandler);
+
+    }
+
+    @Bean
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) throws IOException {
+        return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
+    }
+
+
+    @Bean
     public CrtdlProcessingService crtdlProcessingService(
             @Qualifier("flareClient") WebClient webClient,
             Translator cqlQueryTranslator,
             CqlClient cqlClient,
             ResultFileManager resultFileManager,
-            ResourceTransformer transformer,
-            BundleCreator bundleCreator,
-            @Value("${torch.batchsize:10}") int batchSize,
-            @Value("5") int maxConcurrency,
-            @Value("${torch.useCql}") boolean useCql) {
+            ProcessedGroupFactory processedGroupFactory,
+            DirectResourceLoader directResourceLoader,
+            ReferenceResolver referenceResolver,
+            BatchCopierRedacter batchCopierRedacter,
+            @Value("${torch.maxConcurrency:5}") int maxConcurrency,
+            CascadingDelete cascadingDelete,
+            PatientBatchToCoreBundleWriter writer
+    ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
-                transformer, bundleCreator,
-                batchSize, maxConcurrency, useCql);
+                processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader,
+                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
     }
-
 
     @Bean
-    Slicing slicing(FhirContext ctx) {
-        return new Slicing(ctx);
+    PatientBatchToCoreBundleWriter patientBatchToCoreBundleWriter(CompartmentManager compartmentManager) {
+        return new PatientBatchToCoreBundleWriter(compartmentManager);
     }
+
 
     @Bean
     ResourceReader resourceReader(FhirContext ctx) {
@@ -156,7 +241,7 @@ public class AppConfig {
 
     @Bean
     public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
-        return new ConsentCodeMapper(consentFilePath, objectMapper);
+        return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
     }
 
     @Bean
@@ -167,14 +252,14 @@ public class AppConfig {
 
     @Bean
     public DseMappingTreeBase dseMappingTreeBase(ObjectMapper jsonUtil) throws IOException {
-        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(dseMappingTreeFile), DseTreeRoot[].class)).toList());
+        return new DseMappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.dseMappingTreeFile()), DseTreeRoot[].class)).toList());
     }
 
     @Lazy
     @Bean
     Translator createCqlTranslator(ObjectMapper jsonUtil) throws IOException {
-        var mappings = jsonUtil.readValue(new File(mappingsFile), Mapping[].class);
-        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(conceptTreeFile), MappingTreeModuleRoot[].class)).toList());
+        var mappings = jsonUtil.readValue(new File(torchProperties.mappingsFile()), Mapping[].class);
+        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.conceptTreeFile()), MappingTreeModuleRoot[].class)).toList());
 
         return Translator.of(MappingContext.of(
                 Stream.of(mappings)
@@ -230,14 +315,10 @@ public class AppConfig {
         return new CqlClient(fhirHelper, dataStore);
     }
 
-    @Bean
-    FhirPathBuilder fhirPathBuilder(Slicing slicing) {
-        return new FhirPathBuilder(slicing);
-    }
 
     @Bean
-    public ElementCopier elementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
-        return new ElementCopier(handler, ctx, fhirPathBuilder);
+    public ElementCopier elementCopier(FhirContext ctx) {
+        return new ElementCopier(ctx);
     }
 
     @Bean
@@ -246,19 +327,25 @@ public class AppConfig {
     }
 
     @Bean
-    public Redaction redaction(CdsStructureDefinitionHandler cds, Slicing slicing) {
-        return new Redaction(cds, slicing);
+    public Redaction redaction(StructureDefinitionHandler cds) {
+        return new Redaction(cds);
     }
 
     @Bean
-    public ResourceTransformer resourceTransformer(DataStore dataStore, ConsentHandler handler, ElementCopier copier, Redaction redaction, DseMappingTreeBase dseMappingTreeBase) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
-        return new ResourceTransformer(dataStore, handler, copier, redaction, dseMappingTreeBase);
+        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, @Value("${torch.mapping.consent_to_profile}") String consentFilePath, CdsStructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentFilePath, cds, ctx, objectMapper);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, String consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+        return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, ctx, objectMapper);
+    }
+
+    @Bean
+    ConsentValidator consentValidator(FhirContext ctx, ObjectMapper mapper, String consentToProfileFilePath) throws IOException {
+        JsonNode resourcetoField = mapper.readTree(new File(consentToProfileFilePath).getAbsoluteFile());
+        return new ConsentValidator(ctx, resourcetoField);
     }
 
     @Bean
@@ -267,23 +354,18 @@ public class AppConfig {
     }
 
     @Bean
-    public CdsStructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader resourceReader) {
-        return new CdsStructureDefinitionHandler(dir, resourceReader);
+    public StructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader resourceReader) {
+        return new StructureDefinitionHandler(dir, resourceReader);
     }
 
     @Bean
-    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
-        return new ResultFileManager(resultsDir, duration, fhirContext, hostname, fileserverName);
+    public ResultFileManager resultFileManager(FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
+        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext, hostname, fileserverName);
     }
 
     @Bean
     public CapabilityStatementController capabilityStatementController() {
         return new CapabilityStatementController();
-    }
-
-    @Bean
-    public BundleCreator bundleCreator() {
-        return new BundleCreator();
     }
 
 
@@ -296,6 +378,7 @@ public class AppConfig {
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
     }
+
 
     @Bean
     @Qualifier("oauth")

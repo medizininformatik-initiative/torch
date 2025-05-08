@@ -3,16 +3,11 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
 import ca.uhn.fhir.util.TerserUtil;
-import ca.uhn.fhir.util.TerserUtilHelper;
-import de.medizininformatikinitiative.torch.CdsStructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import org.hl7.fhir.instance.model.api.IBase;
 import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +24,6 @@ public class ElementCopier {
 
     private final FhirContext ctx;
 
-    private final CdsStructureDefinitionHandler handler;
-
-    private final FhirPathBuilder pathBuilder;
     private final IFhirPath fhirPathEngine;
 
 
@@ -40,12 +32,9 @@ public class ElementCopier {
      *
      * @param handler, contains all structuredefinition and FHIR ctx
      */
-    public ElementCopier(CdsStructureDefinitionHandler handler, FhirContext ctx, FhirPathBuilder fhirPathBuilder) {
-        this.handler = handler;
+    public ElementCopier(FhirContext ctx) {
         this.ctx = ctx;
-        this.pathBuilder = fhirPathBuilder;
         this.fhirPathEngine = ctx.newFhirPath();
-
     }
 
 
@@ -55,23 +44,9 @@ public class ElementCopier {
      * @param attribute Attribute to copy containing ElementID and if it is a mandatory element.
      * @throws MustHaveViolatedException if mandatory element is missing
      */
-    public <T extends DomainResource> void copy(T src, T tgt, Attribute attribute) throws MustHaveViolatedException {
-        List<CanonicalType> profileurl = src.getMeta().getProfile();
-        logger.trace("ProfileURL {}", profileurl.getFirst());
-        StructureDefinition structureDefinition = handler.getDefinition(profileurl);
-        logger.trace("Empty Structuredefinition? {} {}", structureDefinition.isEmpty(), profileurl.getFirst().getValue());
+    public <T extends DomainResource> void copy(T src, T tgt, AnnotatedAttribute attribute) throws MustHaveViolatedException {
 
-
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition elementDefinition = snapshot.getElementById(attribute.attributeRef());
-
-        TerserUtilHelper helper = TerserUtilHelper.newHelper(ctx, tgt);
-
-
-        logger.trace("Attribute Path {}", attribute.attributeRef());
-
-        String[] fhirPaths = pathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), snapshot);
-        String fhirPath = fhirPaths[0];
+        String fhirPath = attribute.fhirPath();
         logger.trace("FHIR PATH {}", fhirPath);
 
         List<Base> elements;
@@ -85,7 +60,7 @@ public class ElementCopier {
             }
         } else {
 
-            String terserFHIRPATH = fhirPaths[1];
+            String terserFHIRPATH = attribute.terserPath();
             logger.trace("Terser FhirPath {}", terserFHIRPATH);
             if (elements.size() == 1) {
 
@@ -98,20 +73,7 @@ public class ElementCopier {
                 try {
                     TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, elements.getFirst());
                 } catch (Exception e) {
-                    if (elementDefinition.hasType()) {
-                        elementDefinition.getType().getFirst().getWorkingCode();
-                        logger.trace("Element not recognized {} {}", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                        try {
-                            Base casted = ElementFactory.stringtoPrimitive(elements.getFirst().toString(), elementDefinition.getType().getFirst().getWorkingCode());
-                            logger.trace("Casted {}", casted.fhirType());
-                            TerserUtil.setFieldByFhirPath(ctx.newTerser(), terserFHIRPATH, tgt, casted);
-                        } catch (Exception casterException) {
-                            logger.debug("Element not recognized and cast unsupported currently  {} {} ", terserFHIRPATH, elementDefinition.getType().getFirst().getWorkingCode());
-                            logger.trace("Caster Exception: ", casterException);
-                        }
-                    } else {
-                        logger.warn("Element has no known type {}", terserFHIRPATH);
-                    }
+                    logger.warn("Element has no known type {}", terserFHIRPATH);
                 }
 
             } else {
@@ -126,7 +88,6 @@ public class ElementCopier {
                     if (endIndex != -1) {
                         String parentPath = terserFHIRPATH.substring(0, endIndex);
                         logger.trace("ParentPath {}", parentPath);
-                        logger.trace("Elemente {}", snapshot.getElementByPath(parentPath));
 
                         IBase parentElement = TerserUtil.getFirstFieldByFhirPath(ctx, parentPath, tgt);
 

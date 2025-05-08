@@ -42,6 +42,7 @@
   "dataExtraction": {
     "attributeGroups": [
       {
+        "id": "Diagnose_basic_code",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
           {
@@ -66,6 +67,14 @@
               }
             ]
           }
+        ]
+      },
+      {
+        "id": "Patient",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+        ],
+        "filter": [
         ]
       }
     ]

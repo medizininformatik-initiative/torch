@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>7.4.5</Hapi.version>
-        <ontology-tag>v3.0.0-alpha.1</ontology-tag>
+        <ontology-tag>v3.3.0</ontology-tag>
     </properties>
 
 
@@ -171,7 +171,7 @@
         <dependency>
             <groupId>de.medizininformatik-initiative</groupId>
             <artifactId>sq2cql</artifactId>
-            <version>v0.5.0-alpha.1</version>
+            <version>1.0.0</version>
         </dependency>
 
         <dependency>
@@ -261,7 +261,7 @@
                                     <arguments>
                                         <argument>-L</argument>
                                         <argument>
-                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/raw/${ontology-tag}/example/fdpg-ontology/mapping.zip
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/releases/download/${ontology-tag}/mapping.zip
                                         </argument>
                                         <argument>-o</argument>
                                         <argument>ontology/mapping.zip</argument>
@@ -303,6 +303,40 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>blackbox-integration-tests</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <!-- Failsafe Plugin for System Tests -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-failsafe-plugin</artifactId>
+                        <configuration>
+                            <includes>
+                                <include>**/*ExecutionIT.java</include>
+                            </includes>
+                            <!-- Override the global excludes with an empty set -->
+                            <excludes combine.self="override">
+                            </excludes>
+                            <skipTests>false</skipTests>
+                        </configuration>
+                    </plugin>
+
+                    <!-- Skip unit tests -->
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <configuration>
+                            <skipTests>true</skipTests>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
     </profiles>
 
     <repositories>
@@ -322,21 +356,17 @@
     <build>
         <finalName>torch</finalName>
         <plugins>
+
             <!-- Failsafe Plugin for Integration Tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
-                <version>3.1.2</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>integration-test</goal>
-                            <goal>verify</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <configuration>
+                    <excludes>
+                        <exclude>**/*ExecutionIT.java</exclude>
+                    </excludes>
+                </configuration>
             </plugin>
-
 
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -348,6 +378,7 @@
                 </configuration>
 
             </plugin>
+
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>

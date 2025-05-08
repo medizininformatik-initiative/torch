@@ -20,3 +20,4 @@ dependencies
 package.json
 fhirpkg.lock.json
 .env
+exec-crtdl.sh

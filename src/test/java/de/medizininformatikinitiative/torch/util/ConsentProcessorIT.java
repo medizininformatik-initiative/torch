@@ -1,6 +1,8 @@
 package de.medizininformatikinitiative.torch.util;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentProcessor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;

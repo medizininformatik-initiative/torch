@@ -1,0 +1,49 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/26.0.9 Chrome/128.0.6613.186 Electron/32.2.5 Safari/537.36" version="26.0.9">
+  <diagram name="Page-1" id="9k0biyri5l5x-t8uj9t4">
+    <mxGraphModel dx="2924" dy="2330" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JAM80sdjAuvQMe1ugqTp-3" target="JAM80sdjAuvQMe1ugqTp-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-3" value="Resource" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;" vertex="1" parent="1">
+          <mxGeometry x="-130" y="-880" width="130.97" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JAM80sdjAuvQMe1ugqTp-8" target="JAM80sdjAuvQMe1ugqTp-9">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-11" value="yes" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="JAM80sdjAuvQMe1ugqTp-10">
+          <mxGeometry x="-0.1" y="1" relative="1" as="geometry">
+            <mxPoint x="4" y="-24" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-20" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JAM80sdjAuvQMe1ugqTp-8" target="JAM80sdjAuvQMe1ugqTp-19">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-8" value="Profile unwanted" style="rhombus;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="-892.5" width="120" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;entryX=1;entryY=0.75;entryDx=0;entryDy=0;" edge="1" parent="1" source="JAM80sdjAuvQMe1ugqTp-9" target="JAM80sdjAuvQMe1ugqTp-19">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="470" y="-655" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-9" value="Remove unwanted Profiles" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="410" y="-875" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="JAM80sdjAuvQMe1ugqTp-16" target="JAM80sdjAuvQMe1ugqTp-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-16" value="Extract AttribugeGroup Profiles" style="whiteSpace=wrap;html=1;strokeWidth=2;rounded=1;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="20.054999999999993" y="-875" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="JAM80sdjAuvQMe1ugqTp-19" value="Add Data Absent Reasons for Attribute Group" style="whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="210" y="-700" width="120" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

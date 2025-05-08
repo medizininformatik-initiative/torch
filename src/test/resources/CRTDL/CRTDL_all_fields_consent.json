@@ -1,7 +1,7 @@
 {
   "version": "http://json-schema.org/to-be-done/schema#",
   "display": "",
-  "cohortDefinition":   {
+  "cohortDefinition": {
     "version": "http://to_be_decided.com/draft-1/schema#",
     "display": "",
     "inclusionCriteria": [
@@ -6994,6 +6994,7 @@
         ]
       },
       {
+        "id": "Implikation",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/therapeutische-implikation",
         "attributes": [
           {
@@ -7031,6 +7032,7 @@
         ]
       },
       {
+        "id": "ObservationComponent",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/untersuchte-region",
         "attributes": [
           {
@@ -7096,6 +7098,7 @@
         ]
       },
       {
+        "id": "RiskAssessment",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/polygener-risiko-score",
         "attributes": [
           {
@@ -7141,6 +7144,7 @@
         ]
       },
       {
+        "id": "Observation",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
         "attributes": [
           {
@@ -7214,6 +7218,7 @@
         ]
       },
       {
+        "id": "ServiceRequestLab",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ServiceRequestLab",
         "attributes": [
           {
@@ -7259,6 +7264,7 @@
         ]
       },
       {
+        "id": "diagnosticReport",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/DiagnosticReportLab",
         "attributes": [
           {

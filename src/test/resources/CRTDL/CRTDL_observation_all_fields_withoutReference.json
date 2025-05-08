@@ -1,0 +1,472 @@
+{
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "display": "",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "system": "http://snomed.info/sct",
+              "display": "Geschlecht"
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0",
+            "display": "Patient"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              },
+              {
+                "code": "male",
+                "display": "Male",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "observationAllFieldsWithOutRef",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.versionId",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.lastUpdated",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.source",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.profile",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.security",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.meta.tag",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.implicitRules",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.language",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.text",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.contained",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.modifierExtension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.use",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.system",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.version",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.display",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.coding:observationInstanceV2.userSelected",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.type.text",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.system",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.value",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.identifier:analyseBefundCode.period",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.status",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.coding",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.coding:loinc-observation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.coding:observation-category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.category.text",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.effective[x]",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.effective[x].id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.effective[x].extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.effective[x].extension:QuelleKlinischesBezugsdatum",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.effective[x].value",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.issued",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.value",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.comparator",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.unit",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.system",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.system",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.version",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.display",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.coding.userSelected",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueCodeableConcept.text",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.dataAbsentReason",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.note",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.bodySite",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.method",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.specimen.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.specimen.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.specimen.type",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.specimen.identifier",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.specimen.display",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.modifierExtension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.low",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.high",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.type",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.appliesTo",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.age",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.referenceRange.text",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.id",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.extension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.modifierExtension",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.value[x]",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.dataAbsentReason",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.component.interpretation",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "date",
+            "name": "date",
+            "start": "2000-01-01",
+            "end": "2025-12-31"
+          }
+        ]
+      },
+      {
+        "id": "Patient",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+        ],
+        "filter": [
+        ]
+      }
+    ]
+  }
+}

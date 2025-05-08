@@ -1,13 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
-import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.CodeableConcept;
-import org.hl7.fhir.r4.model.Coding;
-import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StringType;
-import org.hl7.fhir.r4.model.StructureDefinition;
-import org.junit.jupiter.api.BeforeEach;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -17,13 +10,6 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SlicingTest {
-    private Slicing slicing;
-
-    @BeforeEach
-    void setUp() {
-        FhirContext context = FhirContext.forR4();
-        slicing = new Slicing(context);
-    }
 
 
     @Test
@@ -35,7 +21,7 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
         Base base = Mockito.mock(Base.class);
 
-        ElementDefinition result = slicing.checkSlicing(base, "Patient.contact", structureDefinition);
+        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", snapshot);
 
         assertThat(result).isNull();
     }
@@ -58,7 +44,7 @@ class SlicingTest {
         subElementDefinition.setSlicing(slicingComponent);
         snapshot.addElement(subElementDefinition);
 
-        List<String> result = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertThat(result).containsExactly(
                 "relationship.coding.system='System'",
@@ -77,7 +63,7 @@ class SlicingTest {
         elementDefinition.setId("Patient.contact");
         snapshot.addElement(elementDefinition);
 
-        List<String> result = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertThat(result).containsExactly();
     }
@@ -93,7 +79,7 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
 
 
-        List<String> result = slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
 
         assertThat(result).containsExactly("unknown.conformsTo({profile})");
     }
@@ -115,7 +101,7 @@ class SlicingTest {
         snapshot.addElement(subElementDefinition);
 
 
-        List<String> result = slicing.collectConditionsfromPattern("Patient.contact", snapshot, "relationship");
+        List<String> result = Slicing.collectConditionsfromPattern("Patient.contact", snapshot, "relationship");
 
         assertThat(result).containsExactly(
                 "relationship.coding.system='System'",
@@ -130,7 +116,7 @@ class SlicingTest {
         CodeableConcept pattern = new CodeableConcept();
         pattern.setCoding(Collections.singletonList(new Coding("System", "code1", "Display")));
 
-        List<String> result = slicing.traverseValueRec("relationship", pattern);
+        List<String> result = Slicing.traverseValueRec("relationship", pattern);
 
         assertThat(result).containsOnly(
                 "relationship.coding.system='System'",

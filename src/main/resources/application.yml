@@ -7,7 +7,8 @@ torch:
     dir: structureDefinitions
   mapping:
     consent: mappings/consent-mappings_fhir.json
-    consent_to_profile: mappings/profile_to_consent.json
+    type_to_consent: mappings/type_to_consent.json
+  search_parameters_file: search-parameters.json
   fhir:
     user: ""
     password: ""
@@ -31,6 +32,7 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
+  bufferSize: 100
 nginx:
   servername: http://localhost:8080
   filelocation: http://localhost:8080/output

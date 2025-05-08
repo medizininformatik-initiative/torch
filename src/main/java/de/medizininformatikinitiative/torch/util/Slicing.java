@@ -1,13 +1,15 @@
 package de.medizininformatikinitiative.torch.util;
 
-import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
 
@@ -19,23 +21,47 @@ public class Slicing {
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
 
     /**
-     * Constructor for Slicing
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
+     *
+     * @param base               Hapi Base (Element) which should be checked
+     * @param elementIDs         Set of ElementIDs of the above element. Branching due to slicing at an earlier stage in recursive walk.
+     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
+     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
      */
-    public Slicing(FhirContext ctx) {
+    public static Set<ElementDefinition> checkSlicing(Base base, Set<String> elementIDs, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
 
+        return elementIDs.stream().map(elementId ->
+                snapshotComponents.stream().map(snapshotComponent ->
+                                checkSlicing(base, elementId, snapshotComponent)).filter(Objects::nonNull)
+                        .collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
     }
+
 
     /**
      * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
-     * @param base                Hapi Base (Element) which should be checked
-     * @param elementID           Element ID of the above element.
-     * @param structureDefinition Struturedefinition of the Ressource to which the element belongs
+     * @param base               Hapi Base (Element) which should be checked
+     * @param elementID          Element ID of the above element.
+     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
+     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
+     */
+    public static Set<ElementDefinition> checkSlicing(Base base, String elementID, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
+
+        return snapshotComponents.stream().map(snapshotComponent -> checkSlicing(base, elementID, snapshotComponent)).filter(Objects::nonNull).collect(Collectors.toSet());
+
+    }
+
+
+    /**
+     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
+     *
+     * @param base              Hapi Base (Element) which should be checked
+     * @param elementID         Element ID of the above element.
+     * @param snapshotComponent Struturedefinition of the Ressource to which the element belongs
      * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
      */
-    public ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition structureDefinition) {
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
-        ElementDefinition slicedElement = snapshot.getElementById(elementID);
+    public static ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshotComponent) {
+        ElementDefinition slicedElement = snapshotComponent.getElementById(elementID);
 
 
         AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
@@ -48,12 +74,14 @@ public class Slicing {
         }
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), structureDefinition.getSnapshot());
+        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), snapshotComponent);
         elementDefinitions.forEach(element -> {
+
 
             boolean foundSlice = true;
             if (element.hasSliceName()) {
                 for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
+
                     if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
 
                         if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
@@ -73,7 +101,7 @@ public class Slicing {
                         }
 
                     }
-                    if (!resolveDiscriminator(base, element, discriminator, snapshot)) {
+                    if (!resolveDiscriminator(base, element, discriminator, snapshotComponent)) {
                         foundSlice = false;
                         break; // Stop iterating if condition check fails
                     }
@@ -96,7 +124,7 @@ public class Slicing {
      * @param snapshot  StructureDefinitionSnapshotComponent containing the structure definition
      * @return List of FHIR Path conditions as strings
      */
-    public List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+    public static List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
         List<String> conditions = new ArrayList<>();
         // Find the sliced element using the element ID
         ElementDefinition slicedElement = snapshot.getElementById(elementID);
@@ -119,7 +147,7 @@ public class Slicing {
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
                             logger.trace("Pattern discriminator found");
-                            conditions.addAll(collectConditionsfromPattern(elementID, snapshot, path));
+                            conditions.addAll(Slicing.collectConditionsfromPattern(elementID, snapshot, path));
                             break;
                         case EXISTS:
                             conditions.add(path + ".exists()");
@@ -147,12 +175,12 @@ public class Slicing {
     }
 
 
-    List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
+    static List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
         List<String> conditions = new ArrayList<>();
         if (!path.equals("$this")) {
             elementId += "." + path;
         }
-        logger.debug("Getting Conditions {}", elementId);
+        logger.trace("Getting Conditions {}", elementId);
         ElementDefinition elementDefinition = snapshot.getElementById(elementId);
         if (elementDefinition == null) {
 
@@ -162,8 +190,7 @@ public class Slicing {
         if (elementDefinition.hasFixedOrPattern()) {
 
             Element pattern = elementDefinition.getFixedOrPattern();
-            logger.debug("Got Pattern ");
-            conditions.addAll(traverseValueRec(path, pattern));
+            conditions.addAll(Slicing.traverseValueRec(path, pattern));
         } else {
             logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);
 
@@ -172,7 +199,7 @@ public class Slicing {
         return conditions;
     }
 
-    List<String> traverseValueRec(String basePath, Element pattern) {
+    static List<String> traverseValueRec(String basePath, Element pattern) {
 
         List<String> conditions = new ArrayList<>();
         if (pattern.isPrimitive()) {
