@@ -1,1 +1,122 @@
-[]
+[
+  {
+    "outputFile": "Bundle-test-diag-enc-diag.json",
+    "fshName": "test-diag-enc-diag",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag-bundle.fsh",
+    "startLine": 1,
+    "endLine": 9
+  },
+  {
+    "outputFile": "Bundle-test-diag-no-enc-diag.json",
+    "fshName": "test-diag-no-enc-diag",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag-bundle.fsh",
+    "startLine": 1,
+    "endLine": 9
+  },
+  {
+    "outputFile": "Bundle-test-enc-period.json",
+    "fshName": "test-enc-period",
+    "fshType": "Instance",
+    "fshFile": "base-test-enc-period-bundle.fsh",
+    "startLine": 1,
+    "endLine": 6
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-enc-diag-diag-1.json",
+    "fshName": "torch-test-diag-enc-diag-diag-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag.fsh",
+    "startLine": 36,
+    "endLine": 42
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-enc-diag-diag-2.json",
+    "fshName": "torch-test-diag-enc-diag-diag-2",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag.fsh",
+    "startLine": 45,
+    "endLine": 51
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-enc-diag-diag-3.json",
+    "fshName": "torch-test-diag-enc-diag-diag-3",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag.fsh",
+    "startLine": 55,
+    "endLine": 59
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-no-enc-diag-diag-1.json",
+    "fshName": "torch-test-diag-no-enc-diag-diag-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag.fsh",
+    "startLine": 36,
+    "endLine": 41
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-no-enc-diag-diag-2.json",
+    "fshName": "torch-test-diag-no-enc-diag-diag-2",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag.fsh",
+    "startLine": 44,
+    "endLine": 50
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-no-enc-diag-diag-3.json",
+    "fshName": "torch-test-diag-no-enc-diag-diag-3",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag.fsh",
+    "startLine": 54,
+    "endLine": 58
+  },
+  {
+    "outputFile": "Encounter-torch-test-diag-enc-diag-enc-1.json",
+    "fshName": "torch-test-diag-enc-diag-enc-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag.fsh",
+    "startLine": 9,
+    "endLine": 32
+  },
+  {
+    "outputFile": "Encounter-torch-test-diag-no-enc-diag-enc-1.json",
+    "fshName": "torch-test-diag-no-enc-diag-enc-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag.fsh",
+    "startLine": 9,
+    "endLine": 32
+  },
+  {
+    "outputFile": "Encounter-torch-test-enc-period-enc-1.json",
+    "fshName": "torch-test-enc-period-enc-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-enc-period.fsh",
+    "startLine": 9,
+    "endLine": 26
+  },
+  {
+    "outputFile": "Patient-torch-test-diag-enc-diag-pat-1.json",
+    "fshName": "torch-test-diag-enc-diag-pat-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-enc-diag.fsh",
+    "startLine": 3,
+    "endLine": 6
+  },
+  {
+    "outputFile": "Patient-torch-test-diag-no-enc-diag-pat-1.json",
+    "fshName": "torch-test-diag-no-enc-diag-pat-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-no-enc-diag.fsh",
+    "startLine": 3,
+    "endLine": 6
+  },
+  {
+    "outputFile": "Patient-torch-test-enc-period-pat-1.json",
+    "fshName": "torch-test-enc-period-pat-1",
+    "fshType": "Instance",
+    "fshFile": "base-test-enc-period.fsh",
+    "startLine": 3,
+    "endLine": 6
+  }
+]

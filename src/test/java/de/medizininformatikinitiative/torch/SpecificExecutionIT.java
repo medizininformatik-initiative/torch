@@ -212,6 +212,27 @@ public class SpecificExecutionIT {
                 ));
     }
 
+    @Test
+    public void testEncPeriod() throws IOException {
+        var testName = "enc-period";
+        uploadTestdata(testName);
+        var bundleUrls = sendCrtdlAndGetOutputUrls(testName);
+        var coreBundle = fetchBundles(List.of(bundleUrls.coreBundle())).getFirst();
+        var patientBundles = fetchBundles(bundleUrls.patientBundles());
+
+        var resultBundle = parser.encodeResourceToString(patientBundles.getFirst());
+
+        System.out.println(resultBundle);
+
+        Assertions.assertThat(coreBundle).containsNEntries(0);
+        assertThat(patientBundles).hasSize(1);
+
+        executeStandardTests(patientBundles);
+
+        Assertions.assertThat(patientBundles.getFirst()).extractResourceById("Encounter", "torch-test-enc-period-enc-1").isNotNull().extractElementsAt("period").isEmpty();
+
+    }
+
 
     @Test
     public void testDoubleRefResolve() throws IOException {
