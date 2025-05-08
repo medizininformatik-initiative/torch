@@ -12,7 +12,7 @@ import java.util.function.Predicate;
 
 public class BundleAssert extends AbstractAssert<BundleAssert, Bundle> {
 
-    protected BundleAssert(Bundle bundle) {
+    public BundleAssert(Bundle bundle) {
         super(bundle, BundleAssert.class);
     }
 
