@@ -12,5 +12,4 @@ public interface Assertions {
     static ResourceAssert assertThat(Resource actual) {
         return new ResourceAssert(actual);
     }
-
 }
