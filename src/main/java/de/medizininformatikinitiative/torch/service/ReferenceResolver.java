@@ -67,10 +67,9 @@ public class ReferenceResolver {
      * Extracts all known valid ResourceGroups from direct loading and then resolves references
      * until no new ResourceGroups could be found.
      *
-     * @param batch        patientBatch containing Patientbundles with patient resources and ResourceGroups to be processed
-     * @param coreBundle   bundle containing core resources
-     * @param applyConsent if consent is to be applied to patient resources
-     * @param groupMap     map of known attribute groups
+     * @param batch      patientBatch containing Patientbundles with patient resources and ResourceGroups to be processed
+     * @param coreBundle bundle containing core resources
+     * @param groupMap   map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
     Mono<PatientBatchWithConsent> processSinglePatientBatch(

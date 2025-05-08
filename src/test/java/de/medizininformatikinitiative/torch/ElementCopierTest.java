@@ -25,7 +25,6 @@ public class ElementCopierTest {
         meta.setProfile(List.of(new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
         source.setMeta(meta);
         Observation tgt = new Observation();
-        String profile = source.getMeta().getProfile().getFirst().getValue();
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false));
 
@@ -42,7 +41,6 @@ public class ElementCopierTest {
         source.setMeta(meta);
         Observation tgt = new Observation();
         tgt.setMeta(new Meta());
-        String profile = source.getMeta().getProfile().get(1).getValue();
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false));
 
@@ -58,8 +56,6 @@ public class ElementCopierTest {
                 new CanonicalType("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose")));
         source.setMeta(meta);
         Observation tgt = new Observation();
-        String profile = source.getMeta().getProfile().get(1).getValue();
-
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false));
 
         assertThat(tgt.getMeta().getProfile().stream().map(PrimitiveType::getValue))
@@ -76,7 +72,6 @@ public class ElementCopierTest {
         source.setMeta(defaultMeta());
         source.setCategory(categories);
         Observation tgt = new Observation();
-        String profile = source.getMeta().getProfile().getFirst().getValue();
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.category", "Observation.category", "Observation.category", false));
 

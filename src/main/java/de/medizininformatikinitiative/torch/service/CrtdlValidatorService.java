@@ -45,7 +45,7 @@ public class CrtdlValidatorService {
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
-        Boolean exactlyOnePatientGroup = false;
+        boolean exactlyOnePatientGroup = false;
         String patientAttributeGroupId = "";
 
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {

@@ -19,9 +19,10 @@ public class PatientBatchToCoreBundleWriter {
     /**
      * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
      * and merging them into a single consolidated ImmutableResourceBundle.
-     * Then merges that into the coreBundle.
+     * Then merge that into the coreBundle.
      *
-     * @param patientBundles List of patient-specific ResourceBundles.
+     * @param batch      Batch of patient-specific ResourceBundles.
+     * @param coreBundle Bundle to be updated
      */
     public void updateCore(PatientBatchWithConsent batch, ResourceBundle coreBundle) {
         coreBundle.merge(processPatientBatch(batch));
@@ -32,7 +33,7 @@ public class PatientBatchToCoreBundleWriter {
      * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
      * and merging them into a single consolidated ImmutableResourceBundle.
      *
-     * @param patientBundles List of patient-specific ResourceBundles.
+     * @param batch batch containing patient-specific ResourceBundles.
      * @return A single merged ImmutableResourceBundle.
      */
     public ImmutableResourceBundle processPatientBatch(PatientBatchWithConsent batch) {
@@ -49,7 +50,8 @@ public class PatientBatchToCoreBundleWriter {
 
 
     /**
-     * Extracts an ImmutableResourceBundle from a single ResourceBundle.
+     * @param patientResourceBundle to be handled
+     * @return ImmutableResourceBundle from a single ResourceBundle.
      */
     public ImmutableResourceBundle extractRelevantPatientData(ImmutableResourceBundle patientResourceBundle) {
         // Step 1: Identify valid ResourceGroups that are NOT in the compartment

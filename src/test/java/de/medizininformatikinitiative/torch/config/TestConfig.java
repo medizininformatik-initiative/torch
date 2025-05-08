@@ -254,7 +254,7 @@ public class TestConfig {
     }
 
     @Bean
-    public ElementCopier elementCopier(StructureDefinitionHandler handler, FhirContext ctx) {
+    public ElementCopier elementCopier(FhirContext ctx) {
         return new ElementCopier(ctx);
     }
 
@@ -275,7 +275,7 @@ public class TestConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, StructureDefinitionHandler cds, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
         return new ConsentHandler(dataStore, mapper, torchProperties.mapping().typeToConsent(), ctx, objectMapper);
     }
 
