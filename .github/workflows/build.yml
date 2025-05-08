@@ -3,16 +3,18 @@ name: Build
 on:
   push:
     branches:
-    - main
-    - develop
+      - main
+      - develop
     tags:
-    - 'v*.*.*'
+      - 'v*.*.*'
   pull_request:
     branches:
-    - main
-    - develop
+      - main
+      - develop
   schedule:
-  - cron: '0 1 * * *'
+    - cron: '0 1 * * *'
+  merge_group:
+    types: [ checks_requested ]
 
 jobs:
   build:
