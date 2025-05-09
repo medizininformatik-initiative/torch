@@ -38,18 +38,9 @@ nginx:
 
 logging:
   level:
-    root: WARN
-    org.springframework.web.reactive.function.client: DEBUG
-    reactor.netty: WARN
-    reactor: WARN
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
-    de.medizininformatikinitiative.torch.service: ${LOG_LEVEL:debug}
-    de.medizininformatikinitiative.torch.util: ${LOG_LEVEL:debug}
-    de.medizininformatikinitiative.torch.testUtil: ${LOG_LEVEL:debug}
-    org.springframework: ${LOG_LEVEL:debug}
     ca.uhn.fhir: WARN
     org.hl7.fhir: WARN
-
 
 spring:
   codec:
