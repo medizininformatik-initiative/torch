@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.3_9-jre
+FROM eclipse-temurin:21.0.7_6-jre
 
 RUN apt-get update && apt-get upgrade -y && \
     apt-get purge wget libbinutils libctf0 libctf-nobfd0 libncurses6 -y && \
