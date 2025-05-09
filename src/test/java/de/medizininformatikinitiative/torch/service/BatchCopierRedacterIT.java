@@ -135,7 +135,7 @@ class BatchCopierRedacterIT {
                 "_reference": {
                   "extension": [ {
                     "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                    "valueCode": "unknown"
+                    "valueCode": "masked"
                   } ]
                 }
               },

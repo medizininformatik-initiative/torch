@@ -26,13 +26,10 @@
     ]
   },
   "subject": {
-    "_reference": {
-      "extension": [
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        }
-      ]
+    "reference": "Patient/mii-exa-test-data-patient-1",
+    "identifier": {
+      "system": "https://www.medizininformatik-initiative.de/fhir/core/CodeSystem/core-location-identifier",
+      "value": "MYCLINICRESIDENT"
     }
   },
   "effectiveDateTime": "2024-02-21T16:46:17+01:00",
