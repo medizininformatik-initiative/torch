@@ -4,11 +4,22 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Element;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.NoSuchElementException;
+import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -71,7 +82,7 @@ public class Redaction {
             meta.setProfile(resourceProfiles);
 
             String elementID = String.valueOf(resource.getResourceType());
-            return this.redact((Base) resource, Set.of(elementID), 0, structureDefinitions, references);
+            return this.redact(resource, Set.of(elementID), 0, structureDefinitions, references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
@@ -84,7 +95,7 @@ public class Redaction {
      * @param elementIDs           "Element IDs of parent currently handled initially isEmpty String"
      * @param recursion            "Resurcion depth (for debug purposes)
      * @param structureDefinitions Structure definition of the Resource.
-     * @param references
+     * @param references           Allowed references
      * @return redacted Base
      */
     public Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
@@ -120,8 +131,8 @@ public class Redaction {
             Set<String> childIDs = finalElementIDs.stream().map(elementId -> elementId + "." + child.getName()).collect(Collectors.toSet());
             Set<ElementDefinition> childDefinitions = Set.of();
             logger.trace("Children to be handled {}", childIDs);
-            String type = "";
-            int min = 0;
+            String type;
+            int min;
             try {
                 childDefinitions = childIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)) // May return null
                         .filter(Objects::nonNull) // Keep only non-null elements
@@ -177,8 +188,17 @@ public class Redaction {
                     childReferenceField.forEach(referenceValue -> {
                         String reference = ((Reference) referenceValue).getReference();
                         if (!legalReferences.contains(reference)) {
-                            referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("unknown")));
+                            referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("masked")));
                         }
+                        referenceValue.children().forEach(childValue -> {
+                            String name = childValue.getName();
+                            if (!name.equals("reference") && !name.equals("extension") && childValue.hasValues()) {
+                                childValue.getValues().forEach(value -> {
+                                    referenceValue.removeChild(name, value);
+                                });
+                            }
+                        });
+
 
                     });
 
