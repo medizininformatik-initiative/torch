@@ -44,8 +44,11 @@ public class RedactTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Observation-mii-exa-test-data-patient-1-vitalstatus-1.json"})
-    public void testObservationVitalStauts(String resource) throws IOException {
+    @ValueSource(strings = {
+            "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json",
+            "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json"
+    })
+    public void testObservationVitalStatus(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
