@@ -31,7 +31,6 @@ public class Redaction {
     }
 
     /**
-     * @param base    - Resource after Data Selection and Extraction process with possibly missing required fields
      * @param wrapper ExtractionRedactionWrapper containing the resource, profiles and reference information
      *                relevant for redaction
      * @return Base with fulfilled required fields using Data Absent Reasons
@@ -42,7 +41,7 @@ public class Redaction {
 
         if (resource.hasMeta()) {
             Meta meta = resource.getMeta();
-            List<CanonicalType> resourceProfiles = List.of();
+            List<CanonicalType> resourceProfiles;
             if (!resource.getResourceType().toString().equals("Patient")) {
                 // Convert resource profiles to a list of strings
                 resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
@@ -70,7 +69,7 @@ public class Redaction {
             meta.setProfile(resourceProfiles);
 
             String elementID = String.valueOf(resource.getResourceType());
-            return this.redact((Base) resource, Set.of(elementID), 0, structureDefinitions, references);
+            return this.redact(resource, Set.of(elementID), 0, structureDefinitions, references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
@@ -83,10 +82,10 @@ public class Redaction {
      * @param elementIDs           "Element IDs of parent currently handled initially isEmpty String"
      * @param recursion            "Resurcion depth (for debug purposes)
      * @param structureDefinitions Structure definition of the Resource.
-     * @param references
+     * @param references           Allowed references
      * @return redacted Base
      */
-    public <T> Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
+    public Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
 
         recursion++;
         Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshots = structureDefinitions.stream().map(StructureDefinition::getSnapshot).collect(Collectors.toSet());
@@ -123,8 +122,8 @@ public class Redaction {
             Set<String> childIDs = finalElementIDs.stream().map(elementId -> elementId + "." + child.getName()).collect(Collectors.toSet());
             Set<ElementDefinition> childDefinitions = Set.of();
             logger.trace("Children to be handled {}", childIDs);
-            String type = "";
-            int min = 0;
+            String type;
+            int min;
             try {
                 childDefinitions = childIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)) // May return null
                         .filter(Objects::nonNull) // Keep only non-null elements
@@ -182,6 +181,15 @@ public class Redaction {
                         if (!legalReferences.contains(reference)) {
                             referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("unknown")));
                         }
+                        referenceValue.children().forEach(childValue -> {
+                            String name = childValue.getName();
+                            if (!name.equals("reference") && !name.equals("extension") && childValue.hasValues()) {
+                                childValue.getValues().forEach(value -> {
+                                    referenceValue.removeChild(name, value);
+                                });
+                            }
+                        });
+
 
                     });
 
