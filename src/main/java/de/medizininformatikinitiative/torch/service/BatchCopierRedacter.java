@@ -10,7 +10,6 @@ import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Factory;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,8 +27,6 @@ public class BatchCopierRedacter {
     private static final Logger logger = LoggerFactory.getLogger(BatchCopierRedacter.class);
     private final ElementCopier copier;
     private final Redaction redaction;
-
-    static final Factory FACTORY = new Factory();
 
     public BatchCopierRedacter(ElementCopier copier, Redaction redaction) {
         this.copier = copier;
@@ -106,7 +103,7 @@ public class BatchCopierRedacter {
                     }
                 });
 
-        logger.debug("attributeStringGroupedWithReferenceString: {}", attributeStringGroupedWithReferenceString);
+        logger.trace("attributeStringGroupedWithReferenceString: {}", attributeStringGroupedWithReferenceString);
         // Step 2: Process each resource asynchronously
         return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
                 .flatMap(entry -> {
@@ -162,7 +159,7 @@ public class BatchCopierRedacter {
         }
 
         redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
-        logger.debug("Transformed resource: {}", tgt);
+        logger.trace("Transformed resource: {}", tgt);
         return tgt;
     }
 
