@@ -11,46 +11,34 @@ import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.io.IOException;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 
-
 public class CqlClient {
-    private static final Logger logger = LoggerFactory.getLogger(CqlClient.class);
-    private final FhirHelper fhirHelper;
 
+    private static final Logger logger = LoggerFactory.getLogger(CqlClient.class);
+
+    private final FhirHelper fhirHelper;
     private final DataStore dataStore;
 
-    public CqlClient(
-            FhirHelper fhirHelper, DataStore dataStore) {
+    public CqlClient(FhirHelper fhirHelper, DataStore dataStore) {
         this.fhirHelper = fhirHelper;
         this.dataStore = dataStore;
-
     }
-
 
     public Flux<String> fetchPatientIds(String cqlQuery) {
         var libraryUri = "urn:uuid:" + UUID.randomUUID();
         var measureUri = "urn:uuid:" + UUID.randomUUID();
-        Parameters params;
-        logger.debug(" Library {} \n Measure {}", libraryUri, measureUri);
+        logger.debug("Fetch patient IDs: Library {}, Measure {}", libraryUri, measureUri);
 
-        try {
-            params = fhirHelper.getListExecutionParams();
-        } catch (IOException e) {
-            throw new RuntimeException("Failed to retrieve list execution parameters", e);
-        }
-
+        Parameters params = fhirHelper.getListExecutionParams();
         params.setParameter("measure", measureUri);
-        Parameters finalParams = params;
 
-        Bundle measureLibraryBundle = null;
-        measureLibraryBundle = fhirHelper.createBundle(cqlQuery, libraryUri, measureUri);
+        Bundle measureLibraryBundle = fhirHelper.createBundle(cqlQuery, libraryUri, measureUri);
 
         return dataStore.transact(measureLibraryBundle)
-                .then(Mono.defer(() -> dataStore.evaluateMeasure(finalParams)))
+                .then(Mono.defer(() -> dataStore.evaluateMeasure(params)))
                 .map(CqlClient::extractSubjectListId)
                 .map(CqlClient::createPatientQuery)
                 .flux()
@@ -61,10 +49,6 @@ public class CqlClient {
                 });
     }
 
-    private static Query createPatientQuery(String subjectListId) {
-        return new Query("Patient", QueryParams.of("_list", stringValue(subjectListId)));
-    }
-
     private static String extractSubjectListId(MeasureReport measureReport) {
         return measureReport.getGroupFirstRep()
                 .getPopulationFirstRep()
@@ -73,5 +57,7 @@ public class CqlClient {
                 .getIdPart();
     }
 
-
+    private static Query createPatientQuery(String subjectListId) {
+        return new Query("Patient", QueryParams.of("_list", stringValue(subjectListId)));
+    }
 }

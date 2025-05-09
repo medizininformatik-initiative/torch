@@ -220,28 +220,24 @@ public class FhirController {
                 });
     }
 
-
     private Crtdl parseCrtdlContent(byte[] content) throws IOException {
         return objectMapper.readValue(content, Crtdl.class);
     }
 
-
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
-        String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
         var jobId = request.pathVariable("jobId");
-        logger.debug("Job Requested {}", jobId);
-        logger.debug("Size of Map {} {}", resultFileManager.getSize(), resultFileManager.jobStatusMap.entrySet());
-
-
         HttpStatus status = resultFileManager.getStatus(jobId);
-        logger.debug("Status of jobID {} var {}", jobId, resultFileManager.jobStatusMap.get(jobId));
 
         if (status == null) {
             return notFound().build();
         }
+
+        logger.debug("Status of jobID {} is {}", jobId, status);
+
         switch (status) {
             case HttpStatus.OK -> {
                 // Capture the full request URL and transaction time
+                String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
                 return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, transactionTime))
                         .flatMap(bundleMap -> {
                             if (bundleMap == null) {
@@ -273,5 +269,4 @@ public class FhirController {
             }
         }
     }
-
 }
