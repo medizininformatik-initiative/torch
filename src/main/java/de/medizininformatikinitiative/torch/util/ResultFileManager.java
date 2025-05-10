@@ -52,7 +52,7 @@ public class ResultFileManager {
         this.fileServerName = fileServerName;
 
 
-        logger.debug(" Duration of persistence{}", duration1);
+        logger.debug("Duration of persistence {}", duration1);
         // Ensure the directory exists
         if (!Files.exists(resultsDirPath)) {
             try {

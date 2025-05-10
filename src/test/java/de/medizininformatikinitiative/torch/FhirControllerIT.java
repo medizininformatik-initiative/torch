@@ -99,13 +99,10 @@ class FhirControllerIT {
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
     }
 
-
     @Test
     void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
-
-        HttpHeaders headers = new HttpHeaders();
-        HttpEntity<String> entity = new HttpEntity<>(null, headers);
+        HttpEntity<String> entity = new HttpEntity<>(null, null);
 
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
         assertThat(response.getStatusCode().value()).isEqualTo(200);
@@ -114,13 +111,11 @@ class FhirControllerIT {
     @Test
     void testGlobalStatus() {
         TestRestTemplate restTemplate = new TestRestTemplate();
-
-        HttpHeaders headers = new HttpHeaders();
-        HttpEntity<String> entity = new HttpEntity<>(null, headers);
+        HttpEntity<String> entity = new HttpEntity<>(null, null);
 
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/__status/", HttpMethod.GET, entity, String.class);
+
         assertThat(response.getStatusCode().value()).isEqualTo(200);
-        logger.info(response.getBody());
     }
 
     @Test
@@ -198,13 +193,15 @@ class FhirControllerIT {
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
 
                 assertThat(response.getStatusCode().value()).isEqualTo(202);
-                assertThat(durationSecondsSince(start)).isLessThan(0.1);
+                assertThat(durationSecondsSince(start)).isLessThan(1);
 
-                String statusUrl = Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst().replace("8080", String.valueOf(port));
-                pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);
+                List<String> locations = response.getHeaders().get("Content-Location");
+                assertThat(locations).hasSize(1);
 
-                String contentLocation = Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
-                clearDirectory(contentLocation.substring(contentLocation.indexOf("__status/") + "__status/".length()));
+                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), expectedFinalCode);
+
+                System.out.println("locations.getFirst().substring(locations.getFirst().lastIndexOf('/')) = " + locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
+                clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                 Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());

@@ -21,6 +21,9 @@ public class FileServerClient {
     public Stream<Bundle> fetchBundles(URI url) {
         // only use the path part of the URL here, because in the test setup the port of the file server isn't right
         var response = webClient.get().uri(url.getPath()).retrieve().bodyToMono(String.class).block();
+        if (response == null) {
+            throw new RuntimeException("Error while feting NDJSON from " + url);
+        }
         return Stream.of(response.split("\n")).map(line -> context.newJsonParser().parseResource(Bundle.class, line));
     }
 }
