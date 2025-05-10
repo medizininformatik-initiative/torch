@@ -150,7 +150,7 @@ public class AppConfig {
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
-                .pendingAcquireMaxCount(500)
+                .pendingAcquireMaxCount(8)
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
@@ -245,8 +245,7 @@ public class AppConfig {
     }
 
     @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
-                               @Value("${torch.fhir.pageCount}") int pageCount) {
+    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, pageCount);
     }
 

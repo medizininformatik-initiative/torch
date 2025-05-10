@@ -2,7 +2,11 @@ package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.Bundle;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.core.publisher.Mono;
 
 import java.util.Set;
 
@@ -12,6 +16,8 @@ import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.DELETE;
 
 public class FhirClient {
 
+    private static final Logger logger = LoggerFactory.getLogger(FhirClient.class);
+
     private final WebClient webClient;
     private final FhirContext context = FhirContext.forR4();
 
@@ -19,13 +25,13 @@ public class FhirClient {
         this.webClient = requireNonNull(webClient);
     }
 
-    public void transact(String bundle) {
-        webClient.post()
+    public Mono<ResponseEntity<Void>> transact(String bundle) {
+        logger.info("Transact bundle...");
+        return webClient.post()
                 .header("Content-Type", "application/fhir+json")
                 .bodyValue(bundle)
                 .retrieve()
-                .toBodilessEntity()
-                .block();
+                .toBodilessEntity();
     }
 
     public void deleteResources(Set<String> types) {
