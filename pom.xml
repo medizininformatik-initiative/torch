@@ -335,6 +335,30 @@
                         </configuration>
                     </plugin>
 
+                    <plugin>
+                        <groupId>org.codehaus.mojo</groupId>
+                        <artifactId>exec-maven-plugin</artifactId>
+                        <version>3.5.0</version>
+                        <executions>
+                            <execution>
+                                <phase>pre-integration-test</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>jq</executable>
+                                    <arguments>
+                                        <argument>-f</argument>
+                                        <argument>src/test/jq/transaction-bundle-converter.jq</argument>
+                                        <argument>target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json</argument>
+                                    </arguments>
+                                    <outputFile>target/Bundle-mii-exa-test-data-bundle.json</outputFile>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+
+
                     <!-- Failsafe Plugin for System Tests -->
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>

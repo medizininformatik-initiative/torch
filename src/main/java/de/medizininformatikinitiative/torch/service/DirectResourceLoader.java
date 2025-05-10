@@ -80,6 +80,7 @@ public class DirectResourceLoader {
     }
 
     Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
+        logger.debug("Execute query {} over {} patients", query, batch.ids().size());
         return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())), DomainResource.class);
     }
 

@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
@@ -14,7 +13,6 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -46,10 +44,10 @@ import static org.springframework.web.reactive.function.server.ServerResponse.no
 @RestController
 public class FhirController {
 
-
-    private final String torchBaseUrl;
-    private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
+
+    private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
+
     private final ObjectMapper objectMapper;
     private final FhirContext fhirContext;
     private final ResultFileManager resultFileManager;
@@ -83,15 +81,11 @@ public class FhirController {
     }
 
     @Autowired
-    public FhirController(
-            TorchProperties torchProperties, ResultFileManager resultFileManager,
-            FhirContext fhirContext,
-            CrtdlProcessingService crtdlProcessingService, ObjectMapper objectMapper, CrtdlValidatorService validatorService) {
-        this.torchBaseUrl = torchProperties.base().url();
+    public FhirController(ObjectMapper objectMapper, FhirContext fhirContext, ResultFileManager resultFileManager,
+            CrtdlProcessingService crtdlProcessingService, CrtdlValidatorService validatorService) {
         this.objectMapper = objectMapper;
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
-
         this.crtdlProcessingService = crtdlProcessingService;
         this.validatorService = validatorService;
     }
@@ -189,7 +183,7 @@ public class FhirController {
                             .subscribeOn(Schedulers.boundedElastic()).subscribe(); // final fire-and-forget
 
                     return accepted()
-                            .header("Content-Location", torchBaseUrl + "/fhir/__status/" + jobId)
+                            .header("Content-Location", request.uriBuilder().replacePath("/fhir/__status/" + jobId).build().toString())
                             .build();
                 })
                 .onErrorResume(IllegalArgumentException.class, e -> {

@@ -2,7 +2,9 @@ package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.hl7.fhir.r4.model.ResourceType;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -38,7 +40,8 @@ public class CdsExecutionIT {
         var blazeClient = environment.blazeClient();
 
         logger.info("Uploading test data...");
-        blazeClient.transact(Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json")));
+        var bundle = Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json"));
+        blazeClient.transact(bundle).block();
     }
 
     @AfterAll
@@ -48,9 +51,12 @@ public class CdsExecutionIT {
 
     @Test
     public void testExamples() throws IOException {
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json"));
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json")).block();
+        assertThat(statusUrl).isNotNull();
 
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("8080", String.valueOf(environment.getTorchPort())));
+        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        assertThat(statusResponse).isNotNull();
+
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
