@@ -1,0 +1,282 @@
+{
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "display": "",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "system": "http://snomed.info/sct",
+              "display": "Geschlecht"
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0",
+            "display": "Patient"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "patient",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+          {
+            "attributeRef": "Patient.id",
+            "mustHave": true
+          }
+        ]
+      },
+      {
+        "id": "diagnosis",
+        "name": "Diagnosis",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+        "attributes": [
+          {
+            "attributeRef": "Condition.clinicalStatus",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Condition.verificationStatus",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Condition.recordedDate",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
+                "code": "B05",
+                "version": "2023"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "encounter",
+        "name": "Encounter",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+        "attributes": [
+          {
+            "attributeRef": "Encounter.status",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Encounter.class",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "leukocytes",
+        "name": "Leukocytes",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "26464-8",
+                "system": "http://loinc.org",
+                "display": "Leukocytes [#/volume] in Blood"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "erythrocytes",
+        "name": "Erythrocytes",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "26453-1",
+                "system": "http://loinc.org",
+                "display": "Erythrocytes [#/volume] in Blood"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hematocrit",
+        "name": "Hematocrit",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "20570-8",
+                "system": "http://loinc.org",
+                "display": "Hematocrit [Volume Fraction] of Blood"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "hemoglobin",
+        "name": "Hemoglobin",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "718-7",
+                "system": "http://loinc.org",
+                "display": "Hemoglobin [Mass/volume] in Blood"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "platelets",
+        "name": "Platelets",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.category",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.interpretation",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Observation.value[x]:valueQuantity",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "code": "26515-7",
+                "system": "http://loinc.org",
+                "display": "Platelets [#/volume] in Blood"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
