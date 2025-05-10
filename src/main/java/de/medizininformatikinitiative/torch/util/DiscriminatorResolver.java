@@ -25,17 +25,14 @@ public class DiscriminatorResolver {
      * @return true if Discriminator could be resolved, false otherwise
      */
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        logger.info("Resolving discriminator for {} with type {}", base, discriminator.getType().toCode());
+        logger.trace("Resolving discriminator for {} with type {}", base, discriminator.getType().toCode());
         return switch (discriminator.getType().toCode()) {
             case "pattern", "value" ->
                     resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
             case "type" -> resolveType(base, slice, discriminator, snapshot);
             default -> false;
         };
-
-
     }
-
 
     /**
      * Resolves the Path for a given slice
@@ -44,7 +41,7 @@ public class DiscriminatorResolver {
      * @return String path that has to be wandered
      */
     private static ElementDefinition resolveSlicePath(ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        logger.debug("Resolving slice path for {}", discriminator.getPath());
+        logger.trace("Resolving slice path for {}", discriminator.getPath());
         String path = discriminator.getPath();
         if (Objects.equals(path, "$this")) {
             return slice;

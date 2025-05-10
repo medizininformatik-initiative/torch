@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch;
 
 import org.slf4j.Logger;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.testcontainers.containers.ComposeContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -39,7 +40,13 @@ public class BlackBoxIntegrationTestEnv {
         var host = environment.getServiceHost("torch", 8080);
         var port = environment.getServicePort("torch", 8080);
 
+        // Allow 1 MB payload size
+        ExchangeStrategies exchangeStrategies = ExchangeStrategies.builder()
+                .codecs(codecs -> codecs.defaultCodecs().maxInMemorySize(1024 * 1024))
+                .build();
+
         return new TorchClient(WebClient.builder()
+                .exchangeStrategies(exchangeStrategies)
                 .baseUrl("http://%s:%s/fhir".formatted(host, port))
                 .defaultHeader("Accept", "application/fhir+json")
                 .build());
@@ -49,7 +56,15 @@ public class BlackBoxIntegrationTestEnv {
         var host = environment.getServiceHost("blaze", 8080);
         var port = environment.getServicePort("blaze", 8080);
 
+        // Restrict the concurrent connections to 4
+        ConnectionProvider provider = ConnectionProvider.builder("blaze")
+                .maxConnections(4)
+                .pendingAcquireMaxCount(-1)
+                .build();
+        HttpClient httpClient = HttpClient.create(provider);
+
         return new FhirClient(WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .baseUrl("http://%s:%s/fhir".formatted(host, port))
                 .defaultHeader("Accept", "application/fhir+json")
                 .build());

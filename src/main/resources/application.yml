@@ -38,9 +38,6 @@ nginx:
   filelocation: http://localhost:8080/output
 logging:
   level:
-    org.springframework.web.reactive.function.client: info
-    reactor.netty: info
-    reactor: info
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
     ca.uhn.fhir: error
 

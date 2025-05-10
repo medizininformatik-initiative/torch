@@ -103,10 +103,8 @@ public class FhirHelper {
         return bundleLibraryAndMeasure(library, measure);
     }
 
-    public Parameters getListExecutionParams() throws IOException {
-
-        return parseResource(org.hl7.fhir.r4.model.Parameters.class, getResourceFileAsString("PatientListParams.json"));
-
+    public Parameters getListExecutionParams() {
+        return parseResource(Parameters.class, getResourceFileAsString("PatientListParams.json"));
     }
 
     /**

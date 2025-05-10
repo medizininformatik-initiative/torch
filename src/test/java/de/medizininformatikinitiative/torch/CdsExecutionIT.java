@@ -38,7 +38,8 @@ public class CdsExecutionIT {
         var blazeClient = environment.blazeClient();
 
         logger.info("Uploading test data...");
-        blazeClient.transact(Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json")));
+        var bundle = Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json"));
+        blazeClient.transact(bundle).block();
     }
 
     @AfterAll
@@ -50,7 +51,7 @@ public class CdsExecutionIT {
     public void testExamples() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json"));
         // TODO: remove replacing /fhir if #220 is fixed
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", ""));
+        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", "")).block();
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
