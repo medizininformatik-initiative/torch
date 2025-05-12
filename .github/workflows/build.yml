@@ -59,7 +59,7 @@ jobs:
           outputs: type=docker,dest=/tmp/torch.tar
 
       - name: Upload Coverage to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
