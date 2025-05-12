@@ -17,7 +17,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     steps:
       - name: Check out Git repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
@@ -78,7 +78,7 @@ jobs:
 
   image-scan:
     needs: build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Download Torch Image
@@ -113,7 +113,7 @@ jobs:
 
   blackbox-integration-tests:
     needs: build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Download Torch Image
@@ -152,7 +152,7 @@ jobs:
     needs:
       - image-scan
       - blackbox-integration-tests
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
 
     steps:
