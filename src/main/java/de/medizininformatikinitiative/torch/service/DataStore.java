@@ -6,7 +6,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.MeasureReport;
+import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,10 +27,12 @@ import java.time.Duration;
 import java.util.Optional;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static java.util.Objects.requireNonNull;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 
 @Component
 public class DataStore {
+
     private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
 
     private final WebClient client;
@@ -36,13 +41,15 @@ public class DataStore {
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-
     @Autowired
-    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
-                     @Value("${torch.fhir.pageCount}") int pageCount) {
-        this.client = client;
-        this.fhirContext = fhirContext;
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext, @Value("${torch.fhir.pageCount}") int pageCount) {
+        this.client = requireNonNull(client);
+        this.fhirContext = requireNonNull(fhirContext);
         this.pageCount = pageCount;
+    }
+
+    private static boolean shouldRetry(HttpStatusCode code) {
+        return code.is5xxServerError() || code.value() == 404;
     }
 
     /**
@@ -130,7 +137,6 @@ public class DataStore {
                 .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 
-
     private Mono<Bundle> fetchPage(String url) {
         logger.trace("Fetch Page {}", url);
         return client.get()
@@ -138,11 +144,6 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
-    }
-
-    private static boolean shouldRetry(HttpStatusCode code) {
-
-        return code.is5xxServerError() || code.value() == 404;
     }
 
     public Mono<Void> transact(Bundle bundle) {

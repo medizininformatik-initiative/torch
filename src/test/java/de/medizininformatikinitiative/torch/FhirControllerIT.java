@@ -3,10 +3,8 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
-import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -18,8 +16,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
-import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
-import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -60,52 +56,30 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class FhirControllerIT {
 
     protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
-
-
-    @Autowired
-    ResourceReader resourceReader;
-
-    @Autowired
-    FhirTestHelper fhirTestHelper;
-
-    @Autowired
-    FhirContext context;
-
-    @Autowired
-    CrtdlValidatorService validatorService;
-
-    @Autowired
-    @Qualifier("fhirClient")
-    protected WebClient webClient;
-
-    ContainerManager manager;
-
-    @Autowired
-    @Qualifier("flareClient")
-    protected WebClient flareClient;
-
-
+    private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
     protected final DirectResourceLoader transformer;
     protected final DataStore dataStore;
     protected final StructureDefinitionHandler cds;
+    protected final DseMappingTreeBase dseMappingTreeBase;
+    @Autowired
+    @Qualifier("fhirClient")
+    protected WebClient webClient;
+    @Autowired
+    @Qualifier("flareClient")
+    protected WebClient flareClient;
     protected ObjectMapper objectMapper;
     protected CqlClient cqlClient;
     protected Translator cqlQueryTranslator;
+    protected FhirContext fhirContext;
+    @Autowired
+    FhirContext context;
+    @Autowired
+    CrtdlValidatorService validatorService;
+    ContainerManager manager;
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
-    protected FhirContext fhirContext;
-
-
-    protected final DseMappingTreeBase dseMappingTreeBase;
-
-
-    private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
     @LocalServerPort
     private int port;
-
-
-    @Autowired
-    ConsentHandler consentHandler;
 
     @Autowired
     public FhirControllerIT(DirectResourceLoader transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
@@ -118,8 +92,6 @@ public class FhirControllerIT {
         this.cqlQueryTranslator = cqlQueryTranslator;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.manager = new ContainerManager();
-
-
     }
 
     @BeforeAll
@@ -154,43 +126,6 @@ public class FhirControllerIT {
         assertThat(response.getStatusCode().value()).isEqualTo(200);
         logger.info(response.getBody());
     }
-
-    @Nested
-    class Endpoint {
-
-        @ParameterizedTest
-        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json"})
-        public void validObservation(String parametersFile) throws PatientIdNotFoundException, IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
-        }
-
-        @Test
-        public void emptyRequestBodyReturnsBadRequest() {
-            TestRestTemplate restTemplate = new TestRestTemplate();
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.valueOf("application/fhir+json"));
-            HttpEntity<String> entity = new HttpEntity<>("", headers);
-
-            ResponseEntity<String> response = restTemplate.postForEntity("http://localhost:" + port + "/fhir/$extract-data", entity, String.class);
-
-            assertThat(response.getStatusCode().value()).isEqualTo(400);
-            assertThat(response.getBody()).contains("OperationOutcome");
-            assertThat(response.getBody()).contains("Empty request body");
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
-        public void invalidCRTDLReturnsValidationException(String parametersFile) throws IOException {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
-        }
-
-
-    }
-
 
     @Test
     public void testFlare() throws IOException {
@@ -227,6 +162,21 @@ public class FhirControllerIT {
         }
     }
 
+    @Test
+    public void testMustHave() throws IOException, ValidationException {
+
+        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
+        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
+        PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
+        Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+        PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
+        assertThat(result).isNotNull();
+
+        assertThat(result.bundles()).isEmpty();
+        fis.close();
+    }
+
     /*  @Test
       public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException, ValidationException {
           executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
@@ -250,27 +200,12 @@ public class FhirControllerIT {
 */
 
     @Test
-    public void testMustHave() throws IOException, ValidationException {
-
-        FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
-        Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
-        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
-        PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
-        assertThat(result).isNotNull();
-
-        assertThat(result.bundles()).isEmpty();
-        fis.close();
-    }
-
-    @Test
     public void testCoreMustHave() throws IOException, ValidationException {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<ResourceBundle> collectedResourcesMono = transformer.proccessCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), new ResourceBundle());
+        Mono<ResourceBundle> collectedResourcesMono = transformer.processCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), new ResourceBundle());
 
         // Verify that the Mono fails with the expected exception
         StepVerifier.create(collectedResourcesMono)
@@ -279,7 +214,6 @@ public class FhirControllerIT {
 
         fis.close();
     }
-
 
     public void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
         TestRestTemplate restTemplate = new TestRestTemplate();
@@ -331,7 +265,6 @@ public class FhirControllerIT {
                     }
                 } else if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                     Assertions.fail("Polling failed with unexpected error status: " + response.getStatusCode());
-                    completed = true;
                 }
 
                 if (i >= 100) {
@@ -343,7 +276,6 @@ public class FhirControllerIT {
                 logger.error("Response Body: {}", e.getResponseBodyAsString());
                 if (e.getStatusCode().is4xxClientError() || e.getStatusCode().is5xxServerError()) {
                     Assertions.fail("Polling status endpoint failed with status code: " + e.getStatusCode());
-                    completed = true;
                 }
             }
 
@@ -354,6 +286,42 @@ public class FhirControllerIT {
                 throw new RuntimeException("Polling was interrupted", e);
             }
         }
+    }
+
+    @Nested
+    class Endpoint {
+
+        @ParameterizedTest
+        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json"})
+        public void validObservation(String parametersFile) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
+        }
+
+        @Test
+        public void emptyRequestBodyReturnsBadRequest() {
+            TestRestTemplate restTemplate = new TestRestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.valueOf("application/fhir+json"));
+            HttpEntity<String> entity = new HttpEntity<>("", headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity("http://localhost:" + port + "/fhir/$extract-data", entity, String.class);
+
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+            assertThat(response.getBody()).contains("OperationOutcome");
+            assertThat(response.getBody()).contains("Empty request body");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
+        public void invalidCRTDLReturnsValidationException(String parametersFile) {
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
+        }
+
+
     }
 
 

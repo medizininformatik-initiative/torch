@@ -21,10 +21,6 @@ public record PatientBatch(List<String> ids) {
         return new PatientBatch(ids);
     }
 
-    private static String patientSearchParam(String type) {
-        return "Patient".equals(type) ? "_id" : "patient";
-    }
-
     /**
      * Splits a list of strings into smaller batches of a specified size.
      *
@@ -53,14 +49,10 @@ public record PatientBatch(List<String> ids) {
      * @return Search Param
      */
     public QueryParams compartmentSearchParam(String resourceType) {
-        return QueryParams.of(patientSearchParam(resourceType), searchPatientParamValue(resourceType));
-    }
-
-    private QueryParams.Value searchPatientParamValue(String type) {
-        if ("Patient".equals(type)) {
-            return multiStringValue(ids);
+        if ("Patient".equals(resourceType)) {
+            return QueryParams.of("_id", multiStringValue(ids));
         } else {
-            return multiStringValue(ids.stream().map(id -> "Patient/" + id).toList());
+            return QueryParams.of("patient", multiStringValue(ids.stream().map(id -> "Patient/" + id).toList()));
         }
     }
 }

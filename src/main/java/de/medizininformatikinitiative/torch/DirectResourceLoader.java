@@ -6,7 +6,6 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
@@ -36,16 +35,15 @@ import java.util.concurrent.atomic.AtomicReference;
 public class DirectResourceLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(DirectResourceLoader.class);
+    private static final int QUERY_CONCURRENCY = 2;
 
     private final DataStore dataStore;
 
     private final ConsentHandler handler;
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
-    private final int queryConcurrency = 4;
     private final StructureDefinitionHandler structureDefinitionsHandler;
     private final ProfileMustHaveChecker profileMustHaveChecker;
-    private final AnnotatedAttribute genericAttribute = new AnnotatedAttribute("direct", "direct", "direct", false);
 
     @Autowired
     public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
@@ -74,7 +72,8 @@ public class DirectResourceLoader {
         logger.trace("Patients Received: {}", batch);
 
         return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
-                .flatMap(updatedBatch -> processBatchWithConsent(attributeGroups, updatedBatch))).orElseGet(() -> processBatchWithConsent(attributeGroups, batch));
+                .flatMap(updatedBatch -> processBatchWithConsent(attributeGroups, updatedBatch)))
+                .orElseGet(() -> processBatchWithConsent(attributeGroups, batch));
     }
 
 
@@ -82,31 +81,18 @@ public class DirectResourceLoader {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
 
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).flatMap(bundle -> {
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> {
             // Ensure the updated safeSet is applied before returning
-            PatientBatchWithConsent filteredBatch = patientBatchWithConsent.keep(safeSet);
-            return Mono.just(filteredBatch);
+            return patientBatchWithConsent.keep(safeSet);
         });
     }
 
-
-    public Flux<Resource> fetchResourcesDirect(Optional<PatientBatchWithConsent> batch, AnnotatedAttributeGroup group) {
-        List<Query> queries = group.queries(dseMappingTreeBase, structureDefinitionsHandler.getResourceType(group.groupReference()));
-
-        if (batch.isPresent()) {
-            PatientBatch queryBatch = batch.get().patientBatch();
-            return Flux.fromIterable(queries).flatMap(query -> executeQueryWithBatch(queryBatch, query), queryConcurrency).flatMap(resource -> applyConsent((DomainResource) resource, batch.get()));
-        } else {
-            return Flux.fromIterable(queries).flatMap(dataStore::search, queryConcurrency);
-        }
+    private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
+        return Flux.fromIterable(group.queries(dseMappingTreeBase, structureDefinitionsHandler.getResourceType(group.groupReference())));
     }
 
-
     Flux<Resource> executeQueryWithBatch(PatientBatch batch, Query query) {
-        Query finalQuery = Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params()));
-        logger.trace("Query for Patients without batch {}", Query.of(query.type(), query.params()));
-
-        return dataStore.search(finalQuery);
+        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())));
     }
 
     private Mono<Resource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
@@ -118,24 +104,25 @@ public class DirectResourceLoader {
         }
     }
 
-
-    public Mono<PatientBatchWithConsent> processPatientAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent batch, Set<String> safeSet) {
-
-        return Flux.fromIterable(attributeGroups).flatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet)).then(Mono.just(batch));
+    public Mono<PatientBatchWithConsent> processPatientAttributeGroups(List<AnnotatedAttributeGroup> groups, PatientBatchWithConsent batch, Set<String> safeSet) {
+        logger.debug("Process {} patient attribute groups over {} patients...", groups.size(), batch.patientBatch().ids().size());
+        return Flux.fromIterable(groups)
+                .flatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet), QUERY_CONCURRENCY)
+                .then(Mono.just(batch));
     }
 
-
-    public Mono<ResourceBundle> proccessCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
-        return Flux.fromIterable(attributeGroups).flatMap(group -> proccessCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
+    public Mono<ResourceBundle> processCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
+        return Flux.fromIterable(attributeGroups).flatMap(group -> processCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
     }
 
-    public Mono<Void> proccessCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
-        logger.trace("Processing attribute group: {}", group);
+    public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
+        logger.debug("Process core attribute group {}...", group.id());
+
         AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
-        return fetchResourcesDirect(Optional.empty(), group).doOnNext(resource -> {
+        return groupQueries(group).flatMap(dataStore::search, 1).doOnNext(resource -> {
             String id = ResourceUtils.getRelativeURL(resource);
             logger.trace("Storing resource {} under ID: {}", id, id);
-            if (profileMustHaveChecker.fulfilled((DomainResource) resource, group)) {
+            if (profileMustHaveChecker.fulfilled(resource, group)) {
 
                 atLeastOneResource.set(true);
                 resourceBundle.put(resource, group.id(), true);
@@ -153,19 +140,18 @@ public class DirectResourceLoader {
         }));
     }
 
-
     /**
      * Fetches all resources for a batch and adds them to it, if
      *
      * @param group   Annotated Attribute Group to be processed
-     * @param batch   Patientbatch containid the PatientResourceBundles to be filled
+     * @param batch   patient batch containing the PatientResourceBundles to be filled
      * @param safeSet resources that have survived so far.
      * @return Patient batch containing a bundle per Patient Resource
      */
     private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(AnnotatedAttributeGroup group,
                                                                              PatientBatchWithConsent batch,
                                                                              Set<String> safeSet) {
-        logger.trace("Processing patient attribute group: {}", group);
+        logger.debug("Process patient attribute group {}...", group.id());
         Set<String> safeGroup = new HashSet<>();
 
         if (!group.hasMustHave()) {
@@ -176,7 +162,9 @@ public class DirectResourceLoader {
         // Extract a mutable copy of the patient bundles
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
-        return fetchResourcesDirect(Optional.of(batch), group)
+        return groupQueries(group)
+                .flatMap(query -> executeQueryWithBatch(batch.patientBatch(), query), 1)
+                .flatMap(resource -> applyConsent((DomainResource) resource, batch))
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
@@ -195,12 +183,7 @@ public class DirectResourceLoader {
                         throw new RuntimeException(e);
                     }
                 })
-                .doOnTerminate(() -> {
-                    safeSet.retainAll(safeGroup);
-                })
+                .doOnTerminate(() -> safeSet.retainAll(safeGroup))
                 .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent()))); // Convert back to immutable
     }
-
 }
-
-

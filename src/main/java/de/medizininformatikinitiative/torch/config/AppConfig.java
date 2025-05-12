@@ -137,9 +137,11 @@ public class AppConfig {
     @Bean
     @Qualifier("fhirClient")
     public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction, @Value("${torch.fhir.user}") String user,
-                                   @Value("${torch.fhir.password}") String password) {
-        logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
+                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction,
+                                   @Value("${torch.fhir.user}") String user,
+                                   @Value("${torch.fhir.password}") String password,
+                                   @Value("${torch.fhir.maxConnections}") int maxConnections) {
+        logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
 
         // Configure buffer size to 10MB
         ExchangeStrategies strategies = ExchangeStrategies.builder()
@@ -149,8 +151,7 @@ public class AppConfig {
                 .build();
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
+                .maxConnections(maxConnections)
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
@@ -224,7 +225,6 @@ public class AppConfig {
         return new PatientBatchToCoreBundleWriter(compartmentManager);
     }
 
-
     @Bean
     ResourceReader resourceReader(FhirContext ctx) {
         return new ResourceReader(ctx);
@@ -238,15 +238,13 @@ public class AppConfig {
         return mapper;
     }
 
-
     @Bean
     public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
         return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
     }
 
     @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock,
-                               @Value("${torch.fhir.pageCount}") int pageCount) {
+    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, pageCount);
     }
 
@@ -338,8 +336,8 @@ public class AppConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, String consentToProfileFilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
-        return new ConsentHandler(dataStore, mapper, consentToProfileFilePath, ctx, objectMapper);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
+        return new ConsentHandler(dataStore, mapper, ctx);
     }
 
     @Bean

@@ -173,10 +173,9 @@ public class TestConfig {
         return WebClient.builder().baseUrl(flareBaseUrl).clientConnector(new ReactorClientHttpConnector(httpClient)).build();
     }
 
-
     @Bean
-    FhirTestHelper testHelper(FhirContext context, ResourceReader resourceReader) {
-        return new FhirTestHelper(context, resourceReader);
+    FhirTestHelper testHelper(FhirContext context) {
+        return new FhirTestHelper(context);
     }
 
     @Bean
@@ -195,7 +194,6 @@ public class TestConfig {
         return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
     }
 
-
     @Bean
     public ContainerManager containerManager() {
         return new ContainerManager();
@@ -205,7 +203,6 @@ public class TestConfig {
     ResourceReader resourceReader(FhirContext ctx) {
         return new ResourceReader(ctx);
     }
-
 
     @Bean
     public ObjectMapper objectMapper() {
@@ -222,7 +219,7 @@ public class TestConfig {
     }
 
     @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Qualifier("systemDefaultZone") Clock clock, @Value("${torch.fhir.pageCount}") int pageCount) {
+    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Value("${torch.fhir.pageCount}") int pageCount) {
         return new DataStore(client, context, pageCount);
     }
 
@@ -275,8 +272,8 @@ public class TestConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
-        return new ConsentHandler(dataStore, mapper, torchProperties.mapping().typeToConsent(), ctx, objectMapper);
+    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
+        return new ConsentHandler(dataStore, mapper, ctx);
     }
 
     @Bean

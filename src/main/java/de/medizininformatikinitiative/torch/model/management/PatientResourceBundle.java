@@ -6,8 +6,8 @@ import org.hl7.fhir.r4.model.Resource;
 import reactor.core.publisher.Mono;
 
 import java.util.Collection;
-import java.util.Objects;
 
+import static java.util.Objects.requireNonNull;
 
 /**
  * Generic bundle that handles Resources for a single patient.
@@ -15,14 +15,13 @@ import java.util.Objects;
  *
  * @param patientId  ID String of the Patient
  * @param provisions ConsentProvisions to be applied to all Resources within the patient compartment
- * @param bundle     Resourcebundle handling the resource wrappers for the patient
+ * @param bundle     ResourceBundle handling the resource wrappers for the patient
  */
-public record PatientResourceBundle(String patientId, Provisions provisions,
-                                    ResourceBundle bundle) {
+public record PatientResourceBundle(String patientId, Provisions provisions, ResourceBundle bundle) {
 
     public PatientResourceBundle {
-        Objects.requireNonNull(patientId);
-        Objects.requireNonNull(provisions);
+        requireNonNull(patientId);
+        requireNonNull(provisions);
     }
 
     public PatientResourceBundle(String patientID) {
@@ -68,10 +67,6 @@ public record PatientResourceBundle(String patientId, Provisions provisions,
 
     public Boolean isEmpty() {
         return bundle.isEmpty();
-    }
-
-    public Collection<String> keySet() {
-        return bundle.keySet();
     }
 
     public ResourceBundle getResourceBundle() {

@@ -4,17 +4,16 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 
-import java.util.Collection;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
+import static org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION;
+import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
 
 /**
  * Generic bundle that handles Resources
@@ -35,15 +34,10 @@ public record ResourceBundle(
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<String, Resource> cache) {
-    private static final Logger logger = LoggerFactory.getLogger(ResourceBundle.class);
-
-    static final org.hl7.fhir.r4.model.Bundle.HTTPVerb METHOD = Bundle.HTTPVerb.PUT;
-
 
     public ResourceBundle() {
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
-
 
     public Mono<Resource> get(String id) {
         Resource cached = cache.get(id);
@@ -52,7 +46,6 @@ public record ResourceBundle(
         }
         return Mono.empty();
     }
-
 
     /**
      * Merges new information from an ImmutableResourceBundle i.e. bundle without ResourceCache into the resourcebundle.
@@ -107,7 +100,6 @@ public record ResourceBundle(
                 .add(attribute);
     }
 
-
     /**
      * Removes a parent resourceGroup for the given attribute.
      * If the resourceGroup is the last one in the set, the entire group is removed from the map.
@@ -118,7 +110,6 @@ public record ResourceBundle(
      */
     public boolean removeParentRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
-
 
         resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
             set.remove(group);
@@ -163,10 +154,9 @@ public record ResourceBundle(
         return resourceAttributeValidity.put(attribute, false);
     }
 
-    public Boolean resourceAttributeValid(ResourceAttribute attribute) {
+    public boolean resourceAttributeValid(ResourceAttribute attribute) {
         return resourceAttributeValidity.getOrDefault(attribute, false);
     }
-
 
     /**
      * Removes a parent attribute for the given resource group.
@@ -217,41 +207,12 @@ public record ResourceBundle(
         return isEmpty.get();
     }
 
-
-    /**
-     * Removes a child attribute from the given resource group.
-     * If the attribute is the last one in the set, the entire group is removed from the map.
-     *
-     * @param group     The resource group from which the attribute should be removed.
-     * @param attribute The attribute to remove from the group.
-     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
-     */
-    public boolean removeChildAttributeFromParentRG(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmptyOrAbsent = new AtomicBoolean(false);
-
-        parentResourceGroupToResourceAttributesMap.compute(group, (key, set) -> {
-            if (set == null) {
-                isEmptyOrAbsent.set(true);  // Key was absent
-                return null;
-            }
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmptyOrAbsent.set(true);  // Set became empty after removal
-                return null; // Remove the key from the map
-            }
-            return set;  // Keep the non-empty set
-        });
-
-        return isEmptyOrAbsent.get();
-    }
-
     public boolean put(Resource resource, String groupId, boolean valid) {
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
         ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
         addResourceGroupValidity(group, valid);
         return cache.putIfAbsent(resourceUrl, resource) == null;
     }
-
 
     /**
      * Adds the wrapper into the underlying concurrent hashmap.
@@ -269,9 +230,7 @@ public record ResourceBundle(
         DomainResource resource = wrapper.resource();
 
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        wrapper.groupSet().forEach(group -> {
-            addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true);
-        });
+        wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true));
         cache.put(resourceUrl, resource);
 
         return result.get();
@@ -293,15 +252,12 @@ public record ResourceBundle(
         return Set.copyOf(resourceGroupValidity.keySet());
     }
 
-
     public Bundle toFhirBundle() {
         Bundle bundle = new Bundle();
-        bundle.setType(Bundle.BundleType.TRANSACTION);
+        bundle.setType(TRANSACTION);
         bundle.setId(UUID.randomUUID().toString());
 
-        cache.values().forEach(resource -> {
-            bundle.addEntry(createBundleEntry(resource));
-        });
+        cache.values().forEach(resource -> bundle.addEntry(createBundleEntry(resource)));
         return bundle;
     }
 
@@ -310,7 +266,7 @@ public record ResourceBundle(
         entryComponent.setResource(resource);
         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
         request.setUrl(resource.getId());
-        request.setMethod(METHOD);
+        request.setMethod(PUT);
         entryComponent.setRequest(request);
         return entryComponent;
     }
@@ -323,17 +279,12 @@ public record ResourceBundle(
         return resourceGroupValidity.put(group, valid);
     }
 
-
     public void remove(String id) {
         cache.remove(id);
     }
 
     public Boolean isEmpty() {
         return cache.isEmpty();
-    }
-
-    public Collection<String> keySet() {
-        return cache.keySet();
     }
 
     public boolean contains(ResourceGroup ref) {

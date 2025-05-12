@@ -36,7 +36,6 @@ public class StandardAttributeGenerator {
      */
     public AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String patientGroupId) {
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>();
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = profileHandler.getSnapshot(attributeGroup.groupReference());
 
         StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
         String resourceType = definition.getType();
