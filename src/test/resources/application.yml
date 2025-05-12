@@ -3,6 +3,9 @@
 server:
   port: 8086
 torch:
+  base:
+    url:
+      localhost:8080
   profile:
     dir: structureDefinitions
   mapping:
@@ -37,9 +40,10 @@ torch:
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: false
   bufferSize: 100
-nginx:
-  servername: localhost:8080
-  filelocation: localhost:8080/output
+  output:
+    file:
+      server:
+        url: localhost:8080/output
 
 logging:
   level:

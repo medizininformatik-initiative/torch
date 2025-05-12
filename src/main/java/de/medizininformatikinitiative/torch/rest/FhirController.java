@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
@@ -26,11 +27,17 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
-import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
 import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
@@ -38,6 +45,8 @@ import static org.springframework.web.reactive.function.server.ServerResponse.no
 @RestController
 public class FhirController {
 
+
+    private final String torchBaseUrl;
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
     private final ObjectMapper objectMapper;
@@ -74,10 +83,10 @@ public class FhirController {
 
     @Autowired
     public FhirController(
-            ResultFileManager resultFileManager,
+            TorchProperties torchProperties, ResultFileManager resultFileManager,
             FhirContext fhirContext,
             CrtdlProcessingService crtdlProcessingService, ObjectMapper objectMapper, CrtdlValidatorService validatorService) {
-
+        this.torchBaseUrl = torchProperties.base().url();
         this.objectMapper = objectMapper;
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
