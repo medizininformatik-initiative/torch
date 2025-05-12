@@ -1,10 +1,15 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import org.hl7.fhir.r4.model.Bundle;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -23,10 +28,6 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
         bundles = Map.copyOf(bundles);
     }
 
-    public PatientBatch patientBatch() {
-        return new PatientBatch(bundles.keySet().stream().toList());
-    }
-
     public static PatientBatchWithConsent fromBatchWithStaticInfo(PatientBatch batch, ImmutableResourceBundle resourceBundle) {
         return new PatientBatchWithConsent(batch.ids().stream().collect(
                 Collectors.toMap(Function.identity(), id -> new PatientResourceBundle(id, resourceBundle))), false);
@@ -40,6 +41,10 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
     public static PatientBatchWithConsent fromList(List<PatientResourceBundle> batch) {
         return new PatientBatchWithConsent(batch.stream()
                 .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
+    }
+
+    public PatientBatch patientBatch() {
+        return new PatientBatch(bundles.keySet().stream().toList());
     }
 
     public Collection<String> patientIds() {
@@ -69,6 +74,13 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
             return QueryParams.of("_id", multiStringValue(patientIds().stream().toList()));
         } else {
             return QueryParams.of("patient", multiStringValue(patientIds().stream().map(id -> "Patient/" + id).toList()));
+        }
+    }
+
+    public void writeFhirBundlesTo(FhirContext fhirContext, Writer out) throws IOException {
+        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(ResourceBundle::toFhirBundle).toList()) {
+            fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
+            out.append("\n");
         }
     }
 }

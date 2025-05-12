@@ -9,6 +9,7 @@ import reactor.core.publisher.Mono;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -39,12 +40,8 @@ public record ResourceBundle(
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
-    public Mono<Resource> get(String id) {
-        Resource cached = cache.get(id);
-        if (cached != null) {
-            return Mono.just(cached);
-        }
-        return Mono.empty();
+    public Resource get(String id) {
+        return cache.get(id);
     }
 
     /**
@@ -236,11 +233,11 @@ public record ResourceBundle(
         return result.get();
     }
 
-    public ConcurrentHashMap<ResourceGroup, Boolean> getInvalid() {
+    public ConcurrentMap<ResourceGroup, Boolean> getInvalid() {
         ConcurrentHashMap<ResourceGroup, Boolean> invalidEntries = new ConcurrentHashMap<>();
 
         resourceGroupValidity.forEach((key, value) -> {
-            if (!value) { // If value is false, add to the new map
+            if (Boolean.FALSE.equals(value)) { // If value is false, add to the new map
                 invalidEntries.put(key, false);
             }
         });
@@ -298,4 +295,6 @@ public record ResourceBundle(
     public void put(Resource resource) {
         cache.put(ResourceUtils.getRelativeURL(resource), resource);
     }
+
+
 }

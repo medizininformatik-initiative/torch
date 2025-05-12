@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -19,12 +18,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.io.IOException;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -136,10 +133,6 @@ class ReferenceResolverIT {
 
     public static final String PAT_REFERENCE = "Patient/VHF00006";
 
-    private ReferenceExtractor extractor;
-
-    @MockBean
-    private DataStore dataStore;
 
     @Autowired
     private ReferenceHandler referenceHandler;
@@ -182,14 +175,13 @@ class ReferenceResolverIT {
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
 
-
         this.referenceResolver = new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
     @Nested
     class noReferences {
-        Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+        Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
             put("Patient1", patientGroup);
             put("Condition1", conditionGroup);
         }};
@@ -215,7 +207,7 @@ class ReferenceResolverIT {
             Patient patient = new Patient();
             patient.setId("testPatient");
             patientBundle.put(patient);
-            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             ResourceBundle coreBundle = new ResourceBundle();
             Boolean applyConsent = true;
 
@@ -232,7 +224,7 @@ class ReferenceResolverIT {
 
         @Test
         void resolvePatientBundle_success() {
-            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
                 put("Patient1", patientGroup);
                 put("Condition1", conditionGroup);
             }};
@@ -243,8 +235,8 @@ class ReferenceResolverIT {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
 
 
-            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
-            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             // Validate the result using StepVerifier
@@ -282,7 +274,7 @@ class ReferenceResolverIT {
 
         @Test
         void resolvePatientBundle_failure() {
-            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
                 put("Patient1", patientGroup);
                 put("Condition1", conditionGroup);
             }};
@@ -291,8 +283,8 @@ class ReferenceResolverIT {
             patient.setId("VHF00006");
             ResourceBundle coreBundle = new ResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
-            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
-            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             StepVerifier.create(result)
@@ -319,7 +311,7 @@ class ReferenceResolverIT {
             var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
             var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
             AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
-            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>(){{
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
                 put("Patient1", patientGroupWithUnsatisfiedFilter);
                 put("Condition1", conditionGroup);
             }};
@@ -330,8 +322,8 @@ class ReferenceResolverIT {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
 
 
-            patientBundle.mergingPut(new ResourceGroupWrapper(patient, Set.of()));
-            patientBundle.mergingPut(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
             // Validate the result using StepVerifier
@@ -351,7 +343,6 @@ class ReferenceResolverIT {
                     )
                     .verifyComplete();
         }
-
 
 
     }

@@ -94,7 +94,7 @@ public class ReferenceResolver {
     public Mono<PatientResourceBundle> resolvePatient(
             PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
-            Boolean applyConsent,
+            boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         return Flux.fromIterable(patientBundle.bundle().resourceGroupValidity().keySet())
@@ -118,7 +118,7 @@ public class ReferenceResolver {
      * @param groupMap            map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
-    private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, Boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+    private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
 
         Mono<Resource> resourceMono = null;
         boolean patientResource = compartmentManager.isInCompartment(parentResourceGroup);
@@ -128,9 +128,9 @@ public class ReferenceResolver {
         }
         ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
         if (patientResource) {
-            resourceMono = processingBundle.get(parentResourceGroup.resourceId());
+            resourceMono = Mono.justOrEmpty(processingBundle.get(parentResourceGroup.resourceId()));
         } else {
-            resourceMono = coreBundle.get(parentResourceGroup.resourceId());
+            resourceMono = Mono.justOrEmpty(coreBundle.get(parentResourceGroup.resourceId()));
         }
 
 
@@ -173,10 +173,7 @@ public class ReferenceResolver {
                             processingBundle.addResourceGroupValidity(parentResourceGroup, false);
 
                             return Flux.empty(); // Skip processing for this group
-                        })).onErrorResume(Exception.class, e -> {
-                    // Catch any other unexpected exceptions
-                    return Flux.error(new RuntimeException("Unexpected error occurred while processing resource group", e));
-                });
+                        })).onErrorResume(Exception.class, e -> Flux.error(new RuntimeException("Unexpected error occurred while processing resource group", e)));
     }
 
 

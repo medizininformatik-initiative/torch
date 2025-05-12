@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
@@ -39,17 +38,15 @@ public class DirectResourceLoader {
 
     private final DataStore dataStore;
 
-    private final ConsentHandler handler;
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final StructureDefinitionHandler structureDefinitionsHandler;
     private final ProfileMustHaveChecker profileMustHaveChecker;
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
         this.dataStore = dataStore;
         this.consentValidator = validator;
-        this.handler = handler;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
         this.profileMustHaveChecker = profileMustHaveChecker;
@@ -60,20 +57,16 @@ public class DirectResourceLoader {
      *
      * @param attributeGroups CRTDL to be applied on batch
      * @param batch           Batch of Patient IDs
-     * @param consentKey      Optional string key encoding the applicable consent code
      * @return Mono containing processed PatientBatchWithConsent
      */
     public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
             List<AnnotatedAttributeGroup> attributeGroups,
-            PatientBatchWithConsent batch,
-            Optional<String> consentKey) {
+            PatientBatchWithConsent batch) {
 
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
 
-        return consentKey.map(s -> handler.fetchAndBuildConsentInfo(s, batch)
-                .flatMap(updatedBatch -> processBatchWithConsent(attributeGroups, updatedBatch)))
-                .orElseGet(() -> processBatchWithConsent(attributeGroups, batch));
+        return processBatchWithConsent(attributeGroups, batch);
     }
 
 

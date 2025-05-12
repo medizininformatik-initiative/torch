@@ -13,8 +13,6 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -36,19 +34,16 @@ public class BatchCopierRedacter {
     /**
      * Transforms a batch of patients reactively.
      *
-     * @param batchMono Mono of PatientBatchWithConsent to be handled.
-     * @param groupMap  Immutable AttributeGroup Map shared between all Batches.
+     * @param batch    Mono of PatientBatchWithConsent to be handled.
+     * @param groupMap Immutable AttributeGroup Map shared between all Batches.
      * @return Mono of transformed batch.
      */
-    public Mono<PatientBatchWithConsent> transformBatch(Mono<PatientBatchWithConsent> batchMono, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return batchMono.flatMap(batch ->
-                Flux.fromIterable(batch.bundles().values()) // Convert bundles into a Flux
-                        .flatMap(bundle -> transform(bundle, groupMap)) // Transform each bundle asynchronously
-                        .collectList() // Collect transformed bundles
-                        .map(transformedBundles -> batch) // Map back to the original batch
+    public PatientBatchWithConsent transformBatch(PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
+        batch.bundles().values().parallelStream().forEach(
+                bundle -> transform(bundle, groupMap)
         );
+        return batch;
     }
-
 
     /**
      * Transforms a PatientResourceBundle using the given attribute group map.
@@ -57,7 +52,7 @@ public class BatchCopierRedacter {
      * @param groupMap              Immutable AttributeGroup Map shared between all Batches
      * @return Mono of Transformed PatientResourceBundle
      */
-    public Mono<PatientResourceBundle> transform(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    public PatientResourceBundle transform(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         ResourceBundle bundle = patientResourceBundle.bundle();
 
         // Step 1: Group valid resource groups by resourceId
@@ -76,7 +71,6 @@ public class BatchCopierRedacter {
         logger.trace("validResourceGroups: {}", groupedResources);
         logger.trace("validAttributes: {}", bundle.resourceAttributeValidity().entrySet());
 
-
         Map<String, Map<String, Set<String>>> attributeStringGroupedWithReferenceString = new HashMap<>();
 
         bundle.resourceAttributeValidity().entrySet().stream()
@@ -91,7 +85,7 @@ public class BatchCopierRedacter {
                     logger.trace("Valid RG {} found for {} -> {}", validResourceGroups, resourceId, attributeRef);
                     // Filter valid resource groups
                     Set<String> validReferences = validResourceGroups.stream()
-                            .filter(bundle::isValidResourceGroup)
+                            .filter(group -> Boolean.TRUE.equals(bundle.isValidResourceGroup(group)))
                             .map(ResourceGroup::resourceId)
                             .collect(Collectors.toSet());
 
@@ -104,42 +98,41 @@ public class BatchCopierRedacter {
                 });
 
         logger.trace("attributeStringGroupedWithReferenceString: {}", attributeStringGroupedWithReferenceString);
+
         // Step 2: Process each resource asynchronously
-        return Flux.fromIterable(groupedResources.entrySet()) // Convert to Flux for async processing
-                .flatMap(entry -> {
+        groupedResources.entrySet().parallelStream()
+                .forEach(entry -> {
                     String resourceId = entry.getKey();
+                    Resource resource = bundle.get(resourceId); // synchronous get
+                    if (resource == null) {
+                        return; // skip
+                    }
 
-                    return bundle.get(resourceId)
-                            .flatMap(resource -> Mono.fromCallable(() -> {
-                                                ProfileAttributeCollection profilesHighestLevelAttributes = collectHighestLevelAttributes(groupMap, groupedResources.get(resourceId));
-                                                ExtractionRedactionWrapper processingWrapper = new ExtractionRedactionWrapper(
-                                                        (DomainResource) resource, profilesHighestLevelAttributes.profiles(),
-                                                        attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of())
-                                                        , profilesHighestLevelAttributes.attributes()
-                                                );
-                                                return transform(processingWrapper);
-                                            })
-                                            .flatMap(Mono::just) // Ensure the result is a Mono
-                                            .onErrorResume(MustHaveViolatedException.class, e -> {
-                                                logger.warn("Error transforming resource", e);
-                                                bundle.remove(resourceId); // Remove on failure
-                                                return Mono.empty(); // Skip failed resource
-                                            })
-                                            .onErrorResume(TargetClassCreationException.class, e -> {
-                                                logger.warn("Error transforming resource", e);
-                                                bundle.remove(resourceId);
-                                                return Mono.empty();
-                                            })
-                            );
+                    try {
+                        ProfileAttributeCollection profileAttributeCollection = collectHighestLevelAttributes(groupMap, entry.getValue());
 
-                })
-                .flatMap(transformed -> { // Use flatMap to ensure update completes
-                    bundle.remove(ResourceUtils.getRelativeURL(transformed));
-                    bundle.put(transformed);
-                    return Mono.just(transformed);
-                })
-                .collectList()
-                .then(Mono.just(patientResourceBundle)); // Return the modified bundle once all resources are processed
+                        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(
+                                (DomainResource) resource,
+                                profileAttributeCollection.profiles(),
+                                attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of()),
+                                profileAttributeCollection.attributes()
+                        );
+
+                        Resource transformed = transform(wrapper);
+
+                        bundle.remove(ResourceUtils.getRelativeURL(transformed));
+                        bundle.put(transformed);
+
+
+                    } catch (MustHaveViolatedException | TargetClassCreationException e) {
+                        logger.warn("Error transforming resource {}", resourceId, e);
+
+                        bundle.remove(resourceId);
+
+                    }
+                });
+
+        return patientResourceBundle;
     }
 
     /**

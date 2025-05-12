@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.management;
 
+import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -15,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResourceBundleTest {
@@ -44,37 +46,39 @@ class ResourceBundleTest {
 
     @Nested
     class RetrievalTests {
+
         @Test
         void getMatch() {
-            ResourceBundle cache = new ResourceBundle();
+            var cache = new ResourceBundle();
             cache.put(wrapper1);
 
-            Mono<Resource> result = cache.get(id);
+            var result = cache.get(id);
 
-            StepVerifier.create(result)
-                    .expectNext(patient1)
-                    .verifyComplete();
+            assertThat(result).isEqualTo(patient1);
         }
 
         @Test
         void isEmpty() {
-            ResourceBundle cache = new ResourceBundle();
-            Mono<?> result = cache.get(id);
-            StepVerifier.create(result).verifyComplete();
+            var cache = new ResourceBundle();
+
+            var result = cache.get(id);
+
+            assertThat(result).isNull();
         }
     }
 
-
     @Nested
     class RemovalTests {
+
         @Test
         void removeExistingEntry() {
             ResourceBundle cache = new ResourceBundle();
             cache.put(wrapper1);
             cache.remove(id);
 
-            Mono<Resource> result = cache.get(id);
-            StepVerifier.create(result).verifyComplete();
+            var result = cache.get(id);
+
+            assertThat(result).isNull();
         }
     }
 
@@ -231,6 +235,7 @@ class ResourceBundleTest {
 
     @Nested
     class Immutable {
+
         private ResourceBundle resourceBundle;
         private ImmutableResourceBundle immutableResourceBundle;
 
@@ -243,7 +248,6 @@ class ResourceBundleTest {
         private AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
 
         private ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain
-        private ResourceAttribute attribute2 = new ResourceAttribute("attr2", annotatedAttribute1); // Should remain
         private ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Should be added
         private ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Should be added
 
@@ -330,5 +334,18 @@ class ResourceBundleTest {
                     organizationGroup, Set.of(attribute3, attribute4)
             ));
         }
+    }
+
+    @Test
+    void toFhirBundleTest() {
+        ResourceBundle cache = new ResourceBundle();
+        cache.put(wrapper1);
+
+        var fhirBundle = cache.toFhirBundle();
+
+        assertThat(fhirBundle)
+                .containsNEntries(1)
+                .extractResources()
+                .satisfiesExactly(resource -> assertThat(resource).extractElementsAt("id").containsExactly(new TextNode("patient1")));
     }
 }

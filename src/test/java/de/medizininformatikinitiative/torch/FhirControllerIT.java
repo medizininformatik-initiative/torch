@@ -16,6 +16,7 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
+import de.medizininformatikinitiative.torch.util.TimeUtils;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -48,6 +49,7 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
 
+import static de.medizininformatikinitiative.torch.util.TimeUtils.durationSecondsSince;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
@@ -169,7 +171,7 @@ public class FhirControllerIT {
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
         AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
-        Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients, crtdl.consentKey());
+        Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients);
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assertThat(result).isNotNull();
 
@@ -222,13 +224,11 @@ public class FhirControllerIT {
             HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
 
             try {
-                long startTime = System.nanoTime();
+                long start = System.nanoTime();
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-                long durationMs = (System.nanoTime() - startTime) / 1_000_000;
 
-                logger.debug("Duration: {} ms", durationMs);
                 assertThat(response.getStatusCode().value()).isEqualTo(202);
-                assertThat(durationMs).isLessThan(100);
+                assertThat(durationSecondsSince(start)).isLessThan(0.1);
 
                 String statusUrl = "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
                 pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);

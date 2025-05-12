@@ -8,14 +8,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-
-public record AnnotatedCrtdl(
-
-        JsonNode cohortDefinition,
-
-        AnnotatedDataExtraction dataExtraction
-) {
-    private static final Logger logger = LoggerFactory.getLogger(AnnotatedCrtdl.class);
+public record AnnotatedCrtdl(JsonNode cohortDefinition, AnnotatedDataExtraction dataExtraction) {
 
     public AnnotatedCrtdl {
         requireNonNull(cohortDefinition);
@@ -42,5 +35,4 @@ public record AnnotatedCrtdl(
         }
         return Optional.empty();
     }
-
 }

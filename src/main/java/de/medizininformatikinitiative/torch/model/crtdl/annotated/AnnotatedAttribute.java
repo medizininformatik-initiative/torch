@@ -20,7 +20,7 @@ public record AnnotatedAttribute(String attributeRef, String fhirPath,
     }
 
     /**
-     * Primary constructor for non reference attributes
+     * Primary constructor for non reference attributes.
      */
     public AnnotatedAttribute(String attributeRef,
                               String fhirPath,
