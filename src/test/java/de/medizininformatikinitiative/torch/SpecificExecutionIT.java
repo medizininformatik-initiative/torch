@@ -54,7 +54,7 @@ public class SpecificExecutionIT {
         logger.info("Uploading test data...for test {}", testName);
         var testDataFolder = "testdata/shorthand/fsh-generated/resources/";
         var testBundle = testDataFolder + "Bundle-test-" + testName + ".json";
-        blazeClient.transact(Files.readString(Path.of(testBundle)));
+        blazeClient.transact(Files.readString(Path.of(testBundle))).block();
     }
 
     public void executeStandardTests(List<Bundle> patientBundles) {
@@ -91,7 +91,7 @@ public class SpecificExecutionIT {
 
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json"));
         // TODO: remove replacing /fhir if #220 is fixed
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", ""));
+        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", "")).block();
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
@@ -138,7 +138,7 @@ public class SpecificExecutionIT {
         uploadTestData(testName);
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json"));
         // TODO: remove replacing /fhir if #220 is fixed
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", ""));
+        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", "")).block();
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();

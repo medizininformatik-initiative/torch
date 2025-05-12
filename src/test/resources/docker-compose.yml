@@ -2,8 +2,12 @@ services:
   blaze:
     image: samply/blaze:main
     environment:
-      - LOG_LEVEL=info
-      - ALLOW_MULTIPLE_DELETE=true
+      BASE_URL: http://blaze:8080
+      LOG_LEVEL: info
+      ALLOW_MULTIPLE_DELETE: true
+      JAVA_TOOL_OPTIONS: -Xmx2g
+      DB_BLOCK_CACHE_SIZE: 0
+      DB_RESOURCE_CACHE_SIZE: 0
     ports:
       - "8080"
     healthcheck:
@@ -16,9 +20,9 @@ services:
   flare:
     image: ghcr.io/medizininformatik-initiative/flare:develop
     environment:
-      - LOG_LEVEL=info
-      - FLARE_FHIR_SERVER=http://blaze:8080/fhir
-      - FLARE_ENABLE_COHORT_ENDPOINT=true
+      LOG_LEVEL: debug
+      FLARE_FHIR_SERVER: http://blaze:8080/fhir
+      FLARE_ENABLE_COHORT_ENDPOINT: true
     ports:
       - "8080"
     depends_on:
@@ -49,6 +53,7 @@ services:
       TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
       TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
       TORCH_USECQL: true
+      JAVA_TOOL_OPTIONS: -Xmx4g
     volumes:
       - torch-data-store:/app/output
 

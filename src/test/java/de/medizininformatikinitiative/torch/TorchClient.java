@@ -1,22 +1,23 @@
 package de.medizininformatikinitiative.torch;
 
 import ca.uhn.fhir.context.FhirContext;
-import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
+import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 
 import java.time.Duration;
-import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
+import static org.springframework.http.HttpStatus.ACCEPTED;
 
 public class TorchClient {
 
-    private static final int POLL_MAX_RETRIES = 10;
+    private static final int POLL_MAX_RETRIES = 100;
     private static final Duration POLL_RETRY_DELAY = Duration.ofSeconds(2);
 
     private final WebClient webClient;
@@ -24,6 +25,10 @@ public class TorchClient {
 
     public TorchClient(WebClient webClient) {
         this.webClient = requireNonNull(webClient);
+    }
+
+    private static boolean shouldRetry(Throwable e) {
+        return e instanceof WebClientResponseException && ((WebClientResponseException) e).getStatusCode().isSameCodeAs(ACCEPTED);
     }
 
     /**
@@ -45,13 +50,12 @@ public class TorchClient {
                 .getFirst();
     }
 
-    public StatusResponse pollStatus(String statusUrl) {
+    public Mono<StatusResponse> pollStatus(String statusUrl) {
         return webClient.get().uri(statusUrl)
                 .header("Accept", "application/json")
                 .retrieve()
                 .onStatus(status -> status.isSameCodeAs(HttpStatusCode.valueOf(202)), ClientResponse::createException)
                 .bodyToMono(StatusResponse.class)
-                .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY))
-                .block();
+                .retryWhen(Retry.fixedDelay(POLL_MAX_RETRIES, POLL_RETRY_DELAY).filter(TorchClient::shouldRetry));
     }
 }
