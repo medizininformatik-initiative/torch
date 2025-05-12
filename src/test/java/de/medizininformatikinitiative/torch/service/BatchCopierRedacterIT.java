@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.Condition;
@@ -24,8 +25,6 @@ import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.util.*;
 
@@ -35,54 +34,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class BatchCopierRedacterIT {
+class BatchCopierRedacterIT {
 
-    private static final String PATIENT = """
-            {
-                     "resourceType": "Patient",
-                     "id": "VHF00006",
-                     "meta": {
-                       "profile": [
-                         "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
-                       ]
-                     },
-                     "identifier": [
-                       {
-                         "use": "usual",
-                         "type": {
-                           "coding": [
-                             {
-                               "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
-                               "code": "MR"
-                             }
-                           ]
-                         },
-                         "system": "https://VHF.de/pid",
-                         "value": "VHF00006"
-                       }
-                     ],
-                     "name": [
-                       {
-                         "use": "official",
-                         "family": "DUMMY_SURNAME",
-                         "given": [
-                           "DUMMY_NAME"
-                         ]
-                       }
-                     ],
-                     "gender": "male",
-                     "birthDate": "2001-11-01",
-                     "address": [
-                       {
-                         "extension": [
-                           {
-                             "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
-                             "valueCode": "unknown"
-                           }
-                         ]
-                       }
-                     ]
-                   }""";
 
     private static final String CONDITION = """
             {
@@ -159,6 +112,35 @@ public class BatchCopierRedacterIT {
               }
             }""";
 
+    String CONDITION_RESULT_WITHOUT_REFERENCE = """
+              {
+              "resourceType": "Condition",
+              "id": "2",
+              "meta": {
+                "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose" ]
+              },
+              "code": {
+                "extension": [ {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                } ]
+              },
+              "subject": {
+                "_reference": {
+                  "extension": [ {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "unknown"
+                  } ]
+                }
+              },
+              "_recordedDate": {
+                "extension": [ {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                } ]
+              }
+            }""";
+
 
     String CONDITION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
 
@@ -180,6 +162,7 @@ public class BatchCopierRedacterIT {
     AnnotatedAttribute conditionMeta;
     AnnotatedAttribute conditionId;
     AnnotatedAttributeGroup conditionGroup;
+    ResourceGroup validResourceGroup;
 
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -197,6 +180,7 @@ public class BatchCopierRedacterIT {
         conditionGroup = new AnnotatedAttributeGroup("Condition1", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null);
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
+        validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
 
 
         attributeGroupMap.put("Patient1", patientGroup);
@@ -211,14 +195,13 @@ public class BatchCopierRedacterIT {
     class transformResource {
 
         @Test
-        public void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
+        void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 
             Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), new HashSet<>(conditionGroup.attributes())));
 
-            assertThat(parser.setPrettyPrint(true).encodeResourceToString(result))
-                    .isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
+            assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
 
 
@@ -227,67 +210,71 @@ public class BatchCopierRedacterIT {
     @Nested
     class transformBundle {
         @Test
-        public void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
+        void testResourceWithKnownGroups() {
+            Condition condition = parser.parseResource(Condition.class, CONDITION);
+            Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT_WITHOUT_REFERENCE);
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(condition, "Condition1", true);
+
+
+            PatientResourceBundle result = batchCopierRedacter.transform(bundle, attributeGroupMap);
+
+            assertThat(result.bundle().cache()).hasSize(1);
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2"));
+            String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
+
+
+            assertThat(actualJson).isEqualTo(expectedJson);
+
+        }
+
+        @Test
+        void testResourceWithReference() {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 
-            PatientResourceBundle bundle = new PatientResourceBundle("Patient1");
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
             bundle.put(condition, "Condition1", true);
+            bundle.bundle().setResourceAttributeValid(expectedAttribute);
+            bundle.bundle().addAttributeToChild(expectedAttribute, validResourceGroup);
+            bundle.bundle().addResourceGroupValidity(validResourceGroup, true);
 
-            Mono<PatientResourceBundle> resultMono = batchCopierRedacter.transform(bundle, attributeGroupMap);
+            PatientResourceBundle result = batchCopierRedacter.transform(bundle, attributeGroupMap);
 
-            StepVerifier.create(resultMono)
-                    .assertNext(resultBundle -> {
-                        assertThat(resultBundle.bundle().cache()).hasSize(1);
-                        Mono<Resource> actualConditionMono = resultBundle.get("Conditions/2");
+            assertThat(result.bundle().cache()).hasSize(1);
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2"));
+            String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
-                        // Ensure the Mono exists
-                        assertThat(actualConditionMono).isNotNull();
+            assertThat(actualJson).isEqualTo(expectedJson);
 
-                        // Extract the Resource from the Mono before encoding
-                        actualConditionMono.doOnNext(actualCondition -> {
-                            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(actualCondition);
-                            String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
-
-                            assertThat(actualJson).isEqualTo(expectedJson);
-                        }).block(); // Blocking only inside test for assertion
-                    })
-                    .verifyComplete();
         }
 
 
         @Nested
         class transformBatch {
             @Test
-            public void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
+            void testResourceWithKnownGroups() {
                 Condition condition = parser.parseResource(Condition.class, CONDITION);
-                Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
+                Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT_WITHOUT_REFERENCE);
 
-                PatientResourceBundle bundle = new PatientResourceBundle("Patient1");
+                PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
                 PatientBatchWithConsent consentBatch = PatientBatchWithConsent.fromList(List.of(bundle));
                 bundle.put(condition, "Condition1", true);
 
-                Mono<PatientBatchWithConsent> resultMono = batchCopierRedacter.transformBatch(Mono.just(consentBatch), attributeGroupMap);
+                PatientBatchWithConsent result = batchCopierRedacter.transformBatch(consentBatch, attributeGroupMap);
 
-                StepVerifier.create(resultMono)
-                        .assertNext(resultBatch -> {
-                            assertThat(resultBatch.bundles()).hasSize(1);
-                            PatientResourceBundle resultBundle = resultBatch.bundles().get("Patient1");
-                            assertThat(resultBundle.bundle().cache()).hasSize(1);
-                            Mono<Resource> actualConditionMono = resultBundle.get("Conditions/2");
+                assertThat(result.bundles()).hasSize(1);
+                PatientResourceBundle resultBundle = result.bundles().get("PatientBundle");
 
-                            // Ensure the Mono exists
-                            assertThat(actualConditionMono).isNotNull();
+                assertThat(resultBundle.bundle().cache()).hasSize(1);
+                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.get("Condition/2"));
+                String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
-                            // Extract the Resource from the Mono before encoding
-                            actualConditionMono.doOnNext(actualCondition -> {
-                                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(actualCondition);
-                                String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
-                                assertThat(actualJson).isEqualTo(expectedJson);
-                            }).block(); // Blocking only inside test for assertion
-                        })
-                        .verifyComplete();
+                assertThat(actualJson).isEqualTo(expectedJson);
+
             }
 
 

@@ -13,6 +13,8 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.BufferedWriter;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -143,34 +145,29 @@ public class ResultFileManager {
     }
 
 
-    public Mono<Void> saveBatchToNDJSON(String jobId, Mono<PatientBatchWithConsent> batchMono) {
+    public void saveBatchToNDJSON(String jobId, PatientBatchWithConsent batch) throws IOException {
         requireNonNull(jobId);
-        requireNonNull(batchMono);
+        requireNonNull(batch);
 
-        return batchMono.flatMap(batch -> {
-            requireNonNull(batch.bundles(), "batch.bundles() must not be null");
-            logger.debug("Saving batch of job {} {}", jobId, batch.patientIds());
+        var ndJsonFile = createNdJsonFile(jobId, batch);
 
-            return Mono.fromCallable(() -> {
-                        Path jobDir = getJobDirectory(jobId);
-                        Files.createDirectories(jobDir); // Ensure job directory exists
+        try (BufferedWriter out = Files.newBufferedWriter(ndJsonFile)) {
+            batch.writeFhirBundlesTo(fhirContext, out);
+        }
+    }
 
-                        Path ndjsonFile;
-                        if (batch.patientIds().equals(Set.of("CORE"))) {
-                            ndjsonFile = jobDir.resolve("core.ndjson");
-                        } else {
-                            ndjsonFile = jobDir.resolve(UUID.randomUUID() + ".ndjson");
-                        }
-                        Files.deleteIfExists(ndjsonFile);
-                        return ndjsonFile;
-                    })
-                    .subscribeOn(Schedulers.boundedElastic())
-                    .flatMap(ndjsonFile ->
-                            Flux.fromIterable(batch.bundles().values()) // Process each bundle asynchronously
-                                    .flatMap(bundle -> saveBundleToNDJSON(ndjsonFile, bundle.bundle().toFhirBundle()))
-                                    .then()
-                    );
-        }).subscribeOn(Schedulers.boundedElastic());
+    private Path createNdJsonFile(String jobId, PatientBatchWithConsent batch) throws IOException {
+        Path jobDir = getJobDirectory(jobId);
+        Files.createDirectories(jobDir); // Ensure job directory exists
+
+        Path ndjsonFile;
+        if (batch.patientIds().equals(Set.of("CORE"))) {
+            ndjsonFile = jobDir.resolve("core.ndjson");
+            Files.deleteIfExists(ndjsonFile);
+        } else {
+            ndjsonFile = jobDir.resolve(UUID.randomUUID() + ".ndjson");
+        }
+        return ndjsonFile;
     }
 
     public Mono<Void> saveErrorToJSON(String jobId, OperationOutcome outcome, HttpStatus status) {
@@ -190,19 +187,6 @@ public class ResultFileManager {
                     }
                 })
                 .doOnError(e -> logger.error("Async write failed for job {}: {}", jobId, e.getMessage(), e))
-                .subscribeOn(Schedulers.boundedElastic()).then();
-    }
-
-    public Mono<Void> saveBundleToNDJSON(Path ndjsonFile, Bundle bundle) {
-        return Mono.fromRunnable(() -> {
-                    try {
-                        String bundleJson = fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToString(bundle);
-                        Files.writeString(ndjsonFile, bundleJson + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.APPEND);
-                    } catch (IOException e) {
-                        logger.error("Failed to save bundle to {}: {}", ndjsonFile, e.getMessage());
-                        throw new RuntimeException("Failed to save bundle", e);
-                    }
-                })
                 .subscribeOn(Schedulers.boundedElastic()).then();
     }
 

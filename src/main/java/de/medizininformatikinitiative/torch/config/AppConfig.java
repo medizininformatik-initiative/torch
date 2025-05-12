@@ -212,12 +212,13 @@ public class AppConfig {
             BatchCopierRedacter batchCopierRedacter,
             @Value("${torch.maxConcurrency:5}") int maxConcurrency,
             CascadingDelete cascadingDelete,
-            PatientBatchToCoreBundleWriter writer
+            PatientBatchToCoreBundleWriter writer,
+             ConsentHandler consentHandler
     ) {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
+                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer, consentHandler);
     }
 
     @Bean
@@ -330,9 +331,9 @@ public class AppConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
-        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
+        return new DirectResourceLoader(dataStore, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
 
     @Bean

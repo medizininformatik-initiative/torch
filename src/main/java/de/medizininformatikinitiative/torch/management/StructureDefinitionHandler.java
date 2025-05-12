@@ -92,9 +92,7 @@ public class StructureDefinitionHandler {
      */
     public Set<StructureDefinition.StructureDefinitionSnapshotComponent> getSnapshots(Set<String> urls) {
         Set<StructureDefinition.StructureDefinitionSnapshotComponent> definitions = new HashSet<>();
-        urls.forEach(url -> {
-            definitions.add(getSnapshot(url));
-        });
+        urls.forEach(url -> definitions.add(getSnapshot(url)));
         return definitions;
     }
 

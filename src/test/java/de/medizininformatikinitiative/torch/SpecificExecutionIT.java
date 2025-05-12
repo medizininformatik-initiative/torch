@@ -26,7 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * => mvn clean package -DskipTests && docker build -t torch:latest .
  */
 @Testcontainers
-public class SpecificExecutionIT {
+class SpecificExecutionIT {
 
     private static final Logger logger = LoggerFactory.getLogger(SpecificExecutionIT.class);
 
@@ -72,7 +72,7 @@ public class SpecificExecutionIT {
     }
 
     @Test
-    public void testDoubleRefResolve() throws IOException {
+    void testDoubleRefResolve() throws IOException {
 
         /*
         Diabetes Condition .encounter -> Encounter
@@ -133,7 +133,7 @@ public class SpecificExecutionIT {
     }
 
     @Test
-    public void testMustHaveResolve() throws IOException {
+    void testMustHaveResolve() throws IOException {
         var testName = "diag-no-enc-diag";
         uploadTestData(testName);
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json"));
@@ -150,7 +150,7 @@ public class SpecificExecutionIT {
     }
 
     @AfterEach
-    public void cleanup() {
+    void cleanup() {
         blazeClient.deleteResources(Set.of("List", "Condition", "Encounter", "Patient"));
     }
 }

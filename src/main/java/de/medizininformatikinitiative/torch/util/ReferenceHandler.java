@@ -21,7 +21,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 public class ReferenceHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceHandler.class);
@@ -52,7 +51,7 @@ public class ReferenceHandler {
     public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
-                                                Boolean applyConsent,
+                                                boolean applyConsent,
                                                 Map<String, AnnotatedAttributeGroup> groupMap) {
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
 
@@ -62,9 +61,7 @@ public class ReferenceHandler {
                 .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, applyConsent, groupMap).doOnNext(
                         resourceGroupList -> {
                             ResourceAttribute referenceAttribute = new ResourceAttribute(ref.parentId(), ref.refAttribute());
-                            resourceGroupList.forEach(resourceGroup -> {
-                                processingBundle.addAttributeToChild(referenceAttribute, resourceGroup);
-                            });
+                            resourceGroupList.forEach(resourceGroup -> processingBundle.addAttributeToChild(referenceAttribute, resourceGroup));
                         }
                 ))
                 .collectList()
@@ -92,7 +89,7 @@ public class ReferenceHandler {
     public Flux<List<ResourceGroup>> handleReference(ReferenceWrapper referenceWrapper,
                                                      @Nullable PatientResourceBundle patientBundle,
                                                      ResourceBundle coreBundle,
-                                                     Boolean applyConsent,
+                                                     boolean applyConsent,
                                                      Map<String, AnnotatedAttributeGroup> groupMap) {
 
         ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
@@ -103,9 +100,9 @@ public class ReferenceHandler {
 
                     // Try to get the resource from available bundles or fetch it
                     if (patientBundle != null && patientBundle.contains(reference)) {
-                        referenceResource = patientBundle.get(reference);
+                        referenceResource = Mono.justOrEmpty(patientBundle.get(reference));
                     } else if (coreBundle.contains(reference)) {
-                        referenceResource = coreBundle.get(reference);
+                        referenceResource = Mono.justOrEmpty(coreBundle.get(reference));
                     } else {
                         logger.debug("Reference {} not found in patientBundle or coreBundle, attempting fetch.", reference);
                         referenceResource = getResourceMono(patientBundle, applyConsent, reference)
@@ -159,7 +156,7 @@ public class ReferenceHandler {
                                     return isValid ? resourceGroup : null;
                                 })
                                 .filter(Objects::nonNull)
-                                .collect(Collectors.toList());
+                                .toList();
                         logger.trace("Valid groups found: {}", validGroups);
                         return Mono.just(validGroups);
                     });
@@ -167,7 +164,8 @@ public class ReferenceHandler {
                 .collectList()
                 .map(lists -> lists.stream()
                         .flatMap(List::stream)
-                        .collect(Collectors.toList()))
+                        .toList()
+                )
                 .flatMapMany(list -> {
                     ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
                     if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
@@ -191,7 +189,7 @@ public class ReferenceHandler {
      * @param reference     reference string to be fetched from server. Only relative URLs are handled.
      * @return
      */
-    public Mono<Resource> getResourceMono(@Nullable PatientResourceBundle patientBundle, Boolean applyConsent, String reference) {
+    public Mono<Resource> getResourceMono(@Nullable PatientResourceBundle patientBundle, boolean applyConsent, String reference) {
         logger.debug("Getting resource for {}", reference);
         return dataStore.fetchResourceByReference(reference)
                 .flatMap(resource -> {

@@ -19,7 +19,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.*;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
-import de.medizininformatikinitiative.torch.testUtil.FhirTestHelper;
 import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
@@ -121,9 +120,9 @@ public class TestConfig {
     }
 
     @Bean
-    public CrtdlProcessingService crtdlProcessingService(@Qualifier("flareClient") WebClient webClient, Translator cqlQueryTranslator, CqlClient cqlClient, ResultFileManager resultFileManager, ProcessedGroupFactory processedGroupFactory, @Value("2") int batchSize, @Value("${torch.useCql}") boolean useCql, DirectResourceLoader directResourceLoader, ReferenceResolver referenceResolver, BatchCopierRedacter batchCopierRedacter, @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer) {
+    public CrtdlProcessingService crtdlProcessingService(@Qualifier("flareClient") WebClient webClient, Translator cqlQueryTranslator, CqlClient cqlClient, ResultFileManager resultFileManager, ProcessedGroupFactory processedGroupFactory, @Value("2") int batchSize, @Value("${torch.useCql}") boolean useCql, DirectResourceLoader directResourceLoader, ReferenceResolver referenceResolver, BatchCopierRedacter batchCopierRedacter, @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer, ConsentHandler consentHandler) {
 
-        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, processedGroupFactory, batchSize, useCql, directResourceLoader, referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer);
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, processedGroupFactory, batchSize, useCql, directResourceLoader, referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer, consentHandler);
     }
 
     @Bean
@@ -171,11 +170,6 @@ public class TestConfig {
         ConnectionProvider provider = ConnectionProvider.builder("flare-store").maxConnections(4).pendingAcquireMaxCount(500).build();
         HttpClient httpClient = HttpClient.create(provider);
         return WebClient.builder().baseUrl(flareBaseUrl).clientConnector(new ReactorClientHttpConnector(httpClient)).build();
-    }
-
-    @Bean
-    FhirTestHelper testHelper(FhirContext context) {
-        return new FhirTestHelper(context);
     }
 
     @Bean
@@ -266,9 +260,9 @@ public class TestConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, ConsentHandler handler, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader resourceTransformer(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
 
-        return new DirectResourceLoader(dataStore, handler, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
+        return new DirectResourceLoader(dataStore, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
     }
 
     @Bean

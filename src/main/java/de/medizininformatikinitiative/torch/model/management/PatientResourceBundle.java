@@ -50,12 +50,11 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
-    public Mono<Resource> get(String id) {
+    public Resource get(String id) {
         return bundle.get(id);
     }
 
-
-    public boolean mergingPut(ResourceGroupWrapper wrapper) {
+    public boolean put(ResourceGroupWrapper wrapper) {
         return bundle.put(wrapper);
     }
 

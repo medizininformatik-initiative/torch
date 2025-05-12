@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
+import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -24,6 +25,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 
@@ -37,7 +39,7 @@ public class CrtdlProcessingService {
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
     private final CqlClient cqlClient;
-    private final Boolean useCql;
+    private final boolean useCql;
     private final Translator cqlQueryTranslator;
     private final ProcessedGroupFactory processedGroupFactory;
     private final DirectResourceLoader directResourceLoader;
@@ -46,7 +48,7 @@ public class CrtdlProcessingService {
     private final BatchCopierRedacter batchCopierRedacter;
     private final CascadingDelete cascadingDelete;
     private final PatientBatchToCoreBundleWriter batchToCoreWriter;
-
+    private final ConsentHandler consentHandler;
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
                                   Translator cqlQueryTranslator,
@@ -58,7 +60,10 @@ public class CrtdlProcessingService {
                                   DirectResourceLoader directResourceLoader,
                                   ReferenceResolver referenceResolver,
                                   BatchCopierRedacter batchCopierRedacter,
-                                  @Value("5") int maxConcurrency, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer) {
+                                  @Value("5") int maxConcurrency,
+                                  CascadingDelete cascadingDelete,
+                                  PatientBatchToCoreBundleWriter writer,
+                                  ConsentHandler consentHandler) {
         this.webClient = webClient;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
@@ -73,6 +78,7 @@ public class CrtdlProcessingService {
         this.batchCopierRedacter = batchCopierRedacter;
         this.cascadingDelete = cascadingDelete;
         this.batchToCoreWriter = writer;
+        this.consentHandler = consentHandler;
     }
 
 
@@ -85,43 +91,44 @@ public class CrtdlProcessingService {
      * @return mono finishes when complete
      */
     public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID, List<String> patientIds) {
-        GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-
-        Flux<PatientBatch> batches;
         if (patientIds.isEmpty()) {
-            batches = fetchPatientBatches(crtdl);
+            return processIntern(crtdl, jobID, fetchPatientBatches(crtdl));
         } else {
-            batches = Flux.just(new PatientBatch(patientIds));
+            return processIntern(crtdl, jobID, Flux.just(new PatientBatch(patientIds)));
         }
+    }
+
+    private Mono<Void> processIntern(AnnotatedCrtdl crtdl, String jobID, Flux<PatientBatch> batches) {
+        GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
         ResourceBundle coreBundle = new ResourceBundle();
 
         // Step 1: Preprocess Core Bundle (but don't write it out yet)
-        Mono<ImmutableResourceBundle> preprocessedCoreBundle = directResourceLoader
+        Mono<ImmutableResourceBundle> preProcessedCoreBundle = directResourceLoader
                 .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
                 .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                 .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                         .thenReturn(updatedCoreBundle)) // Ensure sequential execution
-                .map(ImmutableResourceBundle::new) // Create immutable snapshot after processing
-                .cache(); // Ensure it runs only once
+                .map(ImmutableResourceBundle::new); // Create immutable snapshot after processing
 
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
-        return preprocessedCoreBundle.flatMapMany(coreSnapshot ->
+        return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
                         .map(batch -> PatientBatchWithConsent.fromBatchWithStaticInfo(batch, coreSnapshot))
+                        .flatMap(batch -> crtdl.consentKey().map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch)).orElse(Mono.just(batch)))
                         .flatMap(batch ->
-                                        directResourceLoader.directLoadPatientCompartment(
-                                                        groupsToProcess.directPatientCompartmentGroups(), batch, crtdl.consentKey()
-                                                )
-                                                .flatMap(patientBatch ->
-                                                        referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups())
-                                                )
+                                        directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
+                                                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
                                                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
-                                                .flatMap(patientBatch -> batchCopierRedacter.transformBatch(Mono.just(patientBatch), groupsToProcess.allGroups())
-                                                )
+                                                .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
                                                 .flatMap(transformedBatch -> {
                                                             batchToCoreWriter.updateCore(transformedBatch, coreBundle);
-                                                            return resultFileManager.saveBatchToNDJSON(jobID, Mono.just(transformedBatch));
+                                                            try {
+                                                                resultFileManager.saveBatchToNDJSON(jobID, transformedBatch);
+                                                                return Mono.empty();
+                                                            } catch (IOException e) {
+                                                                return Mono.error(e);
+                                                            }
                                                         }
                                                 ),
                                 maxConcurrency
@@ -132,11 +139,12 @@ public class CrtdlProcessingService {
                     PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
 
-                    return resultFileManager.saveBatchToNDJSON(
-                            jobID, batchCopierRedacter.transformBatch(
-                                    Mono.just(coreBundleBatch), groupsToProcess.allGroups()
-                            )
-                    );
+                    try {
+                        resultFileManager.saveBatchToNDJSON(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
+                        return Mono.empty();
+                    } catch (IOException e) {
+                        return Mono.error(e);
+                    }
                 })
         );
     }
@@ -144,7 +152,7 @@ public class CrtdlProcessingService {
 
     public Flux<PatientBatch> fetchPatientBatches(AnnotatedCrtdl crtdl) {
         try {
-            return (useCql) ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
+            return useCql ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
         } catch (JsonProcessingException e) {
             return Flux.error(e);
         }

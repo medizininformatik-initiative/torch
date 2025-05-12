@@ -18,8 +18,11 @@ import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentRea
  * Redaction operations on copied Ressources based on the Structuredefinition
  */
 public class Redaction {
+
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-    private final StructureDefinitionHandler CDS;
+    private static final String MASKED = "masked";
+
+    private final StructureDefinitionHandler cds;
 
     /**
      * Constructor for Redaction
@@ -27,11 +30,10 @@ public class Redaction {
      * @param cds StructureDefinitionHandler
      */
     public Redaction(StructureDefinitionHandler cds) {
-        this.CDS = cds;
+        this.cds = cds;
     }
 
     /**
-     * @param base    - Resource after Data Selection and Extraction process with possibly missing required fields
      * @param wrapper ExtractionRedactionWrapper containing the resource, profiles and reference information
      *                relevant for redaction
      * @return Base with fulfilled required fields using Data Absent Reasons
@@ -42,7 +44,7 @@ public class Redaction {
 
         if (resource.hasMeta()) {
             Meta meta = resource.getMeta();
-            List<CanonicalType> resourceProfiles = List.of();
+            List<CanonicalType> resourceProfiles;
             if (!resource.getResourceType().toString().equals("Patient")) {
                 // Convert resource profiles to a list of strings
                 resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
@@ -57,11 +59,10 @@ public class Redaction {
                 }
 
             } else {
-                resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).collect(Collectors.toList());
+                resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
             }
 
-
-            Set<StructureDefinition> structureDefinitions = CDS.getDefinitions(wrapper.profiles());
+            Set<StructureDefinition> structureDefinitions = cds.getDefinitions(wrapper.profiles());
             if (structureDefinitions.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Tryng to handle unknown profiles: " + wrapper.profiles());
@@ -86,7 +87,7 @@ public class Redaction {
      * @param references
      * @return redacted Base
      */
-    public <T> Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
+    public Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
 
         recursion++;
         Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshots = structureDefinitions.stream().map(StructureDefinition::getSnapshot).collect(Collectors.toSet());
@@ -101,13 +102,9 @@ public class Redaction {
 
             /* Slicing could not be resolved, but all elements should be sliced*/
             if (slicedElements.isEmpty() && unslicedElements.isEmpty()) {
-                base.children().forEach(child -> {
-                    child.getValues().forEach(value -> {
-                        base.removeChild(child.getName(), value);
-                    });
-                });
+                base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
                 if (definitions.stream().anyMatch(definition -> definition.getMin() > 0)) {
-                    base.setProperty("extension", createAbsentReasonExtension("masked"));
+                    base.setProperty("extension", createAbsentReasonExtension(MASKED));
                 }
 
                 return base;
@@ -189,7 +186,7 @@ public class Redaction {
                 child.getValues().forEach(value -> {
 
                     if (finalMin > 0 && value.isEmpty()) {
-                        Element element = HapiFactory.create(finalType).addExtension(createAbsentReasonExtension("masked"));
+                        Element element = HapiFactory.create(finalType).addExtension(createAbsentReasonExtension(MASKED));
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
 
@@ -207,10 +204,10 @@ public class Redaction {
                      */
                     if (Objects.equals(type, "BackboneElement")) {
                         String fieldName = child.getName();
-                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension("masked"));
+                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension(MASKED));
                     } else {
                         try {
-                            Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension("masked"));
+                            Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
                             base.setProperty(child.getName(), element);
                         } catch (FHIRException e) {
                             logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementIDs, child.getName(), type, min);

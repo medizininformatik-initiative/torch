@@ -115,7 +115,7 @@ public class DataStore {
      * @return the resources found with the {@code FHIRSearchQuery}
      */
     public Flux<Resource> search(Query query) {
-        var startNanoTime = System.nanoTime();
+        var start = System.nanoTime();
         logger.debug("Execute query: {}", query);
 
         return client.post()
@@ -133,7 +133,7 @@ public class DataStore {
                                 shouldRetry(((WebClientResponseException) e).getStatusCode())))
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
                 .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds.", query,
-                        "%.1f".formatted(TimeUtils.durationSecondsSince(startNanoTime))))
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 
