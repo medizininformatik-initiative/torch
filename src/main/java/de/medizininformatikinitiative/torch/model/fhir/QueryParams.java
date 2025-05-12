@@ -33,19 +33,19 @@ public record QueryParams(List<Param> params) {
         return new StringValue(requireNonNull(value));
     }
 
-    public static Value multiStringValue(List<String> values) {
-        if (values.isEmpty()) {
-            throw new IllegalArgumentException("Empty Values for MultiString");
-        }
-        return new MultiStringValue(requireNonNull(values));
-    }
-
     public static Value multiStringValue(String v1) {
         return new MultiStringValue(List.of(v1));
     }
 
-    public static Value multiStringValue(String v1, String v2e) {
-        return new MultiStringValue(List.of(v1, v2e));
+    public static Value multiStringValue(String v1, String v2) {
+        return new MultiStringValue(List.of(v1, v2));
+    }
+
+    public static Value multiStringValue(List<String> values) {
+        if (values.isEmpty()) {
+            throw new IllegalArgumentException("A multi-string value has to have at least one value.");
+        }
+        return new MultiStringValue(values);
     }
 
     public static Value dateValue(Comparator comparator, LocalDate value) {
@@ -94,16 +94,6 @@ public record QueryParams(List<Param> params) {
     }
 
     /**
-     * Prefixes the name of each {@code Param query param} with {@code name} followed by an {@literal .}.
-     *
-     * @param name the name to use a prefix
-     * @return the {@code QueryParams} resulting in prefixing
-     */
-    public QueryParams prefixName(String name) {
-        return new QueryParams(params.stream().map(param -> new Param(name + "." + param.name, param.value)).toList());
-    }
-
-    /**
      * Splits this QueryParams in to a list of QueryParams instances with one param each.
      *
      * @return a list of QueryParams instances with one param each
@@ -144,6 +134,7 @@ public record QueryParams(List<Param> params) {
     }
 
     private record MultiStringValue(List<String> values) implements Value {
+
         private MultiStringValue {
             values = List.copyOf(values);
         }

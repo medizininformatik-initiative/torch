@@ -21,6 +21,7 @@ torch:
 
     url: http://localhost:8081/fhir
     pageCount: 500
+    maxConnections: 4
   flare:
     url: http://localhost:8084
   results:

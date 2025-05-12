@@ -1,8 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import ca.uhn.fhir.context.FhirContext;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -21,8 +19,6 @@ import reactor.core.publisher.Mono;
 import reactor.util.function.Tuple2;
 import reactor.util.function.Tuples;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Map;
 import java.util.Objects;
@@ -52,26 +48,19 @@ public class ConsentHandler {
     public static final String CDS_ENCOUNTER_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
     private final DataStore dataStore;
     private final ConsentCodeMapper mapper;
-    private final JsonNode resourcetoField;
-    private final FhirContext ctx;
     private final ConsentProcessor consentProcessor;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param dataStore   The {@link DataStore} service for Server Calls.
-     * @param mapper      The {@link ConsentCodeMapper} for mapping consent codes.
-     * @param profilePath The file system path to the consent profile mapping configuration.
-     * @throws IOException If an error occurs while reading the mapping profile file.
+     * @param dataStore The {@link DataStore} service for Server Calls.
+     * @param mapper    The {@link ConsentCodeMapper} for mapping consent codes.
      */
-    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, String profilePath, FhirContext ctx, ObjectMapper objectMapper) throws IOException {
+    public ConsentHandler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
         this.dataStore = dataStore;
         this.mapper = mapper;
-        this.ctx = ctx;
         this.consentProcessor = new ConsentProcessor(ctx);
-        resourcetoField = objectMapper.readTree(new File(profilePath).getAbsoluteFile());
     }
-
 
     /**
      * Returns a Mono which will emit a {@code ConsentInfo} for the given consent key and batch.
@@ -87,7 +76,6 @@ public class ConsentHandler {
                 .flatMap(this::updateConsentPeriodsByPatientEncounters);
 
     }
-
 
     /**
      * Builds consent information for a batch of patients based on the provided key and patient IDs.
@@ -167,7 +155,7 @@ public class ConsentHandler {
     public Mono<PatientBatchWithConsent> updateConsentPeriodsByPatientEncounters(
             PatientBatchWithConsent batch) {
         Objects.requireNonNull(batch, "Patient batch cannot be null");
-        logger.debug("Starting to update consent info with batch size: {}", batch.keySet().size());
+        logger.debug("Starting to update consent info with batch size: {}", batch.patientIds().size());
         String type = "Encounter";
 
         Map<String, PatientResourceBundle> filteredBundles = batch.bundles().entrySet().stream()
@@ -181,7 +169,7 @@ public class ConsentHandler {
                 .appendParams(updateBatch.compartmentSearchParam(type)));
         Flux<Encounter> allEncountersFlux = dataStore.search(query)
                 .cast(Encounter.class)
-                .doOnSubscribe(subscription -> logger.trace("Fetching encounters for batch: {}", updateBatch.keySet()))
+                .doOnSubscribe(subscription -> logger.trace("Fetching encounters for batch: {}", updateBatch.patientIds()))
                 .doOnNext(encounter -> logger.trace("Encounter fetched: {}", encounter.getIdElement().getIdPart()));
 
         // Step 2: Group the encounters by patient ID
@@ -213,6 +201,4 @@ public class ConsentHandler {
                     }
                 }).collectMultimap(Tuple2::getT1, Tuple2::getT2);
     }
-
-
 }

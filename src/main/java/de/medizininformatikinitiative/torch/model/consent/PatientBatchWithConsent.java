@@ -17,22 +17,15 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.multiS
  * @param bundles      Map of bundles keyed with Patient ID
  * @param applyConsent
  */
-public record PatientBatchWithConsent(
-        Map<String, PatientResourceBundle> bundles,
-        Boolean applyConsent) {
+public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, boolean applyConsent) {
+
     public PatientBatchWithConsent {
         bundles = Map.copyOf(bundles);
     }
 
-    private static String patientSearchParam(String type) {
-        return "Patient".equals(type) ? "_id" : "patient";
-    }
-
-
     public PatientBatch patientBatch() {
         return new PatientBatch(bundles.keySet().stream().toList());
     }
-
 
     public static PatientBatchWithConsent fromBatchWithStaticInfo(PatientBatch batch, ImmutableResourceBundle resourceBundle) {
         return new PatientBatchWithConsent(batch.ids().stream().collect(
@@ -49,10 +42,9 @@ public record PatientBatchWithConsent(
                 .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
     }
 
-    public Collection<String> keySet() {
+    public Collection<String> patientIds() {
         return bundles.keySet();
     }
-
 
     public PatientResourceBundle get(String id) {
         return bundles.get(id);
@@ -73,16 +65,10 @@ public record PatientBatchWithConsent(
      * @return Search Param
      */
     public QueryParams compartmentSearchParam(String resourceType) {
-        return QueryParams.of(patientSearchParam(resourceType), searchPatientParamValue(resourceType));
-    }
-
-    private QueryParams.Value searchPatientParamValue(String type) {
-        if ("Patient".equals(type)) {
-            return multiStringValue(keySet().stream().toList());
+        if ("Patient".equals(resourceType)) {
+            return QueryParams.of("_id", multiStringValue(patientIds().stream().toList()));
         } else {
-            return multiStringValue(keySet().stream().map(id -> "Patient/" + id).toList());
+            return QueryParams.of("patient", multiStringValue(patientIds().stream().map(id -> "Patient/" + id).toList()));
         }
     }
-
-
 }

@@ -25,6 +25,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Manager for the Job processing
  */
@@ -142,21 +144,19 @@ public class ResultFileManager {
 
 
     public Mono<Void> saveBatchToNDJSON(String jobId, Mono<PatientBatchWithConsent> batchMono) {
-        Objects.requireNonNull(resultsDirPath, "resultsDirPath must not be null");
-        Objects.requireNonNull(jobId, "jobId must not be null");
-        Objects.requireNonNull(batchMono, "batchMono must not be null");
-
+        requireNonNull(jobId);
+        requireNonNull(batchMono);
 
         return batchMono.flatMap(batch -> {
-            Objects.requireNonNull(batch.bundles(), "batch.bundles() must not be null");
-            logger.debug("Saving batch to {} {}", jobId, batch.keySet());
+            requireNonNull(batch.bundles(), "batch.bundles() must not be null");
+            logger.debug("Saving batch of job {} {}", jobId, batch.patientIds());
 
             return Mono.fromCallable(() -> {
                         Path jobDir = getJobDirectory(jobId);
                         Files.createDirectories(jobDir); // Ensure job directory exists
 
                         Path ndjsonFile;
-                        if (batch.keySet().equals(Set.of("CORE"))) {
+                        if (batch.patientIds().equals(Set.of("CORE"))) {
                             ndjsonFile = jobDir.resolve("core.ndjson");
                         } else {
                             ndjsonFile = jobDir.resolve(UUID.randomUUID() + ".ndjson");

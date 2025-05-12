@@ -95,9 +95,9 @@ public class CrtdlProcessingService {
         }
         ResourceBundle coreBundle = new ResourceBundle();
 
-// Step 1: Preprocess Core Bundle (but don't write it out yet)
+        // Step 1: Preprocess Core Bundle (but don't write it out yet)
         Mono<ImmutableResourceBundle> preprocessedCoreBundle = directResourceLoader
-                .proccessCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
+                .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
                 .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                 .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                         .thenReturn(updatedCoreBundle)) // Ensure sequential execution
@@ -105,8 +105,9 @@ public class CrtdlProcessingService {
                 .cache(); // Ensure it runs only once
 
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
+        logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preprocessedCoreBundle.flatMapMany(coreSnapshot ->
-                Flux.from(batches)
+                batches
                         .map(batch -> PatientBatchWithConsent.fromBatchWithStaticInfo(batch, coreSnapshot))
                         .flatMap(batch ->
                                         directResourceLoader.directLoadPatientCompartment(

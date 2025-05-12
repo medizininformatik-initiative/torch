@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -12,15 +13,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-
 class StandardAttributeGeneratorTest {
 
+    private StandardAttributeGenerator standardAttributeGenerator;
 
-    private final CompartmentManager compartmentManager = new CompartmentManager("compartmentdefinition-patient.json");
-    private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
-    private final StandardAttributeGenerator standardAttributeGenerator;
-
-    StandardAttributeGeneratorTest() throws IOException {
+    @BeforeEach
+    void setUp() throws IOException {
+        var compartmentManager = new CompartmentManager("compartmentdefinition-patient.json");
+        var integrationTestSetup = new IntegrationTestSetup();
         standardAttributeGenerator = new StandardAttributeGenerator(compartmentManager, integrationTestSetup.structureDefinitionHandler());
     }
 
@@ -45,7 +45,6 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-
                 new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", false),
                 new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", false),
                 new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false, List.of("patientGroup"))
@@ -80,7 +79,6 @@ class StandardAttributeGeneratorTest {
 
     }
 
-
     @Test
     void defaultCase() {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(new Attribute("Condition.code", false)), List.of());
@@ -93,7 +91,5 @@ class StandardAttributeGeneratorTest {
                 new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", false),
                 new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", false, List.of("patientGroup"))
         );
-
     }
-
 }
