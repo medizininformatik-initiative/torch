@@ -44,7 +44,8 @@ services:
       TORCH_FHIR_URL: http://blaze:8080/fhir
       TORCH_RESULTS_DIR: /app/output
       LOG_LEVEL: debug
-      NGINX_FILELOCATION: http://localhost:8085
+      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8085
+      TORCH_BASE_URL: http://localhost:8080
       TORCH_BATCHSIZE: 100
       TORCH_MAXCONCURRENCY: 4
       TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json

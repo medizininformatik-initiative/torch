@@ -301,13 +301,13 @@ public class TestConfig {
 
 
     @Bean
-    public StructureDefinitionHandler cdsStructureDefinitionHandler(@Value("${torch.profile.dir}") String dir, ResourceReader reader) {
-        return new StructureDefinitionHandler(dir, reader);
+    public StructureDefinitionHandler cdsStructureDefinitionHandler(ResourceReader resourceReader) {
+        return new StructureDefinitionHandler(torchProperties.profile().dir(), resourceReader);
     }
 
     @Bean
-    public ResultFileManager resultFileManager(@Value("${torch.results.dir}") String resultsDir, @Value("${torch.results.persistence}") String duration, FhirContext fhirContext, @Value("${nginx.servername}") String hostname, @Value("${nginx.filelocation}") String fileserverName) {
-        return new ResultFileManager(resultsDir, duration, fhirContext, hostname, fileserverName);
+    public ResultFileManager resultFileManager(FhirContext fhirContext) {
+        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext, torchProperties.base().url(), torchProperties.output().file().server().url());
     }
 
     @Bean

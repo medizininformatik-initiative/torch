@@ -3,6 +3,9 @@
 server:
   port: 8080
 torch:
+  base:
+    url:
+      localhost:8080
   profile:
     dir: structureDefinitions
   mapping:
@@ -38,9 +41,10 @@ torch:
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
   bufferSize: 100
-nginx:
-  servername: http://localhost:8080
-  filelocation: http://localhost:8080/output
+  output:
+    file:
+      server:
+        url: localhost:8080/output
 logging:
   level:
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
