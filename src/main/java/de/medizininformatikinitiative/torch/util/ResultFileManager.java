@@ -28,8 +28,6 @@ import java.util.stream.Stream;
 /**
  * Manager for the Job processing
  */
-
-
 public class ResultFileManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ResultFileManager.class);
@@ -259,11 +257,12 @@ public class ResultFileManager {
                     }
                 });
 
+                logger.debug("OutputFiles size {}", outputFiles.size());
+
                 response.put("transactionTime", transactionTime);
                 response.put("request", hostname + "/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
-                logger.debug("OutputFiles size {}", outputFiles.size());
                 response.put("deleted", deletedFiles);
                 response.put("error", errorFiles);
             } else {
@@ -277,5 +276,3 @@ public class ResultFileManager {
     }
 
 }
-
-
