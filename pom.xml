@@ -20,7 +20,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <Hapi.version>7.4.5</Hapi.version>
+        <Hapi.version>7.6.1</Hapi.version>
         <ontology-tag>v3.3.0</ontology-tag>
     </properties>
 
