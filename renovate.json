@@ -1,6 +1,23 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    "config:recommended"
-  ]
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "docker:pinDigests"
+  ],
+  "packageRules": [
+    {
+      "groupName": "jackson",
+      "matchPackageNames": [
+        "/com.fasterxml.jackson/"
+      ]
+    },
+    {
+      "groupName": "hapi",
+      "matchPackageNames": [
+        "/ca.uhn.hapi.fhir/"
+      ]
+    }
+  ],
+  "prConcurrentLimit": 3
 }
