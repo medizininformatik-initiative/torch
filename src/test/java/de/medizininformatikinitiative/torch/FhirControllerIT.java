@@ -6,17 +6,13 @@ import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
-import de.medizininformatikinitiative.torch.util.TimeUtils;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -55,59 +51,45 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class FhirControllerIT {
+class FhirControllerIT {
 
-    protected static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
+    private static final Logger logger = LoggerFactory.getLogger(FhirControllerIT.class);
     private static final String RESOURCE_PATH_PREFIX = "src/test/resources/";
-    protected final DirectResourceLoader transformer;
-    protected final DataStore dataStore;
-    protected final StructureDefinitionHandler cds;
-    protected final DseMappingTreeBase dseMappingTreeBase;
+
+    @Autowired
+    DirectResourceLoader transformer;
     @Autowired
     @Qualifier("fhirClient")
-    protected WebClient webClient;
+    WebClient webClient;
     @Autowired
     @Qualifier("flareClient")
-    protected WebClient flareClient;
-    protected ObjectMapper objectMapper;
-    protected CqlClient cqlClient;
-    protected Translator cqlQueryTranslator;
-    protected FhirContext fhirContext;
+    WebClient flareClient;
+    @Autowired
+    ObjectMapper objectMapper;
+    @Autowired
+    CqlClient cqlClient;
+    @Autowired
+    Translator cqlQueryTranslator;
     @Autowired
     FhirContext context;
     @Autowired
     CrtdlValidatorService validatorService;
-    ContainerManager manager;
+    ContainerManager manager = new ContainerManager();
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
     @LocalServerPort
     private int port;
 
-    @Autowired
-    public FhirControllerIT(DirectResourceLoader transformer, DataStore dataStore, StructureDefinitionHandler cds, FhirContext fhirContext, ObjectMapper objectMapper, CqlClient cqlClient, Translator cqlQueryTranslator, DseMappingTreeBase dseMappingTreeBase) {
-        this.transformer = transformer;
-        this.dataStore = dataStore;
-        this.cds = cds;
-        this.fhirContext = fhirContext;
-        this.objectMapper = objectMapper;
-        this.cqlClient = cqlClient;
-        this.cqlQueryTranslator = cqlQueryTranslator;
-        this.dseMappingTreeBase = dseMappingTreeBase;
-        this.manager = new ContainerManager();
-    }
-
     @BeforeAll
     void init() throws IOException {
-
         manager.startContainers();
 
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
         logger.info("Data Import on {}", webClient.options());
     }
 
-
     @Test
-    public void testCapability() {
+    void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
@@ -118,7 +100,7 @@ public class FhirControllerIT {
     }
 
     @Test
-    public void testGlobalStatus() {
+    void testGlobalStatus() {
         TestRestTemplate restTemplate = new TestRestTemplate();
 
         HttpHeaders headers = new HttpHeaders();
@@ -130,7 +112,7 @@ public class FhirControllerIT {
     }
 
     @Test
-    public void testFlare() throws IOException {
+    void testFlare() throws IOException {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json");
         String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
         Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
@@ -148,7 +130,7 @@ public class FhirControllerIT {
     }
 
     @Test
-    public void testCql() throws IOException {
+    void testCql() throws IOException {
         try (FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_female.json")) {
             String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
             Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
@@ -160,13 +142,11 @@ public class FhirControllerIT {
             StepVerifier.create(patientIds).
                     expectNext("1", "2", "4", "VHF00006")
                     .verifyComplete();
-
         }
     }
 
     @Test
-    public void testMustHave() throws IOException, ValidationException {
-
+    void testMustHave() throws IOException, ValidationException {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
@@ -179,30 +159,8 @@ public class FhirControllerIT {
         fis.close();
     }
 
-    /*  @Test
-      public void testFhirSearchCondition() throws IOException, PatientIdNotFoundException, ValidationException {
-          executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/diagnosis_basic_bundle.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_date.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic_code.json", RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_basic.json"));
-      }
-
     @Test
-    public void testFhirSearchObservation() throws IOException, PatientIdNotFoundException, ValidationException {
-        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation.json"));
-    }
-
-    @Test
-
-    /*public void testFhirSearchConditionObservation() throws IOException, PatientIdNotFoundException, ValidationException {
-        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/observation_diagnosis_basic_bundle_id3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_diagnosis_observation.json"));
-    }
-*/
-  /*  @Test
-    public void testAllFields() throws IOException, PatientIdNotFoundException {
-        executeTest(List.of(RESOURCE_PATH_PREFIX + "DataStoreIT/expectedOutput/all_fields_patient_3.json"), List.of(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_all_fields.json"));
-    }
-*/
-
-    @Test
-    public void testCoreMustHave() throws IOException, ValidationException {
+    void testCoreMustHave() throws IOException, ValidationException {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
@@ -217,7 +175,7 @@ public class FhirControllerIT {
         fis.close();
     }
 
-    public void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
+    void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
         TestRestTemplate restTemplate = new TestRestTemplate();
         try {
             String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
@@ -293,14 +251,14 @@ public class FhirControllerIT {
 
         @ParameterizedTest
         @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json"})
-        public void validObservation(String parametersFile) {
+        void validObservation(String parametersFile) {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
             testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
         }
 
         @Test
-        public void emptyRequestBodyReturnsBadRequest() {
+        void emptyRequestBodyReturnsBadRequest() {
             TestRestTemplate restTemplate = new TestRestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.valueOf("application/fhir+json"));
@@ -315,14 +273,10 @@ public class FhirControllerIT {
 
         @ParameterizedTest
         @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
-        public void invalidCRTDLReturnsValidationException(String parametersFile) {
+        void invalidCRTDLReturnsValidationException(String parametersFile) {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
             testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
         }
-
-
     }
-
-
 }

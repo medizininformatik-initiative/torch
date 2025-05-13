@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.setup;
 
-
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -11,10 +10,10 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.io.File;
 import java.time.Duration;
 
-
 public class ContainerManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ContainerManager.class);
+
     private final String blazeHost;
     private final int blazePort;
     private final String flareHost;
@@ -58,7 +57,6 @@ public class ContainerManager {
         logger.info("Containers stopped successfully.");
     }
 
-
     public String getBlazeBaseUrl() {
         return String.format("http://%s:%d/fhir", blazeHost, blazePort);
     }
@@ -66,5 +64,4 @@ public class ContainerManager {
     public String getFlareBaseUrl() {
         return String.format("http://%s:%d", flareHost, flarePort);
     }
-
 }

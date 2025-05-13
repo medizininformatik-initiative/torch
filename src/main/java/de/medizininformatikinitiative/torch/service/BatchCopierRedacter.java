@@ -20,15 +20,18 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 public class BatchCopierRedacter {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchCopierRedacter.class);
+
     private final ElementCopier copier;
     private final Redaction redaction;
 
     public BatchCopierRedacter(ElementCopier copier, Redaction redaction) {
-        this.copier = copier;
-        this.redaction = redaction;
+        this.copier = requireNonNull(copier);
+        this.redaction = requireNonNull(redaction);
     }
 
     /**
@@ -180,7 +183,6 @@ public class BatchCopierRedacter {
         return new ProfileAttributeCollection(groupProfiles, new HashSet<>(highestLevelAttributes.values()));
     }
 
-
     /**
      * @param parentCandidate potential parent Element Id string
      * @param path            Element Id string to be tested against.
@@ -208,8 +210,7 @@ public class BatchCopierRedacter {
         return children;
     }
 
-
-    public boolean isSubPath(String path, Set<String> existingPaths) {
+    private boolean isSubPath(String path, Set<String> existingPaths) {
         for (String existing : existingPaths) {
             if (isParentPath(existing, path)) {
                 return true;
@@ -217,5 +218,4 @@ public class BatchCopierRedacter {
         }
         return false;
     }
-
 }

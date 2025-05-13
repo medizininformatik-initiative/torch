@@ -4,9 +4,8 @@ import com.google.common.collect.Streams;
 
 import java.util.List;
 
-public record NonContinuousPeriod(
-        List<Period> periods
-) {
+public record NonContinuousPeriod(List<Period> periods) {
+
     public NonContinuousPeriod {
         periods = List.copyOf(periods);
     }
@@ -19,7 +18,7 @@ public record NonContinuousPeriod(
         return new NonContinuousPeriod(
                 periods.stream()
                         .map(consentPeriod -> {
-                            if (encounterPeriod.isStartBetween(consentPeriod)) {
+                            if (consentPeriod.isStartBetween(encounterPeriod)) {
                                 return new Period(encounterPeriod.start(), consentPeriod.end());
                             }
                             return consentPeriod;
@@ -43,5 +42,4 @@ public record NonContinuousPeriod(
     public Period get(int index) {
         return periods.get(index);
     }
-
 }

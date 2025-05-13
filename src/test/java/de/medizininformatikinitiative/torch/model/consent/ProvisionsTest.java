@@ -1,73 +1,104 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.Observation;
-import org.junit.jupiter.api.BeforeEach;
+import org.hl7.fhir.r4.model.Encounter;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
-class ConsentProvisionsStaticTest {
+class ProvisionsTest {
 
-    private static final String PATIENT_ID = "123";
-    private static final Map<String, Provisions> STATIC_PROVISIONS_MAP = createStaticProvisions();
-    private Provisions patientProvisions;
+    private Encounter encounter(LocalDate start, LocalDate end) {
+        var hapiPeriod = new org.hl7.fhir.r4.model.Period();
+        hapiPeriod.setStart(java.sql.Date.valueOf(start));
+        hapiPeriod.setEnd(java.sql.Date.valueOf(end));
 
-    @BeforeEach
-    void setUp() {
-        patientProvisions = STATIC_PROVISIONS_MAP.get(PATIENT_ID);
-        assertNotNull(patientProvisions, "Provisions should not be null");
+        var encounter = new Encounter();
+        encounter.setPeriod(hapiPeriod);
+        return encounter;
     }
 
-    @Test
-    void checkConsent_shouldAllowObservationWithinAnyConsentPeriod() {
-        Observation observation = new Observation();
-        observation.setId("obs-1");
-        observation.setEffective(new DateTimeType("2023-06-15"));
-
-        Period resourcePeriod = Period.fromHapi(observation.getEffectiveDateTimeType());
-        assertTrue(patientProvisions.periods().get("consent-key").within(resourcePeriod), "Consent should be valid");
+    private de.medizininformatikinitiative.torch.model.consent.Period period(LocalDate start, LocalDate end) {
+        return new de.medizininformatikinitiative.torch.model.consent.Period(start, end);
     }
 
-    @Test
-    void checkConsent_shouldDenyObservationOutsideAllConsentPeriods() {
-        Observation observation = new Observation();
-        observation.setId("obs-2");
-        observation.setEffective(new DateTimeType("2027-01-01"));
+    @Nested
+    class Update {
 
-        Period resourcePeriod = Period.fromHapi(observation.getEffectiveDateTimeType());
-        assertFalse(patientProvisions.periods().get("consent-key").within(resourcePeriod), "Consent should be invalid");
+        @Test
+        void returnsSameIfEmpty() {
+            var provisions = new Provisions(Map.of(
+                    "A", new NonContinuousPeriod(List.of(period(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 12, 31))))
+            ));
+
+            var updated = provisions.updateConsentPeriodsByPatientEncounters(List.of());
+            assertThat(updated).isEqualTo(provisions);
+        }
+
+        @Test
+        void adjustsStartIfOverlappingEncounter() {
+            var consent = new NonContinuousPeriod(List.of(period(LocalDate.of(2024, 5, 1), LocalDate.of(2024, 10, 1))));
+            var provisions = new Provisions(Map.of("A", consent));
+
+            var updated = provisions.updateConsentPeriodsByPatientEncounters(List.of(
+                    encounter(LocalDate.of(2024, 4, 20), LocalDate.of(2024, 5, 2))
+            ));
+
+            assertThat(updated.periods().get("A").get(0).start()).isEqualTo(LocalDate.of(2024, 4, 20));
+            assertThat(updated.periods().get("A").get(0).end()).isEqualTo(LocalDate.of(2024, 10, 1));
+        }
+
+        @Test
+        void noChangeIfNoOverlap() {
+            var original = period(LocalDate.of(2024, 6, 1), LocalDate.of(2024, 12, 1));
+            var provisions = new Provisions(Map.of("A", new NonContinuousPeriod(List.of(original))));
+
+            var updated = provisions.updateConsentPeriodsByPatientEncounters(List.of(
+                    encounter(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 3, 1))
+            ));
+
+            assertThat(updated.periods().get("A").get(0)).isEqualTo(original);
+        }
     }
 
-    @Test
-    void checkConsent_shouldAllowObservationWithinSecondConsentPeriod() {
-        Observation observation = new Observation();
-        observation.setId("obs-3");
-        observation.setEffective(new DateTimeType("2029-06-15"));
+    @Nested
+    class Merge {
 
-        Period resourcePeriod = Period.fromHapi(observation.getEffectiveDateTimeType());
-        assertTrue(patientProvisions.periods().get("consent-key").within(resourcePeriod), "Consent should be valid within second period");
+        @Test
+        void mergesMultipleProvisions() {
+            var p1 = new Provisions(Map.of(
+                    "X", new NonContinuousPeriod(List.of(period(LocalDate.of(2023, 1, 1), LocalDate.of(2023, 6, 1))))
+            ));
+            var p2 = new Provisions(Map.of(
+                    "X", new NonContinuousPeriod(List.of(period(LocalDate.of(2024, 1, 1), LocalDate.of(2024, 6, 1))))
+            ));
+
+            var result = Provisions.merge(List.of(p1, p2));
+
+            assertThat(result.periods()).containsOnlyKeys("X");
+            assertThat(result.periods().get("X").size()).isEqualTo(2);
+        }
+
+        @Test
+        void preservesEmptyWhenNothingProvided() {
+            var result = Provisions.merge(List.of());
+            assertThat(result.isEmpty()).isTrue();
+        }
     }
 
-    private static Map<String, Provisions> createStaticProvisions() {
-        Map<String, Provisions> provisionsMap = new HashMap<>();
+    @Nested
+    class Empty {
 
-        Period consentPeriod1 = Period.of(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31));
-        Period consentPeriod2 = Period.of(LocalDate.of(2028, 1, 1), LocalDate.of(2030, 12, 31));
-
-        List<Period> multiplePeriods = Arrays.asList(consentPeriod1, consentPeriod2);
-
-        Provisions provisions = new Provisions(
-                Map.of("consent-key", new NonContinuousPeriod(multiplePeriods))
-        );
-        provisionsMap.put(PATIENT_ID, provisions);
-        return provisionsMap;
+        @Test
+        void reportsEmptyCorrectly() {
+            assertThat(Provisions.of().isEmpty()).isTrue();
+            assertThat(new Provisions(Map.of("A", new NonContinuousPeriod(List.of(
+                    period(LocalDate.of(2022, 1, 1), LocalDate.of(2022, 2, 1))
+            )))).isEmpty()).isFalse();
+        }
     }
 }
-

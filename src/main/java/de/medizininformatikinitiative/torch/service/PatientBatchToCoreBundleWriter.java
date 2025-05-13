@@ -7,7 +7,11 @@ import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -35,10 +39,14 @@ public class PatientBatchToCoreBundleWriter {
      * @return A single merged ImmutableResourceBundle.
      */
     public ImmutableResourceBundle processPatientBatch(PatientBatchWithConsent batch) {
-        List<ImmutableResourceBundle> extractedBundles = batch.bundles().values().stream().map(bundle -> new ImmutableResourceBundle(bundle.bundle())).map(this::extractRelevantPatientData) // Step 1: Extract Immutable Bundles
-                .collect(Collectors.toList());
+        // Step 1: Extract Immutable Bundles
+        List<ImmutableResourceBundle> extractedBundles = batch.bundles().values().stream()
+                .map(bundle -> new ImmutableResourceBundle(bundle.bundle()))
+                .map(this::extractRelevantPatientData)
+                .toList();
 
-        return mergeImmutableBundles(extractedBundles); // Step 2: Merge extracted bundles
+        // Step 2: Merge extracted bundles
+        return mergeImmutableBundles(extractedBundles);
     }
 
     public PatientBatchToCoreBundleWriter(CompartmentManager compartmentManager) {
@@ -134,7 +142,7 @@ public class PatientBatchToCoreBundleWriter {
             mergedValidGroups.putAll(bundle.resourceGroupValidity());
 
             // Merge attribute validity
-            bundle.resourceAttributeValidity().forEach((attribute, isValid) -> mergedAttributeValidity.putIfAbsent(attribute, isValid));
+            bundle.resourceAttributeValidity().forEach(mergedAttributeValidity::putIfAbsent);
 
             // Merge parent group to attributes
             bundle.parentResourceGroupToResourceAttributesMap().forEach((resourceGroup, attributes) -> mergedParentGroupToAttributes.computeIfAbsent(resourceGroup, k -> ConcurrentHashMap.newKeySet()).addAll(attributes));

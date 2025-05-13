@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.model.management;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Resource;
-import reactor.core.publisher.Mono;
 
 import java.util.Collection;
 
@@ -22,6 +21,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
     public PatientResourceBundle {
         requireNonNull(patientId);
         requireNonNull(provisions);
+        requireNonNull(bundle);
     }
 
     public PatientResourceBundle(String patientID) {
@@ -36,17 +36,11 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
     }
 
-
     public PatientResourceBundle(String patientID, Provisions provisions) {
         this(patientID, provisions, new ResourceBundle());
     }
 
-    public PatientResourceBundle updateConsent(Provisions provisions) {
-        return new PatientResourceBundle(patientId, provisions, bundle);
-    }
-
-
-    public PatientResourceBundle updateConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
+    public PatientResourceBundle adjustConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
@@ -58,24 +52,17 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return bundle.put(wrapper);
     }
 
-
     public void remove(String id) {
         bundle.remove(id);
     }
-
 
     public Boolean isEmpty() {
         return bundle.isEmpty();
     }
 
-    public ResourceBundle getResourceBundle() {
-        return bundle;
-    }
-
     public boolean contains(String ref) {
         return bundle.contains(ref);
     }
-
 
     public void put(Resource resource) {
         bundle.put(resource);
@@ -83,5 +70,9 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
 
     public Boolean put(Resource resource, String groupId, boolean b) {
         return bundle().put(resource, groupId, b);
+    }
+
+    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
+        bundle.merge(staticInfo);
     }
 }
