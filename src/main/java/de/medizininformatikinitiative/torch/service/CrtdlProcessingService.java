@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -114,8 +115,11 @@ public class CrtdlProcessingService {
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
-                        .map(batch -> PatientBatchWithConsent.fromBatchWithStaticInfo(batch, coreSnapshot))
-                        .flatMap(batch -> crtdl.consentKey().map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch)).orElse(Mono.just(batch)))
+                        .flatMap(batch -> crtdl.consentKey()
+                                .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
+                                .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
+                                .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())) //skip batches without consenting patient
+                        .doOnNext(patientBatch -> patientBatch.addStaticInfo(coreSnapshot))
                         .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File

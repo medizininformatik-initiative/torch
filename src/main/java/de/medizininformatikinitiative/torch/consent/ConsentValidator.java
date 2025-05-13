@@ -16,26 +16,20 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
-public class ConsentValidator {
-    private static final Logger logger = LoggerFactory.getLogger(ConsentValidator.class);
-    private final FhirContext ctx;
-    private final JsonNode resourcetoField;
+import static java.util.Objects.requireNonNull;
 
-    public ConsentValidator(FhirContext ctx, JsonNode resourcetoField) {
-        this.ctx = ctx;
-        this.resourcetoField = resourcetoField;
+public class ConsentValidator {
+
+    private static final Logger logger = LoggerFactory.getLogger(ConsentValidator.class);
+
+    private final FhirContext ctx;
+    private final JsonNode resourceToField;
+
+    public ConsentValidator(FhirContext ctx, JsonNode resourceToField) {
+        this.ctx = requireNonNull(ctx);
+        this.resourceToField = requireNonNull(resourceToField);
     }
 
-    /**
-     * Checks whether the provided {@link DomainResource} complies with the patient's consents.
-     *
-     * <p>This method evaluates the resource against the consent information to determine if access
-     * should be granted based on the defined consent provisions.
-     *
-     * @param resource                The FHIR {@link DomainResource} to check for consent compliance.
-     * @param patientBatchWithConsent A map containing consent information structured by patient ID and consent codes.
-     * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
-     */
     /**
      * Wrapper function that checks whether the provided {@link DomainResource} complies with the patient's consents.
      *
@@ -70,9 +64,9 @@ public class ConsentValidator {
 
     public boolean checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
         JsonNode fieldValue = null;
-        if (resourcetoField.has(resource.getResourceType().toString())) {
+        if (resourceToField.has(resource.getResourceType().toString())) {
             logger.trace("Handling the following Profile {}", resource.getResourceType());
-            fieldValue = resourcetoField.get(resource.getResourceType().toString());
+            fieldValue = resourceToField.get(resource.getResourceType().toString());
         }
 
         if (fieldValue == null) {
@@ -84,24 +78,18 @@ public class ConsentValidator {
             return true;
         }
 
-
         List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
-        
+
         for (Base value : values) {
-            Period period;
-            if (value instanceof org.hl7.fhir.r4.model.Period) {
-                period = Period.fromHapi((org.hl7.fhir.r4.model.Period) value);
-            } else if (value instanceof DateTimeType) {
-                period = Period.fromHapi((DateTimeType) value);
-            } else {
-                throw new IllegalArgumentException("No valid Date Time Value found");
-            }
+            Period period = switch (value.getClass().getSimpleName()) {
+                case "Period" -> Period.fromHapi((org.hl7.fhir.r4.model.Period) value);
+                case "DateTimeType" -> Period.fromHapi((DateTimeType) value);
+                default -> throw new IllegalArgumentException("No valid Date Time Value found");
+            };
             boolean hasValidConsent = patientResourceBundle.provisions().periods().entrySet().stream()
                     .allMatch(innerEntry -> {
                         NonContinuousPeriod consentPeriods = innerEntry.getValue();
-                        boolean within = consentPeriods.within(period);
-                        logger.debug("For Periods {} period {} within {}", consentPeriods, period, within);
-                        return within;
+                        return consentPeriods.within(period);
                     });
             if (hasValidConsent) {
                 return true;
@@ -110,4 +98,3 @@ public class ConsentValidator {
         return false;
     }
 }
-

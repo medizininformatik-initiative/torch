@@ -20,7 +20,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CascadingDeleteTest {
 
-
     private ResourceBundle coreResourceBundle;
     private ResourceAttribute resourceAttribute;
     private ResourceGroup resourceGroup;
@@ -29,12 +28,11 @@ class CascadingDeleteTest {
     private ResourceAttribute resourceAttribute3;
     private ResourceGroup parentResourceGroup1;
     private ResourceGroup parentResourceGroup2;
-    private final CascadingDelete cascadingDelete = new CascadingDelete();
-    private Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
+    private CascadingDelete cascadingDelete;
+    private Map<String, AnnotatedAttributeGroup> groupMap;
 
     @BeforeEach
     void setUp() {
-
         coreResourceBundle = new ResourceBundle();
 
         resourceAttribute = new ResourceAttribute("test", new AnnotatedAttribute("test", "test", "test", false));
@@ -46,15 +44,14 @@ class CascadingDeleteTest {
         resourceGroup2 = new ResourceGroup("resource1", "group2");
         parentResourceGroup2 = new ResourceGroup("resourceP2", "group4");
 
-
+        groupMap = new HashMap<>();
         groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", List.of(), List.of(), null, true));
         groupMap.put("group2", new AnnotatedAttributeGroup("", "group2", "", List.of(), List.of(), null, true));
         groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", List.of(), List.of(), null, true));
         groupMap.put("group4", new AnnotatedAttributeGroup("", "group4", "", List.of(), List.of(), null, false));
 
-
+        cascadingDelete = new CascadingDelete();
     }
-
 
     @Nested
     class HandleBatch {
@@ -83,12 +80,11 @@ class CascadingDeleteTest {
             assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
             assertThat(patientBatchWithConsent.bundles().get("Core")).isEqualTo(new PatientResourceBundle("Core", coreResourceBundle));
         }
-
-
     }
 
     @Nested
     class HandleBundle {
+
         @Test
         void testSimpleChain() {
             coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
@@ -340,15 +336,12 @@ class CascadingDeleteTest {
                 // **branch2 should also be deleted because attr2 was invalidated**
                 assertThat(coreResourceBundle.isValidResourceGroup(branch2)).isFalse();
             }
-
         }
-
-
     }
-
 
     @Nested
     class HandleParents {
+
         @Test
         void NoMustHaveNotRemoved() {
             coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
@@ -376,13 +369,11 @@ class CascadingDeleteTest {
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
         }
-
-
     }
-
 
     @Nested
     class HandleChildren {
+
         @Test
         void attributeStillAlive() {
             coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
@@ -435,6 +426,4 @@ class CascadingDeleteTest {
             assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
         }
     }
-
-
 }
