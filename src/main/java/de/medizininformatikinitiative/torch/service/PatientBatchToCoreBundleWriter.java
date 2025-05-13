@@ -15,7 +15,6 @@ public class PatientBatchToCoreBundleWriter {
 
     private final CompartmentManager compartmentManager;
 
-
     /**
      * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
      * and merging them into a single consolidated ImmutableResourceBundle.
@@ -27,7 +26,6 @@ public class PatientBatchToCoreBundleWriter {
     public void updateCore(PatientBatchWithConsent batch, ResourceBundle coreBundle) {
         coreBundle.merge(processPatientBatch(batch));
     }
-
 
     /**
      * Processes a batch of patient bundles by extracting individual ImmutableResourceBundles
@@ -43,11 +41,9 @@ public class PatientBatchToCoreBundleWriter {
         return mergeImmutableBundles(extractedBundles); // Step 2: Merge extracted bundles
     }
 
-
     public PatientBatchToCoreBundleWriter(CompartmentManager compartmentManager) {
         this.compartmentManager = compartmentManager;
     }
-
 
     /**
      * @param patientResourceBundle to be handled
@@ -150,6 +146,3 @@ public class PatientBatchToCoreBundleWriter {
         return new ImmutableResourceBundle(mergedParentMap, mergedChildMap, mergedValidGroups, mergedAttributeValidity, mergedParentGroupToAttributes, mergedChildGroupToAttributes);
     }
 }
-
-
-

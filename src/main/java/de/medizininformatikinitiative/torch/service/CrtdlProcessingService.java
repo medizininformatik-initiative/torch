@@ -116,39 +116,37 @@ public class CrtdlProcessingService {
                 batches
                         .map(batch -> PatientBatchWithConsent.fromBatchWithStaticInfo(batch, coreSnapshot))
                         .flatMap(batch -> crtdl.consentKey().map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch)).orElse(Mono.just(batch)))
-                        .flatMap(batch ->
-                                        directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
-                                                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
-                                                .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
-                                                .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
-                                                .flatMap(transformedBatch -> {
-                                                            batchToCoreWriter.updateCore(transformedBatch, coreBundle);
-                                                            try {
-                                                                resultFileManager.saveBatchToNDJSON(jobID, transformedBatch);
-                                                                return Mono.empty();
-                                                            } catch (IOException e) {
-                                                                return Mono.error(e);
-                                                            }
-                                                        }
-                                                ),
-                                maxConcurrency
-                        )
+                        .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File
                 Mono.defer(() -> {
                     PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
-
-                    try {
-                        resultFileManager.saveBatchToNDJSON(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
-                        return Mono.empty();
-                    } catch (IOException e) {
-                        return Mono.error(e);
-                    }
+                    return writeBundle(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
                 })
         );
     }
 
+    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {
+        return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
+                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
+                .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
+                .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
+                .flatMap(patientBatch -> {
+                            batchToCoreWriter.updateCore(patientBatch, coreBundle);
+                            return writeBundle(jobID, patientBatch);
+                        }
+                );
+    }
+
+    Mono<Void> writeBundle(String jobID, PatientBatchWithConsent batch) {
+        try {
+            resultFileManager.saveBatchToNDJSON(jobID, batch);
+            return Mono.empty();
+        } catch (IOException e) {
+            return Mono.error(e);
+        }
+    }
 
     public Flux<PatientBatch> fetchPatientBatches(AnnotatedCrtdl crtdl) {
         try {
