@@ -4,20 +4,24 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
+import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
-import java.time.Instant;
 
 import static org.hl7.fhir.r4.model.ResourceType.Patient;
 
 class DataStoreTest {
 
-    private static final Instant FIXED_INSTANT = Instant.ofEpochSecond(104152);
     private static final String PATIENT_BUNDLE = """
             {
               "resourceType": "Bundle",
@@ -74,7 +78,7 @@ class DataStoreTest {
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
-            var result = dataStore.search(Query.ofType("Observation"));
+            var result = dataStore.search(Query.ofType("Observation"), Observation.class);
 
             StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
@@ -84,7 +88,7 @@ class DataStoreTest {
         void errorNoRetry() {
             mockStore.enqueue(new MockResponse().setResponseCode(400));
 
-            var result = dataStore.search(Query.ofType("Observation"));
+            var result = dataStore.search(Query.ofType("Observation"), Observation.class);
 
             StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
         }
@@ -93,7 +97,7 @@ class DataStoreTest {
         void emptyResult() {
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
-            var result = dataStore.search(Query.ofType("Observation"));
+            var result = dataStore.search(Query.ofType("Observation"), Observation.class);
 
             StepVerifier.create(result).verifyComplete();
         }
@@ -102,7 +106,7 @@ class DataStoreTest {
         void fullResult() {
             mockStore.enqueue(new MockResponse().setResponseCode(200).setBody(PATIENT_BUNDLE));
 
-            var result = dataStore.search(Query.ofType("Patient"));
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
 
             StepVerifier.create(result).expectNextMatches(resource -> resource.getResourceType() == Patient).verifyComplete();
         }
@@ -164,7 +168,7 @@ class DataStoreTest {
 
             StepVerifier.create(result)
                     .expectNextMatches(resource -> {
-                        Assertions.assertTrue(resource instanceof Patient);
+                        Assertions.assertInstanceOf(Patient.class, resource);
                         Assertions.assertEquals("123", resource.getIdElement().getIdPart());
                         return true;
                     })
@@ -173,22 +177,14 @@ class DataStoreTest {
 
         @Test
         @DisplayName("Fetches resource using an absolute reference")
-        void fetchResourceByAbsoluteReference() throws IOException {
-            MockWebServer externalServer = new MockWebServer();
-            externalServer.start();
-            String absoluteUrl = "http://localhost:%d/fhir/Patient/123".formatted(externalServer.getPort());
-
-            externalServer.enqueue(new MockResponse()
-                    .setResponseCode(200)
-                    .setBody(PATIENT_RESOURCE));
+        void fetchResourceByAbsoluteReference() {
+            String absoluteUrl = "http://localhost:%d/fhir/Patient/123".formatted(mockStore.getPort());
 
             var result = dataStore.fetchResourceByReference(absoluteUrl);
 
             StepVerifier.create(result)
                     .expectError(IllegalArgumentException.class)
                     .verify();
-
-            externalServer.shutdown();
         }
 
         @Test

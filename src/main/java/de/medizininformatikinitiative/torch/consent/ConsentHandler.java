@@ -96,8 +96,7 @@ public class ConsentHandler {
         Query query = Query.of(type, QueryParams.of("_profile", stringValue(CDS_CONSENT_PROFILE_URL))
                 .appendParams(batch.compartmentSearchParam(type)));
 
-        return dataStore.search(query)
-                .cast(Consent.class)
+        return dataStore.search(query, Consent.class)
                 .doOnSubscribe(subscription -> logger.trace("Fetching resources for batch: {}", batch.bundles().keySet()))
                 .doOnNext(resource -> logger.trace("Consent resource with id {} fetched for ConsentBuild", resource.getIdPart()))
                 .flatMap(consent -> {
@@ -167,8 +166,7 @@ public class ConsentHandler {
 
         Query query = Query.of(type, QueryParams.of("_profile", stringValue(CDS_ENCOUNTER_PROFILE_URL))
                 .appendParams(updateBatch.compartmentSearchParam(type)));
-        Flux<Encounter> allEncountersFlux = dataStore.search(query)
-                .cast(Encounter.class)
+        Flux<Encounter> allEncountersFlux = dataStore.search(query, Encounter.class)
                 .doOnSubscribe(subscription -> logger.trace("Fetching encounters for batch: {}", updateBatch.patientIds()))
                 .doOnNext(encounter -> logger.trace("Encounter fetched: {}", encounter.getIdElement().getIdPart()));
 

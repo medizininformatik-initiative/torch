@@ -15,7 +15,6 @@ import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,7 +22,10 @@ import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -84,11 +86,11 @@ public class DirectResourceLoader {
         return Flux.fromIterable(group.queries(dseMappingTreeBase, structureDefinitionsHandler.getResourceType(group.groupReference())));
     }
 
-    Flux<Resource> executeQueryWithBatch(PatientBatch batch, Query query) {
-        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())));
+    Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
+        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())), DomainResource.class);
     }
 
-    private Mono<Resource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
+    private Mono<DomainResource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
         if (!patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent)) {
             return Mono.just(resource);
         } else {
@@ -112,7 +114,7 @@ public class DirectResourceLoader {
         logger.debug("Process core attribute group {}...", group.id());
 
         AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
-        return groupQueries(group).flatMap(dataStore::search, 1).doOnNext(resource -> {
+        return groupQueries(group).flatMap(query -> dataStore.search(query, DomainResource.class), 1).doOnNext(resource -> {
             String id = ResourceUtils.getRelativeURL(resource);
             logger.trace("Storing resource {} under ID: {}", id, id);
             if (profileMustHaveChecker.fulfilled(resource, group)) {
@@ -157,11 +159,11 @@ public class DirectResourceLoader {
 
         return groupQueries(group)
                 .flatMap(query -> executeQueryWithBatch(batch.patientBatch(), query), 1)
-                .flatMap(resource -> applyConsent((DomainResource) resource, batch))
+                .flatMap(resource -> applyConsent(resource, batch))
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
-                        String patientId = ResourceUtils.patientId((DomainResource) resource);
+                        String patientId = ResourceUtils.patientId(resource);
                         PatientResourceBundle bundle = mutableBundles.get(patientId);
 
                         if (profileMustHaveChecker.fulfilled(resource, group)) {

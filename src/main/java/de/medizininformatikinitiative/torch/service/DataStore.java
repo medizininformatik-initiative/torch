@@ -22,6 +22,7 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
+import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
 import java.util.Optional;
@@ -34,6 +35,9 @@ import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 public class DataStore {
 
     private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
+    private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
+            .filter(e -> e instanceof WebClientResponseException e1 &&
+                    shouldRetry((e1).getStatusCode()));
 
     private final WebClient client;
     private final FhirContext fhirContext;
@@ -81,9 +85,7 @@ public class DataStore {
                 .uri("/{type}/{id}", type, id)
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+                .retryWhen(RETRY_SPEC)
                 .flatMap(this::parseFhirResource)
                 .doOnSuccess(resource -> logger.debug("Successfully fetched resource: {}/{}", type, id))
                 .doOnError(error -> logger.error("Failed to fetch resource {}/{}: {}", type, id, error.getMessage()));
@@ -109,12 +111,16 @@ public class DataStore {
     }
 
     /**
-     * Executes {@code FHIRSearchQuery} and returns all resources found with that query.
+     * Executes {@code query} and returns all resources found.
      *
-     * @param query the fhir search query defined by the attribute group
-     * @return the resources found with the {@code FHIRSearchQuery}
+     * <p> All bundles that don't correspond to the given {@code resourceType} are ignored
+     * and a warning about that event is logged.
+     *
+     * @param query        the fhir search query defined by the attribute group
+     * @param resourceType the Type of the Bundle entries queried
+     * @return the resources found
      */
-    public Flux<Resource> search(Query query) {
+    public <T extends Resource> Flux<T> search(Query query, Class<T> resourceType) {
         var start = System.nanoTime();
         logger.debug("Execute query: {}", query);
 
@@ -128,10 +134,16 @@ public class DataStore {
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
-                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+                .retryWhen(RETRY_SPEC)
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
+                .flatMap(resource -> {
+                    if (resourceType.isInstance(resource)) {
+                        return Mono.just(resourceType.cast(resource));
+                    } else {
+                        logger.warn("Found miss match resource type {} querying type {}", resource.getClass().getSimpleName(), query.type());
+                        return Mono.empty();
+                    }
+                })
                 .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds.", query,
                         "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
@@ -154,9 +166,7 @@ public class DataStore {
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+                .retryWhen(RETRY_SPEC)
                 .doOnSuccess(response -> logger.debug("Successfully executed a transaction."))
                 .doOnError(error -> logger.error("Error occurred executing a transaction: {}", error.getMessage()))
                 .then();
@@ -178,9 +188,7 @@ public class DataStore {
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(params))
                 .retrieve()
                 .bodyToMono(String.class)
-                .retryWhen(Retry.backoff(5, Duration.ofSeconds(1))
-                        .filter(e -> e instanceof WebClientResponseException &&
-                                shouldRetry(((WebClientResponseException) e).getStatusCode())))
+                .retryWhen(RETRY_SPEC)
                 .map(response -> fhirContext.newJsonParser().parseResource(MeasureReport.class, response))
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {}.", measureUrn))
                 .doOnError(error -> logger.error("Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));

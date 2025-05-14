@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
+import org.hl7.fhir.r4.model.Patient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
@@ -42,9 +43,9 @@ public class CqlClient {
                 .map(CqlClient::extractSubjectListId)
                 .map(CqlClient::createPatientQuery)
                 .flux()
-                .flatMap(dataStore::search)
-                .flatMap(resource -> {
-                    var id = resource.getIdPart();
+                .flatMap(query -> dataStore.search(query, Patient.class))
+                .flatMap(patient -> {
+                    var id = patient.getIdPart();
                     return id == null ? Flux.error(new RuntimeException("Encountered Patient Resource without ID")) : Flux.just(id);
                 });
     }
