@@ -10,9 +10,9 @@ import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -79,11 +79,24 @@ public class DirectResourceLoaderIT {
         PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Patient", EMPTY); // Basic query setup
 
-        Flux<Resource> result = dLoader.executeQueryWithBatch(batch, query);
+        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
 
         StepVerifier.create(result)
-                .expectNextMatches(resource -> resource instanceof Patient)
-                .expectNextMatches(resource -> resource instanceof Patient)
+                .expectNextMatches(Patient.class::isInstance)
+                .expectNextMatches(Patient.class::isInstance)
+                .verifyComplete();
+    }
+
+    @Test
+    void testExecuteQueryWithObservation() {
+        PatientBatch batch = PatientBatch.of("1", "2");
+        Query query = new Query("Observation", EMPTY); // Basic query setup
+
+        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
+
+        StepVerifier.create(result)
+                .expectNextMatches(Observation.class::isInstance)
+                .expectNextMatches(Observation.class::isInstance)
                 .verifyComplete();
     }
 
