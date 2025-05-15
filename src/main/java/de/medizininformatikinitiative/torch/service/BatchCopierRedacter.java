@@ -5,7 +5,11 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -56,7 +60,7 @@ public class BatchCopierRedacter {
      * @return Mono of Transformed PatientResourceBundle
      */
     public PatientResourceBundle transform(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        ResourceBundle bundle = patientResourceBundle.bundle();
+        cachingResourceBundle bundle = patientResourceBundle.bundle();
 
         // Step 1: Group valid resource groups by resourceId
         HashMap<String, Set<String>> groupedResources = new HashMap<>();

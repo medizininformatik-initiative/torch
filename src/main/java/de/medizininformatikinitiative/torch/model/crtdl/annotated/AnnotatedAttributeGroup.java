@@ -22,7 +22,7 @@ public record AnnotatedAttributeGroup(
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
         Predicate<Resource> compiledFilter,
-        Boolean includeReferenceOnly) {
+        boolean includeReferenceOnly) {
 
     /**
      * @param groupReference
@@ -48,9 +48,6 @@ public record AnnotatedAttributeGroup(
         filter = filter == null ? List.of() : List.copyOf(filter);
         if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
-        }
-        if (includeReferenceOnly == null) {
-            includeReferenceOnly = false;
         }
     }
 

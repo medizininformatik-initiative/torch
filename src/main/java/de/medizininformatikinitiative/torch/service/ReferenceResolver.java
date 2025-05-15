@@ -7,8 +7,8 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Resource;
@@ -53,7 +53,7 @@ public class ReferenceResolver {
      * @param groupMap   map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
-    public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    public Mono<cachingResourceBundle> resolveCoreBundle(cachingResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(coreBundle.resourceGroupValidity().keySet())
                 .expand(resourceGroup -> processResourceGroup(resourceGroup, null, coreBundle, false, groupMap).onErrorResume(e -> {
 
@@ -73,7 +73,7 @@ public class ReferenceResolver {
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
     Mono<PatientBatchWithConsent> processSinglePatientBatch(
-            PatientBatchWithConsent batch, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+            PatientBatchWithConsent batch, cachingResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(batch.bundles().entrySet())
                 .concatMap(entry -> resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
                         .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
@@ -93,12 +93,11 @@ public class ReferenceResolver {
      */
     public Mono<PatientResourceBundle> resolvePatient(
             PatientResourceBundle patientBundle,
-            ResourceBundle coreBundle,
+            cachingResourceBundle coreBundle,
             boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         return Flux.fromIterable(patientBundle.bundle().resourceGroupValidity().keySet())
-                //Input alle direkt geladenen resourceGroup und expanden auf returnwert
                 .expand(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, applyConsent, groupMap).onErrorResume(e -> {
 
                     logger.warn("Error processing resource group {} in PatientBundle: {}", resourceGroup, e.getMessage());
@@ -118,15 +117,15 @@ public class ReferenceResolver {
      * @param groupMap            map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
-    private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+    private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, cachingResourceBundle coreBundle, boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        Mono<Resource> resourceMono = null;
+        Mono<Resource> resourceMono;
         boolean patientResource = compartmentManager.isInCompartment(parentResourceGroup);
         if (patientResource && patientBundle == null) {
 
             return Flux.error(new ResourceTypeMissmatchException("Handling a Patient Resource Bundle without a Patient Resource Bundle"));
         }
-        ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
+        cachingResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
         if (patientResource) {
             resourceMono = Mono.justOrEmpty(processingBundle.get(parentResourceGroup.resourceId()));
         } else {
@@ -159,7 +158,6 @@ public class ReferenceResolver {
                                 return Flux.error(new MustHaveViolatedException("Must-have attribute violated in group: " + parentResourceGroup));
                             }
 
-                            //  If no references need processing, return empty
                             if (!shouldProcess) {
                                 return Flux.empty();
                             }

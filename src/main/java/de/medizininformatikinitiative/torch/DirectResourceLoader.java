@@ -9,7 +9,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Loader class, that handles the fetching of Resources from the datastore in batches and applying consent.
@@ -71,15 +71,9 @@ public class DirectResourceLoader {
         return processBatchWithConsent(attributeGroups, batch);
     }
 
-
     private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
-
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
-
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> {
-            // Ensure the updated safeSet is applied before returning
-            return patientBatchWithConsent.keep(safeSet);
-        });
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> patientBatchWithConsent.keep(safeSet));
     }
 
     private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
@@ -106,23 +100,23 @@ public class DirectResourceLoader {
                 .then(Mono.just(batch));
     }
 
-    public Mono<ResourceBundle> processCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
-        return Flux.fromIterable(attributeGroups).flatMap(group -> processCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
+    public Mono<cachingResourceBundle> processCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, cachingResourceBundle coreCachingResourceBundle) {
+        return Flux.fromIterable(attributeGroups).flatMap(group -> processCoreAttributeGroup(group, coreCachingResourceBundle)).then(Mono.just(coreCachingResourceBundle));
     }
 
-    public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
+    public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, cachingResourceBundle cachingResourceBundle) {
         logger.debug("Process core attribute group {}...", group.id());
 
-        AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
+        AtomicBoolean atLeastOneResource = new AtomicBoolean(!group.hasMustHave());
         return groupQueries(group).flatMap(query -> dataStore.search(query, DomainResource.class), 1).doOnNext(resource -> {
             String id = ResourceUtils.getRelativeURL(resource);
             logger.trace("Storing resource {} under ID: {}", id, id);
             if (profileMustHaveChecker.fulfilled(resource, group)) {
 
                 atLeastOneResource.set(true);
-                resourceBundle.put(resource, group.id(), true);
+                cachingResourceBundle.put(resource, group.id(), true);
             } else {
-                resourceBundle.put(resource, group.id(), false);
+                cachingResourceBundle.put(resource, group.id(), false);
             }
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {

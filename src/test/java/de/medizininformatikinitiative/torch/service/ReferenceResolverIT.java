@@ -6,7 +6,11 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Condition;
@@ -189,12 +193,12 @@ class ReferenceResolverIT {
 
         @Test
         void resolveCoreBundle_success() {
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
             Medication testResource = new Medication();
             testResource.setId("testResource");
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
 
-            Mono<ResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle, attributeGroupMap);
+            Mono<cachingResourceBundle> result = referenceResolver.resolveCoreBundle(coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(bundle -> assertThat(bundle.isEmpty()).isFalse())
@@ -208,8 +212,8 @@ class ReferenceResolverIT {
             patient.setId("testPatient");
             patientBundle.put(patient);
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
-            ResourceBundle coreBundle = new ResourceBundle();
-            Boolean applyConsent = true;
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
+            boolean applyConsent = true;
 
             Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, applyConsent, attributeGroupMap);
 
@@ -231,7 +235,7 @@ class ReferenceResolverIT {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = parser.parseResource(Patient.class, PATIENT);
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
 
 
@@ -246,7 +250,7 @@ class ReferenceResolverIT {
                         assertThat(bundle.isEmpty()).isFalse();
 
                         // Check attribute mappings in processingBundle
-                        ResourceBundle processingBundle = bundle.bundle();
+                        cachingResourceBundle processingBundle = bundle.bundle();
 
 
                         assertThat(processingBundle.resourceAttributeToChildResourceGroup())
@@ -281,7 +285,7 @@ class ReferenceResolverIT {
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = new Patient();
             patient.setId("VHF00006");
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
@@ -290,7 +294,7 @@ class ReferenceResolverIT {
             StepVerifier.create(result)
                     .assertNext(bundle -> {
                                 // Check attribute mappings in processingBundle
-                                ResourceBundle processingBundle = bundle.bundle();
+                                cachingResourceBundle processingBundle = bundle.bundle();
                                 assertThat(bundle.isEmpty()).isFalse();
                                 assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
@@ -318,7 +322,7 @@ class ReferenceResolverIT {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient patient = parser.parseResource(Patient.class, PATIENT);
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
             Condition condition = parser.parseResource(Condition.class, CONDITION);
 
 
@@ -330,7 +334,7 @@ class ReferenceResolverIT {
             StepVerifier.create(result)
                     .assertNext(bundle -> {
                                 // Check attribute mappings in processingBundle
-                                ResourceBundle processingBundle = bundle.bundle();
+                                cachingResourceBundle processingBundle = bundle.bundle();
                                 assertThat(bundle.isEmpty()).isFalse();
                                 assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(new ResourceGroup("Condition/2", "Condition1"), false,

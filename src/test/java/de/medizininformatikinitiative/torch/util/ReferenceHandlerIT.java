@@ -10,9 +10,9 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Organization;
@@ -29,7 +29,11 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -147,8 +151,6 @@ class ReferenceHandlerIT {
 
     public static final String PAT_REFERENCE = "Patient/VHF00006";
 
-    private ReferenceExtractor extractor;
-
     @MockBean
     private DataStore dataStore;
 
@@ -160,9 +162,6 @@ class ReferenceHandlerIT {
 
     @MockBean
     private ConsentValidator consentValidator;
-
-    @Autowired
-    FhirContext fhirContext;
 
     private ReferenceHandler referenceHandler;
 
@@ -198,9 +197,6 @@ class ReferenceHandlerIT {
         organization = new Organization();
         organization.setId("evilInc");
 
-
-        this.extractor = new ReferenceExtractor(fhirContext);
-
         this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentValidator);
         this.parser = FhirContext.forR4().newJsonParser();
     }
@@ -210,7 +206,7 @@ class ReferenceHandlerIT {
 
         @Test
         void resolveCoreBundle_success() {
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
             Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of("Medication/testMedication"), "EncounterGroup", "parent"), null, coreBundle, false, attributeGroupMap);
@@ -232,7 +228,7 @@ class ReferenceHandlerIT {
                     .thenReturn(Mono.error(new ResourceNotFoundException("Resource not found for reference: " + invalidReference)));
 
 
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
 
             Flux<List<ResourceGroup>> result = referenceHandler.handleReference(
                     new ReferenceWrapper(referenceAttribute, List.of(invalidReference), "EncounterGroup", "parent"),
@@ -264,7 +260,7 @@ class ReferenceHandlerIT {
                     .thenReturn(Mono.error(new ResourceNotFoundException("Resource not found for reference: " + invalidReference)));
 
 
-            ResourceBundle coreBundle = new ResourceBundle();
+            cachingResourceBundle coreBundle = new cachingResourceBundle();
 
             Flux<List<ResourceGroup>> result = referenceHandler.handleReference(
                     new ReferenceWrapper(referenceAttribute, List.of(invalidReference), "EncounterGroup", "parent"),

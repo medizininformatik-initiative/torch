@@ -23,7 +23,7 @@ public class ProfileMustHaveChecker {
         this.fhirPathEngine = ctx.newFhirPath();
     }
 
-    public Boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
+    public boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
         if (group == null) {
             return false;
         }
@@ -35,11 +35,9 @@ public class ProfileMustHaveChecker {
 
         if (resource.getResourceType().toString().equals("Patient") || profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {
-                boolean allMustHaveFulfilled = group.attributes().stream()
+                return group.attributes().stream()
                         .filter(AnnotatedAttribute::mustHave)
-                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Prevent null propagation
-
-                return allMustHaveFulfilled; // Ensures true or false
+                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Ensures true or false
             }
             return true;
         }
