@@ -1,16 +1,20 @@
 package de.medizininformatikinitiative.torch.assertions;
 
+import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.fhirpath.IFhirPath;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.ListAssert;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
+import org.hl7.fhir.r4.model.UriType;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
 
 public class BundleAssert extends AbstractAssert<BundleAssert, Bundle> {
+    private final static IFhirPath fhirPathEngine = FhirContext.forR4().newFhirPath();
 
     public BundleAssert(Bundle bundle) {
         super(bundle, BundleAssert.class);
@@ -39,6 +43,7 @@ public class BundleAssert extends AbstractAssert<BundleAssert, Bundle> {
 
     /**
      * Extracts resources of the bundle by a filter.
+     *
      * @param predicate the filter to apply to each resource in the bundle
      * @return the filtered resources
      */
@@ -46,11 +51,16 @@ public class BundleAssert extends AbstractAssert<BundleAssert, Bundle> {
         return new ListAssert<>(filterResources(predicate));
     }
 
+    public ListAssert<String> extractBatchBundleUrls() {
+        return new ListAssert<>(fhirPathEngine.evaluate(actual, "Bundle.entry.request.url", UriType.class).stream().map(UriType::getValueAsString).toList());
+    }
+
     /**
      * Extracts the only patient of the bundle.
      * <p>
      * This is a convenience method that works similar to {@link #extractResources(Predicate)} but additionally asserts
      * that there is only one patient allowed in a bundle.
+     *
      * @return the patient resource
      */
     public ResourceAssert extractOnlyPatient() {

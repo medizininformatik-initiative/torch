@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
+import de.medizininformatikinitiative.torch.assertions.Assertions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -11,7 +12,6 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -26,6 +26,10 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
@@ -50,11 +54,44 @@ class DataStoreTest {
             }
             """;
 
-    private static final String PATIENT_RESOURCE = """
-            {
-              "resourceType": "Patient",
-              "id": "123"
-            }
+
+    private static final String BATCH_RESPONSE = """
+            {                "resourceType": "Bundle",
+                             "type": "batch-response",
+                             "entry": [
+                               {
+                                 "response": {
+                                   "status": "200"
+                                 },
+                                 "resource": {
+                                  "resourceType": "Bundle",
+                                   "type": "searchset",
+                                   "entry": [
+                                     {
+                                       "resource": {
+                                         "resourceType": "Patient",
+                                         "id": "1",
+                                         "gender": "male"
+                                       },
+                                       "search": {
+                                         "mode": "match"
+                                       }
+                                     }
+                                   ]
+                                 }
+                               },
+                               {
+                                 "response": {
+                                   "status": "200"
+                                 },
+                                 "resource": {
+                                   "resourceType": "Bundle",
+                                   "type": "searchset"
+            
+                                 }
+                               }
+                             ]
+                           }
             """;
 
     private MockWebServer mockStore;
@@ -95,15 +132,16 @@ class DataStoreTest {
             dataStore = new DataStore(client, ctx, 1000, false);
         }
 
-        @Test
+        @ParameterizedTest
+        @ValueSource(ints = {404, 500})
         @DisplayName("fails after 5 unsuccessful retries")
-        void retryFails() {
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
+        void retryFails(int statusCode) {
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
             var result = dataStore.search(Query.ofType("Observation"), Observation.class);
@@ -141,7 +179,7 @@ class DataStoreTest {
     }
 
     @Nested
-    class FetchResourceByReference {
+    class FetchReferencesByBatch {
 
         @BeforeEach
         void setUp() {
@@ -151,105 +189,61 @@ class DataStoreTest {
         @Test
         @DisplayName("Fetch with retry")
         void fetchWithRetry() {
-            String reference = "Patient/123";
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse()
                     .setResponseCode(200)
-                    .setBody(PATIENT_RESOURCE));
+                    .setBody(BATCH_RESPONSE));
 
-            var result = dataStore.fetchResourceByReference(reference);
+
+            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
 
             StepVerifier.create(result)
-                    .expectNextMatches(resource -> {
-                        Assertions.assertInstanceOf(Patient.class, resource);
-                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
-                        return true;
-                    })
-                    .verifyComplete();
-
+                    .expectNextMatches(resources ->
+                            resources.size() == 1 && resources.getFirst().getResourceType() == Patient && resources.getFirst().getIdElement().getIdPart().equals("1"))
+                    .expectComplete()
+                    .verify();
         }
 
         @Test
+        void buildBatch() {
+            Map<String, Set<String>> ReferencesGroupedByType = Map.of(
+                    "Observation", new LinkedHashSet<>(List.of("123")),
+                    "Patient", new LinkedHashSet<>(List.of("2", "1")),
+                    "Medication", new LinkedHashSet<>(List.of("123")));
+            Assertions.assertThat(dataStore.createBatchBundleForReferences(ReferencesGroupedByType)).extractBatchBundleUrls().containsExactlyInAnyOrder(
+                    "Patient?_id=2,1", "Observation?_id=123", "Medication?_id=123"
+            );
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {404, 500})
         @DisplayName("fails after 5 unsuccessful retries")
-        void retryFails() {
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
+        void retryFails(int statusCode) {
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
-            String reference = "Patient/123";
-            var result = dataStore.fetchResourceByReference(reference);
+            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
 
             StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
 
-
         @Test
-        @DisplayName("Fetches resource using a relative reference")
-        void fetchResourceByRelativeReference() {
-            String reference = "Patient/123";
+        @DisplayName("doesn't retry a 400")
+        void errorNoRetry() {
+            mockStore.enqueue(new MockResponse().setResponseCode(400));
 
-            mockStore.enqueue(new MockResponse()
-                    .setResponseCode(200)
-                    .setBody(PATIENT_RESOURCE));
+            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
 
-            var result = dataStore.fetchResourceByReference(reference);
-
-            StepVerifier.create(result)
-                    .expectNextMatches(resource -> {
-                        Assertions.assertInstanceOf(Patient.class, resource);
-                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
-                        return true;
-                    })
-                    .verifyComplete();
+            StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
         }
 
-        @Test
-        @DisplayName("Fetches resource using an absolute reference")
-        void fetchResourceByAbsoluteReference() {
-            String absoluteUrl = "http://localhost:%d/fhir/Patient/123".formatted(mockStore.getPort());
 
-            var result = dataStore.fetchResourceByReference(absoluteUrl);
-
-            StepVerifier.create(result)
-                    .expectError(IllegalArgumentException.class)
-                    .verify();
-        }
-
-        @Test
-        @DisplayName("Returns error for invalid reference format")
-        void fetchResourceByInvalidReference() {
-            String invalidReference = "InvalidReference";
-
-            var result = dataStore.fetchResourceByReference(invalidReference);
-
-            StepVerifier.create(result)
-                    .expectError(IllegalArgumentException.class)
-                    .verify();
-        }
-
-        @Test
-        @DisplayName("Handles 404 not found")
-        void fetchResourceNotFound() {
-            String reference = "Patient/999";
-
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-            mockStore.enqueue(new MockResponse().setResponseCode(404));
-
-            var result = dataStore.fetchResourceByReference(reference);
-
-            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
-        }
     }
 
     @Nested

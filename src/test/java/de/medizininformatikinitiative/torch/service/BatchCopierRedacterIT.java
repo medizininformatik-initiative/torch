@@ -228,7 +228,7 @@ class BatchCopierRedacterIT {
             PatientResourceBundle result = batchCopierRedacter.transform(bundle, attributeGroupMap);
 
             assertThat(result.bundle().cache()).hasSize(1);
-            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2"));
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
 
@@ -251,7 +251,7 @@ class BatchCopierRedacterIT {
             PatientResourceBundle result = batchCopierRedacter.transform(bundle, attributeGroupMap);
 
             assertThat(result.bundle().cache()).hasSize(1);
-            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2"));
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
             assertThat(actualJson).isEqualTo(expectedJson);
@@ -276,7 +276,7 @@ class BatchCopierRedacterIT {
                 PatientResourceBundle resultBundle = result.bundles().get("PatientBundle");
 
                 assertThat(resultBundle.bundle().cache()).hasSize(1);
-                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.get("Condition/2"));
+                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.get("Condition/2").get());
                 String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
 

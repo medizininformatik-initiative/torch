@@ -5,6 +5,7 @@ import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.Collection;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -32,8 +33,8 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         this(patientID, Provisions.of(), bundle);
     }
 
-    public PatientResourceBundle(String patientID, ImmutableResourceBundle immutableResourceBundle) {
-        this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
+    public PatientResourceBundle(String patientID, CachelessResourceBundle cachelessResourceBundle) {
+        this(patientID, Provisions.of(), cachelessResourceBundle.toCaching());
     }
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
@@ -44,7 +45,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return new PatientResourceBundle(patientId, provisions.updateConsentPeriodsByPatientEncounters(encounters), bundle);
     }
 
-    public Resource get(String id) {
+    public Optional<Resource> get(String id) {
         return bundle.get(id);
     }
 
@@ -72,7 +73,16 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return bundle().put(resource, groupId, b);
     }
 
-    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
+    /**
+     * Puts an empty Optional resource for an resource id
+     *
+     * @param resourceReference the referenceString of the resource that could not be fetched.
+     */
+    public void put(String resourceReference) {
+        bundle.put(resourceReference);
+    }
+
+    public void addStaticInfo(CachelessResourceBundle staticInfo) {
         bundle.merge(staticInfo);
     }
 }

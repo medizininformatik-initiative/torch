@@ -3,7 +3,11 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -20,24 +24,20 @@ class PatientBatchToCoreBundleWriterTest {
 
     private PatientBatchToCoreBundleWriter writer;
     private CompartmentManager compartmentManager;
+    private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
+    private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
+    private final ResourceGroup patientGroup = new ResourceGroup("Patient/123", "Group1");
+    private final ResourceAttribute attribute = new ResourceAttribute("attribute1", annotatedAttribute1);
+    private final ResourceAttribute attribute2 = new ResourceAttribute("attribute2", annotatedAttribute1);
+    private final ResourceGroup medicationGroup = new ResourceGroup("Medication/123", "Group1");
+    private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/321", "Group1");
     private ResourceBundle patientBundle;
-    private ResourceBundle coreBundle;
-
-    private AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
-    private AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
-
-    private ResourceGroup patientGroup = new ResourceGroup("Patient/123", "Group1");
-    private ResourceAttribute attribute = new ResourceAttribute("attribute1", annotatedAttribute1);
-    private ResourceAttribute attribute2 = new ResourceAttribute("attribute2", annotatedAttribute1);
-    private ResourceGroup medicationGroup = new ResourceGroup("Medication/123", "Group1");
-    private ResourceGroup medicationGroup2 = new ResourceGroup("Medication/321", "Group1");
 
     @BeforeEach
     void setUp() {
         compartmentManager = Mockito.mock(CompartmentManager.class);
         writer = new PatientBatchToCoreBundleWriter(compartmentManager);
         patientBundle = new ResourceBundle();
-        coreBundle = new ResourceBundle();
     }
 
     @Nested
@@ -58,7 +58,7 @@ class PatientBatchToCoreBundleWriterTest {
             when(compartmentManager.isInCompartment(patientGroup)).thenReturn(true);
             when(compartmentManager.isInCompartment(medicationGroup)).thenReturn(false);
 
-            ImmutableResourceBundle extractedData = writer.extractRelevantPatientData(new ImmutableResourceBundle(patientBundle));
+            CachelessResourceBundle extractedData = writer.extractRelevantPatientData(new CachelessResourceBundle(patientBundle));
 
             assertThat(extractedData.resourceGroupValidity()).containsExactly(Map.entry(medicationGroup, true));
             assertThat(extractedData.resourceAttributeValidity()).isEmpty();
@@ -84,9 +84,9 @@ class PatientBatchToCoreBundleWriterTest {
             when(compartmentManager.isInCompartment(patientGroup)).thenReturn(true);
             when(compartmentManager.isInCompartment(medicationGroup)).thenReturn(false);
 
-            ImmutableResourceBundle extractedData = writer.extractRelevantPatientData(new ImmutableResourceBundle(patientBundle));
+            CachelessResourceBundle extractedData = writer.extractRelevantPatientData(new CachelessResourceBundle(patientBundle));
 
-            assertThat(extractedData.resourceGroupValidity()).containsExactly(Map.entry(medicationGroup, true), Map.entry(medicationGroup2, true));
+            assertThat(extractedData.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(Map.of(medicationGroup, true, medicationGroup2, true));
             assertThat(extractedData.resourceAttributeValidity()).containsExactly(Map.entry(attribute2, true));
             assertThat(extractedData.childResourceGroupToResourceAttributesMap()).containsExactly(Map.entry(medicationGroup2, Set.of(attribute2)));
             assertThat(extractedData.parentResourceGroupToResourceAttributesMap()).containsExactly(Map.entry(medicationGroup, Set.of(attribute2)));
@@ -141,7 +141,7 @@ class PatientBatchToCoreBundleWriterTest {
             when(compartmentManager.isInCompartment(organizationGroup)).thenReturn(false);
 
 
-            ImmutableResourceBundle processedBundle = writer.extractRelevantPatientData(new ImmutableResourceBundle(patientBundle));
+            CachelessResourceBundle processedBundle = writer.extractRelevantPatientData(new CachelessResourceBundle(patientBundle));
 
             // Patients should be removed, but Medications and Organization should remain
             assertThat(processedBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(Map.of(medicationGroup1, true, medicationGroup2, true, organizationGroup, true));
@@ -223,7 +223,7 @@ class PatientBatchToCoreBundleWriterTest {
                     new PatientResourceBundle("patient2", patientBundle2)
             ));
 
-            ImmutableResourceBundle mergedBundle = writer.processPatientBatch(batch);
+            CachelessResourceBundle mergedBundle = writer.processPatientBatch(batch);
 
             // Patients should be removed, but Medications and Organization should remain
             assertThat(mergedBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(Map.of(
@@ -299,7 +299,7 @@ class PatientBatchToCoreBundleWriterTest {
             when(compartmentManager.isInCompartment(medicationGroup3)).thenReturn(false);
 
             PatientBatchWithConsent batch = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("patient1", patientBundle1), new PatientResourceBundle("patient2", patientBundle2), new PatientResourceBundle("patient3", patientBundle3)));
-            ImmutableResourceBundle mergedBundle = writer.processPatientBatch(batch);
+            CachelessResourceBundle mergedBundle = writer.processPatientBatch(batch);
 
             assertThat(mergedBundle.resourceAttributeValidity()).isEmpty();
 

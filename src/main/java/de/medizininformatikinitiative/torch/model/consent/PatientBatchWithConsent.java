@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -36,8 +36,8 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
                 .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
     }
 
-    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
-        bundles.values().forEach(batch -> batch.addStaticInfo(staticInfo));
+    public void addStaticInfo(CachelessResourceBundle staticInfo) {
+        bundles.values().forEach(bundle -> bundle.addStaticInfo(staticInfo));
     }
 
     public PatientBatch patientBatch() {
