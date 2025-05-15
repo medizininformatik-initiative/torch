@@ -29,7 +29,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class ReferenceHandlerTest {
+class ReferenceHandlerTest {
 
     @Mock
     private DataStore dataStore;
@@ -55,7 +55,7 @@ public class ReferenceHandlerTest {
     @Nested
     class CoreResource {
         @Test
-        public void shouldResolveReferenceSuccessfully() {
+        void shouldResolveReferenceSuccessfully() {
 
             Resource coreResource = mock(Resource.class);
 
@@ -73,7 +73,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void noCoreResourceFound() {
+        void noCoreResourceFound() {
 
             Resource coreResource = mock(Resource.class);
 
@@ -91,7 +91,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void shouldReturnEmptyWhenEmptyRespource() {
+        void shouldReturnEmptyWhenEmptyRespource() {
             when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.empty());
 
             Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
@@ -100,7 +100,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void shouldReturnErrorOnConnectionError() {
+        void shouldReturnErrorOnConnectionError() {
             // Simulate a connection error (like when the host is unreachable)
             WebClientRequestException connectionException = new WebClientRequestException(
                     new UnknownHostException("Host not found"),    // Cause of the error
@@ -125,7 +125,7 @@ public class ReferenceHandlerTest {
     @Nested
     class PatientResource {
         @Test
-        public void shouldResolveReferenceSuccessfullyWithConsent() {
+        void shouldResolveReferenceSuccessfullyWithConsent() {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("123");
 
@@ -147,7 +147,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void shouldResolveReferenceSuccessfullyWithoutConsent() {
+        void shouldResolveReferenceSuccessfullyWithoutConsent() {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("123");
 
@@ -168,7 +168,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void ConsentViolatedExceptionShouldBeThrown() {
+        void ConsentViolatedExceptionShouldBeThrown() {
             PatientResourceBundle patientBundle = new PatientResourceBundle("123");
             Patient patientResource = new Patient();
             patientResource.setId("123");
@@ -186,7 +186,7 @@ public class ReferenceHandlerTest {
         }
 
         @Test
-        public void failsPointingAtOtherPatient() {
+        void failsPointingAtOtherPatient() {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("123");
 
@@ -203,11 +203,11 @@ public class ReferenceHandlerTest {
             Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, false, "Patient/123");
 
 
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient loaded Reference belonging to other Patient")).verify();
+            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient loaded reference belonging to another patient")).verify();
         }
 
         @Test
-        public void shouldLogAndReturnEmptyMonoOnError() {
+        void shouldLogAndReturnEmptyMonoOnError() {
             // Simulate a connection error (like when the host is unreachable)
             when(dataStore.fetchResourceByReference("Broken/999")).thenReturn(Mono.error(new RuntimeException("Connection failed")));
 

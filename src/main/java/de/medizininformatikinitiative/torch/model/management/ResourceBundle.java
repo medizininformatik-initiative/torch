@@ -4,8 +4,8 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import reactor.core.publisher.Mono;
 
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,7 +49,7 @@ public record ResourceBundle(
      *
      * @param extractedData Bundle with extracted information to be merged
      */
-    public void merge(ImmutableResourceBundle extractedData) {
+    public void merge(CachelessResourceBundle extractedData) {
         // Merge resource group validity
         extractedData.resourceGroupValidity().forEach(this::addResourceGroupValidity);
 
@@ -70,7 +70,6 @@ public record ResourceBundle(
         // Merge attribute validity
         extractedData.resourceAttributeValidity().keySet().forEach(this::setResourceAttributeValid);
     }
-
 
     public void addAttributeToChild(ResourceAttribute attribute, ResourceGroup child) {
         // Link the child to the attribute in resourceAttributeToChildResourceGroup
@@ -98,6 +97,29 @@ public record ResourceBundle(
     }
 
     /**
+     * Removes an item from a map of sets. If the set becomes empty after removal, the key is removed from the map.
+     *
+     * @param <K>   The key type of the map
+     * @param <V>   The value type in the set
+     * @param map   The map from key to set of values
+     * @param key   The key from which to remove the value
+     * @param value The value to remove
+     * @return true if the value was removed and the set became empty (or key was absent); false otherwise
+     */
+    private <K, V> boolean removeFromMapOfSets(Map<K, Set<V>> map, K key, V value) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+        map.computeIfPresent(key, (k, set) -> {
+            set.remove(value);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // remove key
+            }
+            return set;
+        });
+        return isEmpty.get();
+    }
+
+    /**
      * Removes a parent resourceGroup for the given attribute.
      * If the resourceGroup is the last one in the set, the entire group is removed from the map.
      *
@@ -106,18 +128,7 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeParentRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
-            set.remove(group);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+        return removeFromMapOfSets(resourceAttributeToParentResourceGroup, attribute, group);
     }
 
     /**
@@ -128,19 +139,8 @@ public record ResourceBundle(
      * @param attribute The attribute to remove from the group.
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
-    public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        parentResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+    public boolean removeAttributeFromParentRG(ResourceGroup group, ResourceAttribute attribute) {
+        return removeFromMapOfSets(parentResourceGroupToResourceAttributesMap, group, attribute);
     }
 
     public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
@@ -164,19 +164,7 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeParentAttributeFromChildRG(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-
-        childResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+        return removeFromMapOfSets(resourceAttributeToChildResourceGroup, attribute, group);
     }
 
     /**

@@ -19,7 +19,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.BatchCopierRedacter;
-import de.medizininformatikinitiative.torch.service.BatchReferenceProcessor;
 import de.medizininformatikinitiative.torch.service.CascadingDelete;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
@@ -125,10 +124,6 @@ public class TestConfig {
         return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
     }
 
-    @Bean
-    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
-        return new BatchReferenceProcessor(referenceResolver);
-    }
 
     @Bean
     BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {

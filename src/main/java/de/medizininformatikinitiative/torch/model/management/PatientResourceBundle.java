@@ -32,8 +32,8 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         this(patientID, Provisions.of(), bundle);
     }
 
-    public PatientResourceBundle(String patientID, ImmutableResourceBundle immutableResourceBundle) {
-        this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
+    public PatientResourceBundle(String patientID, CachelessResourceBundle cachelessResourceBundle) {
+        this(patientID, Provisions.of(), cachelessResourceBundle.toCaching());
     }
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
@@ -72,7 +72,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return bundle().put(resource, groupId, b);
     }
 
-    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
+    public void addStaticInfo(CachelessResourceBundle staticInfo) {
         bundle.merge(staticInfo);
     }
 }
