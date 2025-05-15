@@ -2,7 +2,9 @@ package de.medizininformatikinitiative.torch.consent;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.JsonNode;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
@@ -11,6 +13,7 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -96,5 +99,35 @@ public class ConsentValidator {
             }
         }
         return false;
+    }
+
+    /**
+     * For a resource it checks if the resource is part of the bundle it claims to be.
+     *
+     * <p> When a resource is loaded it is checked if the resource is a patient or core Resource
+     * (core Resources should not link to patient resources) and checks in case of patient resources
+     * if it fits the consent and is assigned to the correct patient.
+     *
+     * @param patientBundle bundle to which the loaded resource should belong
+     * @param applyConsent  flag if batch has a consent check
+     * @param resource      resource to check
+     * @return true if fitting otherwise it throws errors
+     */
+    public boolean checkPatientIdAndConsent(PatientResourceBundle patientBundle, boolean applyConsent, Resource resource) throws PatientIdNotFoundException, ConsentViolatedException, ReferenceToPatientException {
+        try {
+            String resourcePatientId = ResourceUtils.patientId((DomainResource) resource);
+            if (!resourcePatientId.equals(patientBundle.patientId())) {
+                throw new ReferenceToPatientException("Patient loaded reference belonging to another patient");
+            }
+
+            if (applyConsent && !checkConsent((DomainResource) resource, patientBundle)) {
+                throw new ConsentViolatedException("Consent Violated in Patient Resource");
+            }
+
+            return true;
+
+        } catch (PatientIdNotFoundException e) {
+            throw e;
+        }
     }
 }

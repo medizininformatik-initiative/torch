@@ -1,66 +1,67 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.*;
-import de.medizininformatikinitiative.torch.service.DataStore;
-import org.hl7.fhir.r4.model.DomainResource;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 public class ReferenceHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceHandler.class);
-
-    private final DataStore dataStore;
     private final ProfileMustHaveChecker profileMustHaveChecker;
-    private final CompartmentManager compartmentManager;
-    private final ConsentValidator consentValidator;
 
-    public ReferenceHandler(DataStore dataStore,
-                            ProfileMustHaveChecker profileMustHaveChecker,
-                            CompartmentManager compartmentManager,
-                            ConsentValidator consentValidator) {
-        this.dataStore = dataStore;
+
+    public ReferenceHandler(ProfileMustHaveChecker profileMustHaveChecker) {
         this.profileMustHaveChecker = profileMustHaveChecker;
-        this.compartmentManager = compartmentManager;
-        this.consentValidator = consentValidator;
+
+    }
+
+    private static Flux<List<ResourceGroup>> checkReferenceViolatesMustHave(ReferenceWrapper referenceWrapper, List<ResourceGroup> list, ResourceBundle processingBundle) {
+        ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
+        if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
+            processingBundle.setResourceAttributeInValid(referenceAttribute);
+            return Flux.error(new MustHaveViolatedException(
+                    "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
+            ));
+        }
+        processingBundle.setResourceAttributeValid(referenceAttribute);
+        return Flux.just(list);
     }
 
     /**
-     * @param references
-     * @param patientBundle ResourceBundle containing patient information (Optional for only o
+     * @param references    References extracted from a single resource for a single resourceGroup to be handled
+     * @param patientBundle ResourceBundle containing patient information (Optional for core bundle)
      * @param coreBundle    coreResourceBundle containing the core Resources
-     * @param applyConsent  if consent is applicable for patient reosurces
      * @param groupMap      cache containing all known attributeGroups
-     * @return
+     * @return newly added ResourceGroups to be processed
      */
     public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
-                                                boolean applyConsent,
-                                                Map<String, AnnotatedAttributeGroup> groupMap) {
+                                                Map<String, AnnotatedAttributeGroup> groupMap) throws MustHaveViolatedException {
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
+        ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
 
+        List<ReferenceWrapper> unprocessedReferences = filterUnprocessedReferences(references, processingBundle);
         Set<ResourceGroup> knownGroups = processingBundle.getKnownResourceGroups();
-
-        return Flux.fromIterable(references)
-                .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, applyConsent, groupMap).doOnNext(
+        return Flux.fromIterable(unprocessedReferences)
+                .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, groupMap).doOnNext(
                         resourceGroupList -> {
-                            ResourceAttribute referenceAttribute = new ResourceAttribute(ref.parentId(), ref.refAttribute());
+                            ResourceAttribute referenceAttribute = ref.toResourceAttributeGroup();
                             resourceGroupList.forEach(resourceGroup -> processingBundle.addAttributeToChild(referenceAttribute, resourceGroup));
                         }
                 ))
@@ -70,157 +71,115 @@ public class ReferenceHandler {
                         .toList()))
                 .filter(group -> !knownGroups.contains(group))
                 .onErrorResume(MustHaveViolatedException.class, e -> {
+                    processingBundle.addResourceGroupValidity(parentGroup, false);
                     logger.warn("MustHaveViolatedException occurred. Stopping resource processing: {}", e.getMessage());
-                    return Flux.error(e); // Propagate the error to the caller
+                    return Flux.empty();
                 });
     }
 
-
     /**
-     * Handles a ReferenceWrapper by resolving its references and updating the patient bundle.
+     * Handles a ReferenceWrapper by resolving its references and updating the processing bundle.
      *
      * @param referenceWrapper The reference wrapper to handle.
-     * @param patientBundle    The patient bundle being updated.
+     * @param patientBundle    The patient bundle being updated, if present.
      * @param coreBundle       to be updated and queried, that contains a centrally shared concurrent HashMap.
-     * @param applyConsent     If consent has to be applied (only relevant if patientBundle is present).
      * @param groupMap         Map of attribute groups for validation.
      * @return A Flux emitting a list of ResourceGroups corresponding to the resolved references.
      */
     public Flux<List<ResourceGroup>> handleReference(ReferenceWrapper referenceWrapper,
                                                      @Nullable PatientResourceBundle patientBundle,
                                                      ResourceBundle coreBundle,
-                                                     boolean applyConsent,
                                                      Map<String, AnnotatedAttributeGroup> groupMap) {
 
         ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
 
-        return Flux.fromIterable(referenceWrapper.references())
-                .concatMap(reference -> {
-                    Mono<Resource> referenceResource;
-
-                    // Try to get the resource from available bundles or fetch it
+        // Use parallelStream to process references in parallel and collect all valid groups
+        List<ResourceGroup> allValidGroups = referenceWrapper.references()
+                .parallelStream()
+                .map(reference -> {
                     if (patientBundle != null && patientBundle.contains(reference)) {
-                        referenceResource = Mono.justOrEmpty(patientBundle.get(reference));
-                    } else if (coreBundle.contains(reference)) {
-                        referenceResource = Mono.justOrEmpty(coreBundle.get(reference));
+                        return patientBundle.get(reference);
                     } else {
-                        logger.debug("Reference {} not found in patientBundle or coreBundle, attempting fetch.", reference);
-                        referenceResource = getResourceMono(patientBundle, applyConsent, reference)
-                                .doOnSuccess(resource -> {
-                                    if (resource != null) {
-
-
-                                        if (compartmentManager.isInCompartment(resource)) {
-                                            if (patientBundle != null) {
-                                                patientBundle.put(resource);
-                                            }
-                                        } else {
-                                            coreBundle.put(resource);
-                                        }
-                                    }
-                                })
-                                .onErrorResume(e -> {
-                                    logger.error("Error fetching resource for reference {}: {}", reference, e.getMessage());
-                                    // Return an empty list on error
-                                    referenceWrapper.refAttribute().linkedGroups()
-                                            .forEach(groupId -> {
-                                                ResourceGroup resourceGroup = new ResourceGroup(reference, groupId);
-                                                // Check if the resource group is new
-                                                processingBundle.addResourceGroupValidity(resourceGroup, false);
-                                            });
-                                    return Mono.empty();
-                                });
-
+                        return coreBundle.get(reference);
                     }
-
-                    return referenceResource.flatMap(resource -> {
-                        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-                        List<ResourceGroup> validGroups = referenceWrapper.refAttribute().linkedGroups().stream()
-                                .map(groupId -> {
-                                    ResourceGroup resourceGroup = new ResourceGroup(resourceUrl, groupId);
-                                    // Check if the resource group is new
-                                    Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
-
-                                    if (isValid == null) {
-                                        AnnotatedAttributeGroup group = groupMap.get(groupId);
-                                        logger.trace("Unknown group {} for Reference: {}", groupId, reference);// Unknown group, check validity
-                                        Boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
-                                        if (group.compiledFilter() != null) {
-                                            fulfilled = fulfilled && group.compiledFilter().test(resource);
-                                        }
-                                        logger.trace("Group {} for Reference: {}", groupId, fulfilled);
-                                        isValid = Boolean.TRUE.equals(fulfilled); // Ensure `null` defaults to `false`
-                                        processingBundle.addResourceGroupValidity(resourceGroup, isValid);
-                                    }
-
-                                    return isValid ? resourceGroup : null;
-                                })
-                                .filter(Objects::nonNull)
-                                .toList();
-                        logger.trace("Valid groups found: {}", validGroups);
-                        return Mono.just(validGroups);
-                    });
                 })
-                .collectList()
-                .map(lists -> lists.stream()
-                        .flatMap(List::stream)
-                        .toList()
-                )
-                .flatMapMany(list -> {
-                    ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
-                    if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
-                        processingBundle.setResourceAttributeInValid(referenceAttribute);
-                        return Flux.error(new MustHaveViolatedException(
-                                "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
-                        ));
-                    }
-                    processingBundle.setResourceAttributeValid(referenceAttribute);
-                    return Flux.just(list);
-                });
+                .filter(Objects::nonNull)
+                .filter(Optional::isPresent)
+                .flatMap(resource -> collectValidGroups(referenceWrapper, groupMap, resource.get(), processingBundle).stream())
+                .toList();
+
+        // Now run your must-have validation and wrap in Flux
+        return checkReferenceViolatesMustHave(referenceWrapper, allValidGroups, processingBundle);
     }
 
 
     /**
-     * For a unknown reference it gets the resource.
-     * If consent is applied to patientResources, it uses the patientbundle to check consent.
+     * Collects all valid resourceGroups for the currently processed ResourceBundle.
+     * <p> For a given reference and resource checks if already a valid group in processingBundle.
+     * If resourceGroups not assigned yet, executes filter, musthave (Without References) and profile checks.
      *
-     * @param patientBundle used for consent
-     * @param applyConsent  should consent be used.
-     * @param reference     reference string to be fetched from server. Only relative URLs are handled.
-     * @return
+     * @param groupMap         known attribute groups
+     * @param resource         Resource to be checked
+     * @param processingBundle bundle that is currently processed
+     * @return ResourceGroup if previously unknown and assignable to the group.
      */
-    public Mono<Resource> getResourceMono(@Nullable PatientResourceBundle patientBundle, boolean applyConsent, String reference) {
-        logger.debug("Getting resource for {}", reference);
-        return dataStore.fetchResourceByReference(reference)
-                .flatMap(resource -> {
-                    if (compartmentManager.isInCompartment(resource)) {
-                        if (patientBundle != null) {
-
-                            try {
-
-                                if (ResourceUtils.patientId((DomainResource) resource).equals(patientBundle.patientId())) {
-                                    if (applyConsent) {
-                                        if (consentValidator.checkConsent((DomainResource) resource, patientBundle)) {
-                                            return Mono.just(resource);
-                                        } else {
-                                            return Mono.error(new ConsentViolatedException("Consent Violated in Patient Resource"));
-                                        }
-                                    } else {
-                                        return Mono.just(resource);
-                                    }
-                                } else {
-                                    return Mono.error(new ReferenceToPatientException("Patient loaded Reference belonging to other Patient"));
-                                }
-                            } catch (PatientIdNotFoundException e) {
-                                return Mono.error(e);
-                            }
-                        } else {
-                            return Mono.error(new ReferenceToPatientException("Patient Resource referenced in Core Bundle"));
+    private List<ResourceGroup> collectValidGroups(ReferenceWrapper referenceWrapper, Map<String, AnnotatedAttributeGroup> groupMap, Resource resource, ResourceBundle processingBundle) {
+        return referenceWrapper.refAttribute().linkedGroups().stream()
+                .map(groupId -> {
+                    ResourceGroup resourceGroup = new ResourceGroup(ResourceUtils.getRelativeURL(resource), groupId);
+                    Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
+                    if (isValid == null) {
+                        AnnotatedAttributeGroup group = groupMap.get(groupId);
+                        boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
+                        if (group.compiledFilter() != null) {
+                            fulfilled = fulfilled && group.compiledFilter().test(resource);
                         }
+                        logger.trace("Group {} for Reference: {}", groupId, fulfilled);
+                        isValid = fulfilled;
+                        processingBundle.addResourceGroupValidity(resourceGroup, isValid);
+                    }
+                    return isValid ? resourceGroup : null;
+                })
+                .filter(Objects::nonNull)
+                .toList();
+    }
+
+    /**
+     * Iterates over the references to find unprocessed reference wrappers.
+     *
+     * <p>Checks for reference resource and attribute, if that combination has already been checked.
+     *
+     * @param references       referencesWrappers to be handled
+     * @param processingBundle bundle on which the referenceWrappers are processed
+     * @return filters unprocessed ReferenceWrappers
+     * @throws MustHaveViolatedException when attribute group in resource is invalid.
+     */
+    private List<ReferenceWrapper> filterUnprocessedReferences(List<ReferenceWrapper> references,
+                                                               ResourceBundle processingBundle) throws MustHaveViolatedException {
+        List<ReferenceWrapper> uncheckedReferences = new ArrayList<>();
+
+        for (ReferenceWrapper reference : references) {
+            ResourceAttribute resourceAttribute = reference.toResourceAttributeGroup();
+            ResourceGroup parentGroup = reference.toResourceGroup();
+
+            Boolean isValid = processingBundle.resourceAttributeValidity().get(resourceAttribute);
+            processingBundle.addAttributeToParent(resourceAttribute, parentGroup);
+            if (Boolean.TRUE.equals(isValid)) {
+                // Already valid, skip
+            } else {
+                if (Boolean.FALSE.equals(isValid)) {
+                    if (reference.refAttribute().mustHave()) {
+                        processingBundle.addResourceGroupValidity(parentGroup, false);
+                        throw new MustHaveViolatedException(
+                                "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup);
                     }
 
-                    return Mono.just(resource); // If not in a compartment, return the resource
-                });
+                } else {
+                    uncheckedReferences.add(reference);
+                }
+            }
+        }
+        return uncheckedReferences;
     }
 
 

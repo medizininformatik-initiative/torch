@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
@@ -38,10 +38,10 @@ public class PatientBatchToCoreBundleWriter {
      * @param batch batch containing patient-specific ResourceBundles.
      * @return A single merged ImmutableResourceBundle.
      */
-    public ImmutableResourceBundle processPatientBatch(PatientBatchWithConsent batch) {
+    public CachelessResourceBundle processPatientBatch(PatientBatchWithConsent batch) {
         // Step 1: Extract Immutable Bundles
-        List<ImmutableResourceBundle> extractedBundles = batch.bundles().values().stream()
-                .map(bundle -> new ImmutableResourceBundle(bundle.bundle()))
+        List<CachelessResourceBundle> extractedBundles = batch.bundles().values().stream()
+                .map(bundle -> new CachelessResourceBundle(bundle.bundle()))
                 .map(this::extractRelevantPatientData)
                 .toList();
 
@@ -57,7 +57,7 @@ public class PatientBatchToCoreBundleWriter {
      * @param patientResourceBundle to be handled
      * @return ImmutableResourceBundle from a single ResourceBundle.
      */
-    public ImmutableResourceBundle extractRelevantPatientData(ImmutableResourceBundle patientResourceBundle) {
+    public CachelessResourceBundle extractRelevantPatientData(CachelessResourceBundle patientResourceBundle) {
         // Step 1: Identify valid ResourceGroups that are NOT in the compartment
         Map<ResourceGroup, Boolean> validGroups = patientResourceBundle.resourceGroupValidity().entrySet().stream()
                 .filter(entry -> entry.getValue() && !compartmentManager.isInCompartment(entry.getKey())) // Exclude patient groups
@@ -113,7 +113,7 @@ public class PatientBatchToCoreBundleWriter {
             }
         });
 
-        return new ImmutableResourceBundle(parentMap, childMap, validGroups, attributeValidity, parentResourceGroupToAttributesMap, childResourceGroupToAttributesMap);
+        return new CachelessResourceBundle(parentMap, childMap, validGroups, attributeValidity, parentResourceGroupToAttributesMap, childResourceGroupToAttributesMap);
     }
 
 
@@ -123,7 +123,7 @@ public class PatientBatchToCoreBundleWriter {
      * @param bundles List of ImmutableResourceBundles.
      * @return A merged ImmutableResourceBundle.
      */
-    public ImmutableResourceBundle mergeImmutableBundles(List<ImmutableResourceBundle> bundles) {
+    public CachelessResourceBundle mergeImmutableBundles(List<CachelessResourceBundle> bundles) {
         Map<ResourceAttribute, Set<ResourceGroup>> mergedParentMap = new ConcurrentHashMap<>();
         Map<ResourceAttribute, Set<ResourceGroup>> mergedChildMap = new ConcurrentHashMap<>();
         Map<ResourceGroup, Boolean> mergedValidGroups = new ConcurrentHashMap<>();
@@ -131,7 +131,7 @@ public class PatientBatchToCoreBundleWriter {
         Map<ResourceGroup, Set<ResourceAttribute>> mergedParentGroupToAttributes = new ConcurrentHashMap<>();
         Map<ResourceGroup, Set<ResourceAttribute>> mergedChildGroupToAttributes = new ConcurrentHashMap<>();
 
-        for (ImmutableResourceBundle bundle : bundles) {
+        for (CachelessResourceBundle bundle : bundles) {
             // Merge parent relationships
             bundle.resourceAttributeToParentResourceGroup().forEach((attribute, parents) -> mergedParentMap.computeIfAbsent(attribute, k -> ConcurrentHashMap.newKeySet()).addAll(parents));
 
@@ -151,6 +151,6 @@ public class PatientBatchToCoreBundleWriter {
             bundle.childResourceGroupToResourceAttributesMap().forEach((resourceGroup, attributes) -> mergedChildGroupToAttributes.computeIfAbsent(resourceGroup, k -> ConcurrentHashMap.newKeySet()).addAll(attributes));
         }
 
-        return new ImmutableResourceBundle(mergedParentMap, mergedChildMap, mergedValidGroups, mergedAttributeValidity, mergedParentGroupToAttributes, mergedChildGroupToAttributes);
+        return new CachelessResourceBundle(mergedParentMap, mergedChildMap, mergedValidGroups, mergedAttributeValidity, mergedParentGroupToAttributes, mergedChildGroupToAttributes);
     }
 }

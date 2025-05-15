@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -49,9 +50,11 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Scanner;
+import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.util.TimeUtils.durationSecondsSince;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -83,6 +86,8 @@ class FhirControllerIT {
     FhirContext context;
     @Autowired
     CrtdlValidatorService validatorService;
+    @Autowired
+    ResultFileManager resultFileManager;
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
     @LocalServerPort
@@ -194,9 +199,10 @@ class FhirControllerIT {
                 assertThat(response.getStatusCode().value()).isEqualTo(202);
                 assertThat(durationSecondsSince(start)).isLessThan(0.1);
 
-                String statusUrl = "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
+                String contentLocation = Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
+                String statusUrl = "http://localhost:" + port + contentLocation;
                 pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);
-
+                clearDirectory(contentLocation);
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
                 Assertions.fail("HTTP request failed with status code: " + e.getStatusCode());
@@ -249,6 +255,29 @@ class FhirControllerIT {
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Polling was interrupted", e);
             }
+        }
+    }
+
+    /**
+     * Recursively deletes all files inside the given directory.
+     *
+     * @param jobId the name of the job directory to clean.
+     */
+    private void clearDirectory(String jobId) throws IOException {
+        Path jobDir = resultFileManager.getJobDirectory(jobId); // Get the job directory path
+
+        if (jobDir != null && Files.exists(jobDir)) {
+            try (Stream<Path> walk = Files.walk(jobDir)) {
+                walk.sorted(Comparator.reverseOrder()) // Delete children before parents
+                        .forEach(path -> {
+                            try {
+                                Files.deleteIfExists(path);
+                            } catch (IOException e) {
+                                logger.error("Failed to delete file: {}", path, e);
+                            }
+                        });
+            }
+            logger.info("Cleared job directory: {}", jobDir);
         }
     }
 

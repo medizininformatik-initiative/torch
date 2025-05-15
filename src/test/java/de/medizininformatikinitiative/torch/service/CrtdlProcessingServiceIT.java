@@ -100,6 +100,7 @@ class CrtdlProcessingServiceIT {
         clearDirectory("processWithRefsCoreAndPatient");
     }
 
+
     /**
      * Recursively deletes all files inside the given directory.
      *

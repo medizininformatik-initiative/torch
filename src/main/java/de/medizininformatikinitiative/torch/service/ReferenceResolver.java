@@ -1,12 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.ResourceTypeMissmatchException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
@@ -18,8 +17,13 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
@@ -30,6 +34,7 @@ public class ReferenceResolver {
     private final ReferenceExtractor referenceExtractor;
     private final CompartmentManager compartmentManager;
     private final ReferenceHandler referenceHandler;
+    private final ReferenceBundleLoader bundleLoader;
 
     /**
      * Constructs a ReferenceResolver with the necessary dependencies.
@@ -37,12 +42,14 @@ public class ReferenceResolver {
      * @param compartmentManager for deciding if Resources are in the
      * @param referenceHandler   for handling extracted references
      * @param referenceExtractor for extracting references from cache or loading them from server
+     * @param bundleLoader       for fetching Resources into the processed Bundles
      */
     public ReferenceResolver(CompartmentManager compartmentManager,
-                             ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor) {
+                             ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor, ReferenceBundleLoader bundleLoader) {
         this.referenceExtractor = referenceExtractor;
         this.compartmentManager = compartmentManager;
         this.referenceHandler = referenceHandler;
+        this.bundleLoader = bundleLoader;
     }
 
     /**
@@ -54,12 +61,15 @@ public class ReferenceResolver {
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        return Flux.fromIterable(coreBundle.resourceGroupValidity().keySet())
-                .expand(resourceGroup -> processResourceGroup(resourceGroup, null, coreBundle, false, groupMap).onErrorResume(e -> {
-
-                    logger.warn("Error processing resource group {} in Core Bundle: {}", resourceGroup, e.getMessage());
-                    return Flux.empty(); // Skip this resource group on error
-                }))
+        return Mono.just(coreBundle.getValidResourceGroups())
+                .map(groups -> groups.stream()
+                        .filter(resourceGroup -> !compartmentManager.isInCompartment(resourceGroup)) // your custom filter logic
+                        .collect(Collectors.toSet()))
+                .expand(currentGroupSet ->
+                        processResourceGroups(currentGroupSet, null, coreBundle, false, groupMap)
+                                .onErrorResume(e -> {
+                                    return Mono.empty(); // Skip this resource group on error
+                                }))
                 .then(Mono.just(coreBundle));
     }
 
@@ -97,83 +107,175 @@ public class ReferenceResolver {
             boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        return Flux.fromIterable(patientBundle.bundle().resourceGroupValidity().keySet())
-                //Input alle direkt geladenen resourceGroup und expanden auf returnwert
-                .expand(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, applyConsent, groupMap).onErrorResume(e -> {
-
-                    logger.warn("Error processing resource group {} in PatientBundle: {}", resourceGroup, e.getMessage());
-                    return Flux.empty(); // Skip this resource group on error
-                }))
+        return Mono.just(patientBundle.bundle().getValidResourceGroups())
+                .map(groups -> groups.stream()
+                        .filter(compartmentManager::isInCompartment) // your custom filter logic
+                        .collect(Collectors.toSet()))
+                .expand(currentGroupSet ->
+                        processResourceGroups(currentGroupSet, patientBundle, coreBundle, applyConsent, groupMap)
+                                .onErrorResume(e -> {
+                                    logger.warn("Error processing resource group set {} in PatientBundle: {}", currentGroupSet, e.getMessage());
+                                    return Mono.empty(); // Skip this group on error
+                                })
+                )
                 .then(Mono.just(patientBundle));
     }
 
     /**
-     * For a given ResourceGroup it extracts the references if a reference attribute is in the attribute group.
+     * For a given List of ResourceGroup it extracts the references if a reference attribute is in the attribute group.
      * For every found attribute it updates the parent to attribute relation and then tries to handle the reference.
      *
-     * @param parentResourceGroup Resource to be handled
+     * @param validResourceGroups valid not yet processed ResourceGroup to be handled
      * @param patientBundle       bundle containing patient resources
      * @param coreBundle          bundle containing core resources
      * @param applyConsent        if consent is to applied to patient resources
      * @param groupMap            map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
-    private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
+    public Mono<Set<ResourceGroup>> processResourceGroups(
+            Set<ResourceGroup> validResourceGroups,
+            @Nullable PatientResourceBundle patientBundle,
+            ResourceBundle coreBundle,
+            boolean applyConsent,
+            Map<String, AnnotatedAttributeGroup> groupMap) {
+        Map<ResourceGroup, List<ReferenceWrapper>> referencesGroupedByResourceGroup =
+                loadReferencesByResourceGroup(validResourceGroups, patientBundle, coreBundle, groupMap);
 
-        Mono<Resource> resourceMono = null;
-        boolean patientResource = compartmentManager.isInCompartment(parentResourceGroup);
-        if (patientResource && patientBundle == null) {
+        return bundleLoader.fetchUnknownResources(referencesGroupedByResourceGroup, patientBundle, coreBundle, applyConsent)
+                .thenMany(
+                        Flux.fromIterable(referencesGroupedByResourceGroup.entrySet())
+                                .flatMap(entry ->
+                                        {
+                                            try {
+                                                return referenceHandler.handleReferences(
+                                                        entry.getValue(),
+                                                        patientBundle,
+                                                        coreBundle,
+                                                        groupMap
+                                                );
+                                            } catch (MustHaveViolatedException e) {
+                                                return Flux.empty();
+                                            }
+                                        }
+                                )
+                )
+                .collect(Collectors.toSet())
+                .flatMap(set -> set.isEmpty() ? Mono.empty() : Mono.just(set));
+    }
 
-            return Flux.error(new ResourceTypeMissmatchException("Handling a Patient Resource Bundle without a Patient Resource Bundle"));
+
+    /**
+     * Extracts for every ResourceGroup the ReferenceWrappers and collects them ordered by
+     *
+     * @param resourceGroups valid ResourceGroups to be handled
+     * @param patientBundle  bundle containing patient resources
+     * @param coreBundle     bundle containing core resources
+     * @param groupMap       map of known attribute groups
+     * @return extracted ReferenceWrappers ordered by their respective ResourceGroup
+     */
+    public Map<ResourceGroup, List<ReferenceWrapper>> loadReferencesByResourceGroup(
+            Set<ResourceGroup> resourceGroups,
+            @Nullable PatientResourceBundle patientBundle,
+            ResourceBundle coreBundle,
+            Map<String, AnnotatedAttributeGroup> groupMap) {
+
+        return resourceGroups.parallelStream()
+                .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap))
+                .filter(entry -> !entry.getValue().isEmpty())
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (list1, list2) -> {
+                            List<ReferenceWrapper> merged = new ArrayList<>(list1);
+                            merged.addAll(list2);
+                            return merged;
+                        }
+                ));
+    }
+
+    /**
+     * Extracts references for a single ResourceGroup
+     *
+     * @param resourceGroup resourceGroup to be handled
+     * @param patientBundle bundle containing patient resources
+     * @param coreBundle    bundle containing core resources
+     * @param groupMap
+     * @return
+     */
+    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> processResourceGroup(
+            ResourceGroup resourceGroup,
+            @Nullable PatientResourceBundle patientBundle,
+            ResourceBundle coreBundle,
+            Map<String, AnnotatedAttributeGroup> groupMap) {
+        ResourceBundle processingBundle = (patientBundle == null) ? coreBundle : patientBundle.bundle();
+
+        boolean isPatientResource = compartmentManager.isInCompartment(resourceGroup);
+
+        if (isPatientResource && patientBundle == null) {
+            return skipDueToMissingPatientBundle(resourceGroup, coreBundle);
         }
-        ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
-        if (patientResource) {
-            resourceMono = Mono.justOrEmpty(processingBundle.get(parentResourceGroup.resourceId()));
+
+        Optional<Resource> resource = isPatientResource
+                ? patientBundle.bundle().get(resourceGroup.resourceId())
+                : coreBundle.get(resourceGroup.resourceId());
+
+        if (resource.isPresent()) {
+            return extractReferences(resourceGroup, resource.get(), groupMap, processingBundle);
         } else {
-            resourceMono = Mono.justOrEmpty(coreBundle.get(parentResourceGroup.resourceId()));
+            return handleMissingResource(resourceGroup, processingBundle);
         }
+    }
 
+    /**
+     * Invalidates a patient ResourceGroup in core handle processing.
+     *
+     * <p>Handles the case that a patient resource was called from in coreBundle Processing.
+     *
+     * @param resourceGroup resourceGroup to be handled
+     * @param coreBundle    bundle containing core resources
+     * @return empty map entry to be handled later
+     */
+    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> skipDueToMissingPatientBundle(
+            ResourceGroup resourceGroup, ResourceBundle coreBundle) {
 
-        return resourceMono
-                .flatMapMany(resource -> Mono.fromCallable(() -> referenceExtractor.extract(resource, groupMap, parentResourceGroup.groupId()))
-                        .flatMapMany(references -> {
-                            AtomicBoolean hasMustHaveViolation = new AtomicBoolean(false);
-                            boolean shouldProcess = references.stream().anyMatch(reference -> {
-                                ResourceAttribute resourceAttribute = new ResourceAttribute(parentResourceGroup.resourceId(), reference.refAttribute());
-                                Boolean isValid = processingBundle.resourceAttributeValidity().get(resourceAttribute);
-                                if (Boolean.TRUE.equals(isValid)) {
-                                    return false; // Skip processing if already validated as true
-                                } else if (Boolean.FALSE.equals(isValid)) {
-                                    if (reference.refAttribute().mustHave()) {
-                                        hasMustHaveViolation.set(true); // Flag the exception to be handled later
-                                        return false;
-                                    }
-                                    return false; // Skip if explicitly false and not must-have
-                                }
+        logger.warn("Skipping resourceGroup {}: Patient resource requires a PatientResourceBundle", resourceGroup);
+        coreBundle.addResourceGroupValidity(resourceGroup, false);
+        return Map.entry(resourceGroup, Collections.emptyList());
+    }
 
-                                // If null, add attribute and mark for processing
-                                processingBundle.addAttributeToParent(resourceAttribute, parentResourceGroup);
-                                return true;
-                            });
-                            if (hasMustHaveViolation.get()) {
-                                return Flux.error(new MustHaveViolatedException("Must-have attribute violated in group: " + parentResourceGroup));
-                            }
+    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> extractReferences(
+            ResourceGroup resourceGroup,
+            Resource resource,
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            ResourceBundle processingBundle) {
 
-                            //  If no references need processing, return empty
-                            if (!shouldProcess) {
-                                return Flux.empty();
-                            }
+        try {
+            List<ReferenceWrapper> extracted = referenceExtractor.extract(resource, groupMap, resourceGroup.groupId());
+            return Map.entry(resourceGroup, extracted);
+        } catch (MustHaveViolatedException e) {
+            synchronized (processingBundle) {
+                processingBundle.addResourceGroupValidity(resourceGroup, false);
+            }
+            return Map.entry(resourceGroup, Collections.emptyList());
+        }
+    }
 
-                            // Handle all references together for this resourceGroup
-                            return referenceHandler.handleReferences(references, patientBundle, coreBundle, applyConsent, groupMap);
+    /**
+     * Corrects resourceGroup Validity for resource not found in cache.
+     *
+     * @param resourceGroup    resourceGroup to be handled
+     * @param processingBundle bundle currently processed
+     * @return empty map entry to be handled later
+     */
+    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> handleMissingResource(
+            ResourceGroup resourceGroup,
+            ResourceBundle processingBundle) {
 
-                        })
-                        .onErrorResume(MustHaveViolatedException.class, e -> {
-
-                            processingBundle.addResourceGroupValidity(parentResourceGroup, false);
-
-                            return Flux.empty(); // Skip processing for this group
-                        })).onErrorResume(Exception.class, e -> Flux.error(new RuntimeException("Unexpected error occurred while processing resource group", e)));
+        synchronized (processingBundle) {
+            logger.warn("Empty resource marked as valid for group {}", resourceGroup);
+            processingBundle.addResourceGroupValidity(resourceGroup, false);
+        }
+        return Map.entry(resourceGroup, Collections.emptyList());
     }
 
 
