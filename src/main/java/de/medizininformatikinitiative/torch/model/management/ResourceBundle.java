@@ -4,14 +4,16 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import reactor.core.publisher.Mono;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION;
 import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
@@ -34,13 +36,13 @@ public record ResourceBundle(
         ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
-        ConcurrentHashMap<String, Resource> cache) {
+        ConcurrentHashMap<String, Optional<Resource>> cache) {
 
     public ResourceBundle() {
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
-    public Resource get(String id) {
+    public Optional<Resource> get(String id) {
         return cache.get(id);
     }
 
@@ -49,7 +51,7 @@ public record ResourceBundle(
      *
      * @param extractedData Bundle with extracted information to be merged
      */
-    public void merge(ImmutableResourceBundle extractedData) {
+    public void merge(CachelessResourceBundle extractedData) {
         // Merge resource group validity
         extractedData.resourceGroupValidity().forEach(this::addResourceGroupValidity);
 
@@ -129,18 +131,7 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        parentResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+        return removeFromMap(group, attribute, parentResourceGroupToResourceAttributesMap);
     }
 
     public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
@@ -164,6 +155,10 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeParentAttributeFromChildRG(ResourceGroup group, ResourceAttribute attribute) {
+        return removeFromMap(group, attribute, childResourceGroupToResourceAttributesMap);
+    }
+
+    private boolean removeFromMap(ResourceGroup group, ResourceAttribute attribute, ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap) {
         AtomicBoolean isEmpty = new AtomicBoolean(false);
 
 
@@ -208,7 +203,7 @@ public record ResourceBundle(
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
         ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
         addResourceGroupValidity(group, valid);
-        return cache.putIfAbsent(resourceUrl, resource) == null;
+        return cache.putIfAbsent(resourceUrl, Optional.of(resource)) == null;
     }
 
     /**
@@ -228,7 +223,7 @@ public record ResourceBundle(
 
         String resourceUrl = ResourceUtils.getRelativeURL(resource);
         wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true));
-        cache.put(resourceUrl, resource);
+        cache.put(resourceUrl, Optional.of(resource));
 
         return result.get();
     }
@@ -254,7 +249,12 @@ public record ResourceBundle(
         bundle.setType(TRANSACTION);
         bundle.setId(UUID.randomUUID().toString());
 
-        cache.values().forEach(resource -> bundle.addEntry(createBundleEntry(resource)));
+        cache.values().forEach(resource -> {
+                    if (resource.isPresent()) {
+                        bundle.addEntry(createBundleEntry(resource.get()));
+                    }
+                }
+        );
         return bundle;
     }
 
@@ -293,8 +293,18 @@ public record ResourceBundle(
     }
 
     public void put(Resource resource) {
-        cache.put(ResourceUtils.getRelativeURL(resource), resource);
+        cache.put(ResourceUtils.getRelativeURL(resource), Optional.of(resource));
     }
 
 
+    public void put(String resourceReference) {
+        cache.put(resourceReference, Optional.empty());
+    }
+
+    public Set<ResourceGroup> getValidResourceGroups() {
+        return resourceGroupValidity().entrySet().stream()
+                .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+    }
 }

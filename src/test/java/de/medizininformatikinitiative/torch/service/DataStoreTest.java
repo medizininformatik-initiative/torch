@@ -7,6 +7,7 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
@@ -50,11 +51,112 @@ class DataStoreTest {
             }
             """;
 
-    private static final String PATIENT_RESOURCE = """
-            {
-              "resourceType": "Patient",
-              "id": "123"
+
+    private static final String BATCH_BUNDLE = """
+              {
+              "resourceType": "Bundle",
+              "type": "batch",
+              "entry": [
+                {
+                  "request": {
+                    "method": "GET",
+                    "url": "Patient?_id=1"
+                  }
+                },
+                {
+                  "request": {
+                    "method": "GET",
+                    "url": "Observation?_id=123"
+                  }
+                }
+              ]
             }
+            """;
+
+
+    private static final String BUNDLE_OF_PATIENT_BUNDLE = """
+            {
+                             "id": "DFXR4DKFHFZIXHFV",
+                             "type": "batch-response",
+                             "entry": [
+                               {
+                                 "response": {
+                                   "status": "200"
+                                 },
+                                 "resource": {
+                                   "id": "DFXR4DKE45LYFH4X",
+                                   "type": "searchset",
+                                   "entry": [
+                                     {
+                                       "fullUrl": "http://localhost:8080/fhir/Patient/1",
+                                       "resource": {
+                                         "meta": {
+                                           "versionId": "2",
+                                           "lastUpdated": "2025-05-21T08:06:00.266Z",
+                                           "profile": [
+                                             "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+                                           ]
+                                         },
+                                         "name": [
+                                           {
+                                             "use": "official",
+                                             "family": "Doe",
+                                             "given": [
+                                               "John"
+                                             ]
+                                           }
+                                         ],
+                                         "birthDate": "1980-01-01",
+                                         "resourceType": "Patient",
+                                         "id": "1",
+                                         "identifier": [
+                                           {
+                                             "use": "usual",
+                                             "system": "http://hospital.smarthealthit.org",
+                                             "value": "123456"
+                                           }
+                                         ],
+                                         "gender": "male"
+                                       },
+                                       "search": {
+                                         "mode": "match"
+                                       }
+                                     }
+                                   ],
+                                   "link": [
+                                     {
+                                       "relation": "first",
+                                       "url": "http://localhost:8080"
+                                     },
+                                     {
+                                       "relation": "self",
+                                       "url": "http://localhost:8080/fhir/Patient?_id=1&_count=50"
+                                     }
+                                   ],
+                                   "total": 1,
+                                   "resourceType": "Bundle"
+                                 }
+                               },
+                               {
+                                 "response": {
+                                   "status": "200"
+                                 },
+                                 "resource": {
+                                   "id": "DFXR4DKFHNSUPYYV",
+                                   "type": "searchset",
+                                   "total": 0,
+                                   "link": [
+                                     {
+                                       "relation": "self",
+                                       "url": "http://localhost:8080/fhir/Observation?_id=123&_count=50"
+                                     }
+                                   ],
+                                   "resourceType": "Bundle"
+                                 }
+                               }
+                             ],
+                             "resourceType": "Bundle"
+                           }
             """;
 
     private MockWebServer mockStore;
@@ -141,7 +243,7 @@ class DataStoreTest {
     }
 
     @Nested
-    class FetchResourceByReference {
+    class FetchReferencesByBatch {
 
         @BeforeEach
         void setUp() {
@@ -151,23 +253,23 @@ class DataStoreTest {
         @Test
         @DisplayName("Fetch with retry")
         void fetchWithRetry() {
-            String reference = "Patient/123";
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse()
                     .setResponseCode(200)
-                    .setBody(PATIENT_RESOURCE));
+                    .setBody(BUNDLE_OF_PATIENT_BUNDLE));
 
-            var result = dataStore.fetchResourceByReference(reference);
+
+            var result = dataStore.fetchResourcesByReferences(ctx.newJsonParser().parseResource(Bundle.class, BATCH_BUNDLE));
 
             StepVerifier.create(result)
                     .expectNextMatches(resource -> {
                         Assertions.assertInstanceOf(Patient.class, resource);
-                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
+                        Assertions.assertEquals("1", resource.getIdElement().getIdPart());
                         return true;
                     })
-                    .verifyComplete();
-
+                    .expectComplete()
+                    .verify();
         }
 
         @Test
@@ -181,62 +283,15 @@ class DataStoreTest {
             mockStore.enqueue(new MockResponse().setResponseCode(500));
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
-            String reference = "Patient/123";
-            var result = dataStore.fetchResourceByReference(reference);
+            var result = dataStore.fetchResourcesByReferences(ctx.newJsonParser().parseResource(Bundle.class, BATCH_BUNDLE));
 
             StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
 
-
-        @Test
-        @DisplayName("Fetches resource using a relative reference")
-        void fetchResourceByRelativeReference() {
-            String reference = "Patient/123";
-
-            mockStore.enqueue(new MockResponse()
-                    .setResponseCode(200)
-                    .setBody(PATIENT_RESOURCE));
-
-            var result = dataStore.fetchResourceByReference(reference);
-
-            StepVerifier.create(result)
-                    .expectNextMatches(resource -> {
-                        Assertions.assertInstanceOf(Patient.class, resource);
-                        Assertions.assertEquals("123", resource.getIdElement().getIdPart());
-                        return true;
-                    })
-                    .verifyComplete();
-        }
-
-        @Test
-        @DisplayName("Fetches resource using an absolute reference")
-        void fetchResourceByAbsoluteReference() {
-            String absoluteUrl = "http://localhost:%d/fhir/Patient/123".formatted(mockStore.getPort());
-
-            var result = dataStore.fetchResourceByReference(absoluteUrl);
-
-            StepVerifier.create(result)
-                    .expectError(IllegalArgumentException.class)
-                    .verify();
-        }
-
-        @Test
-        @DisplayName("Returns error for invalid reference format")
-        void fetchResourceByInvalidReference() {
-            String invalidReference = "InvalidReference";
-
-            var result = dataStore.fetchResourceByReference(invalidReference);
-
-            StepVerifier.create(result)
-                    .expectError(IllegalArgumentException.class)
-                    .verify();
-        }
 
         @Test
         @DisplayName("Handles 404 not found")
         void fetchResourceNotFound() {
-            String reference = "Patient/999";
-
             mockStore.enqueue(new MockResponse().setResponseCode(404));
             mockStore.enqueue(new MockResponse().setResponseCode(404));
             mockStore.enqueue(new MockResponse().setResponseCode(404));
@@ -246,10 +301,12 @@ class DataStoreTest {
             mockStore.enqueue(new MockResponse().setResponseCode(404));
             mockStore.enqueue(new MockResponse().setResponseCode(404));
 
-            var result = dataStore.fetchResourceByReference(reference);
+            var result = dataStore.fetchResourcesByReferences(ctx.newJsonParser().parseResource(Bundle.class, BATCH_BUNDLE));
 
             StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
+
+
     }
 
     @Nested

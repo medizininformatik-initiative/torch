@@ -78,7 +78,7 @@ class CascadingDeleteTest {
             assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
             assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
             assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
-            assertThat(patientBatchWithConsent.bundles().get("Core")).isEqualTo(new PatientResourceBundle("Core", coreResourceBundle));
+            assertThat(patientBatchWithConsent.bundles()).containsExactly(Map.entry("Core", new PatientResourceBundle("Core", coreResourceBundle)));
         }
     }
 

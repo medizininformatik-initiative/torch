@@ -2,17 +2,15 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
-import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
@@ -139,18 +137,8 @@ class ReferenceResolverIT {
 
     public static final String PAT_REFERENCE = "Patient/VHF00006";
 
-
     @Autowired
-    private ReferenceHandler referenceHandler;
-
-    @Autowired
-    ReferenceExtractor referenceExtractor;
-
-    @Autowired
-    CompartmentManager compartmentManager;
-
-
-    private ReferenceResolver referenceResolver;
+    ReferenceResolver referenceResolver;
 
     private IParser parser;
 
@@ -181,7 +169,6 @@ class ReferenceResolverIT {
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
 
-        this.referenceResolver = new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
@@ -225,8 +212,98 @@ class ReferenceResolverIT {
         }
     }
 
+    @Test
+    void resolvePatientBundle_failure_unsatisfiedFilter() {
+        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
+        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
+        var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
+        AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+        Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+            put("Patient1", patientGroupWithUnsatisfiedFilter);
+            put("Condition1", conditionGroup);
+        }};
+
+        PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+        Patient patient = parser.parseResource(Patient.class, PATIENT);
+        ResourceBundle coreBundle = new ResourceBundle();
+        Condition condition = parser.parseResource(Condition.class, CONDITION);
+
+
+        patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+        patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+
+        Mono<PatientResourceBundle> result = referenceResolver.resolvePatient(patientBundle, coreBundle, false, attributeGroupMap);
+        // Validate the result using StepVerifier
+        StepVerifier.create(result)
+                .assertNext(bundle -> {
+                            // Check attribute mappings in processingBundle
+                            ResourceBundle processingBundle = bundle.bundle();
+                            assertThat(bundle.isEmpty()).isFalse();
+                            assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
+                                    Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
+                                            new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                            );
+                            assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
+                                    Map.of(expectedAttribute, false)
+                            );
+                        }
+                )
+                .verifyComplete();
+    }
+
     @Nested
     class KnownReferences {
+
+
+        @Test
+        void notFetchingResources() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
+
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            ResourceBundle coreBundle = new ResourceBundle();
+            Condition condition = parser.parseResource(Condition.class, CONDITION);
+
+
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+
+            var result = referenceResolver.processResourceGroups(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
+
+
+            StepVerifier.create(result)
+                    .assertNext(unprocessedResourceGroups -> {
+                        assertThat(unprocessedResourceGroups).containsExactly(new ResourceGroup("Patient/VHF00006", "Patient1"));
+                    })
+                    .verifyComplete();
+        }
+        
+
+        @Test
+        void loadReferences_success() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
+
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            ResourceBundle coreBundle = new ResourceBundle();
+            Condition condition = parser.parseResource(Condition.class, CONDITION);
+
+
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+
+            var result = referenceResolver.loadReferencesFromResources(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
+
+            assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
+        }
 
         @Test
         void resolvePatientBundle_success() {
@@ -352,6 +429,11 @@ class ReferenceResolverIT {
 
 
     }
+
+
+
+
+
 /*
     @Nested
     class ServerInteract {

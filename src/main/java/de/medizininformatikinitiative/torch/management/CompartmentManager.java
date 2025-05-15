@@ -8,7 +8,11 @@ import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 public class CompartmentManager {
 
@@ -41,13 +45,28 @@ public class CompartmentManager {
         return compartmentMap.containsKey(resource.fhirType());
     }
 
-    public boolean isInCompartment(String resourceType) {
+    /**
+     * Checks for a ResourceType or ReferenceString (RelativeURL) String if it is in Compartment
+     *
+     * @param input String to be handled
+     * @return true if prefeix
+     */
+    public boolean isInCompartment(String input) {
+        String resourceType;
+
+        if (input.contains("/")) {
+            // Looks like a reference string, get the part before '/'
+            resourceType = input.split("/")[0];
+        } else {
+            // Assume it's a resourceType string already
+            resourceType = input;
+        }
+
         return compartmentMap.containsKey(resourceType);
     }
 
     public boolean isInCompartment(ResourceGroup resourceGroup) {
-        String resourceType = resourceGroup.resourceId().split("/")[0];
-        return compartmentMap.containsKey(resourceType);
+        return isInCompartment(resourceGroup.resourceId());
     }
 
     public Set<String> getCompartment() {

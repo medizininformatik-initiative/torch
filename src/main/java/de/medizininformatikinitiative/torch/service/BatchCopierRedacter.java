@@ -5,7 +5,11 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -17,6 +21,7 @@ import org.slf4j.LoggerFactory;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -106,8 +111,8 @@ public class BatchCopierRedacter {
         groupedResources.entrySet().parallelStream()
                 .forEach(entry -> {
                     String resourceId = entry.getKey();
-                    Resource resource = bundle.get(resourceId); // synchronous get
-                    if (resource == null) {
+                    Optional<Resource> resource = bundle.get(resourceId); // synchronous get
+                    if (resource == null || resource.isEmpty()) {
                         return; // skip
                     }
 
@@ -115,7 +120,7 @@ public class BatchCopierRedacter {
                         ProfileAttributeCollection profileAttributeCollection = collectHighestLevelAttributes(groupMap, entry.getValue());
 
                         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(
-                                (DomainResource) resource,
+                                (DomainResource) resource.get(),
                                 profileAttributeCollection.profiles(),
                                 attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of()),
                                 profileAttributeCollection.attributes()

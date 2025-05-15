@@ -95,10 +95,12 @@ class CrtdlProcessingServiceIT {
 
     @AfterAll
     void cleanup() throws IOException {
-        clearDirectory("processwithrefs");
+    /*    clearDirectory("processwithrefs");
         clearDirectory("processwithoutrefs");
         clearDirectory("processWithRefsCoreAndPatient");
+    */
     }
+
 
     /**
      * Recursively deletes all files inside the given directory.

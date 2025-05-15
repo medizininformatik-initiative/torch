@@ -2,11 +2,9 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
-import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -46,17 +44,17 @@ public class DataStore {
 
     private static final Duration ASYNC_POLL_DELAY = Duration.ofSeconds(2);
     private static final RetryBackoffSpec ASYNC_POLL_RETRY_SPEC = Retry.fixedDelay(1000, ASYNC_POLL_DELAY)
-            .filter(e -> e instanceof AsyncRetryException);
+            .filter(AsyncRetryException.class::isInstance);
     private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
             .filter(e -> e instanceof WebClientResponseException e1 &&
                     shouldRetry((e1).getStatusCode()));
+    public static final String APPLICATION_FHIR_JSON = "application/fhir+json";
+    public static final String CONTENT_TYPE = "Content-Type";
 
     private final WebClient client;
     private final FhirContext fhirContext;
     private final int pageCount;
     private final Consumer<HttpHeaders> preferHeaderSetter;
-
-    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
@@ -79,59 +77,43 @@ public class DataStore {
         return locations.isEmpty() ? new MissingContentLocationException() : new AsyncException(locations.getFirst());
     }
 
+
     /**
-     * Loads a single resource by id
+     * Loads a batch of referenced resources by Batch and unrolls the bundle of bundles into Resources
      *
-     * @param reference Reference String of the resource to be loaded
+     * @param batchBundle Batch containing the Search Strings
      * @return the resources found in {@param reference}
      */
-    public Mono<Resource> fetchResourceByReference(String reference) {
-        logger.debug("Fetching resource by reference {}", reference);
-        if (reference.startsWith("http") || reference.startsWith("https")) { // Absolute URL
-            return Mono.error(new IllegalArgumentException("Absolute reference " + reference + "not supported"));
-        } else if (reference.contains("/")) { // Relative reference
-            String[] parts = reference.split("/");
-            if (parts.length != 2) {
-                return Mono.error(new IllegalArgumentException("Unexpected reference format: " + reference));
-            }
-            String type = parts[0];
-            String id = parts[1];
-
-            return fetchAndParseResource(type, id);
-        } else {
-            return Mono.error(new IllegalArgumentException("Invalid FHIR reference format: " + reference));
-        }
-    }
-
-    private Mono<Resource> fetchAndParseResource(String type, String id) {
-        return client.get()
-                .uri("/{type}/{id}", type, id)
+    public Flux<Resource> fetchResourcesByReferences(Bundle batchBundle) {
+        var start = System.nanoTime();
+        String jsonBundle = fhirContext.newJsonParser().encodeResourceToString(batchBundle);
+        // Send the batch request
+        return client.post()
+                .uri("")
+                .header(CONTENT_TYPE, APPLICATION_FHIR_JSON)
+                .bodyValue(jsonBundle)
                 .retrieve()
                 .bodyToMono(String.class)
+                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .retryWhen(RETRY_SPEC)
-                .flatMap(this::parseFhirResource)
-                .doOnSuccess(resource -> logger.debug("Successfully fetched resource: {}/{}", type, id))
-                .doOnError(error -> logger.error("Failed to fetch resource {}/{}: {}", type, id, error.getMessage()));
+                .flatMapMany(bundle -> Flux.fromIterable(bundle.getEntry()))
+                .map(Bundle.BundleEntryComponent::getResource)
+                .flatMap(resource -> {
+                    if (resource instanceof Bundle nestedBundle) {
+                        return Flux.fromIterable(nestedBundle.getEntry())
+                                .map(Bundle.BundleEntryComponent::getResource);
+                    } else {
+                        logger.warn("Found unexpected resource type {} in batch-response", resource.getClass().getSimpleName());
+                        return Flux.empty();
+                    }
+                })
+                .doOnComplete(() -> logger.debug("Finished reference Batch Bundle in {} seconds.",
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
+                .doOnError(e -> logger.error("Error while executing batch reference query: {}", e.getMessage()))
+                .onErrorMap(e -> new DataStoreException(e.getMessage(), e));
+
     }
 
-    private Mono<Resource> parseFhirResource(String jsonBody) {
-        try {
-            JsonNode jsonNode = objectMapper.readTree(jsonBody);
-            if (!jsonNode.has("resourceType")) {
-                return Mono.error(new RuntimeException("Missing 'resourceType' field in response"));
-            }
-            String resourceType = jsonNode.get("resourceType").asText();
-            Class<? extends IBaseResource> resourceClass = fhirContext.getResourceDefinition(resourceType).getImplementingClass();
-            IBaseResource parsedResource = fhirContext.newJsonParser().parseResource(resourceClass, jsonBody);
-            if (parsedResource instanceof Resource resource) {
-                return Mono.just(resource);
-            } else {
-                return Mono.error(new ClassCastException("Parsed object is not a valid FHIR Resource: " + resourceClass.getSimpleName()));
-            }
-        } catch (Exception e) {
-            return Mono.error(new RuntimeException("Failed to parse FHIR resource", e));
-        }
-    }
 
     /**
      * Executes {@code query} and returns all resources found.
@@ -185,7 +167,7 @@ public class DataStore {
         logger.debug("Execute transaction...");
         return client.post()
                 .uri("")
-                .header("Content-Type", "application/fhir+json")
+                .header(CONTENT_TYPE, APPLICATION_FHIR_JSON)
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
                 .retrieve()
                 .bodyToMono(String.class)
@@ -211,7 +193,7 @@ public class DataStore {
         return client.post()
                 .uri("/Measure/$evaluate-measure")
                 .headers(preferHeaderSetter)
-                .header("Content-Type", "application/fhir+json")
+                .header(CONTENT_TYPE, APPLICATION_FHIR_JSON)
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(params))
                 .retrieve()
                 .onStatus(status -> status.isSameCodeAs(ACCEPTED), response -> Mono.error(handleAcceptedResponse(response)))

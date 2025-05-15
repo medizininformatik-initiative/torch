@@ -19,13 +19,13 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
 import de.medizininformatikinitiative.torch.service.BatchCopierRedacter;
-import de.medizininformatikinitiative.torch.service.BatchReferenceProcessor;
 import de.medizininformatikinitiative.torch.service.CascadingDelete;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.service.FilterService;
 import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWriter;
+import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
 import de.medizininformatikinitiative.torch.service.ReferenceResolver;
 import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
@@ -127,7 +127,7 @@ public class AppConfig {
 
     @Bean
     ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentValidator consentValidator) {
-        return new ReferenceHandler(dataStore, mustHaveChecker, compartmentManager, consentValidator);
+        return new ReferenceHandler(mustHaveChecker);
     }
 
     @Bean
@@ -136,13 +136,15 @@ public class AppConfig {
     }
 
     @Bean
-    ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor) {
-        return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor);
+    ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor, ReferenceBundleLoader referenceBundleLoader) {
+        return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor, referenceBundleLoader);
     }
 
     @Bean
-    BatchReferenceProcessor batchReferenceProcessor(ReferenceResolver referenceResolver) {
-        return new BatchReferenceProcessor(referenceResolver);
+    public ReferenceBundleLoader referenceBundleLoader(CompartmentManager compartmentManager,
+                                                       DataStore dataStore, ConsentValidator consentValidator) {
+        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator);
+
     }
 
     @Bean

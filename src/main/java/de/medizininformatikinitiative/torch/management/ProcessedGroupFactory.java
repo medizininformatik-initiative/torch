@@ -1,8 +1,8 @@
 package de.medizininformatikinitiative.torch.management;
 
-import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 
 import java.util.ArrayList;
 import java.util.HashMap;
