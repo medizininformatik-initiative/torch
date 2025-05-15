@@ -9,7 +9,6 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
@@ -20,6 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
@@ -37,9 +37,9 @@ import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
-public class DirectResourceLoaderIT {
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
+class DirectResourceLoaderIT {
 
-    private final ContainerManager manager = new ContainerManager();
     @Autowired
     CrtdlValidatorService validator;
     @Autowired
@@ -56,12 +56,12 @@ public class DirectResourceLoaderIT {
 
     @BeforeAll
     void init() throws IOException {
-        manager.startContainers();
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
     }
 
+
     @Test
-    public void collectPatientsByResource() throws IOException, ValidationException {
+    void collectPatientsByResource() throws IOException, ValidationException {
         AnnotatedCrtdl crtdl = readCrdtl("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
 
         Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
@@ -109,8 +109,8 @@ public class DirectResourceLoaderIT {
         List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation");
 
         StepVerifier.create(dLoader.executeQueryWithBatch(batch, queries.getFirst()))
-                .expectNextMatches(resource -> resource instanceof Observation)
-                .expectNextMatches(resource -> resource instanceof Observation)
+                .expectNextMatches(Observation.class::isInstance)
+                .expectNextMatches(Observation.class::isInstance)
                 .verifyComplete();
     }
 

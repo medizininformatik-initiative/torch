@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.setup;
 
+import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,44 +15,35 @@ public class ContainerManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ContainerManager.class);
 
-    private final String blazeHost;
-    private final int blazePort;
-    private final String flareHost;
-    private final int flarePort;
-    private static final ComposeContainer environment;
+    private final ComposeContainer environment;
+    private String blazeHost;
+    private int blazePort;
+    private String flareHost;
+    private int flarePort;
 
-    // Static initialization of the ComposeContainer
-    static {
+
+    public ContainerManager() {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
-                .withScaledService("blaze", 1)
-                .withScaledService("flare", 1)
+                .withScaledService("blaze", 1).withScaledService("flare", 1)
                 .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
                 .withExposedService("flare", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("flare", new Slf4jLogConsumer(logger).withPrefix("flare"));
+
     }
 
-    public ContainerManager() {
-        startContainers();
-        this.blazeHost = environment.getServiceHost("blaze", 8080);
-        this.blazePort = environment.getServicePort("blaze", 8080);
-        this.flareHost = environment.getServiceHost("flare", 8080);
-        this.flarePort = environment.getServicePort("flare", 8080);
+
+    @PostConstruct
+    public void startContainers() {
+        environment.start();
+        blazeHost = environment.getServiceHost("blaze", 8080);
+        blazePort = environment.getServicePort("blaze", 8080);
+        flareHost = environment.getServiceHost("flare", 8080);
+        flarePort = environment.getServicePort("flare", 8080);
         logger.info("Blaze available at {}:{} and Flare available at {}:{}", blazeHost, blazePort, flareHost, flarePort);
     }
 
-    // Method to start the containers
-    public void startContainers() {
-        environment.start();
-        logger.info("Containers started successfully.");
-    }
-
     @PreDestroy
-    public void cleanup() {
-        stopContainers();
-    }
-
-    // Method to stop the containers
     public void stopContainers() {
         environment.stop();
         logger.info("Containers stopped successfully.");

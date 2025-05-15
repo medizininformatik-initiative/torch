@@ -24,12 +24,17 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
-import java.util.*;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static java.util.Map.entry;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,6 +42,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ReferenceHandlerIT {
     private static final String PATIENT = """
             {
@@ -147,8 +153,6 @@ class ReferenceHandlerIT {
 
     public static final String PAT_REFERENCE = "Patient/VHF00006";
 
-    private ReferenceExtractor extractor;
-
     @MockBean
     private DataStore dataStore;
 
@@ -161,8 +165,6 @@ class ReferenceHandlerIT {
     @MockBean
     private ConsentValidator consentValidator;
 
-    @Autowired
-    FhirContext fhirContext;
 
     private ReferenceHandler referenceHandler;
 
@@ -198,8 +200,6 @@ class ReferenceHandlerIT {
         organization = new Organization();
         organization.setId("evilInc");
 
-
-        this.extractor = new ReferenceExtractor(fhirContext);
 
         this.referenceHandler = new ReferenceHandler(dataStore, profileMustHaveChecker, compartmentManager, consentValidator);
         this.parser = FhirContext.forR4().newJsonParser();
