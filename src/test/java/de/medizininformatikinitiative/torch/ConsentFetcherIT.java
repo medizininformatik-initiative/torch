@@ -1,7 +1,8 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.consent.ConsentFetcher;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import org.hl7.fhir.r4.model.DateTimeType;
@@ -25,11 +26,12 @@ import java.nio.file.Path;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+
 @ActiveProfiles("test")
 @SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-class ConsentHandlerIT {
+class ConsentFetcherIT {
 
     public static final String PATIENT_ID = "VHF00006";
     public static final String UNKNOWN_PATIENT_ID = "Unknown";
@@ -39,17 +41,17 @@ class ConsentHandlerIT {
     @Qualifier("fhirClient")
     WebClient webClient;
     @Autowired
-    ConsentHandler consentHandler;
+    ConsentFetcher consentFetcher;
     @Autowired
     ConsentValidator consentValidator;
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
 
+
     @BeforeAll
     void init() throws IOException {
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
     }
-
 
     private void assertConsentTrue(PatientBatchWithConsent batch, String patientId, String date) {
         Observation observation = new Observation();
@@ -66,16 +68,37 @@ class ConsentHandlerIT {
     }
 
     @Test
-    void successAfterEncounterUpdatesProvisions() {
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo("yes-yes-yes-yes", BATCH);
+    void failsOnNoPatientMatchesConsentKeyBuildingConsent() {
+        var resultBatch = consentFetcher.buildConsentInfo("yes-no-no-yes", BATCH);
+
+        StepVerifier.create(resultBatch)
+                .expectErrorSatisfies(error -> assertThat(error)
+                        .isInstanceOf(ConsentViolatedException.class)
+                        .hasMessageContaining("No valid provisions found for any patients in batch"))
+                .verify();
+    }
+
+    @Test
+    void failsOnUnknownPatientBuildingConsent() {
+        var resultBatch = consentFetcher.buildConsentInfo("yes-yes-yes-yes", BATCH_UNKNOWN);
+
+        StepVerifier.create(resultBatch)
+                .expectErrorSatisfies(error -> assertThat(error)
+                        .isInstanceOf(ConsentViolatedException.class)
+                        .hasMessageContaining("No valid provisions found for any patients in batch"))
+                .verify();
+    }
+
+    @Test
+    void successBuildingConsent() {
+        var resultBatch = consentFetcher.buildConsentInfo("yes-yes-yes-yes", BATCH);
 
         StepVerifier.create(resultBatch)
                 .assertNext(batch -> {
                     assertThat(batch.patientIds()).containsExactly(PATIENT_ID);
                     assertThat(batch.bundles().get(PATIENT_ID).provisions().periods()).isNotEmpty();
                     assertConsentTrue(batch, PATIENT_ID, "2021-01-02T00:00:00+01:00");
-                    assertConsentTrue(batch, PATIENT_ID, "2020-01-01T00:00:00+01:00");
-                    assertConsentFalse(batch, PATIENT_ID, "2019-01-01T00:00:00+01:00");
+                    assertConsentFalse(batch, PATIENT_ID, "2020-01-01T00:00:00+01:00");
                 }).verifyComplete();
     }
 }

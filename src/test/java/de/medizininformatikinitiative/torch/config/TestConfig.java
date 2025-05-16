@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.consent.ConsentFetcher;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
@@ -281,8 +282,13 @@ public class TestConfig {
     }
 
     @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
-        return new ConsentHandler(dataStore, mapper, ctx);
+    ConsentHandler handler(DataStore dataStore, ConsentFetcher consentFetcher) {
+        return new ConsentHandler(dataStore, consentFetcher);
+    }
+
+    @Bean
+    ConsentFetcher consentFetcherBuilder(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
+        return new ConsentFetcher(dataStore, mapper, ctx);
     }
 
     @Bean
