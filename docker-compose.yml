@@ -54,8 +54,8 @@ services:
       TORCH_RESULTS_DIR: /app/output
       TORCH_RESULTS_PERSISTENCE: PT2160H
       LOG_LEVEL: debug
-      NGINX_SERVERNAME: localhost
-      NGINX_FILELOCATION: http://localhost:8085
+      TORCH_BASE_URL: http://localhost:8080
+      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8085
       TORCH_BATCHSIZE: 100
       TORCH_MAXCONCURRENCY: 4
       TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json

@@ -4,6 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "torch")
 public record TorchProperties(
+        Base base,
+        Output output,
         Profile profile,
         Mapping mapping,
         Fhir fhir,
@@ -17,6 +19,21 @@ public record TorchProperties(
         String dseMappingTreeFile,
         boolean useCql
 ) {
+
+    public record Base(String url) {
+
+    }
+
+    public record Output(File file) {
+        public record File(Server server) {
+            public record Server(String url) {
+
+            }
+        }
+
+    }
+
+
     public record Profile(String dir) {
     }
 
