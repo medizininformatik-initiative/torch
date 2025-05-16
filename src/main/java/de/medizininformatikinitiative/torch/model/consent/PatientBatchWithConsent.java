@@ -1,10 +1,10 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
 import ca.uhn.fhir.context.FhirContext;
-import de.medizininformatikinitiative.torch.model.management.ImmutableResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Encounter;
 
@@ -36,7 +36,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
                 .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
     }
 
-    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
+    public void addStaticInfo(cachelessResourceBundle staticInfo) {
         bundles.values().forEach(batch -> batch.addStaticInfo(staticInfo));
     }
 
@@ -61,7 +61,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
     }
 
     public void writeFhirBundlesTo(FhirContext fhirContext, Writer out) throws IOException {
-        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(ResourceBundle::toFhirBundle).toList()) {
+        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(cachingResourceBundle::toFhirBundle).toList()) {
             fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
             out.append("\n");
         }

@@ -10,7 +10,11 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
+import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
@@ -101,15 +105,15 @@ public class CrtdlProcessingService {
 
     private Mono<Void> processIntern(AnnotatedCrtdl crtdl, String jobID, Flux<PatientBatch> batches) {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-        ResourceBundle coreBundle = new ResourceBundle();
+        cachingResourceBundle coreBundle = new cachingResourceBundle();
 
         // Step 1: Preprocess Core Bundle (but don't write it out yet)
-        Mono<ImmutableResourceBundle> preProcessedCoreBundle = directResourceLoader
+        Mono<cachelessResourceBundle> preProcessedCoreBundle = directResourceLoader
                 .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
                 .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                 .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                         .thenReturn(updatedCoreBundle)) // Ensure sequential execution
-                .map(ImmutableResourceBundle::new); // Create immutable snapshot after processing
+                .map(cachelessResourceBundle::new); // Create immutable snapshot after processing
 
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
@@ -126,24 +130,24 @@ public class CrtdlProcessingService {
                 Mono.defer(() -> {
                     PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
-                    return writeBundle(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
+                    return writeBatch(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
                 })
         );
     }
 
-    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {
+    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, cachingResourceBundle coreBundle) {
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
                 .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
                 .flatMap(patientBatch -> {
                             batchToCoreWriter.updateCore(patientBatch, coreBundle);
-                            return writeBundle(jobID, patientBatch);
+                            return writeBatch(jobID, patientBatch);
                         }
                 );
     }
 
-    Mono<Void> writeBundle(String jobID, PatientBatchWithConsent batch) {
+    Mono<Void> writeBatch(String jobID, PatientBatchWithConsent batch) {
         try {
             resultFileManager.saveBatchToNDJSON(jobID, batch);
             return Mono.empty();

@@ -2,15 +2,16 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.cachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.cachingResourceBundle;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import reactor.core.publisher.Mono;
-import reactor.test.StepVerifier;
 
 import java.util.Map;
 import java.util.Set;
@@ -19,7 +20,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ResourceBundleTest {
+class cachingResourceBundleTest {
 
     Patient patient1 = new Patient();
     Patient patient2 = new Patient();
@@ -44,12 +45,25 @@ class ResourceBundleTest {
         id = ResourceUtils.getRelativeURL(patient1);
     }
 
+    @Test
+    void toFhirBundleTest() {
+        cachingResourceBundle cache = new cachingResourceBundle();
+        cache.put(wrapper1);
+
+        var fhirBundle = cache.toFhirBundle();
+
+        assertThat(fhirBundle)
+                .containsNEntries(1)
+                .extractResources()
+                .satisfiesExactly(resource -> assertThat(resource).extractElementsAt("id").containsExactly(new TextNode("patient1")));
+    }
+
     @Nested
     class RetrievalTests {
 
         @Test
         void getMatch() {
-            var cache = new ResourceBundle();
+            var cache = new cachingResourceBundle();
             cache.put(wrapper1);
 
             var result = cache.get(id);
@@ -59,7 +73,7 @@ class ResourceBundleTest {
 
         @Test
         void isEmpty() {
-            var cache = new ResourceBundle();
+            var cache = new cachingResourceBundle();
 
             var result = cache.get(id);
 
@@ -72,7 +86,7 @@ class ResourceBundleTest {
 
         @Test
         void removeExistingEntry() {
-            ResourceBundle cache = new ResourceBundle();
+            cachingResourceBundle cache = new cachingResourceBundle();
             cache.put(wrapper1);
             cache.remove(id);
 
@@ -81,7 +95,6 @@ class ResourceBundleTest {
             assertThat(result).isNull();
         }
     }
-
 
     @Nested
     class BidirectionalRelationMapping {
@@ -99,11 +112,11 @@ class ResourceBundleTest {
         private static final ResourceGroup PARENT_1 = new ResourceGroup("parent1", "group1");
         private static final ResourceGroup PARENT_2 = new ResourceGroup("parent2", "group2");
 
-        private ResourceBundle cache;
+        private cachingResourceBundle cache;
 
         @BeforeEach
         void setUp() {
-            cache = new ResourceBundle();
+            cache = new cachingResourceBundle();
         }
 
         @Test
@@ -236,34 +249,31 @@ class ResourceBundleTest {
     @Nested
     class Immutable {
 
-        private ResourceBundle resourceBundle;
-        private ImmutableResourceBundle immutableResourceBundle;
-
-        private ResourceGroup patientGroup = new ResourceGroup("Patient/101", "GroupA");
-        private ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-        private ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-        private ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
-
-        private AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
-        private AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
-
-        private ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain
-        private ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Should be added
-        private ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Should be added
+        private final ResourceGroup patientGroup = new ResourceGroup("Patient/101", "GroupA");
+        private final ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
+        private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
+        private final ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
+        private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
+        private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
+        private final ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain
+        private final ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Should be added
+        private final ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Should be added
+        private cachingResourceBundle cachingResourceBundle;
+        private cachelessResourceBundle cachelessResourceBundle;
 
         @BeforeEach
         void setUp() {
-            resourceBundle = new ResourceBundle();
+            cachingResourceBundle = new cachingResourceBundle();
 
             // Initial state: ResourceBundle already contains some valid groups and attributes
-            resourceBundle.addResourceGroupValidity(patientGroup, true);
-            resourceBundle.addAttributeToParent(attribute1, patientGroup);
-            resourceBundle.addAttributeToChild(attribute1, medicationGroup1);
-            resourceBundle.addResourceGroupValidity(medicationGroup1, true);
-            resourceBundle.setResourceAttributeValid(attribute1);
+            cachingResourceBundle.addResourceGroupValidity(patientGroup, true);
+            cachingResourceBundle.addAttributeToParent(attribute1, patientGroup);
+            cachingResourceBundle.addAttributeToChild(attribute1, medicationGroup1);
+            cachingResourceBundle.addResourceGroupValidity(medicationGroup1, true);
+            cachingResourceBundle.setResourceAttributeValid(attribute1);
 
             // Prepare ImmutableResourceBundle with additional data to merge
-            immutableResourceBundle = new ImmutableResourceBundle(
+            cachelessResourceBundle = new cachelessResourceBundle(
                     Map.of(
                             attribute3, Set.of(medicationGroup1),
                             attribute4, Set.of(medicationGroup2)
@@ -294,58 +304,45 @@ class ResourceBundleTest {
         @Test
         void merge_ImmutableBundleIntoResourceBundle() {
             // Merge the immutable bundle into the resource bundle
-            resourceBundle.merge(immutableResourceBundle);
+            cachingResourceBundle.merge(cachelessResourceBundle);
 
             // **Step 1: Validate all expected groups are present (existing + new)**
-            assertThat(resourceBundle.resourceGroupValidity()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.resourceGroupValidity()).containsAllEntriesOf(Map.of(
                     medicationGroup1, true,
                     medicationGroup2, true,
                     organizationGroup, true
             ));
             // Ensure no unexpected removals
-            assertThat(resourceBundle.resourceGroupValidity()).containsKey(patientGroup);
+            assertThat(cachingResourceBundle.resourceGroupValidity()).containsKey(patientGroup);
 
             // **Step 2: Validate correct attribute validity**
-            assertThat(resourceBundle.resourceAttributeValidity()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.resourceAttributeValidity()).containsAllEntriesOf(Map.of(
                     attribute3, true,
                     attribute4, true
             ));
             // Ensure pre-existing attribute is still valid
-            assertThat(resourceBundle.resourceAttributeValidity()).containsKey(attribute1);
+            assertThat(cachingResourceBundle.resourceAttributeValidity()).containsKey(attribute1);
 
             // **Step 3: Verify Parent-Child relationships**
-            assertThat(resourceBundle.resourceAttributeToParentResourceGroup()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.resourceAttributeToParentResourceGroup()).containsAllEntriesOf(Map.of(
                     attribute3, Set.of(medicationGroup1),
                     attribute4, Set.of(medicationGroup2)
             ));
 
-            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.resourceAttributeToChildResourceGroup()).containsAllEntriesOf(Map.of(
                     attribute3, Set.of(organizationGroup),
                     attribute4, Set.of(organizationGroup)
             ));
 
             // **Step 4: Validate group-to-attribute mappings**
-            assertThat(resourceBundle.parentResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.parentResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
                     medicationGroup1, Set.of(attribute3),
                     medicationGroup2, Set.of(attribute4)
             ));
 
-            assertThat(resourceBundle.childResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
+            assertThat(cachingResourceBundle.childResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
                     organizationGroup, Set.of(attribute3, attribute4)
             ));
         }
-    }
-
-    @Test
-    void toFhirBundleTest() {
-        ResourceBundle cache = new ResourceBundle();
-        cache.put(wrapper1);
-
-        var fhirBundle = cache.toFhirBundle();
-
-        assertThat(fhirBundle)
-                .containsNEntries(1)
-                .extractResources()
-                .satisfiesExactly(resource -> assertThat(resource).extractElementsAt("id").containsExactly(new TextNode("patient1")));
     }
 }

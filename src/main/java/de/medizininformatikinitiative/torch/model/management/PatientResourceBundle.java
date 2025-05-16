@@ -16,7 +16,7 @@ import static java.util.Objects.requireNonNull;
  * @param provisions ConsentProvisions to be applied to all Resources within the patient compartment
  * @param bundle     ResourceBundle handling the resource wrappers for the patient
  */
-public record PatientResourceBundle(String patientId, Provisions provisions, ResourceBundle bundle) {
+public record PatientResourceBundle(String patientId, Provisions provisions, cachingResourceBundle bundle) {
 
     public PatientResourceBundle {
         requireNonNull(patientId);
@@ -25,19 +25,19 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
     }
 
     public PatientResourceBundle(String patientID) {
-        this(patientID, new ResourceBundle());
+        this(patientID, new cachingResourceBundle());
     }
 
-    public PatientResourceBundle(String patientID, ResourceBundle bundle) {
+    public PatientResourceBundle(String patientID, cachingResourceBundle bundle) {
         this(patientID, Provisions.of(), bundle);
     }
 
-    public PatientResourceBundle(String patientID, ImmutableResourceBundle immutableResourceBundle) {
-        this(patientID, Provisions.of(), immutableResourceBundle.toMutable());
+    public PatientResourceBundle(String patientID, cachelessResourceBundle cachelessResourceBundle) {
+        this(patientID, Provisions.of(), cachelessResourceBundle.toCaching());
     }
 
     public PatientResourceBundle(String patientID, Provisions provisions) {
-        this(patientID, provisions, new ResourceBundle());
+        this(patientID, provisions, new cachingResourceBundle());
     }
 
     public PatientResourceBundle adjustConsentPeriodsByPatientEncounters(Collection<Encounter> encounters) {
@@ -72,7 +72,7 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
         return bundle().put(resource, groupId, b);
     }
 
-    public void addStaticInfo(ImmutableResourceBundle staticInfo) {
+    public void addStaticInfo(cachelessResourceBundle staticInfo) {
         bundle.merge(staticInfo);
     }
 }

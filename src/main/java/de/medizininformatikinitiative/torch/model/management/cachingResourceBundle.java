@@ -4,8 +4,9 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import reactor.core.publisher.Mono;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
@@ -27,17 +28,17 @@ import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
  * @param childResourceGroupToResourceAttributesMap
  * @param cache
  */
-public record ResourceBundle(
-        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
-        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
-        ConcurrentHashMap<ResourceGroup, Boolean> resourceGroupValidity,
-        ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
+public record cachingResourceBundle(
+        HashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
+        HashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
+        HashMap<ResourceGroup, Boolean> resourceGroupValidity,
+        HashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
+        HashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
+        HashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<String, Resource> cache) {
 
-    public ResourceBundle() {
-        this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+    public cachingResourceBundle() {
+        this(new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new HashMap<>(), new ConcurrentHashMap<>());
     }
 
     public Resource get(String id) {
@@ -49,7 +50,7 @@ public record ResourceBundle(
      *
      * @param extractedData Bundle with extracted information to be merged
      */
-    public void merge(ImmutableResourceBundle extractedData) {
+    public void merge(cachelessResourceBundle extractedData) {
         // Merge resource group validity
         extractedData.resourceGroupValidity().forEach(this::addResourceGroupValidity);
 
@@ -98,6 +99,29 @@ public record ResourceBundle(
     }
 
     /**
+     * Removes an item from a map of sets. If the set becomes empty after removal, the key is removed from the map.
+     *
+     * @param <K>   The key type of the map
+     * @param <V>   The value type in the set
+     * @param map   The map from key to set of values
+     * @param key   The key from which to remove the value
+     * @param value The value to remove
+     * @return true if the value was removed and the set became empty (or key was absent); false otherwise
+     */
+    private <K, V> boolean removeFromMapOfSets(Map<K, Set<V>> map, K key, V value) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+        map.computeIfPresent(key, (k, set) -> {
+            set.remove(value);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // remove key
+            }
+            return set;
+        });
+        return isEmpty.get();
+    }
+
+    /**
      * Removes a parent resourceGroup for the given attribute.
      * If the resourceGroup is the last one in the set, the entire group is removed from the map.
      *
@@ -106,18 +130,7 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeParentRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
-            set.remove(group);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+        return removeFromMapOfSets(resourceAttributeToParentResourceGroup, attribute, group);
     }
 
     /**
@@ -129,18 +142,7 @@ public record ResourceBundle(
      * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
      */
     public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        parentResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
+        return removeFromMapOfSets(parentResourceGroupToResourceAttributesMap, group, attribute);
     }
 
     public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
