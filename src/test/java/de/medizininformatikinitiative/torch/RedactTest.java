@@ -33,7 +33,7 @@ public class RedactTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})
-    public void testObservationLab(String resource) throws IOException {
+    public void testObservationLAb(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -44,8 +44,24 @@ public class RedactTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Observation-mii-exa-test-data-patient-1-vitalstatus-1.json"})
-    public void testObservationVitalStauts(String resource) throws IOException {
+    @ValueSource(strings = {
+            "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json"
+    })
+    public void testValueSetBindingPassingThroughAsDiscriminator(String resource) throws IOException {
+        DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
+        DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json"
+    })
+    public void testReferenceComplexType(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -132,7 +148,7 @@ public class RedactTest {
 
 
     @Test
-    public void backboneElement() {
+    public void backboneElementHandling() {
         Meta meta = new Meta();
         meta.addProfile(MEDICATION);
         Medication medication = new Medication();
