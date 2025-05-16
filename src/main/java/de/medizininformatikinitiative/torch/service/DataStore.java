@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.parser.DataFormatException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -8,15 +9,19 @@ import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
+import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
@@ -25,16 +30,23 @@ import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
+import java.util.List;
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static java.util.Objects.requireNonNull;
+import static org.springframework.http.HttpStatus.ACCEPTED;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
 
 @Component
 public class DataStore {
 
     private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
+
+    private static final Duration ASYNC_POLL_DELAY = Duration.ofSeconds(2);
+    private static final RetryBackoffSpec ASYNC_POLL_RETRY_SPEC = Retry.fixedDelay(1000, ASYNC_POLL_DELAY)
+            .filter(e -> e instanceof AsyncRetryException);
     private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
             .filter(e -> e instanceof WebClientResponseException e1 &&
                     shouldRetry((e1).getStatusCode()));
@@ -42,18 +54,29 @@ public class DataStore {
     private final WebClient client;
     private final FhirContext fhirContext;
     private final int pageCount;
+    private final Consumer<HttpHeaders> preferHeaderSetter;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext, @Value("${torch.fhir.pageCount}") int pageCount) {
+    public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
+                     @Value("${torch.fhir.page.count}") int pageCount,
+                     @Value("${torch.fhir.disable.async}") boolean disableAsync) {
+        logger.info("Init DataStore with pageCount = {}, disableAsync = {}", pageCount, disableAsync);
         this.client = requireNonNull(client);
         this.fhirContext = requireNonNull(fhirContext);
         this.pageCount = pageCount;
+        preferHeaderSetter = disableAsync ? headers -> {
+        } : headers -> headers.add("Prefer", "respond-async,return=representation");
     }
 
     private static boolean shouldRetry(HttpStatusCode code) {
         return code.is5xxServerError() || code.value() == 404;
+    }
+
+    private static Exception handleAcceptedResponse(ClientResponse response) {
+        List<String> locations = response.headers().header("Content-Location");
+        return locations.isEmpty() ? new MissingContentLocationException() : new AsyncException(locations.getFirst());
     }
 
     /**
@@ -173,24 +196,98 @@ public class DataStore {
     }
 
     /**
-     * Get the {@link MeasureReport} for a previously transmitted Measure
+     * Evaluate a previously transmitted {@code Measure}.
      *
-     * @param params the Parameters for the evaluation of the Measure
-     * @return the retrieved {@link MeasureReport} from the server
+     * <p> In case this {@code DataStore} isn't initialized with {@code disableAsync} set to {@code true},
+     *
+     * @param params the parameters have to contain at least the {@code measure} parameter
+     * @return the result of the {@code Measure} evaluation as {@link MeasureReport}
      */
     public Mono<MeasureReport> evaluateMeasure(Parameters params) {
+        var start = System.nanoTime();
         var measureUrn = params.getParameter("measure").getValue().toString();
         logger.debug("Evaluate Measure with URN {}...", measureUrn);
 
         return client.post()
                 .uri("/Measure/$evaluate-measure")
+                .headers(preferHeaderSetter)
                 .header("Content-Type", "application/fhir+json")
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(params))
                 .retrieve()
+                .onStatus(status -> status.isSameCodeAs(ACCEPTED), response -> Mono.error(handleAcceptedResponse(response)))
                 .bodyToMono(String.class)
-                .retryWhen(RETRY_SPEC)
-                .map(response -> fhirContext.newJsonParser().parseResource(MeasureReport.class, response))
-                .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {}.", measureUrn))
+                .flatMap(body -> parseResource(MeasureReport.class, body))
+                .onErrorResume(AsyncException.class, e -> pollStatus(e.getStatusUrl(), measureUrn, start))
+                .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {} in {} seconds.",
+                        measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(error -> logger.error("Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
+    }
+
+    private <T extends Resource> Mono<T> parseResource(Class<T> resourceType, String body) {
+        try {
+            return Mono.just(fhirContext.newJsonParser().parseResource(resourceType, body));
+        } catch (DataFormatException e) {
+            return Mono.error(e);
+        }
+    }
+
+    private Mono<MeasureReport> pollStatus(String statusUrl, String measureUrn, long start) {
+        return client.get().uri(statusUrl)
+                .retrieve()
+                .onStatus(status -> status.isSameCodeAs(ACCEPTED), response -> {
+                    logger.trace("Evaluation of measure with URN {} is still in progress for {} seconds. Next try will be in {}.",
+                            measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start)), ASYNC_POLL_DELAY);
+                    return Mono.error(new AsyncRetryException());
+                })
+                .bodyToMono(String.class)
+                .retryWhen(ASYNC_POLL_RETRY_SPEC)
+                .retryWhen(RETRY_SPEC)
+                .flatMap(body -> parseResource(Bundle.class, body))
+                .flatMap(bundle -> {
+                    var entry = bundle.getEntryFirstRep();
+                    if (entry.hasResponse()) {
+                        var response = entry.getResponse();
+                        if ("201".equals(response.getStatus())) {
+                            if (entry.hasResource()) {
+                                return entry.getResource().getResourceType() == ResourceType.MeasureReport
+                                        ? Mono.just((MeasureReport) entry.getResource())
+                                        : Mono.error(new RuntimeException("unknown resource type"));
+                            } else {
+                                return Mono.error(new RuntimeException("missing resource"));
+                            }
+                        } else {
+                            if (response.hasOutcome()) {
+                                return response.getOutcome().getResourceType() == ResourceType.OperationOutcome
+                                        ? Mono.error(new OutcomeException((OperationOutcome) response.getOutcome()))
+                                        : Mono.error(new RuntimeException("unknown resource type"));
+                            } else {
+                                return Mono.error(new RuntimeException("missing outcome"));
+                            }
+                        }
+                    } else {
+                        return Mono.error(new RuntimeException("missing response"));
+                    }
+                });
+    }
+
+    private static class AsyncException extends Exception {
+
+        private final String statusUrl;
+
+        private AsyncException(String statusUrl) {
+            this.statusUrl = requireNonNull(statusUrl);
+        }
+
+        public String getStatusUrl() {
+            return statusUrl;
+        }
+    }
+
+    private static class MissingContentLocationException extends Exception {
+
+    }
+
+    private static class AsyncRetryException extends Exception {
+
     }
 }

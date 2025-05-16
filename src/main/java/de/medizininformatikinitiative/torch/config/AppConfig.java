@@ -156,7 +156,7 @@ public class AppConfig {
                                    @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction,
                                    @Value("${torch.fhir.user}") String user,
                                    @Value("${torch.fhir.password}") String password,
-                                   @Value("${torch.fhir.maxConnections}") int maxConnections) {
+                                   @Value("${torch.fhir.max.connections}") int maxConnections) {
         logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
 
         // Configure buffer size to 10MB
@@ -258,11 +258,6 @@ public class AppConfig {
     @Bean
     public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
         return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
-    }
-
-    @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Value("${torch.fhir.pageCount}") int pageCount) {
-        return new DataStore(client, context, pageCount);
     }
 
     @Bean

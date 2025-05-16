@@ -11,7 +11,12 @@ torch:
   search_parameters_file: search-parameters.json
   fhir:
     url: http://localhost:8082/fhir
-    pageCount: 500
+    page:
+      count: 500
+    max:
+      connections: 4
+    disable:
+      async: false
     testPopulation:
       path: src/test/resources/BlazeBundle.json
     oauth:

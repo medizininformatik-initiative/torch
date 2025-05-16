@@ -1,0 +1,19 @@
+{
+  "resourceType": "Bundle",
+  "type": "batch-response",
+  "entry": [
+    {
+      "response": {
+        "status": "500",
+        "outcome": {
+          "resourceType": "OperationOutcome",
+          "issue": [
+            {
+              "severity": "error"
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
