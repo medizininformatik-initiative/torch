@@ -1,0 +1,15 @@
+{
+  "resourceType": "Bundle",
+  "type": "batch-response",
+  "entry": [
+    {
+      "response": {
+        "status": "201"
+      },
+      "resource": {
+        "resourceType": "MeasureReport",
+        "status": "complete"
+      }
+    }
+  ]
+}

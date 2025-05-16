@@ -20,8 +20,12 @@ torch:
         secret: ""
 
     url: http://localhost:8081/fhir
-    pageCount: 500
-    maxConnections: 4
+    page:
+      count: 500
+    max:
+      connections: 4
+    disable:
+      async: false
   flare:
     url: http://localhost:8084
   results:

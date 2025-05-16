@@ -49,8 +49,8 @@ public class ContainerManager {
         logger.info("Containers stopped successfully.");
     }
 
-    public String getBlazeBaseUrl() {
-        return String.format("http://%s:%d/fhir", blazeHost, blazePort);
+    public String getBlazeHost() {
+        return String.format("%s:%d", blazeHost, blazePort);
     }
 
     public String getFlareBaseUrl() {

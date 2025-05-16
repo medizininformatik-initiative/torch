@@ -2,8 +2,9 @@ services:
   blaze:
     image: samply/blaze:main
     environment:
-      - LOG_LEVEL=info
-      - ALLOW_MULTIPLE_DELETE=true
+      BASE_URL: http://blaze:8080
+      LOG_LEVEL: debug
+      ALLOW_MULTIPLE_DELETE: true
     ports:
       - "8080"
     healthcheck:

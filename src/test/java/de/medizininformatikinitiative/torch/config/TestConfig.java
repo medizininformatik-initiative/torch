@@ -149,8 +149,9 @@ public class TestConfig {
     @Bean
     @Qualifier("fhirClient")
     public WebClient fhirWebClient(ContainerManager containerManager) {
-        String blazeBaseUrl = containerManager.getBlazeBaseUrl();
-        logger.info("Initializing FHIR WebClient with URL: {}", blazeBaseUrl);
+        String host = containerManager.getBlazeHost();
+        String baseUrl = String.format("http://%s/fhir", host);
+        logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
@@ -167,10 +168,11 @@ public class TestConfig {
                 .build();
 
         return WebClient.builder()
-                .baseUrl(blazeBaseUrl)
+                .baseUrl(baseUrl)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .exchangeStrategies(strategies)
                 .defaultHeader("Accept", "application/fhir+json")
+                .defaultHeader("X-Forwarded-Host", host)
                 .build();
     }
 
@@ -225,11 +227,6 @@ public class TestConfig {
     @Bean
     public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
         return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
-    }
-
-    @Bean
-    public DataStore dataStore(@Qualifier("fhirClient") WebClient client, FhirContext context, @Value("${torch.fhir.pageCount}") int pageCount) {
-        return new DataStore(client, context, pageCount);
     }
 
     @Bean
