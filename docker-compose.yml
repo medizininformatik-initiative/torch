@@ -1,6 +1,6 @@
 services:
   torch-data-store:
-    image: "samply/blaze:0.34"
+    image: "samply/blaze:0.34@sha256:674093a10e0b12561609079380d9a22ddca040631e707f6434f054e28b479bb8"
     environment:
       BASE_URL: ${TORCH_DATA_STORE_BASE_URL:-http://torch-data-store:8080}
       JAVA_TOOL_OPTIONS: "-Xmx2g"
@@ -10,7 +10,7 @@ services:
     volumes:
       - "data-store-data:/app/data"
   torch-flare:
-    image: ghcr.io/medizininformatik-initiative/flare:2.4.0-alpha.1
+    image: ghcr.io/medizininformatik-initiative/flare:2.4.0-alpha.1@sha256:91bf65f98b52a1be6ebd2ab345e5dde99140d0f66a6bc3869bc9ddcc1d3efcba
     ports:
       - ${FEASIBILITY_FLARE_PORT:-127.0.0.1:8084}:8080
     environment:
@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
   torch-nginx:
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged:1.28.0-alpine
+    image: nginxinc/nginx-unprivileged:1.28.0-alpine@sha256:d8745b23de3a2276720d46817ed7dd16df865776dbc9c2b2b37007fe43a4a856
     ports:
       - ${PORT_TORCH_NGINX:-127.0.0.1:8085}:8080
     volumes:
