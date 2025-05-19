@@ -5,7 +5,12 @@ import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.consent.ConsentProcessor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Period;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,11 +23,18 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.any;
+import static org.mockito.Mockito.anyString;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-public class ConsentProcessorTest {
+class ConsentProcessorTest {
 
 
     @Mock
@@ -35,15 +47,15 @@ public class ConsentProcessorTest {
     private ConsentProcessor consentProcessor;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         when(fhirContext.newFhirPath()).thenReturn(fhirPath);
     }
 
     @Test
     @DisplayName("Test extractConsentProvisions - valid resource")
-    public void testExtractConsentProvisionsValid() {
+    void testExtractConsentProvisionsValid() {
         Consent consent = mock(Consent.class);
-        List<Base> mockProvisions = List.of(mock(Consent.provisionComponent.class));
+        List<Base> mockProvisions = List.of(mock(Consent.ProvisionComponent.class));
         when(fhirPath.evaluate(consent, "Consent.provision.provision", Base.class)).thenReturn(mockProvisions);
 
         List<Base> provisions = consentProcessor.extractConsentProvisions(consent);
@@ -55,12 +67,12 @@ public class ConsentProcessorTest {
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - valid consent provisions")
-    public void testTransformToConsentPeriodByCodeValid() throws ConsentViolatedException {
+    void testTransformToConsentPeriodByCodeValid() throws ConsentViolatedException {
         Consent consent = mock(Consent.class);
         Set<String> validCodes = Set.of("VALID_CODE");
 
 
-        Consent.provisionComponent mockProvision = mock(Consent.provisionComponent.class);
+        Consent.ProvisionComponent mockProvision = mock(Consent.ProvisionComponent.class);
         Period mockPeriod = mock(Period.class);
         Coding mockCoding = new Coding().setCode("VALID_CODE");
 
@@ -88,29 +100,27 @@ public class ConsentProcessorTest {
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - missing provisions throws ConsentViolatedException")
-    public void testTransformToConsentPeriodByCodeNoPeriods() {
+    void testTransformToConsentPeriodByCodeNoPeriods() {
         Consent consent = mock(Consent.class);
         Set<String> validCodes = Set.of("VALID_CODE");
 
         // Mock FhirPath to return an isEmpty provision list
         when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(Collections.emptyList());
 
-        assertThrows(ConsentViolatedException.class, () -> {
-            consentProcessor.transformToConsentPeriodByCode(consent, validCodes);
-        });
+        assertThrows(ConsentViolatedException.class, () -> consentProcessor.transformToConsentPeriodByCode(consent, validCodes));
     }
 
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - some codes are missing and should throw ConsentViolatedException")
-    public void testTransformToConsentPeriodByCodePartialValidButOneMissing() throws ConsentViolatedException {
+    void testTransformToConsentPeriodByCodePartialValidButOneMissing() {
         Consent consent = mock(Consent.class);
 
         // Assume we are requesting two valid codes, but only one will be found
         Set<String> validCodes = Set.of("VALID_CODE_1", "VALID_CODE_2");
 
         // Mock provision for VALID_CODE_1
-        Consent.provisionComponent validProvision1 = mock(Consent.provisionComponent.class);
+        Consent.ProvisionComponent validProvision1 = mock(Consent.ProvisionComponent.class);
         Period validPeriod1 = mock(Period.class);
         when(validProvision1.getPeriod()).thenReturn(validPeriod1);
         when(validProvision1.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(new Coding().setCode("VALID_CODE_1"))));
@@ -125,9 +135,7 @@ public class ConsentProcessorTest {
         when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(List.of(validProvision1));  // Only one valid provision
 
         // Since VALID_CODE_2 is missing, an exception should be thrown
-        assertThrows(ConsentViolatedException.class, () -> {
-            consentProcessor.transformToConsentPeriodByCode(consent, validCodes);
-        });
+        assertThrows(ConsentViolatedException.class, () -> consentProcessor.transformToConsentPeriodByCode(consent, validCodes));
 
     }
 
