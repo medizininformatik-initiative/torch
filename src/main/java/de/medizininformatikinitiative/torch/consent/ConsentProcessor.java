@@ -4,13 +4,21 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -63,19 +71,19 @@ public class ConsentProcessor {
         Map<String, List<de.medizininformatikinitiative.torch.model.consent.Period>> consentPeriodMap = new HashMap<>();
         List<Base> provisionPeriodList = extractConsentProvisions(consent);
         for (Base provisionBase : provisionPeriodList) {
-            Consent.provisionComponent provision = (Consent.provisionComponent) provisionBase;
+            Consent.ProvisionComponent provision = (Consent.ProvisionComponent) provisionBase;
             String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
-            if (!requiredCodes.contains(code)) {
-                continue; // Skip if code is not valid
-            }
-            Period period = provision.getPeriod();
-            DateTimeType start = period.hasStart() ? period.getStartElement() : null;
-            DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
+            if (requiredCodes.contains(code)) {
+                Period period = provision.getPeriod();
+                DateTimeType start = period.hasStart() ? period.getStartElement() : null;
+                DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
 
-            // If no start or end period is present, skip to the next provision
-            if (start == null || end == null) continue;
-            // Add the new consent period to the map under the corresponding code
-            consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
+                // If no start or end period is present, skip to the next provision
+                if (start != null && end != null) {
+                    consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
+                }
+            }
+
 
         }
         if (!consentPeriodMap.keySet().equals(requiredCodes)) {
