@@ -194,7 +194,7 @@ class FhirControllerIT {
                 assertThat(response.getStatusCode().value()).isEqualTo(202);
                 assertThat(durationSecondsSince(start)).isLessThan(0.1);
 
-                String statusUrl = "http://localhost:" + port + Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst();
+                String statusUrl = Objects.requireNonNull(response.getHeaders().get("Content-Location")).getFirst().replace("8080", String.valueOf(port));
                 pollStatusEndpoint(restTemplate, headers, statusUrl, expectedFinalCode);
 
             } catch (HttpStatusCodeException e) {
