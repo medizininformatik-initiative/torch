@@ -22,13 +22,11 @@ public record AnnotatedAttributeGroup(
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
         Predicate<Resource> compiledFilter,
-        Boolean includeReferenceOnly) {
+        boolean includeReferenceOnly) {
 
-    /**
-     * @param groupReference
-     * @param attributes
-     * @param filter         Primary constructor for directly accessed allGroups
-     */
+
+    public static final String PATIENT = "Patient";
+
     public AnnotatedAttributeGroup(String id,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
@@ -49,9 +47,6 @@ public record AnnotatedAttributeGroup(
         if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
         }
-        if (includeReferenceOnly == null) {
-            includeReferenceOnly = false;
-        }
     }
 
     private static boolean containsDuplicateDateFilters(List<Filter> filters) {
@@ -59,8 +54,8 @@ public record AnnotatedAttributeGroup(
     }
 
     public List<Query> queries(DseMappingTreeBase mappingTreeBase, String resourceType) {
-        if (resourceType.equals("Patient")) {
-            return List.of(Query.ofType("Patient"));
+        if (resourceType.equals(PATIENT)) {
+            return List.of(Query.ofType(PATIENT));
         }
         return queryParams(mappingTreeBase).stream()
                 .map(params -> Query.of(resourceType, params))
@@ -73,7 +68,7 @@ public record AnnotatedAttributeGroup(
                 .flatMap(f -> f.codeFilter(mappingTreeBase).split())
                 .toList();
 
-        QueryParams dateParams = "Patient".equals(resourceType()) ? EMPTY : filter.stream()
+        QueryParams dateParams = PATIENT.equals(resourceType()) ? EMPTY : filter.stream()
                 .filter(f -> "date".equals(f.type()))
                 .findFirst()
                 .map(Filter::dateFilter)

@@ -98,7 +98,6 @@ public class ReferenceResolver {
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         return Flux.fromIterable(patientBundle.bundle().resourceGroupValidity().keySet())
-                //Input alle direkt geladenen resourceGroup und expanden auf returnwert
                 .expand(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, applyConsent, groupMap).onErrorResume(e -> {
 
                     logger.warn("Error processing resource group {} in PatientBundle: {}", resourceGroup, e.getMessage());
@@ -120,7 +119,7 @@ public class ReferenceResolver {
      */
     private Flux<ResourceGroup> processResourceGroup(ResourceGroup parentResourceGroup, @Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, boolean applyConsent, Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        Mono<Resource> resourceMono = null;
+        Mono<Resource> resourceMono;
         boolean patientResource = compartmentManager.isInCompartment(parentResourceGroup);
         if (patientResource && patientBundle == null) {
 
@@ -159,7 +158,6 @@ public class ReferenceResolver {
                                 return Flux.error(new MustHaveViolatedException("Must-have attribute violated in group: " + parentResourceGroup));
                             }
 
-                            //  If no references need processing, return empty
                             if (!shouldProcess) {
                                 return Flux.empty();
                             }

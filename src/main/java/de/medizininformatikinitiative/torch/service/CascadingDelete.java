@@ -47,26 +47,25 @@ public class CascadingDelete {
         }
 
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
-            if (resourceBundle.resourceAttributeValid(resourceAttribute)) {
-                if (resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
-                    resourceBundle.removeAttributefromParentRG(parentRG, resourceAttribute);
-                    resourceBundle.setResourceAttributeInValid(resourceAttribute);
-                    Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
+            if (resourceBundle.resourceAttributeValid(resourceAttribute) && resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
+                resourceBundle.removeAttributeFromParentRG(parentRG, resourceAttribute);
+                resourceBundle.setResourceAttributeInValid(resourceAttribute);
+                Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
 
-                    for (ResourceGroup group : childrenResourceGroups) {
-                        resourceBundle.removeChildRGFromAttribute(group, resourceAttribute);
-                        if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
+                for (ResourceGroup group : childrenResourceGroups) {
+                    resourceBundle.removeChildRGFromAttribute(group, resourceAttribute);
+                    if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
 
-                            AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
-                            if (attributeGroup.includeReferenceOnly()) {
-                                resourceGroups.add(group);
-                                resourceBundle.addResourceGroupValidity(group, false);
-                            }
+                        AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
+                        if (attributeGroup.includeReferenceOnly()) {
+                            resourceGroups.add(group);
+                            resourceBundle.addResourceGroupValidity(group, false);
                         }
                     }
-                    resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
                 }
+                resourceBundle.resourceAttributeToChildResourceGroup().remove(resourceAttribute);
             }
+
         }
 
         return resourceGroups;
@@ -98,7 +97,7 @@ public class CascadingDelete {
 
                     // Ensure invalidation is applied recursively
                     for (ResourceGroup parentGroup : parentGroups) {
-                        resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
+                        resourceBundle.removeAttributeFromParentRG(parentGroup, resourceAttribute);
                         resourceBundle.addResourceGroupValidity(parentGroup, false);
                     }
                 }

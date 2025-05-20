@@ -8,7 +8,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * Reference Parent-Child relation
  * ResourceGroup<->ResourceAttribute<->ResourceGroup
  */
-public record ImmutableResourceBundle(
+public record CachelessResourceBundle(
         Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
         Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
         Map<ResourceGroup, Boolean> resourceGroupValidity,
@@ -16,25 +16,32 @@ public record ImmutableResourceBundle(
         Map<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
         Map<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap
 ) {
+    public CachelessResourceBundle {
+        resourceAttributeToParentResourceGroup = Map.copyOf(resourceAttributeToParentResourceGroup);
+        resourceGroupValidity = Map.copyOf(resourceGroupValidity);
+        resourceAttributeValidity = Map.copyOf(resourceAttributeValidity);
+        parentResourceGroupToResourceAttributesMap = Map.copyOf(parentResourceGroupToResourceAttributesMap);
+        childResourceGroupToResourceAttributesMap = Map.copyOf(childResourceGroupToResourceAttributesMap);
+    }
+
     /**
      * Creates an immutable version of a given ResourceBundle.
      */
-    public ImmutableResourceBundle(ResourceBundle bundle) {
+    public CachelessResourceBundle(ResourceBundle bundle) {
         this(
-                Map.copyOf(bundle.resourceAttributeToParentResourceGroup()),
-                Map.copyOf(bundle.resourceAttributeToChildResourceGroup()),
-                Map.copyOf(bundle.resourceGroupValidity()),
-                Map.copyOf(bundle.resourceAttributeValidity()),
-                Map.copyOf(bundle.parentResourceGroupToResourceAttributesMap()),
-                Map.copyOf(bundle.childResourceGroupToResourceAttributesMap())
+                bundle.resourceAttributeToParentResourceGroup(),
+                bundle.resourceAttributeToChildResourceGroup(),
+                bundle.resourceGroupValidity(),
+                bundle.resourceAttributeValidity(),
+                bundle.parentResourceGroupToResourceAttributesMap(),
+                bundle.childResourceGroupToResourceAttributesMap()
         );
     }
 
     /**
-     * Converts this immutable bundle back into a mutable ResourceBundle.
-     * A new mutable cache is created, ensuring no shared mutations.
+     * Converts this cacheless Bundle back into a cachingResourceBundle with a new fresh concurrent cache.
      */
-    public ResourceBundle toMutable() {
+    public ResourceBundle toCaching() {
         return new ResourceBundle(
                 new ConcurrentHashMap<>(resourceAttributeToParentResourceGroup),
                 new ConcurrentHashMap<>(resourceAttributeToChildResourceGroup),
@@ -42,7 +49,7 @@ public record ImmutableResourceBundle(
                 new ConcurrentHashMap<>(resourceAttributeValidity),
                 new ConcurrentHashMap<>(parentResourceGroupToResourceAttributesMap),
                 new ConcurrentHashMap<>(childResourceGroupToResourceAttributesMap),
-                new ConcurrentHashMap<>() // Fresh mutable cache
+                new ConcurrentHashMap<>()
         );
     }
 }

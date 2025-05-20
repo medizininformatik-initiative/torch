@@ -8,14 +8,10 @@ import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 
 public class ProfileMustHaveChecker {
-
-    private static final Logger logger = LoggerFactory.getLogger(ProfileMustHaveChecker.class);
 
     private final IFhirPath fhirPathEngine;
 
@@ -23,7 +19,7 @@ public class ProfileMustHaveChecker {
         this.fhirPathEngine = ctx.newFhirPath();
     }
 
-    public Boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
+    public boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
         if (group == null) {
             return false;
         }
@@ -35,11 +31,9 @@ public class ProfileMustHaveChecker {
 
         if (resource.getResourceType().toString().equals("Patient") || profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {
-                boolean allMustHaveFulfilled = group.attributes().stream()
+                return group.attributes().stream()
                         .filter(AnnotatedAttribute::mustHave)
-                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Prevent null propagation
-
-                return allMustHaveFulfilled; // Ensures true or false
+                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Ensures true or false
             }
             return true;
         }

@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * Loader class, that handles the fetching of Resources from the datastore in batches and applying consent.
@@ -71,15 +71,9 @@ public class DirectResourceLoader {
         return processBatchWithConsent(attributeGroups, batch);
     }
 
-
     private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
-
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
-
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> {
-            // Ensure the updated safeSet is applied before returning
-            return patientBatchWithConsent.keep(safeSet);
-        });
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> patientBatchWithConsent.keep(safeSet));
     }
 
     private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
@@ -113,7 +107,7 @@ public class DirectResourceLoader {
     public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
         logger.debug("Process core attribute group {}...", group.id());
 
-        AtomicReference<Boolean> atLeastOneResource = new AtomicReference<>(!group.hasMustHave());
+        AtomicBoolean atLeastOneResource = new AtomicBoolean(!group.hasMustHave());
         return groupQueries(group).flatMap(query -> dataStore.search(query, DomainResource.class), 1).doOnNext(resource -> {
             String id = ResourceUtils.getRelativeURL(resource);
             logger.trace("Storing resource {} under ID: {}", id, id);
