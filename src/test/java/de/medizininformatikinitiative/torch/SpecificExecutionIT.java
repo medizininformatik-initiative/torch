@@ -90,8 +90,7 @@ class SpecificExecutionIT {
         uploadTestData(testName);
 
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json"));
-        // TODO: remove replacing /fhir if #220 is fixed
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", ""));
+        var statusResponse = torchClient.pollStatus(statusUrl.replace("8080", String.valueOf(environment.getTorchPort())));
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
@@ -137,8 +136,7 @@ class SpecificExecutionIT {
         var testName = "diag-no-enc-diag";
         uploadTestData(testName);
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json"));
-        // TODO: remove replacing /fhir if #220 is fixed
-        var statusResponse = torchClient.pollStatus(statusUrl.replace("/fhir", ""));
+        var statusResponse = torchClient.pollStatus(statusUrl.replace("8080", String.valueOf(environment.getTorchPort())));
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
