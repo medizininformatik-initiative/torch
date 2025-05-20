@@ -48,8 +48,7 @@ public class DataStore {
     private static final RetryBackoffSpec ASYNC_POLL_RETRY_SPEC = Retry.fixedDelay(1000, ASYNC_POLL_DELAY)
             .filter(e -> e instanceof AsyncRetryException);
     private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
-            .filter(e -> e instanceof WebClientResponseException e1 &&
-                    shouldRetry((e1).getStatusCode()));
+            .filter(e -> e instanceof WebClientResponseException e1 && shouldRetry(e1.getStatusCode()));
 
     private final WebClient client;
     private final FhirContext fhirContext;
@@ -71,7 +70,7 @@ public class DataStore {
     }
 
     private static boolean shouldRetry(HttpStatusCode code) {
-        return code.is5xxServerError() || code.value() == 404;
+        return code.is5xxServerError() || code.value() == 404 || code.value() == 429;
     }
 
     private static Exception handleAcceptedResponse(ClientResponse response) {
@@ -145,7 +144,7 @@ public class DataStore {
      */
     public <T extends Resource> Flux<T> search(Query query, Class<T> resourceType) {
         var start = System.nanoTime();
-        logger.debug("Execute query: {}", query);
+        logger.trace("Execute query: {}", query);
 
         return client.post()
                 .uri("/" + query.type() + "/_search")
@@ -167,7 +166,7 @@ public class DataStore {
                         return Mono.empty();
                     }
                 })
-                .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds.", query,
+                .doOnComplete(() -> logger.trace("Finished query `{}` in {} seconds.", query,
                         "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }

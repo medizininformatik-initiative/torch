@@ -9,7 +9,6 @@ public record Query(String type, QueryParams params) {
         requireNonNull(params);
     }
 
-
     public static Query of(String type, QueryParams params) {
         return new Query(type, params);
     }
@@ -20,6 +19,6 @@ public record Query(String type, QueryParams params) {
 
     @Override
     public String toString() {
-        return params.toString().isEmpty() ? type : type + "?" + params;
+        return params.params().isEmpty() ? type : type + "?" + params;
     }
 }
