@@ -14,6 +14,7 @@ import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -188,7 +189,7 @@ public class FhirController {
                             .subscribeOn(Schedulers.boundedElastic()).subscribe(); // final fire-and-forget
 
                     return accepted()
-                            .header("Content-Location", "/fhir/__status/" + jobId)
+                            .header("Content-Location", torchBaseUrl + "/fhir/__status/" + jobId)
                             .build();
                 })
                 .onErrorResume(IllegalArgumentException.class, e -> {
