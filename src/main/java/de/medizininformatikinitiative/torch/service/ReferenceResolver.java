@@ -144,7 +144,7 @@ public class ReferenceResolver {
         return bundleLoader.fetchUnknownResources(referencesGroupedByResourceGroup, patientBundle, coreBundle, applyConsent)
                 .thenMany(
                         Flux.fromIterable(referencesGroupedByResourceGroup.entrySet())
-                                .flatMap(entry ->
+                                .concatMap(entry ->
                                         {
                                             try {
                                                 return referenceHandler.handleReferences(
@@ -199,8 +199,8 @@ public class ReferenceResolver {
      * @param resourceGroup resourceGroup to be handled
      * @param patientBundle bundle containing patient resources
      * @param coreBundle    bundle containing core resources
-     * @param groupMap
-     * @return
+     * @param groupMap      all known attribute Groups
+     * @return extracted References for a ResourceGroup
      */
     private Map.Entry<ResourceGroup, List<ReferenceWrapper>> processResourceGroup(
             ResourceGroup resourceGroup,

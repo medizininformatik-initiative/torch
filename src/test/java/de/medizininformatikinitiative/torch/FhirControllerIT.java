@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
+import de.medizininformatikinitiative.torch.service.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;

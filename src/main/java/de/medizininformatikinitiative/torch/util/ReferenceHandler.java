@@ -93,9 +93,8 @@ public class ReferenceHandler {
 
         ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
 
-        // Use parallelStream to process references in parallel and collect all valid groups
         List<ResourceGroup> allValidGroups = referenceWrapper.references()
-                .parallelStream()
+                .stream()
                 .map(reference -> {
                     if (patientBundle != null && patientBundle.contains(reference)) {
                         return patientBundle.get(reference);

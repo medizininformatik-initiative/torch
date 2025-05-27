@@ -24,6 +24,9 @@ public record TorchProperties(
 
     }
 
+    public record Max(int connections) {
+    }
+
     public record Output(File file) {
         public record File(Server server) {
             public record Server(String url) {
@@ -40,8 +43,15 @@ public record TorchProperties(
     public record Mapping(String consent, String typeToConsent) {
     }
 
-    public record Fhir(String url, int pageCount, TestPopulation testPopulation, Oauth oauth) {
+    public record Fhir(String url, Max max, Page page, TestPopulation testPopulation, Oauth oauth, Disable disable) {
         public record TestPopulation(String path) {
+        }
+
+        public record Page(int count) {
+
+        }
+
+        public record Disable(boolean async) {
         }
 
         public record Oauth(Issuer issuer, Client client) {
@@ -50,6 +60,8 @@ public record TorchProperties(
 
             public record Client(String id, String secret) {
             }
+
+
         }
     }
 

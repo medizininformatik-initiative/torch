@@ -27,11 +27,11 @@ import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -63,6 +63,7 @@ public class DataStore {
     public DataStore(@Qualifier("fhirClient") WebClient client, FhirContext fhirContext,
                      @Value("${torch.fhir.page.count}") int pageCount,
                      @Value("${torch.fhir.disable.async}") boolean disableAsync) {
+
         logger.info("Init DataStore with pageCount = {}, disableAsync = {}", pageCount, disableAsync);
         this.client = requireNonNull(client);
         this.fhirContext = requireNonNull(fhirContext);
@@ -80,33 +81,6 @@ public class DataStore {
         return locations.isEmpty() ? new MissingContentLocationException() : new AsyncException(locations.getFirst());
     }
 
-    /**
-     * Builds a search batch bundle for all resources specified in {@code idsByType}.
-     * <p>Creates for every resource type a searchstring with comma concatenated ids.
-     *
-     * @param idsByType A map from resource types to sets of ids
-     * @return search batch bundle
-     */
-    public Bundle createBatchBundleForReferences(Map<String, Set<String>> idsByType) {
-        // Build the batch bundle
-        Bundle batchBundle = new Bundle();
-        batchBundle.setType(Bundle.BundleType.BATCH);
-        batchBundle.getMeta().setLastUpdated(new Date());
-
-
-        idsByType.forEach((type, ids) -> {
-            String joinedIds = String.join(",", ids);
-            Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
-            entry.setRequest(new Bundle.BundleEntryRequestComponent()
-                    .setMethod(Bundle.HTTPVerb.GET)
-                    .setUrl(type + "?_id=" + joinedIds));
-            batchBundle.addEntry(entry);
-        });
-
-        return batchBundle;
-
-    }
-
 
     /**
      * Loads a batch of resources.
@@ -120,7 +94,11 @@ public class DataStore {
         }
 
         var start = System.nanoTime();
-        logger.debug("Execute batch with {} request(s)", idsByType.size());
+        var batchId = UUID.randomUUID().toString();
+        int queriedResources = idsByType.values().stream()
+                .mapToInt(Set::size)
+                .sum();
+        logger.debug("Execute batch bundle {} querying {} resources", batchId, queriedResources);
 
         return client.post()
                 .uri("") // Target endpoint already set up in WebClient
@@ -131,12 +109,16 @@ public class DataStore {
                 .retryWhen(RETRY_SPEC)
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .map(this::extractResourcesFromBundle)
+                .doOnSuccess(resources ->
+                        logger.debug(
+                                "Finished batch bundle {} in {} seconds fetching {} resources successfully.",
+                                batchId,
+                                "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
+                                resources.size()
+                        ))
                 .flatMap(resources -> resources.isEmpty() ? Mono.empty() : Mono.just(resources))
-                .doOnSuccess(resources -> logger.debug(
-                        "Finished reference Batch Bundle in {} seconds.",
-                        "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(e -> logger.error(
-                        "Error while executing batch reference query: {}", e.getMessage()));
+                        "Error while executing batch bundle query: {}", e.getMessage()));
     }
 
     private List<Resource> extractResourcesFromBundle(Bundle bundle) {
@@ -156,7 +138,7 @@ public class DataStore {
     }
 
     private String serializeBatchBundle(Map<String, Set<String>> idsByType) {
-        Bundle batchBundle = createBatchBundleForReferences(idsByType);
+        Bundle batchBundle = DataStoreHelper.createBatchBundleForReferences(idsByType);
         return fhirContext.newJsonParser().encodeResourceToString(batchBundle);
     }
 
