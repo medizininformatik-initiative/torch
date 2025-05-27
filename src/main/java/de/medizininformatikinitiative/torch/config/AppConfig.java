@@ -5,7 +5,6 @@ import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentFetcher;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
@@ -23,6 +22,7 @@ import de.medizininformatikinitiative.torch.service.CascadingDelete;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.service.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.service.FilterService;
 import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWriter;
 import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
@@ -143,7 +143,7 @@ public class AppConfig {
     @Bean
     public ReferenceBundleLoader referenceBundleLoader(CompartmentManager compartmentManager,
                                                        DataStore dataStore, ConsentValidator consentValidator) {
-        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator);
+        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, torchProperties.fhir().page().count());
 
     }
 
@@ -155,7 +155,7 @@ public class AppConfig {
     @Bean
     @Qualifier("fhirClient")
     public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   @Qualifier("oauth") ExchangeFilterFunction oauthExchangeFilterFunction,
+                                   ExchangeFilterFunction oauthExchangeFilterFunction,
                                    @Value("${torch.fhir.user}") String user,
                                    @Value("${torch.fhir.password}") String password,
                                    @Value("${torch.fhir.max.connections}") int maxConnections) {
@@ -169,7 +169,7 @@ public class AppConfig {
                 .build();
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(maxConnections)
+                .maxConnections(torchProperties.fhir().max().connections())
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
@@ -228,7 +228,6 @@ public class AppConfig {
             DirectResourceLoader directResourceLoader,
             ReferenceResolver referenceResolver,
             BatchCopierRedacter batchCopierRedacter,
-            @Value("${torch.maxConcurrency:5}") int maxConcurrency,
             CascadingDelete cascadingDelete,
             PatientBatchToCoreBundleWriter writer,
             ConsentHandler consentHandler
@@ -236,7 +235,7 @@ public class AppConfig {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader,
-                referenceResolver, batchCopierRedacter, maxConcurrency, cascadingDelete, writer, consentHandler);
+                referenceResolver, batchCopierRedacter, torchProperties.maxConcurrency(), cascadingDelete, writer, consentHandler);
     }
 
     @Bean
@@ -344,12 +343,6 @@ public class AppConfig {
     }
 
     @Bean
-    public DirectResourceLoader resourceTransformer(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
-
-        return new DirectResourceLoader(dataStore, dseMappingTreeBase, structureDefinitionHandler, profileMustHaveChecker, validator);
-    }
-
-    @Bean
     ConsentHandler handler(DataStore dataStore, ConsentFetcher consentFetcherBuilder) {
         return new ConsentHandler(dataStore, consentFetcherBuilder);
     }
@@ -398,7 +391,6 @@ public class AppConfig {
 
 
     @Bean
-    @Qualifier("oauth")
     ExchangeFilterFunction oauthExchangeFilterFunction(
             @Value("${torch.fhir.oauth.issuer.uri:}") String issuerUri,
             @Value("${torch.fhir.oauth.client.id:}") String clientId,

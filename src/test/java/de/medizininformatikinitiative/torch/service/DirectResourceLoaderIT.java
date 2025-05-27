@@ -1,6 +1,7 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -8,7 +9,6 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;

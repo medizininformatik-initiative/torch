@@ -15,7 +15,7 @@ import java.util.Set;
 public class CascadingDelete {
 
     PatientBatchWithConsent handlePatientBatch(PatientBatchWithConsent patientBatch, Map<String, AnnotatedAttributeGroup> groupMap) {
-        patientBatch.bundles().values().forEach(bundle -> handleBundle(bundle.bundle(), groupMap));
+        patientBatch.bundles().values().parallelStream().forEach(bundle -> handleBundle(bundle.bundle(), groupMap));
         return patientBatch;
     }
 

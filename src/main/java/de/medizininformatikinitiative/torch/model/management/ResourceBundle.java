@@ -42,8 +42,15 @@ public record ResourceBundle(
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
     }
 
-    public Optional<Resource> get(String id) {
-        return cache.get(id);
+    /**
+     * Gets the resource from cache.
+     *
+     * @param reference reference of the cached fhir resource
+     * @return resource when in cache, optional.empty() when fetch was attempted but not successful
+     * or null when reference is not known to cache.
+     */
+    public Optional<Resource> get(String reference) {
+        return cache.get(reference);
     }
 
     /**

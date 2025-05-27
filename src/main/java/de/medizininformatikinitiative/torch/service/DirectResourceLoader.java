@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
@@ -11,7 +11,6 @@ import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
@@ -36,7 +35,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class DirectResourceLoader {
 
     private static final Logger logger = LoggerFactory.getLogger(DirectResourceLoader.class);
-    private static final int QUERY_CONCURRENCY = 2;
 
     private final DataStore dataStore;
 
@@ -52,6 +50,7 @@ public class DirectResourceLoader {
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
         this.profileMustHaveChecker = profileMustHaveChecker;
+
     }
 
     /**
@@ -96,12 +95,12 @@ public class DirectResourceLoader {
     public Mono<PatientBatchWithConsent> processPatientAttributeGroups(List<AnnotatedAttributeGroup> groups, PatientBatchWithConsent batch, Set<String> safeSet) {
         logger.debug("Process {} patient attribute groups over {} patients...", groups.size(), batch.patientBatch().ids().size());
         return Flux.fromIterable(groups)
-                .flatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet), QUERY_CONCURRENCY)
+                .concatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet))
                 .then(Mono.just(batch));
     }
 
     public Mono<ResourceBundle> processCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
-        return Flux.fromIterable(attributeGroups).flatMap(group -> processCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
+        return Flux.fromIterable(attributeGroups).concatMap(group -> processCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
     }
 
     public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
@@ -152,14 +151,16 @@ public class DirectResourceLoader {
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
         return groupQueries(group)
-                .flatMap(query -> executeQueryWithBatch(batch.patientBatch(), query), 1)
-                .flatMap(resource -> applyConsent(resource, batch))
+                .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
+                .concatMap(resource -> applyConsent(resource, batch))
                 .filter(resource -> !resource.isEmpty())
                 .doOnNext(resource -> {
                     try {
                         String patientId = ResourceUtils.patientId(resource);
                         PatientResourceBundle bundle = mutableBundles.get(patientId);
-
+                        if (bundle == null) {
+                            throw new PatientIdNotFoundException("A PatientResource" + resource.getId() + " referencing Patient " + patientId + " outside batch has been loaded");
+                        }
                         if (profileMustHaveChecker.fulfilled(resource, group)) {
 
                             safeGroup.add(patientId);

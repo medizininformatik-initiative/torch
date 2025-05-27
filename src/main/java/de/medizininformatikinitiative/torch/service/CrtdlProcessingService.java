@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.DirectResourceLoader;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -120,9 +119,10 @@ public class CrtdlProcessingService {
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
                         .flatMap(batch -> crtdl.consentKey()
-                                .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
-                                .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
-                                .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())) //skip batches without consenting patient
+                                        .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
+                                        .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
+                                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())
+                                , maxConcurrency) //skip batches without consenting patient
                         .doOnNext(patientBatch -> patientBatch.addStaticInfo(coreSnapshot))
                         .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
         ).then(

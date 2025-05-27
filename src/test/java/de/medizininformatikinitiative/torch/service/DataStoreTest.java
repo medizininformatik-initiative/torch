@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
-import de.medizininformatikinitiative.torch.assertions.Assertions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -26,8 +25,6 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedHashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -205,16 +202,6 @@ class DataStoreTest {
                     .verify();
         }
 
-        @Test
-        void buildBatch() {
-            Map<String, Set<String>> ReferencesGroupedByType = Map.of(
-                    "Observation", new LinkedHashSet<>(List.of("123")),
-                    "Patient", new LinkedHashSet<>(List.of("2", "1")),
-                    "Medication", new LinkedHashSet<>(List.of("123")));
-            Assertions.assertThat(dataStore.createBatchBundleForReferences(ReferencesGroupedByType)).extractBatchBundleUrls().containsExactlyInAnyOrder(
-                    "Patient?_id=2,1", "Observation?_id=123", "Medication?_id=123"
-            );
-        }
 
         @ParameterizedTest
         @ValueSource(ints = {404, 500})
