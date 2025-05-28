@@ -28,6 +28,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * Loader class, that handles the fetching of Resources from the datastore in batches and applying consent.
  */
@@ -128,6 +130,22 @@ public class DirectResourceLoader {
         }));
     }
 
+    private static ResourceWithPatientId extractPatientId(DomainResource resource) {
+        try {
+            return new ResourceWithPatientId(resource, ResourceUtils.patientId(resource));
+        } catch (PatientIdNotFoundException e) {
+            logger.warn("Ignoring resource {} not referencing a patient", resource.getId());
+            return null;
+        }
+    }
+
+    private record ResourceWithPatientId(DomainResource resource, String patientId) {
+        private ResourceWithPatientId {
+            requireNonNull(resource);
+            requireNonNull(patientId);
+        }
+    }
+
     /**
      * Fetches all resources for a batch and adds them to it, if
      *
@@ -153,24 +171,18 @@ public class DirectResourceLoader {
         return groupQueries(group)
                 .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
                 .concatMap(resource -> applyConsent(resource, batch))
-                .filter(resource -> !resource.isEmpty())
-                .doOnNext(resource -> {
-                    try {
-                        String patientId = ResourceUtils.patientId(resource);
-                        PatientResourceBundle bundle = mutableBundles.get(patientId);
-                        if (bundle == null) {
-                            throw new PatientIdNotFoundException("A PatientResource" + resource.getId() + " referencing Patient " + patientId + " outside batch has been loaded");
-                        }
-                        if (profileMustHaveChecker.fulfilled(resource, group)) {
+                .mapNotNull(DirectResourceLoader::extractPatientId)
+                .filter(tuple -> batch.bundles().containsKey(tuple.patientId))
+                .doOnDiscard(ResourceWithPatientId.class, tuple ->
+                        logger.warn("Ignoring resource {} referencing patient {} not in batch", tuple.resource.getId(), tuple.patientId))
+                .doOnNext(tuple -> {
+                    PatientResourceBundle bundle = mutableBundles.get(tuple.patientId);
+                    if (profileMustHaveChecker.fulfilled(tuple.resource, group)) {
 
-                            safeGroup.add(patientId);
-                            bundle.put(resource, group.id(), true);
-                        } else {
-                            bundle.put(resource, group.id(), false);
-                        }
-
-                    } catch (PatientIdNotFoundException e) {
-                        throw new RuntimeException(e);
+                        safeGroup.add(tuple.patientId);
+                        bundle.put(tuple.resource, group.id(), true);
+                    } else {
+                        bundle.put(tuple.resource, group.id(), false);
                     }
                 })
                 .doOnTerminate(() -> safeSet.retainAll(safeGroup))
