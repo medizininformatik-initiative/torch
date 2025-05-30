@@ -114,16 +114,20 @@ public class CrtdlValidatorService {
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
 
-        AnnotatedAttributeGroup standardGroup = attributeGenerator.generate(attributeGroup, patientGroupId);
-        try {
-            Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.getType());
-            return standardGroup
-                    .addAttributes(annotatedAttributes)
-                    .setCompiledFilter(filter);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+        AnnotatedAttributeGroup group = attributeGenerator
+                .generate(attributeGroup, patientGroupId)
+                .addAttributes(annotatedAttributes);
+
+        if (!attributeGroup.filter().isEmpty()) {
+            try {
+                Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.getType());
+                return group.setCompiledFilter(filter);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
 
+        return group;
     }
 
 
