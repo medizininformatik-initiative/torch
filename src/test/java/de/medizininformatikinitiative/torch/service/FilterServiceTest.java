@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import org.hl7.fhir.r4.model.AllergyIntolerance;
@@ -20,6 +21,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,6 +66,13 @@ class FilterServiceTest {
         assertTrue(result_1);
         assertTrue(result_2);
         assertFalse(result_3);
+    }
+
+    @Test
+    public void testEmptyFilter() {
+        assertThatThrownBy(() -> filterService.compileFilter(List.of(), OBSERVATION))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("An empty filter can't be compiled.");
     }
 
     @Nested

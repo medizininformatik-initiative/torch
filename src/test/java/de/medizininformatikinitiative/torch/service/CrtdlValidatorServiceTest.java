@@ -73,7 +73,11 @@ class CrtdlValidatorServiceTest {
     void validInput() throws ValidationException {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(), List.of(new Filter("token", "code", List.of(new Code("some-system", "some-code"))))))));
 
-        assertThat(validatorService.validate(crtdl).dataExtraction().attributeGroups().get(0).attributes()).isEqualTo(
+        var validatedCrtdl = validatorService.validate(crtdl);
+
+        assertThat(validatedCrtdl).isNotNull();
+        assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().compiledFilter()).isNull();
+        assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", false),
                         new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", false)
@@ -85,7 +89,6 @@ class CrtdlValidatorServiceTest {
                         new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
                         new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("patientGroupId"))
                 ));
-
     }
 
 
