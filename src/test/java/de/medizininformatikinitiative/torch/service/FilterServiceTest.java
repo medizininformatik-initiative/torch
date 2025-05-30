@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import org.hl7.fhir.r4.model.AllergyIntolerance;
@@ -22,6 +24,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -49,6 +52,52 @@ class FilterServiceTest {
         filterService.init();
     }
 
+    @Nested
+    class TestCompiledFilter {
+        IFhirPath fhirPathEngine = FhirContext.forR4().newFhirPath();
+
+        @Test
+        public void test_withEmptyList() {
+            assertThatThrownBy(() -> new FilterService.CompiledFilter(List.of(), fhirPathEngine))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("CompiledFilter must have at least one parsed filter, but got none.");
+        }
+
+        @Test
+        public void test_validArguments() {
+            var compiledFilter = new FilterService.CompiledFilter(List.of(
+                    new FilterService.ParsedFilter(new Filter("code", "token", List.of()), new IFhirPath.IParsedExpression() {})), fhirPathEngine);
+
+            assertThat(compiledFilter).isNotNull();
+            assertThat(compiledFilter.fhirPathEngine()).isNotNull();
+            assertThat(compiledFilter.filters().size()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    class TestParsedFilter {
+        @Test
+        public void test_withoutFilter() {
+            assertThatThrownBy(() -> new FilterService.ParsedFilter(null, new IFhirPath.IParsedExpression() {}))
+                    .isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        public void test_withoutExpression() {
+            assertThatThrownBy(() -> new FilterService.ParsedFilter(new Filter("code", "token", List.of()), null))
+                    .isInstanceOf(NullPointerException.class);
+        }
+
+        @Test
+        public void test_validArguments() {
+            var parsedFilter = new FilterService.ParsedFilter(new Filter("code", "token", List.of()), new IFhirPath.IParsedExpression() {});
+
+            assertThat(parsedFilter).isNotNull();
+            assertThat(parsedFilter.filter()).isNotNull();
+            assertThat(parsedFilter.parsedExpression()).isNotNull();
+        }
+    }
+
     @Test
     public void test_compile_MultipleResources() {
         var observation_1 = new Observation().setCode(new CodeableConcept().setCoding(List.of(
@@ -72,7 +121,7 @@ class FilterServiceTest {
     public void testEmptyFilter() {
         assertThatThrownBy(() -> filterService.compileFilter(List.of(), OBSERVATION))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("An empty filter can't be compiled.");
+                .hasMessageContaining("An empty list of filters can't be compiled.");
     }
 
     @Nested

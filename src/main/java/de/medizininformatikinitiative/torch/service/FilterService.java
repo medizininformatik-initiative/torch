@@ -75,7 +75,7 @@ public class FilterService {
      */
     public Predicate<Resource> compileFilter(List<Filter> attributeGroupFilters, String resourceType) {
         if (attributeGroupFilters == null || attributeGroupFilters.isEmpty()) {
-            throw new IllegalArgumentException("An empty filter can't be compiled.");
+            throw new IllegalArgumentException("An empty list of filters can't be compiled.");
         }
         var parsedFilters = attributeGroupFilters.stream()
                 .map(filter ->
@@ -125,10 +125,10 @@ public class FilterService {
                         searchParam.getType().equals(Enumerations.SearchParamType.DATE));
     }
 
-    private record CompiledFilter(List<ParsedFilter> filters,
+    public record CompiledFilter(List<ParsedFilter> filters,
                                   IFhirPath fhirPathEngine) implements Predicate<Resource> {
 
-        private CompiledFilter {
+        public CompiledFilter {
             if (filters.isEmpty()) {
                 throw new IllegalArgumentException("CompiledFilter must have at least one parsed filter, but got none.");
             }
@@ -225,8 +225,8 @@ public class FilterService {
         }
     }
 
-    private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
-        private ParsedFilter {
+    public record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
+        public ParsedFilter {
             requireNonNull(filter);
             requireNonNull(parsedExpression);
         }
