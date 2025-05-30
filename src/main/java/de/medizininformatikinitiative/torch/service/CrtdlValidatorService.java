@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -20,6 +21,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -45,26 +47,27 @@ public class CrtdlValidatorService {
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
      */
     public AnnotatedCrtdl validate(Crtdl crtdl) throws ValidationException {
+        Optional<ConsentKey> consentKey = crtdl.consentKey();
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
-        boolean exactlyOnePatientGroup = false;
+        boolean patientGroupFound = false;
         String patientAttributeGroupId = "";
 
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
             CompiledStructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference())
                     .orElseThrow(() -> new ValidationException("Unknown Profile: " + attributeGroup.groupReference()));
             if (Objects.equals(definition.type(), "Patient")) {
-                if (exactlyOnePatientGroup) {
+                if (patientGroupFound) {
                     throw new ValidationException(" More than one Patient Attribute Group");
                 } else {
-                    exactlyOnePatientGroup = true;
+                    patientGroupFound = true;
                     patientAttributeGroupId = attributeGroup.id();
                     logger.debug("Found Patient Attribute Group {}", patientAttributeGroupId);
                 }
             }
         }
-        if (!exactlyOnePatientGroup) {
+        if (!patientGroupFound) {
             throw new ValidationException("No Patient Attribute Group");
         }
 
@@ -86,7 +89,7 @@ public class CrtdlValidatorService {
         }
 
 
-        return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups));
+        return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups), consentKey);
     }
 
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, CompiledStructureDefinition

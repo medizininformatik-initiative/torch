@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
@@ -98,7 +99,7 @@ public class ConsentFetcher {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Mono<PatientBatchWithConsent> buildConsentInfo(String key, PatientBatch batch) {
+    public Mono<PatientBatchWithConsent> buildConsentInfo(ConsentKey key, PatientBatch batch) {
         logger.debug("Starting to build consent info for key {} and {} patients", key, batch.ids().size());
 
         Set<String> codes = mapper.getRelevantCodes(key);

@@ -4,7 +4,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentProcessor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.Provisions;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.Consent;
 import org.junit.jupiter.api.Test;
@@ -26,7 +28,7 @@ public class ConsentProcessorIT {
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
     private final ConsentCodeMapper consentCodeMapper;
 
-    public ConsentProcessorIT() throws IOException {
+    public ConsentProcessorIT() throws IOException, ValidationException {
         // Initialize the ConsentCodeMapper as before
         consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json", new ObjectMapper());
     }
@@ -41,7 +43,7 @@ public class ConsentProcessorIT {
             assertThrows(ConsentViolatedException.class, () -> {
                 try {
                     Consent resourceSrc = (Consent) integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
-                    Provisions provisions = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")); // Adjusted to include provisions
+                    Provisions provisions = processor.transformToConsentPeriodByCode(resourceSrc, consentCodeMapper.getRelevantCodes(ConsentKey.YES_YES_YES_YES)); // Adjusted to include provisions
                     logger.debug("map size {}", provisions.periods().entrySet());
                     assertThat(provisions.periods().get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty()).isFalse();
                 } catch (IOException e) {
@@ -58,7 +60,7 @@ public class ConsentProcessorIT {
         ConsentProcessor processor = new ConsentProcessor(integrationTestSetup.fhirContext());
         Consent resourceSrc = (Consent) integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
         Provisions provisions = processor.transformToConsentPeriodByCode(
-                resourceSrc, consentCodeMapper.getRelevantCodes("yes-yes-yes-yes")
+                resourceSrc, consentCodeMapper.getRelevantCodes(ConsentKey.YES_YES_YES_YES)
         );
         assertThat(provisions.periods().get("2.16.840.1.113883.3.1937.777.24.5.3.10").isEmpty()).isFalse();
     }

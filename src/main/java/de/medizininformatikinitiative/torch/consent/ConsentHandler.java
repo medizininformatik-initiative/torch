@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Encounter;
@@ -73,7 +74,7 @@ public class ConsentHandler {
      * @param batch      Batch of patient IDs.
      * @return {@link Mono<PatientBatchWithConsent>} containing all required provisions by patient with valid times.
      */
-    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(String consentKey, PatientBatch batch) {
+    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(ConsentKey consentKey, PatientBatch batch) {
         return consentFetcher.buildConsentInfo(consentKey, batch)
                 .flatMap(this::adjustConsentPeriodsByPatientEncounters);
     }
