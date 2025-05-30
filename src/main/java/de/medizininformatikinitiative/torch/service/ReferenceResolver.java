@@ -21,6 +21,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -62,14 +63,11 @@ public class ReferenceResolver {
      */
     public Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Mono.just(coreBundle.getValidResourceGroups())
-                .map(groups -> groups.stream()
-                        .filter(resourceGroup -> !compartmentManager.isInCompartment(resourceGroup)) // your custom filter logic
+                .map(groups -> groups.stream().filter(resourceGroup -> !compartmentManager.isInCompartment(resourceGroup))
                         .collect(Collectors.toSet()))
                 .expand(currentGroupSet ->
                         processResourceGroups(currentGroupSet, null, coreBundle, false, groupMap)
-                                .onErrorResume(e -> {
-                                    return Mono.empty(); // Skip this resource group on error
-                                }))
+                                .onErrorResume(e -> Mono.empty()))
                 .then(Mono.just(coreBundle));
     }
 
@@ -85,7 +83,11 @@ public class ReferenceResolver {
     Mono<PatientBatchWithConsent> processSinglePatientBatch(
             PatientBatchWithConsent batch, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(batch.bundles().entrySet())
-                .concatMap(entry -> resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
+                .concatMap(entry -> resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap).doOnNext(bundle -> {
+                            if (bundle == null) {
+                                logger.warn("Resolved PatientResourceBundle for key {} is null", entry.getKey());
+                            }
+                        }).filter(Objects::nonNull)
                         .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
                 .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()));
@@ -116,9 +118,7 @@ public class ReferenceResolver {
                                 .onErrorResume(e -> {
                                     logger.warn("Error processing resource group set {} in PatientBundle: {}", currentGroupSet, e.getMessage());
                                     return Mono.empty(); // Skip this group on error
-                                })
-                )
-                .then(Mono.just(patientBundle));
+                                })).then(Mono.just(patientBundle));
     }
 
     /**
@@ -143,26 +143,17 @@ public class ReferenceResolver {
 
         return bundleLoader.fetchUnknownResources(referencesGroupedByResourceGroup, patientBundle, coreBundle, applyConsent)
                 .thenMany(
-                        Flux.fromIterable(referencesGroupedByResourceGroup.entrySet())
+                        Flux.fromIterable(referencesGroupedByResourceGroup.entrySet()).filter(Objects::nonNull)
+                                .filter(entry -> entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty())
                                 .concatMap(entry ->
-                                        {
-                                            try {
-                                                return referenceHandler.handleReferences(
-                                                        entry.getValue(),
-                                                        patientBundle,
-                                                        coreBundle,
-                                                        groupMap
-                                                );
-                                            } catch (MustHaveViolatedException e) {
-                                                return Flux.empty();
-                                            }
-                                        }
-                                )
-                )
+                                        Flux.fromIterable(referenceHandler.handleReferences(
+                                                entry.getValue(),
+                                                patientBundle,
+                                                coreBundle,
+                                                groupMap))))
                 .collect(Collectors.toSet())
                 .flatMap(set -> set.isEmpty() ? Mono.empty() : Mono.just(set));
     }
-
 
     /**
      * Extracts for every ResourceGroup the ReferenceWrappers and collects them ordered by
@@ -179,9 +170,18 @@ public class ReferenceResolver {
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        return resourceGroups.parallelStream()
-                .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap))
-                .filter(entry -> !entry.getValue().isEmpty())
+        return resourceGroups.stream()
+                .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap)).map(entry -> {
+                    if (entry == null) {
+                        logger.warn("Null entry returned by processResourceGroup");
+                    } else if (entry.getKey() == null) {
+                        logger.warn("Entry with null key for resource group {}", entry);
+                    } else if (entry.getValue() == null || entry.getValue().isEmpty()) {
+                        logger.info("No references extracted for resource group {}", entry.getKey());
+                    }
+                    return entry;
+                }).filter(Objects::nonNull)
+                .filter(entry -> entry.getKey() != null && entry.getValue() != null && !entry.getValue().isEmpty())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
                         Map.Entry::getValue,
@@ -219,11 +219,7 @@ public class ReferenceResolver {
                 ? patientBundle.bundle().get(resourceGroup.resourceId())
                 : coreBundle.get(resourceGroup.resourceId());
 
-        if (resource.isPresent()) {
-            return extractReferences(resourceGroup, resource.get(), groupMap, processingBundle);
-        } else {
-            return handleMissingResource(resourceGroup, processingBundle);
-        }
+        return resource.map(value -> extractReferences(resourceGroup, value, groupMap, processingBundle)).orElseGet(() -> handleMissingResource(resourceGroup, processingBundle));
     }
 
     /**
@@ -253,9 +249,7 @@ public class ReferenceResolver {
             List<ReferenceWrapper> extracted = referenceExtractor.extract(resource, groupMap, resourceGroup.groupId());
             return Map.entry(resourceGroup, extracted);
         } catch (MustHaveViolatedException e) {
-            synchronized (processingBundle) {
-                processingBundle.addResourceGroupValidity(resourceGroup, false);
-            }
+            processingBundle.addResourceGroupValidity(resourceGroup, false);
             return Map.entry(resourceGroup, Collections.emptyList());
         }
     }
@@ -270,11 +264,8 @@ public class ReferenceResolver {
     private Map.Entry<ResourceGroup, List<ReferenceWrapper>> handleMissingResource(
             ResourceGroup resourceGroup,
             ResourceBundle processingBundle) {
-
-        synchronized (processingBundle) {
-            logger.warn("Empty resource marked as valid for group {}", resourceGroup);
-            processingBundle.addResourceGroupValidity(resourceGroup, false);
-        }
+        logger.warn("Empty resource marked as valid for group {}", resourceGroup);
+        processingBundle.addResourceGroupValidity(resourceGroup, false);
         return Map.entry(resourceGroup, Collections.emptyList());
     }
 

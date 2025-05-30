@@ -1,210 +1,140 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import org.hl7.fhir.r4.model.Medication;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.HashMap;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
+
 @ExtendWith(MockitoExtension.class)
 class ReferenceHandlerTest {
 
     @Mock
-    private DataStore dataStore;
-
-    @Mock
-    private ProfileMustHaveChecker profileMustHaveChecker;
-
-    @Mock
-    private CompartmentManager compartmentManager;
-
-    @Mock
-    private ConsentValidator consentValidator;
+    private ResourceGroupValidator resourceGroupValidator;
 
     @InjectMocks
     private ReferenceHandler referenceHandler;
 
     @BeforeEach
     void setUp() {
-        referenceHandler = new ReferenceHandler(profileMustHaveChecker);
+        referenceHandler = new ReferenceHandler(resourceGroupValidator);
     }
 
-/*
+
     @Nested
     class CoreResource {
         @Test
-        void shouldResolveReferenceSuccessfully() {
+        void handleReferenceGroupNotLoadableResource() {
+            ResourceBundle coreBundle = new ResourceBundle();
+            AnnotatedAttribute attribute1 = new AnnotatedAttribute("MedicationAdministration.medication", "MedicationAdministration.medication", "Condition.onset[x]", false);
+            var references = List.of(new ReferenceWrapper(attribute1, List.of("Medication/UnknownResource"), "group1", "test"));
+            coreBundle.put("Medication/UnknownResource");
 
-            Resource coreResource = mock(Resource.class);
+            var result = referenceHandler.handleReferences(references, null, coreBundle, new HashMap<>());
 
-
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.just(coreResource));
-
-
-            when(compartmentManager.isInCompartment(coreResource)).thenReturn(false);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
+            assertThat(result).isEmpty();
+        }
 
 
-            StepVerifier.create(result).assertNext(resource -> assertThat(resource).isNotNull()).verifyComplete();
+        @Test
+        void handleReferenceGroupLoadableResource() {
+            ResourceGroup resourceGroupMedication123 = new ResourceGroup("Medication/123", "group1");
+            ResourceBundle coreBundle = new ResourceBundle();
+            AnnotatedAttribute attribute1 = new AnnotatedAttribute("MedicationAdministration.medication", "MedicationAdministration.medication", "MedicationAdministration.medication", false, List.of("group1"));
+            var reference = new ReferenceWrapper(attribute1, List.of("Medication/123"), "MedicationAdministrationGroup", "test");
+            Medication medication = new Medication();
+            medication.setId("123");
+            coreBundle.put(medication);
+            when(resourceGroupValidator.collectValidGroups(
+                    eq(reference), any(), eq(medication), eq(coreBundle))).thenReturn(List.of(resourceGroupMedication123));
+
+
+            var result = referenceHandler.handleReferences(List.of(reference), null, coreBundle, new HashMap<>());
+
+            assertThat(result).containsExactly(resourceGroupMedication123);
+
         }
 
         @Test
-        void noCoreResourceFound() {
-
-            Resource coreResource = mock(Resource.class);
-
-
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.just(coreResource));
-
-
-            when(compartmentManager.isInCompartment(coreResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
+        void handleReferenceNewGroupInvalid() {
+            ResourceBundle coreBundle = new ResourceBundle();
+            AnnotatedAttribute attribute1 = new AnnotatedAttribute("MedicationAdministration.medication", "MedicationAdministration.medication", "MedicationAdministration.medication", true, List.of("group1"));
+            var reference = new ReferenceWrapper(attribute1, List.of("Medication/123"), "MedicationAdministrationGroup", "MedicationAdministration/123");
+            Medication medication = new Medication();
+            medication.setId("123");
+            coreBundle.put(medication);
+            when(resourceGroupValidator.collectValidGroups(
+                    eq(reference), any(), eq(medication), eq(coreBundle))).thenReturn(List.of());
 
 
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient Resource referenced in Core Bundle")).verify();
+            var result = referenceHandler.handleReferences(List.of(reference), null, coreBundle, new HashMap<>());
+
+            assertThat(result).isEmpty();
+            System.out.println(coreBundle.resourceGroupValidity());
+            assertThat(coreBundle.isValidResourceGroup(new ResourceGroup("MedicationAdministration/123", "MedicationAdministrationGroup"))).isFalse();
+
         }
 
         @Test
-        void shouldReturnEmptyWhenEmptyRespource() {
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.empty());
+        void handleReferenceGroupKnownInvalid() {
 
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
+            ResourceGroup resourceGroupMedication123 = new ResourceGroup("Medication/123", "group1");
+            ResourceBundle coreBundle = new ResourceBundle();
+            AnnotatedAttribute attribute1 = new AnnotatedAttribute("MedicationAdministration.medication", "MedicationAdministration.medication", "MedicationAdministration.medication", true, List.of("group1"));
+            var reference = new ReferenceWrapper(attribute1, List.of("Medication/123"), "MedicationAdministrationGroup", "test");
+            Medication medication = new Medication();
+            medication.setId("123");
+            coreBundle.put(medication);
+            coreBundle.addResourceGroupValidity(resourceGroupMedication123, false);
+            when(resourceGroupValidator.collectValidGroups(
+                    eq(reference), any(), eq(medication), eq(coreBundle))).thenReturn(List.of());
 
-            StepVerifier.create(result).expectComplete().verify();
+
+            assertThatThrownBy(() -> referenceHandler.handleReference(reference, null, coreBundle, new HashMap<>())).isInstanceOf(MustHaveViolatedException.class);
+
         }
 
-        @Test
-        void shouldReturnErrorOnConnectionError() {
-            // Simulate a connection error (like when the host is unreachable)
-            WebClientRequestException connectionException = new WebClientRequestException(
-                    new UnknownHostException("Host not found"),    // Cause of the error
-                    HttpMethod.GET,                                // HTTP method used
-                    URI.create("http://localhost/Medication/123"),  // URI of the request (can be any valid URI)
-                    HttpHeaders.EMPTY                              // Headers (optional, can be empty)
-            );
-
-            // Mock the behavior of dataStore.fetchResourceByReference to return the exception
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.error(connectionException));
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
-            // Now expecting an error (not complete)
-            StepVerifier.create(result)
-                    .expectError(WebClientRequestException.class)  // Expect the WebClientRequestException error type
-                    .verify();
-        }
 
     }
 
     @Nested
     class PatientResource {
-        @Test
-        void shouldResolveReferenceSuccessfullyWithConsent() {
-
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
-
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");
-
-
-            StepVerifier.create(result).assertNext(wrapper -> assertThat(wrapper).isNotNull()).verifyComplete();
-        }
 
         @Test
-        void shouldResolveReferenceSuccessfullyWithoutConsent() {
+        void handleResourceAttributeKnownInvalid() {
+            ResourceBundle coreBundle = new ResourceBundle();
+            AnnotatedAttribute attribute1 = new AnnotatedAttribute("MedicationAdministration.medication", "MedicationAdministration.medication", "MedicationAdministration.medication", true, List.of("group1"));
+            ResourceAttribute resourceAttribute = new ResourceAttribute("MedicationAdministration/123", attribute1);
+            var reference = new ReferenceWrapper(attribute1, List.of("Medication/123"), "MedicationAdministrationGroup", "MedicationAdministration/123");
 
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
+            PatientResourceBundle patientResourceBundle = new PatientResourceBundle("123");
+            patientResourceBundle.bundle().setResourceAttributeInValid(resourceAttribute);
 
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
+            assertThat(referenceHandler.handleReferences(List.of(reference), patientResourceBundle, coreBundle, new HashMap<>())).isEmpty();
 
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, false, "Patient/123");
-
-
-            StepVerifier.create(result).assertNext(wrapper -> assertThat(wrapper).isNotNull()).verifyComplete();
-        }
-
-        @Test
-        void ConsentViolatedExceptionShouldBeThrown() {
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(false);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");
-
-
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ConsentViolatedException && throwable.getMessage().contains("Consent Violated in Patient Resource")).verify();
-
-        }
-
-        @Test
-        void failsPointingAtOtherPatient() {
-
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-
-            Patient patientResource = new Patient();
-            patientResource.setId("False");
-
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, false, "Patient/123");
-
-
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient loaded reference belonging to another patient")).verify();
-        }
-
-        @Test
-        void shouldLogAndReturnEmptyMonoOnError() {
-            // Simulate a connection error (like when the host is unreachable)
-            when(dataStore.fetchResourceByReference("Broken/999")).thenReturn(Mono.error(new RuntimeException("Connection failed")));
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Broken/999");
-
-            // Expecting a RuntimeException with the message "Connection failed"
-            StepVerifier.create(result)
-                    .expectErrorMatches(throwable ->
-                            throwable instanceof RuntimeException &&
-                                    throwable.getMessage().contains("Connection failed")
-                    )
-                    .verify();
         }
 
 
     }
-*/
+
 
 }

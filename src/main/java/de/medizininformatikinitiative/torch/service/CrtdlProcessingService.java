@@ -32,6 +32,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Service
 public class CrtdlProcessingService {
@@ -117,14 +118,15 @@ public class CrtdlProcessingService {
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
-                batches
-                        .flatMap(batch -> crtdl.consentKey()
-                                        .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
-                                        .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
-                                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())
-                                , maxConcurrency) //skip batches without consenting patient
-                        .doOnNext(patientBatch -> patientBatch.addStaticInfo(coreSnapshot))
-                        .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
+                batches.flatMap(batch ->
+                        processBatch(
+                                batch,
+                                jobID,
+                                groupsToProcess,
+                                coreBundle,
+                                crtdl.consentKey(),
+                                coreSnapshot
+                        ), maxConcurrency)
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File
                 Mono.defer(() -> {
@@ -135,15 +137,34 @@ public class CrtdlProcessingService {
         );
     }
 
-    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {
-        return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
-                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
-                .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
-                .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
-                .flatMap(patientBatch -> {
-                            batchToCoreWriter.updateCore(patientBatch, coreBundle);
-                            return writeBatch(jobID, patientBatch);
-                        }
+    private Mono<Void> processBatch(
+            PatientBatch batch,
+            String jobID,
+            GroupsToProcess groupsToProcess,
+            ResourceBundle coreBundle,
+            Optional<String> consentKey,
+            CachelessResourceBundle coreSnapshot
+    ) {
+        // Fetch consent (or assume consent if key is empty)
+        Mono<PatientBatchWithConsent> withConsent = consentKey
+                .map(key -> consentHandler.fetchAndBuildConsentInfo(key, batch))
+                .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
+                .onErrorResume(ConsentViolatedException.class, ex -> {
+                    logger.debug("Skipping batch due to consent violation: {}", ex.getMessage());
+                    return Mono.empty();
+                });
+
+        return withConsent
+                .doOnNext(b -> b.addStaticInfo(coreSnapshot))
+                .flatMap(consented ->
+                        directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), consented)
+                                .flatMap(loaded -> referenceResolver.processSinglePatientBatch(loaded, coreBundle, groupsToProcess.allGroups()))
+                                .map(processed -> cascadingDelete.handlePatientBatch(processed, groupsToProcess.allGroups()))
+                                .map(transformed -> batchCopierRedacter.transformBatch(transformed, groupsToProcess.allGroups()))
+                                .flatMap(finalBatch -> {
+                                    batchToCoreWriter.updateCore(finalBatch, coreBundle);
+                                    return writeBatch(jobID, finalBatch);
+                                })
                 );
     }
 

@@ -2,8 +2,15 @@ package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -104,26 +111,8 @@ public class ResourceUtils {
         return List.copyOf(matchingElements);
     }
 
-    public static List<ElementDefinition> getElementById(String id, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        if (id == null) {
-            return Collections.emptyList();
-        }
-        List<ElementDefinition> matchingElements = new ArrayList<>();
-        for (ElementDefinition ed : snapshot.getElement()) {
-            if (id.equals(ed.getId())) {
-                matchingElements.add(ed);
-            }
-        }
-        return List.copyOf(matchingElements);
-    }
-
     public static String getRelativeURL(Resource resource) {
         return resource.fhirType() + "/" + resource.getIdPart();
-
-    }
-
-    public static String getRelativeURL(ResourceGroupWrapper resourceWrapper) {
-        return getRelativeURL(resourceWrapper.resource());
 
     }
 
@@ -141,28 +130,6 @@ public class ResourceUtils {
         } catch (InstantiationException | IllegalAccessException | InvocationTargetException |
                  NoSuchMethodException e) {
             throw new TargetClassCreationException(resourceClass);
-        }
-    }
-
-    /**
-     * @param base base to be casted to its fhirtype
-     * @param <T>  fhirType e.g. Medication
-     * @return cast of base
-     */
-    @SuppressWarnings("unchecked")
-    public static <T> T castBaseToItsFhirType(Base base) {
-        String typeName = base.fhirType(); // e.g., "Patient", "Observation"
-        String basePackage = DomainResource.class.getPackage().getName(); // dynamically resolves package
-
-        try {
-            Class<?> clazz = Class.forName(basePackage + "." + typeName);
-            if (clazz.isInstance(base)) {
-                return (T) clazz.cast(base);
-            } else {
-                throw new IllegalArgumentException("Base is not instance of " + typeName);
-            }
-        } catch (ClassNotFoundException e) {
-            throw new RuntimeException("Unknown FHIR type: " + typeName, e);
         }
     }
 
