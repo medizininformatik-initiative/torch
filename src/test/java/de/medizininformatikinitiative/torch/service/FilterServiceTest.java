@@ -1,6 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import ca.uhn.fhir.fhirpath.IFhirPath;
+import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import org.hl7.fhir.r4.model.AllergyIntolerance;
@@ -20,6 +23,8 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -64,6 +69,21 @@ class FilterServiceTest {
         assertTrue(result_1);
         assertTrue(result_2);
         assertFalse(result_3);
+    }
+
+    @Test
+    public void testEmptyFilter() {
+        assertThatThrownBy(() -> filterService.compileFilter(List.of(), OBSERVATION))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("An empty list of filters can't be compiled.");
+    }
+
+    @Test
+    public void test_nonExistingSearchParam() {
+        assertThatThrownBy(() -> filterService.compileFilter(List.of(new Filter("foo", "bar", List.of())), OBSERVATION))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not find any matching search parameter for filter. This can later " +
+                        "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
     }
 
     @Nested
