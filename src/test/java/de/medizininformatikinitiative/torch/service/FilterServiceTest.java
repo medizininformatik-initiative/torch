@@ -52,52 +52,6 @@ class FilterServiceTest {
         filterService.init();
     }
 
-    @Nested
-    class TestCompiledFilter {
-        IFhirPath fhirPathEngine = FhirContext.forR4().newFhirPath();
-
-        @Test
-        public void test_withEmptyList() {
-            assertThatThrownBy(() -> new FilterService.CompiledFilter(List.of(), fhirPathEngine))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("CompiledFilter must have at least one parsed filter, but got none.");
-        }
-
-        @Test
-        public void test_validArguments() {
-            var compiledFilter = new FilterService.CompiledFilter(List.of(
-                    new FilterService.ParsedFilter(new Filter("code", "token", List.of()), new IFhirPath.IParsedExpression() {})), fhirPathEngine);
-
-            assertThat(compiledFilter).isNotNull();
-            assertThat(compiledFilter.fhirPathEngine()).isNotNull();
-            assertThat(compiledFilter.filters().size()).isEqualTo(1);
-        }
-    }
-
-    @Nested
-    class TestParsedFilter {
-        @Test
-        public void test_withoutFilter() {
-            assertThatThrownBy(() -> new FilterService.ParsedFilter(null, new IFhirPath.IParsedExpression() {}))
-                    .isInstanceOf(NullPointerException.class);
-        }
-
-        @Test
-        public void test_withoutExpression() {
-            assertThatThrownBy(() -> new FilterService.ParsedFilter(new Filter("code", "token", List.of()), null))
-                    .isInstanceOf(NullPointerException.class);
-        }
-
-        @Test
-        public void test_validArguments() {
-            var parsedFilter = new FilterService.ParsedFilter(new Filter("code", "token", List.of()), new IFhirPath.IParsedExpression() {});
-
-            assertThat(parsedFilter).isNotNull();
-            assertThat(parsedFilter.filter()).isNotNull();
-            assertThat(parsedFilter.parsedExpression()).isNotNull();
-        }
-    }
-
     @Test
     public void test_compile_MultipleResources() {
         var observation_1 = new Observation().setCode(new CodeableConcept().setCoding(List.of(
@@ -122,6 +76,14 @@ class FilterServiceTest {
         assertThatThrownBy(() -> filterService.compileFilter(List.of(), OBSERVATION))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("An empty list of filters can't be compiled.");
+    }
+
+    @Test
+    public void test_nonExistingSearchParam() {
+        assertThatThrownBy(() -> filterService.compileFilter(List.of(new Filter("foo", "bar", List.of())), OBSERVATION))
+                .isInstanceOf(RuntimeException.class)
+                .hasMessageContaining("Could not find any matching search parameter for filter. This can later " +
+                        "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
     }
 
     @Nested

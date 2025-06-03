@@ -84,15 +84,15 @@ public class FilterService {
                                 parseFhirPath(searchParameters.get(List.of(filter.name(), filter.type(), resourceType)))))
                 .toList();
 
-        if (parsedFilters.isEmpty()) {
-            logger.warn("Could not find any matching search parameter for filter. This can later result in unexpected false" +
-                    " negative results of the 'test' method of 'CompiledFilter'.");
-        }
-
         return new CompiledFilter(parsedFilters, fhirPathEngine);
     }
 
     private IFhirPath.IParsedExpression parseFhirPath(String path) {
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("Could not find any matching search parameter for filter. This can later " +
+                    "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
+        }
+
         try {
             return fhirPathEngine.parse(path);
         } catch (Exception e) {
@@ -125,7 +125,7 @@ public class FilterService {
                         searchParam.getType().equals(Enumerations.SearchParamType.DATE));
     }
 
-    public record CompiledFilter(List<ParsedFilter> filters,
+    private record CompiledFilter(List<ParsedFilter> filters,
                                   IFhirPath fhirPathEngine) implements Predicate<Resource> {
 
         public CompiledFilter {
@@ -225,7 +225,7 @@ public class FilterService {
         }
     }
 
-    public record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
+    private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
         public ParsedFilter {
             requireNonNull(filter);
             requireNonNull(parsedExpression);
