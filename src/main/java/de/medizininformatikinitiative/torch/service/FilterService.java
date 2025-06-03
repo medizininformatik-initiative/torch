@@ -23,6 +23,8 @@ import java.util.Map;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * A Service that handles filter preprocessing.
  */
@@ -66,11 +68,15 @@ public class FilterService {
      * Preprocesses multiple filters to be ready for evaluation on a specific resource type.
      * The predicate can be evaluated on as many resources as needed.
      *
-     * @param attributeGroupFilters the filters to be preprocessed
-     * @param resourceType          the resource type of the resource that the filters should later be applied on
-     * @return the compiled filters containing parsed FHIRPath expressions that are ready to be evaluated
+     * @param attributeGroupFilters     the filters to be preprocessed
+     * @param resourceType              the resource type of the resource that the filters should later be applied on
+     * @return                          the compiled filters containing parsed FHIRPath expressions that are ready to be evaluated
+     * @throws IllegalArgumentException if attributeGroupFilters is null or empty
      */
     public Predicate<Resource> compileFilter(List<Filter> attributeGroupFilters, String resourceType) {
+        if (attributeGroupFilters == null || attributeGroupFilters.isEmpty()) {
+            throw new IllegalArgumentException("An empty list of filters can't be compiled.");
+        }
         var parsedFilters = attributeGroupFilters.stream()
                 .map(filter ->
                         new ParsedFilter(
@@ -78,15 +84,15 @@ public class FilterService {
                                 parseFhirPath(searchParameters.get(List.of(filter.name(), filter.type(), resourceType)))))
                 .toList();
 
-        if (parsedFilters.isEmpty()) {
-            logger.warn("Could not find any matching search parameter for filter. This can later result in unexpected false" +
-                    " negative results of the 'test' method of 'CompiledFilter'.");
-        }
-
         return new CompiledFilter(parsedFilters, fhirPathEngine);
     }
 
     private IFhirPath.IParsedExpression parseFhirPath(String path) {
+        if (path == null || path.isEmpty()) {
+            throw new IllegalArgumentException("Could not find any matching search parameter for filter. This can later " +
+                    "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
+        }
+
         try {
             return fhirPathEngine.parse(path);
         } catch (Exception e) {
@@ -121,6 +127,13 @@ public class FilterService {
 
     private record CompiledFilter(List<ParsedFilter> filters,
                                   IFhirPath fhirPathEngine) implements Predicate<Resource> {
+
+        public CompiledFilter {
+            if (filters.isEmpty()) {
+                throw new IllegalArgumentException("CompiledFilter must have at least one parsed filter, but got none.");
+            }
+            requireNonNull(fhirPathEngine);
+        }
 
         @Override
         public boolean test(Resource resource) {
@@ -213,5 +226,9 @@ public class FilterService {
     }
 
     private record ParsedFilter(Filter filter, IFhirPath.IParsedExpression parsedExpression) {
+        public ParsedFilter {
+            requireNonNull(filter);
+            requireNonNull(parsedExpression);
+        }
     }
 }
