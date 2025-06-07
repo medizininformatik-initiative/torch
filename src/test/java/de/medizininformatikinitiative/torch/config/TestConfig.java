@@ -34,6 +34,7 @@ import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
+import de.medizininformatikinitiative.torch.util.ResourceGroupValidator;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
@@ -111,8 +112,13 @@ public class TestConfig {
     }
 
     @Bean
-    ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentValidator validator) {
-        return new ReferenceHandler(mustHaveChecker);
+    ReferenceHandler referenceHandler(ResourceGroupValidator resourceGroupValidator) {
+        return new ReferenceHandler(resourceGroupValidator);
+    }
+
+    @Bean
+    ResourceGroupValidator resourceGroupValidator(ProfileMustHaveChecker profileMustHaveChecker) {
+        return new ResourceGroupValidator(profileMustHaveChecker);
     }
 
     @Bean

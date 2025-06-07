@@ -1,6 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Element;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.UriType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,21 +39,6 @@ public class Slicing {
                 snapshotComponents.stream().map(snapshotComponent ->
                                 checkSlicing(base, elementId, snapshotComponent)).filter(Objects::nonNull)
                         .collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
-    }
-
-
-    /**
-     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
-     *
-     * @param base               Hapi Base (Element) which should be checked
-     * @param elementID          Element ID of the above element.
-     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
-     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
-     */
-    public static Set<ElementDefinition> checkSlicing(Base base, String elementID, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
-
-        return snapshotComponents.stream().map(snapshotComponent -> checkSlicing(base, elementID, snapshotComponent)).filter(Objects::nonNull).collect(Collectors.toSet());
-
     }
 
 
