@@ -2,17 +2,18 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,7 +35,7 @@ class ProcessedGroupFactoryTest {
 
     @Test
     void create() {
-        AnnotatedCrtdl crtdl = new AnnotatedCrtdl(node, new AnnotatedDataExtraction(List.of(group, group2, group3)));
+        AnnotatedCrtdl crtdl = new AnnotatedCrtdl(node, new AnnotatedDataExtraction(List.of(group, group2, group3)), Optional.empty());
 
         GroupsToProcess result = processor.create(crtdl);
 
