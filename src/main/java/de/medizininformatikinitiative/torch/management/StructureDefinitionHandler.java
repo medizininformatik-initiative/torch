@@ -7,19 +7,19 @@ import org.springframework.stereotype.Component;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
-import java.util.HashSet;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
- * Structure for loading and serving the CDS structure definitions
+ * Handler for loading and serving structure definitions.
  */
-
 @Component
 public class StructureDefinitionHandler {
 
-
-    private final HashMap<String, StructureDefinition> definitionsMap = new HashMap<>();
-    protected ResourceReader resourceReader;
+    private final Map<String, StructureDefinition> definitions = new HashMap<>();
+    private final ResourceReader resourceReader;
 
     public StructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
         try {
@@ -31,18 +31,11 @@ public class StructureDefinitionHandler {
     }
 
     /**
-     * @return Keyset of the underlying Map managing profiles and their Structure Definitions.
-     */
-    public Set<String> knownProfiles() {
-        return Set.copyOf(definitionsMap.keySet());
-    }
-
-    /**
      * @param profile to check if known
      * @return returns if profile is known.
      */
     public Boolean known(String profile) {
-        return definitionsMap.containsKey(profile);
+        return definitions.containsKey(profile);
     }
 
     /**
@@ -50,7 +43,7 @@ public class StructureDefinitionHandler {
      */
     public void readStructureDefinition(String filePath) throws IOException {
         StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
-        definitionsMap.put(structureDefinition.getUrl(), structureDefinition);
+        definitions.put(structureDefinition.getUrl(), structureDefinition);
     }
 
     /**
@@ -62,60 +55,36 @@ public class StructureDefinitionHandler {
      */
     public StructureDefinition getDefinition(String url) {
         String[] versionSplit = url.split("\\|");
-        return definitionsMap.get(versionSplit[0]);
+        return definitions.get(versionSplit[0]);
     }
 
     /**
      * Returns the first non-null StructureDefinition from a list of URLs.
+     * <p>
      * Iterates over the list of URLs, returning the first valid StructureDefinition.
      *
-     * @param urls A list of URLs for which to find the corresponding StructureDefinition.
+     * @param urls a list of URLs for which to find the corresponding StructureDefinition.
      * @return The first non-null StructureDefinition found, or empty if none are found.
      */
-    public Set<StructureDefinition> getDefinitions(Set<String> urls) {
-        Set<StructureDefinition> definitions = new HashSet<>();
-        urls.forEach(url -> {
-            StructureDefinition def = definitionsMap.get(url);
-            if (def != null) {
-                definitions.add(def);
-            }
-        });
-        return definitions;
+    public Optional<StructureDefinition> getDefinition(Set<String> urls) {
+        return urls.stream().map(definitions::get).filter(Objects::nonNull).findFirst();
     }
-
-    /**
-     * Returns the first non-null StructureDefinition from a list of URLs.
-     * Iterates over the list of URLs, returning the first valid StructureDefinition.
-     *
-     * @param urls A list of URLs for which to find the corresponding StructureDefinition.
-     * @return The first non-null StructureDefinition found, or null if none are found.
-     */
-    public Set<StructureDefinition.StructureDefinitionSnapshotComponent> getSnapshots(Set<String> urls) {
-        Set<StructureDefinition.StructureDefinitionSnapshotComponent> definitions = new HashSet<>();
-        urls.forEach(url -> definitions.add(getSnapshot(url)));
-        return definitions;
-    }
-
 
     public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
-        if (definitionsMap.get(url) != null) {
-            return (definitionsMap.get(url)).getSnapshot();
+        if (definitions.get(url) != null) {
+            return (definitions.get(url)).getSnapshot();
         } else {
             throw new IllegalArgumentException("Unknown Profile: " + url);
         }
-
-
     }
 
     public String getResourceType(String url) {
-        if (definitionsMap.get(url) != null) {
-            return (definitionsMap.get(url)).getType();
+        if (definitions.get(url) != null) {
+            return (definitions.get(url)).getType();
         } else {
             throw new IllegalArgumentException("Unknown Profile: " + url);
         }
-
     }
-
 
     /**
      * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap

@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.util;
 
-
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import org.hl7.fhir.exceptions.FHIRException;
@@ -10,6 +9,7 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Property;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
@@ -19,29 +19,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
+import static java.util.Objects.requireNonNull;
 
 /**
- * Redaction operations on copied Ressources based on the Structuredefinition
+ * Redaction operations on copied Resources based on the StructureDefinition
  */
 public class Redaction {
 
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
     private static final String MASKED = "masked";
 
-    private final StructureDefinitionHandler cds;
+    private final StructureDefinitionHandler structureDefinitionHandler;
 
     /**
      * Constructor for Redaction
      *
-     * @param cds StructureDefinitionHandler
+     * @param structureDefinitionHandler StructureDefinitionHandler
      */
-    public Redaction(StructureDefinitionHandler cds) {
-        this.cds = cds;
+    public Redaction(StructureDefinitionHandler structureDefinitionHandler) {
+        this.structureDefinitionHandler = requireNonNull(structureDefinitionHandler);
     }
 
     /**
@@ -73,147 +74,84 @@ public class Redaction {
                 resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
             }
 
-            Set<StructureDefinition> structureDefinitions = cds.getDefinitions(wrapper.profiles());
-            if (structureDefinitions.isEmpty()) {
+            Optional<StructureDefinition> structureDefinition = structureDefinitionHandler.getDefinition(wrapper.profiles());
+            if (structureDefinition.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                throw new RuntimeException("Tryng to handle unknown profiles: " + wrapper.profiles());
+                throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
             }
 
             meta.setProfile(resourceProfiles);
 
-            String elementID = String.valueOf(resource.getResourceType());
-            return this.redact(resource, Set.of(elementID), 0, structureDefinitions, references);
+            return this.redact(resource, String.valueOf(resource.getResourceType()), 0, Definition.fromStructureDefinition(structureDefinition.get()), references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
 
-
     /**
      * Executes redaction operation on the given base element recursively.
      *
-     * @param base                 Base to be redacted (e.g. a Ressource or an Element)
-     * @param elementIDs           "Element IDs of parent currently handled initially isEmpty String"
-     * @param recursion            "Resurcion depth (for debug purposes)
-     * @param structureDefinitions Structure definition of the Resource.
-     * @param references           Allowed references
+     * @param base                Base to be redacted (e.g. a Resource or an Element)
+     * @param elementId           Element IDs of parent currently handled; initially the resource type"
+     * @param recursion           recursion depth (for debug purposes)
+     * @param definition Structure definition of the Resource.
+     * @param references          Allowed references
      * @return redacted Base
      */
-    public Base redact(Base base, Set<String> elementIDs, int recursion, Set<StructureDefinition> structureDefinitions, Map<String, Set<String>> references) {
-
-        recursion++;
-        Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshots = structureDefinitions.stream().map(StructureDefinition::getSnapshot).collect(Collectors.toSet());
-        Set<ElementDefinition> definitions = elementIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)).filter(Objects::nonNull).collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
-        if (definitions.isEmpty()) {
-            throw new NoSuchElementException("Definiton unknown for" + base.fhirType() + "in Element ID " + elementIDs + "in StructureDefinition " + structureDefinitions.stream().map(StructureDefinition::getUrl));
+    private Base redact(Base base, String elementId, int recursion, Definition definition, Map<String, Set<String>> references) {
+        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
+        if (elementDefinition == null) {
+            throw new NoSuchElementException("Definition unknown for " + base.fhirType() + " in Element ID " + elementId + " in StructureDefinition " + definition.structureDefinition().getUrl());
         }
-        Set<ElementDefinition> unslicedElements = definitions.stream().filter(definition -> !definition.hasSlicing()).collect(Collectors.toSet());
-        Set<ElementDefinition> slicedElements = Set.of();
-        if (!unslicedElements.containsAll(definitions)) {
-            slicedElements = Slicing.checkSlicing(base, elementIDs, snapshots).stream().filter(ElementDefinition::hasId).collect(Collectors.toSet());
 
-            /* Slicing could not be resolved, but all elements should be sliced*/
-            if (slicedElements.isEmpty() && unslicedElements.isEmpty()) {
+        String finalElementId;
+        if (elementDefinition.hasSlicing()) {
+            ElementDefinition slicedElementDefinition = Slicing.checkSlicing(base, elementId, definition);
+
+            /* Slicing could not be resolved, but all elements should be sliced */
+            if (slicedElementDefinition == null) {
                 base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
-                if (definitions.stream().anyMatch(definition -> definition.getMin() > 0)) {
+                if (elementDefinition.getMin() > 0) {
                     base.setProperty("extension", createAbsentReasonExtension(MASKED));
                 }
 
                 return base;
             }
+            finalElementId = slicedElementDefinition.getId();
+        } else {
+            finalElementId = elementDefinition.getId();
         }
 
-        int finalRecursion = recursion;
-
-        Set<String> finalElementIDs = Stream.concat(unslicedElements.stream(), slicedElements.stream()).map(ElementDefinition::getId).collect(Collectors.toSet());
         base.children().forEach(child -> {
+            String childId = finalElementId + "." + child.getName();
 
-
-            Set<String> childIDs = finalElementIDs.stream().map(elementId -> elementId + "." + child.getName()).collect(Collectors.toSet());
-            Set<ElementDefinition> childDefinitions = Set.of();
-            logger.trace("Children to be handled {}", childIDs);
+            ElementDefinition childDefinition = definition.elementDefinitionById(childId);
             String type;
             int min;
-            try {
-                childDefinitions = childIDs.stream().map(elementId -> snapshots.stream().map(snapshot -> snapshot.getElementById(elementId)) // May return null
-                        .filter(Objects::nonNull) // Keep only non-null elements
-                        .collect(Collectors.toSet()) // Collect valid elements
-                ).flatMap(Set::stream).collect(Collectors.toSet());
 
-                // Ensure childDefinitions is not empty before extracting elements
-                if (childDefinitions.isEmpty()) {
-                    throw new NoSuchElementException("No valid elements found in snapshots.");
-                }
-
-                // Get type if available, otherwise fallback
-                try {
-                    type = childDefinitions.stream().flatMap(def -> def.getType().stream()) // Get all TypeRefComponents
-                            .map(ElementDefinition.TypeRefComponent::getWorkingCode) // Extract type codes
-                            .findFirst().orElseThrow(() -> new NoSuchElementException("No valid type found in any definition"));
-                } catch (NoSuchElementException e) {
-
-
-                    type = child.getTypeCode(); // Fallback only for type
-                    logger.trace("{} Standard Type fallback to {} ", child.getName(), type);
-                }
-
-                // Get minimum cardinality if available, otherwise fallback
-                try {
-                    min = childDefinitions.stream().map(ElementDefinition::getMin) // Extract min values
-                            .max(Integer::compareTo) // Get the largest one
-                            .orElseThrow(() -> new NoSuchElementException("No minimum cardinality found in any definition"));
-                } catch (NoSuchElementException e) {
-
-                    min = child.getMinCardinality(); // Fallback only for min
-                    logger.trace("{} Standard Cardinality fallback to {} ", child.getName(), min);
-                }
-
-            } catch (NoSuchElementException | NullPointerException e) {
-                // Case: No valid ElementDefinition at all → full fallback
+            if (childDefinition == null) {
                 type = child.getTypeCode();
                 min = child.getMinCardinality();
-                logger.trace("{} Standard Type {} with cardinality {} ", child.getName(), type, min);
+            } else {
+                type = childDefinition.getType().stream()
+                        .map(ElementDefinition.TypeRefComponent::getWorkingCode)
+                        .findFirst().orElse(child.getTypeCode());
+                min = childDefinition.getMin();
             }
-            if (child.hasValues() && !childDefinitions.isEmpty()) {
 
-
-                String finalType = type;
-                //List Handling
-                int finalMin = min;
-                if (finalType.equals("Reference")) {
-
-                    List<Base> childReferenceField = child.getValues();
-
-                    Set<String> legalReferences = childIDs.stream().map(references::get).filter(Objects::nonNull).collect(Collectors.toSet()).stream().flatMap(Set::stream).collect(Collectors.toSet());
-
-                    childReferenceField.forEach(referenceValue -> {
-                        String reference = ((Reference) referenceValue).getReference();
-                        if (!legalReferences.contains(reference)) {
-                            referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("masked")));
-                        }
-                        referenceValue.children().forEach(childValue -> {
-                            String name = childValue.getName();
-                            if (!name.equals("reference") && !name.equals("extension") && childValue.hasValues()) {
-                                childValue.getValues().forEach(value -> {
-                                    referenceValue.removeChild(name, value);
-                                });
-                            }
-                        });
-
-
-                    });
-
+            if (child.hasValues() && childDefinition != null) {
+                if ("Reference".equals(type)) {
+                    Set<String> found = references.get(childId);
+                    handleReference(child, found == null ? Set.of() : found);
                 }
-                child.getValues().forEach(value -> {
 
-                    if (finalMin > 0 && value.isEmpty()) {
-                        Element element = HapiFactory.create(finalType).addExtension(createAbsentReasonExtension(MASKED));
+                child.getValues().forEach(value -> {
+                    if (value.isEmpty() && min > 0) {
+                        Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
-
-                        redact(value, childIDs, finalRecursion, structureDefinitions, references);
+                        redact(value, childId, recursion + 1, definition, references);
                     }
                 });
-
 
             } else {
                 if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
@@ -230,14 +168,27 @@ public class Redaction {
                             Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
                             base.setProperty(child.getName(), element);
                         } catch (FHIRException e) {
-                            logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementIDs, child.getName(), type, min);
+                            logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementId, child.getName(), type, min);
                         }
                     }
-
-
                 }
             }
         });
+
         return base;
+    }
+
+    private static void handleReference(Property child, Set<String> references) {
+        child.getValues().forEach(referenceValue -> {
+            if (((Reference) referenceValue).hasReference() && !references.contains(((Reference) referenceValue).getReference())) {
+                referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("masked")));
+            }
+            referenceValue.children().forEach(childValue -> {
+                String name = childValue.getName();
+                if (!"reference".equals(name) && !"extension".equals(name) && childValue.hasValues()) {
+                    childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
+                }
+            });
+        });
     }
 }

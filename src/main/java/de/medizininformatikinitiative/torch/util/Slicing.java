@@ -1,15 +1,18 @@
 package de.medizininformatikinitiative.torch.util;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Element;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.UriType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Objects;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
 
@@ -23,99 +26,65 @@ public class Slicing {
     /**
      * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
-     * @param base               Hapi Base (Element) which should be checked
-     * @param elementIDs         Set of ElementIDs of the above element. Branching due to slicing at an earlier stage in recursive walk.
-     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
-     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
+     * @param base       HAPI Base (Element) which should be checked
+     * @param elementId  Element ID of the above element.
+     * @param definition definition of the Resource to which the element belongs
+     * @return Returns null if no slicing is found and an ElementDefinition for the slice otherwise
      */
-    public static Set<ElementDefinition> checkSlicing(Base base, Set<String> elementIDs, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
-
-        return elementIDs.stream().map(elementId ->
-                snapshotComponents.stream().map(snapshotComponent ->
-                                checkSlicing(base, elementId, snapshotComponent)).filter(Objects::nonNull)
-                        .collect(Collectors.toSet())).flatMap(Set::stream).collect(Collectors.toSet());
-    }
-
-
-    /**
-     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
-     *
-     * @param base               Hapi Base (Element) which should be checked
-     * @param elementID          Element ID of the above element.
-     * @param snapshotComponents set of Struturedefinitions of the Ressource to which the element belongs
-     * @return Returns empty set if no slicing is found and an elementdefinition for the slice otherwise
-     */
-    public static Set<ElementDefinition> checkSlicing(Base base, String elementID, Set<StructureDefinition.StructureDefinitionSnapshotComponent> snapshotComponents) {
-
-        return snapshotComponents.stream().map(snapshotComponent -> checkSlicing(base, elementID, snapshotComponent)).filter(Objects::nonNull).collect(Collectors.toSet());
-
-    }
-
-
-    /**
-     * Checks if the given element is a sliced element and returns the sliced element otherwise null.
-     *
-     * @param base              Hapi Base (Element) which should be checked
-     * @param elementID         Element ID of the above element.
-     * @param snapshotComponent Struturedefinition of the Ressource to which the element belongs
-     * @return Returns null if no slicing is found and an elementdefinition for the slice otherwise
-     */
-    public static ElementDefinition checkSlicing(Base base, String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshotComponent) {
-        ElementDefinition slicedElement = snapshotComponent.getElementById(elementID);
-
-
-        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
+    static ElementDefinition checkSlicing(Base base, String elementId, Definition definition) {
+        ElementDefinition slicedElement = definition.elementDefinitionById(elementId);
 
         if (slicedElement == null) {
             return null;
         }
+
         if (!slicedElement.hasSlicing()) {
             return null;
         }
+
+        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
         List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
 
-        List<ElementDefinition> elementDefinitions = ResourceUtils.getElementsByPath(slicedElement.getPath(), snapshotComponent);
-        elementDefinitions.forEach(element -> {
-
+        Stream<ElementDefinition> elementDefinitions = definition.elementDefinitionByPath(slicedElement.getPath());
+        elementDefinitions.filter(ElementDefinition::hasSliceName).forEach(element -> {
 
             boolean foundSlice = true;
-            if (element.hasSliceName()) {
-                for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
 
-                    if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
+            for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
 
-                        if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
-                            UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
-                            List<CanonicalType> profiles = element.getType().stream()
-                                    .flatMap(type -> type.getProfile().stream())
-                                    .toList();
-                            // Check if any profile matches the base type URL
-                            boolean anyMatchBaseUrl = profiles.stream()
-                                    .anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
-                            if (anyMatchBaseUrl) {
-                                continue;
-                            } else {
-                                foundSlice = false;
-                                break;
-                            }
+                if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
+
+                    if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
+                        UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
+                        List<CanonicalType> profiles = element.getType().stream()
+                                .flatMap(type -> type.getProfile().stream())
+                                .toList();
+                        // Check if any profile matches the base type URL
+                        boolean anyMatchBaseUrl = profiles.stream()
+                                .anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
+                        if (anyMatchBaseUrl) {
+                            continue;
+                        } else {
+                            foundSlice = false;
+                            break;
                         }
-
                     }
-                    if (!resolveDiscriminator(base, element, discriminator, snapshotComponent)) {
-                        foundSlice = false;
-                        break; // Stop iterating if condition check fails
-                    }
-                }
-                if (foundSlice) {
-                    returnElement.set(element);
-                }
 
+                }
+                if (!resolveDiscriminator(base, element, discriminator, definition.structureDefinition().getSnapshot())) {
+                    foundSlice = false;
+                    break; // Stop iterating if condition check fails
+                }
             }
+            if (foundSlice) {
+                returnElement.set(element);
+            }
+
+
         });
 
         return returnElement.get();
     }
-
 
     /**
      * Generates FHIR Path conditions based on the element ID and the snapshot of the StructureDefinition.
