@@ -20,6 +20,7 @@ import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -36,6 +37,8 @@ public class FilterService {
     private final FhirContext fhirContext;
     private final IFhirPath fhirPathEngine;
     private final String searchParametersFile;
+
+    public static final Predicate<Resource> ALWAYS_TRUE_FILTER = r -> true;
 
     /**
      * Maps filter code, filter type and resource type (in this exact order) to an expression.
@@ -79,25 +82,42 @@ public class FilterService {
         }
         var parsedFilters = attributeGroupFilters.stream()
                 .map(filter ->
-                        new ParsedFilter(
-                                filter,
-                                parseFhirPath(searchParameters.get(List.of(filter.name(), filter.type(), resourceType)))))
+                        Optional.ofNullable(searchParameters.get(List.of(filter.name(), filter.type(), resourceType)))
+                                .or(() -> {
+                                    logger.warn("Could not find search parameter for filter with name '{}' and type '{}' " +
+                                            "for resource type '{}'. Ignoring this filter.", filter.name(), filter.type(), resourceType);
+                                    return Optional.empty();
+                                })
+                                .map(this::parseFhirPath)
+                                .map(parsed -> new ParsedFilter(filter, parsed))
+                )
+                .filter(Optional::isPresent).map(Optional::get)
                 .toList();
+
+        if (parsedFilters.isEmpty()) {
+            return ALWAYS_TRUE_FILTER;
+        }
 
         return new CompiledFilter(parsedFilters, fhirPathEngine);
     }
 
+    /**
+     * Parses a FHIRPath String into a parsed FHIRPath expression.
+     *
+     * @param path  the FHIRPath to parse
+     * @return      the parsed FHIRPath expression
+     * @throws IllegalArgumentException if {@code path} is null, empty or if it could not be parsed
+     */
     private IFhirPath.IParsedExpression parseFhirPath(String path) {
         if (path == null || path.isEmpty()) {
-            throw new IllegalArgumentException("Could not find any matching search parameter for filter. This can later " +
-                    "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
+            throw new IllegalArgumentException("Path must not be null or empty.");
         }
 
         try {
             return fhirPathEngine.parse(path);
         } catch (Exception e) {
             // FHIRPath expressions from FHIR search parameters should usually never fail parsing
-            throw new RuntimeException("Unexpected parsing error occurred", e);
+            throw new IllegalArgumentException("Unexpected parsing error occurred with path " + path, e);
         }
     }
 
