@@ -2,6 +2,9 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
@@ -13,9 +16,12 @@ import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Questionnaire;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.slf4j.LoggerFactory;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -72,18 +78,29 @@ class FilterServiceTest {
     }
 
     @Test
+    @DisplayName("This tests for example the case of 'chained filters'.")
+    public void testInvalidSearchParam() {
+        Resource anyResource = new Observation();
+        Logger logger = (Logger) LoggerFactory.getLogger(FilterService.class);
+        ListAppender<ILoggingEvent> listAppender = new ListAppender<>();
+        listAppender.start();
+        logger.addAppender(listAppender);
+
+        var compiledFilter = filterService.compileFilter(List.of(new Filter("none-existing-type", "some-code",
+                List.of(new Code(SYS, CODE_1)))), OBSERVATION);
+
+        assertThat(compiledFilter.test(anyResource)).isTrue();
+        assertThat(listAppender.list.size()).isEqualTo(1);
+        assertThat((listAppender.list.getFirst()).getFormattedMessage())
+                .isEqualTo("Could not find search parameter for filter with name 'some-code' and type " +
+                        "'none-existing-type' for resource type 'Observation'. Ignoring this filter.");
+    }
+
+    @Test
     public void testEmptyFilter() {
         assertThatThrownBy(() -> filterService.compileFilter(List.of(), OBSERVATION))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("An empty list of filters can't be compiled.");
-    }
-
-    @Test
-    public void test_nonExistingSearchParam() {
-        assertThatThrownBy(() -> filterService.compileFilter(List.of(new Filter("foo", "bar", List.of())), OBSERVATION))
-                .isInstanceOf(RuntimeException.class)
-                .hasMessageContaining("Could not find any matching search parameter for filter. This can later " +
-                        "result in unexpected false negative results of the 'test' method of 'CompiledFilter'.");
     }
 
     @Nested
