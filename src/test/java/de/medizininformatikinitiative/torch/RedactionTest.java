@@ -17,7 +17,8 @@ import java.util.Set;
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class RedactTest {
+public class RedactionTest {
+
     public static final String INPUT_CONDITION_DIR = "src/test/resources/InputResources/Condition/";
     public static final String EXPECTED_OUTPUT_DIR = "src/test/resources/RedactTest/expectedOutput/";
     public static final String OBSERVATION_LAB = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
@@ -30,10 +31,9 @@ public class RedactTest {
 
     private final FhirContext fhirContext = FhirContext.forR4();
 
-
     @ParameterizedTest
     @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})
-    public void testObservationLAb(String resource) throws IOException {
+    public void testObservationLab(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
