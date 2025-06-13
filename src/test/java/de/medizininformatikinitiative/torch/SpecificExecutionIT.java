@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.assertions.Assertions;
 import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.hl7.fhir.r4.model.Bundle;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
+import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -151,6 +153,34 @@ class SpecificExecutionIT {
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles);
+    }
+
+    @Test
+    void testDoubleRef() throws IOException {
+        var testName = "diag-diag-profile-double";
+        uploadTestData(testName);
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json")).block();
+        assertThat(statusUrl).isNotNull();
+
+        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        assertThat(statusResponse).isNotNull();
+
+        var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
+        var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
+
+        var patientBundle = patientBundles.get(0);
+
+        FhirContext ctx = new FhirContext();
+        System.out.println(ctx.newJsonParser().encodeResourceToString(patientBundle));
+
+        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(patientBundles).hasSize(1);
+
+        executeStandardTests(patientBundles);
+
+        assertThat(patientBundle).extractResourceById("Condition", "torch-test-diag-diag-profile-double-diag-2")
+                .extractElementsAt("meta.profile").containsExactlyInAnyOrder(nodeFromValueString("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"), nodeFromValueString("https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor"));
+
     }
 
     @AfterEach

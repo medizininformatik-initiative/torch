@@ -1,0 +1,84 @@
+{
+  "display": "",
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "Ausgewählte Merkmale",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "display": "Geschlecht",
+              "system": "http://snomed.info/sct",
+              "version": ""
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "display": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "version": "2099"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "diag-1",
+        "name": "Diagnosis primary ",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor",
+        "attributes": [
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "diag-1",
+        "name": "Diagnosis primary ",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+        "attributes": [
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "pat-1-main",
+        "name": "Main Pat for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+          {
+            "attributeRef": "Patient.active",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Patient.deceased[x]",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Patient.gender",
+            "mustHave": false
+          }
+        ]
+      }
+    ]
+  }
+}

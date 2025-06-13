@@ -30,8 +30,8 @@ dependencies:
   de.medizininformatikinitiative.kerndatensatz.diagnose: 2024.0.0
   de.medizininformatikinitiative.kerndatensatz.fall: 2024.0.1
   de.medizininformatikinitiative.kerndatensatz.meta: 1.0.3
-
-  #de.medizininformatikinitiative.kerndatensatz.person: 2024.0.0
+  de.medizininformatikinitiative.kerndatensatz.onkologie: 2025.1.0
+#de.medizininformatikinitiative.kerndatensatz.person: 2024.0.0
   #de.medizininformatikinitiative.kerndatensatz.diagnose: 2024.0.0
   #de.medizininformatikinitiative.kerndatensatz.prozedur: 2024.0.0
   #de.medizininformatikinitiative.kerndatensatz.medikation: 2.0.0
