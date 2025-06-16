@@ -23,6 +23,7 @@ public class RedactionTest {
     public static final String EXPECTED_OUTPUT_DIR = "src/test/resources/RedactTest/expectedOutput/";
     public static final String OBSERVATION_LAB = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
     public static final String DIAGNOSIS = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
+    public static final String PRIMARY_DIAGNOSIS = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor";
     public static final String MEDICATION = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication";
     public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
@@ -138,6 +139,19 @@ public class RedactionTest {
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
             ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"DiagnosisDoubleProfile.json"})
+        public void resDoubleProfile(String resource) throws IOException {
+
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, PRIMARY_DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/torch-test-diag-diag-profile-double-pat-1")), Set.of());
             DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
