@@ -5,7 +5,7 @@
     "fshType": "Instance",
     "fshFile": "base-test-ref-diag-diag-profile-double-bundle.fsh",
     "startLine": 1,
-    "endLine": 7
+    "endLine": 8
   },
   {
     "outputFile": "Bundle-test-diag-enc-diag.json",
@@ -38,6 +38,14 @@
     "fshFile": "base-test-ref-diag-diag-profile-double.fsh",
     "startLine": 16,
     "endLine": 24
+  },
+  {
+    "outputFile": "Condition-torch-test-diag-diag-profile-double-diag-3.json",
+    "fshName": "torch-test-diag-diag-profile-double-diag-3",
+    "fshType": "Instance",
+    "fshFile": "base-test-ref-diag-diag-profile-double.fsh",
+    "startLine": 27,
+    "endLine": 33
   },
   {
     "outputFile": "Condition-torch-test-diag-enc-diag-diag-1.json",

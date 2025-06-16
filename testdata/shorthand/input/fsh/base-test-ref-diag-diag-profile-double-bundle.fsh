@@ -5,3 +5,4 @@ InstanceOf: Bundle
 * insert AddBundleEntry(torch-test-diag-diag-profile-double-pat-1, Patient)
 * insert AddBundleEntry(torch-test-diag-diag-profile-double-diag-1, Condition)
 * insert AddBundleEntry(torch-test-diag-diag-profile-double-diag-2, Condition)
+* insert AddBundleEntry(torch-test-diag-diag-profile-double-diag-3, Condition)

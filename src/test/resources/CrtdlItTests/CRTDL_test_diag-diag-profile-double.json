@@ -39,23 +39,31 @@
   "dataExtraction": {
     "attributeGroups": [
       {
-        "id": "diag-1",
+        "id": "diag-prim-tum",
         "name": "Diagnosis primary ",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor",
         "attributes": [
           {
             "attributeRef": "Condition.code",
             "mustHave": false
+          },
+          {
+            "attributeRef": "Condition.clinicalStatus",
+            "mustHave": false
           }
         ]
       },
       {
-        "id": "diag-1",
+        "id": "diag-base",
         "name": "Diagnosis primary ",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
         "attributes": [
           {
             "attributeRef": "Condition.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Condition.verificationStatus",
             "mustHave": false
           }
         ]

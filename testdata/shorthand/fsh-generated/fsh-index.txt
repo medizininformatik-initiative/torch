@@ -1,9 +1,10 @@
 Output File                                                Name                                        Type      FSH File                                           Lines
-Bundle-test-diag-diag-profile-double.json                  test-diag-diag-profile-double               Instance  base-test-ref-diag-diag-profile-double-bundle.fsh  1 - 7
+Bundle-test-diag-diag-profile-double.json                  test-diag-diag-profile-double               Instance  base-test-ref-diag-diag-profile-double-bundle.fsh  1 - 8
 Bundle-test-diag-enc-diag.json                             test-diag-enc-diag                          Instance  base-test-ref-diag-enc-diag-bundle.fsh             1 - 9
 Bundle-test-diag-no-enc-diag.json                          test-diag-no-enc-diag                       Instance  base-test-ref-diag-no-enc-diag-bundle.fsh          1 - 9
 Condition-torch-test-diag-diag-profile-double-diag-1.json  torch-test-diag-diag-profile-double-diag-1  Instance  base-test-ref-diag-diag-profile-double.fsh         9 - 13
 Condition-torch-test-diag-diag-profile-double-diag-2.json  torch-test-diag-diag-profile-double-diag-2  Instance  base-test-ref-diag-diag-profile-double.fsh         16 - 24
+Condition-torch-test-diag-diag-profile-double-diag-3.json  torch-test-diag-diag-profile-double-diag-3  Instance  base-test-ref-diag-diag-profile-double.fsh         27 - 33
 Condition-torch-test-diag-enc-diag-diag-1.json             torch-test-diag-enc-diag-diag-1             Instance  base-test-ref-diag-enc-diag.fsh                    36 - 42
 Condition-torch-test-diag-enc-diag-diag-2.json             torch-test-diag-enc-diag-diag-2             Instance  base-test-ref-diag-enc-diag.fsh                    45 - 51
 Condition-torch-test-diag-enc-diag-diag-3.json             torch-test-diag-enc-diag-diag-3             Instance  base-test-ref-diag-enc-diag.fsh                    55 - 59
