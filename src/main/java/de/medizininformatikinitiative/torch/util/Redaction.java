@@ -85,6 +85,8 @@ public class Redaction {
 
             meta.setProfile(resourceProfiles);
 
+            logger.info("Redacting resource with id {} and passing profile with url {}", resource.getId(), structureDefinition.get().getUrl());
+
             return this.redact(resource, String.valueOf(resource.getResourceType()), 0, Definition.fromStructureDefinition(structureDefinition.get()), references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");

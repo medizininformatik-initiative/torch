@@ -182,6 +182,7 @@ public class RedactionTest {
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
             ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, PRIMARY_DIAGNOSIS_TEST), Map.of("Condition.subject", Set.of("Patient/torch-test-diag-diag-profile-double-pat-1")), Set.of());
+            integrationTestSetup.structureDefinitionHandler().readStructureDefinition("src/test/resources/InputStructDefs/MII_PR_Onko_Diagnose_Primaertumor_test.json");
             DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
