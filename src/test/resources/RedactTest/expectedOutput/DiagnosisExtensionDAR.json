@@ -3,11 +3,20 @@
   "id": "torch-test-diag-diag-profile-double-diag-2",
   "meta": {
     "profile": [
-      "https://testProfile-unknownToTorch",
-      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
-      "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor-test"
+      "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor"
     ]
   },
+  "extension": [
+    {
+      "url": "http://hl7.org/fhir/StructureDefinition/condition-assertedDate",
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        }
+      ]
+    }
+  ],
   "code": {
     "coding": [
       {
@@ -17,6 +26,11 @@
       }
     ]
   },
+  "note": [
+    {
+      "text": "Diabetes"
+    }
+  ],
   "clinicalStatus": {
     "coding": [
       {
@@ -37,16 +51,5 @@
     "reference": "Patient/torch-test-diag-diag-profile-double-pat-1"
   },
   "recordedDate": "2024-02-22",
-  "onsetDateTime": "2024-02-01",
-  "note": [
-    {
-      "extension": [
-        {
-          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-          "valueCode": "masked"
-        }
-      ]
-    }
-  ]
+  "onsetDateTime": "2024-02-01"
 }
-

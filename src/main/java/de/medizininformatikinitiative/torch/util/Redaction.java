@@ -75,6 +75,9 @@ public class Redaction {
             }
 
             Optional<StructureDefinition> structureDefinition = structureDefinitionHandler.getDefinition(wrapper.profiles());
+
+            System.out.println(structureDefinition.get().getUrl());
+
             if (structureDefinition.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
