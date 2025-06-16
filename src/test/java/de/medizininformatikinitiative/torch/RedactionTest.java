@@ -143,6 +143,34 @@ public class RedactionTest {
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
         }
 
+        @ParameterizedTest
+        @ValueSource(strings = {"DiagnosisUnknownComplexExtension.json"})
+        public void removeUnknownComplexExtension(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        /* TODO comment in and fix removing of unknown primitive extensions
+        @ParameterizedTest
+
+        @ValueSource(strings = {"DiagnosisUnknownPrimitiveExtension.json"})
+        public void removeUnknownPrimitiveExtension(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+         */
+
 
     }
 

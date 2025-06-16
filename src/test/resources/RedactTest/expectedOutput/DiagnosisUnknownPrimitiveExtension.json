@@ -1,0 +1,31 @@
+{
+  "resourceType": "Condition",
+  "id": "Diagnose1",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+    ]
+  },
+  "code": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "version": "http://snomed.info/sct/900000000000207008/version/20230731",
+        "code": "91613004",
+        "display": "Contusion of elbow (disorder)"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/123"
+  },
+  "onsetDateTime": "2024-10",
+  "_recordedDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+        "valueCode": "masked"
+      }
+    ]
+  }
+}
