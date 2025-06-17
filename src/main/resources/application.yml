@@ -26,7 +26,7 @@ torch:
     page:
       count: 500
     max:
-      connections: 4
+      connections: 5
     disable:
       async: false
   flare:
@@ -34,8 +34,8 @@ torch:
   results:
     dir: output/
     persistence: PT2160H # Time Block in ISO 8601 format
-  batchsize: 100
-  maxconcurrency: 100
+  batchsize: 500
+  maxconcurrency: 4
   mappingsFile: ontology/mapping_cql.json
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
