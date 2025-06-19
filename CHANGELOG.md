@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.5] - 2025-06-19
+
+TODO: compile from https://github.com/medizininformatik-initiative/torch/milestone/12?closed=1
+
 ## [v1.0.0-test1] - 2024-04-23
 
 ### Added
@@ -67,5 +71,3 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - **Multi FHIR Profile Handling**: Added the ability to handle multiple FHIR profiles per resource, selecting the first
   known profile greedily.
 - **Resource Redaction and Copying**: Introduced basic functionality for redacting and copying patient resources.
-
-
