@@ -75,12 +75,17 @@ public class Redaction {
             }
 
             Optional<StructureDefinition> structureDefinition = structureDefinitionHandler.getDefinition(wrapper.profiles());
+
+            System.out.println(structureDefinition.get().getUrl());
+
             if (structureDefinition.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
             }
 
             meta.setProfile(resourceProfiles);
+
+            logger.info("Redacting resource with id {} and passing profile with url {}", resource.getId(), structureDefinition.get().getUrl());
 
             return this.redact(resource, String.valueOf(resource.getResourceType()), 0, Definition.fromStructureDefinition(structureDefinition.get()), references);
         }
