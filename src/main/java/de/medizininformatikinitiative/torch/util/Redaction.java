@@ -18,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import java.util.List;
 import java.util.Map;
 import java.util.NoSuchElementException;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -32,7 +31,10 @@ import static java.util.Objects.requireNonNull;
 public class Redaction {
 
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-    private static final Extension ABSENT_REASON_EXTENSION = createAbsentReasonExtension("masked");
+    private static final String MASKED = "masked";
+    private static final Extension ABSENT_REASON_EXTENSION = createAbsentReasonExtension(MASKED);
+    private static final String EXTENSION = "extension";
+    private static final String REFERENCE = "reference";
 
     private final StructureDefinitionHandler structureDefinitionHandler;
 
@@ -48,11 +50,11 @@ public class Redaction {
     private static void handleReference(Property child, Set<String> references) {
         child.getValues().forEach(referenceValue -> {
             if (((Reference) referenceValue).hasReference() && !references.contains(((Reference) referenceValue).getReference())) {
-                referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
+                referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
             }
             referenceValue.children().forEach(childValue -> {
                 String name = childValue.getName();
-                if (!"reference".equals(name) && !"extension".equals(name) && childValue.hasValues()) {
+                if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
                     childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
                 }
             });
@@ -74,8 +76,6 @@ public class Redaction {
             if (!resource.getResourceType().toString().equals("Patient")) {
                 // Convert resource profiles to a list of strings
                 resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
-
-
                 List<CanonicalType> finalResourceProfiles = resourceProfiles;
                 Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
 
@@ -83,20 +83,16 @@ public class Redaction {
                     logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
                     throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
                 }
-
             } else {
                 resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
             }
-
             Optional<CompiledStructureDefinition> definition = structureDefinitionHandler.getDefinition(wrapper.profiles());
             if (definition.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
             }
-
             meta.setProfile(resourceProfiles);
-
-            return this.redact(resource, String.valueOf(resource.getResourceType()), 0, definition.get(), references);
+            return this.redact(resource, String.valueOf(resource.getResourceType()), definition.get(), references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
@@ -105,90 +101,139 @@ public class Redaction {
      * Executes redaction operation on the given base element recursively.
      *
      * @param base       Base to be redacted (e.g. a Resource or an Element)
-     * @param elementId  Element IDs of parent currently handled; initially the resource type"
-     * @param recursion  recursion depth (for debug purposes)
+     * @param elementId  Element IDs of parent currently handled; initially the resource type
      * @param definition Structure definition of the Resource.
      * @param references Allowed references
      * @return redacted Base
      */
-    private Base redact(Base base, String elementId, int recursion, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
+    private Base redact(Base base, String elementId, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
+        ElementDefinition elementDefinition = getElementDefinition(definition, elementId, base);
+
+        redactUnknownExtensions(base, elementId, definition);
+
+        if (base.isPrimitive()) {
+            return base;
+        }
+        // Handle slicing and early exit when unknown slice
+        if (!(base instanceof Extension) && elementDefinition.hasSlicing()) {
+            ElementDefinition sliced = Slicing.checkSlicing(base, elementId, definition);
+            if (sliced == null) {
+                removeAllChildren(base);
+                if (elementDefinition.getMin() > 0) {
+                    base.setProperty(EXTENSION, createAbsentReasonExtension(MASKED));
+                }
+                return base;
+            }
+            elementId = sliced.getId();
+        }
+
+        redactChildren(base, elementId, definition, references);
+
+        return base;
+    }
+
+    private ElementDefinition getElementDefinition(CompiledStructureDefinition definition, String elementId, Base base) {
         ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
         if (elementDefinition == null) {
             throw new NoSuchElementException("Definition unknown for " + base.fhirType() + " in Element ID " + elementId + " in StructureDefinition " + definition.structureDefinition().getUrl());
         }
+        return elementDefinition;
+    }
 
-        String finalElementId;
-        if (elementDefinition.hasSlicing()) {
-            ElementDefinition slicedElementDefinition = Slicing.checkSlicing(base, elementId, definition);
+    /**
+     * Checks for extension legality via slicing and explicit test for data-absent-reason system.
+     *
+     * @param base       to be handled
+     * @param elementId  of base to be handled
+     * @param definition applied to the base
+     */
+    private void redactUnknownExtensions(Base base, String elementId, CompiledStructureDefinition definition) {
+        getExtensions(base).stream().filter(extension -> shouldRedactExtension(extension, elementId, definition)).forEach(extension -> base.removeChild(EXTENSION, extension));
+    }
 
-            /* Slicing could not be resolved, but all elements should be sliced */
-            if (slicedElementDefinition == null) {
-                base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
-                if (elementDefinition.getMin() > 0) {
-                    base.setProperty("extension", ABSENT_REASON_EXTENSION);
-                }
+    private List<Extension> getExtensions(Base base) {
+        return switch (base) {
+            case Element element when element.hasExtension() -> List.copyOf(element.getExtension());
+            case DomainResource domainResource when domainResource.hasExtension() ->
+                    List.copyOf(domainResource.getExtension());
+            default -> List.of();
+        };
+    }
 
-                return base;
-            }
-            finalElementId = slicedElementDefinition.getId();
-        } else {
-            finalElementId = elementDefinition.getId();
-        }
+    private boolean shouldRedactExtension(Extension extension, String elementId, CompiledStructureDefinition definition) {
+        return !"http://hl7.org/fhir/StructureDefinition/data-absent-reason".equals(extension.getUrl()) && !isKnownExtension(extension, elementId, definition);
+    }
 
+    private boolean isKnownExtension(Extension extension, String elementId, CompiledStructureDefinition definition) {
+        ElementDefinition sliced = Slicing.checkSlicing(extension, elementId + ".extension", definition);
+        return sliced != null;
+    }
+
+    private void removeAllChildren(Base base) {
+        base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
+    }
+
+    /**
+     * @param base       base whose children should be redacted
+     * @param baseId     ElementId of the base
+     * @param definition StructureDefinition to be applied
+     * @param references Allowed references
+     */
+    private void redactChildren(Base base, String baseId, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
         base.children().forEach(child -> {
-            String childId = finalElementId + "." + child.getName();
+            String childId = baseId + "." + child.getName();
+            ElementDefinition childDef = definition.elementDefinitionById(childId);
 
-            ElementDefinition childDefinition = definition.elementDefinitionById(childId);
-            String type;
-            int min;
+            String type = getChildType(child, childDef);
+            int min = (childDef != null) ? childDef.getMin() : child.getMinCardinality();
 
-            if (childDefinition == null) {
-                type = child.getTypeCode();
-                min = child.getMinCardinality();
-            } else {
-                type = childDefinition.getType().stream()
-                        .map(ElementDefinition.TypeRefComponent::getWorkingCode)
-                        .findFirst().orElse(child.getTypeCode());
-                min = childDefinition.getMin();
-            }
-
-            if (child.hasValues() && childDefinition != null) {
+            if (child.hasValues() && childDef != null) {
                 if ("Reference".equals(type)) {
-                    Set<String> found = references.get(childId);
-                    handleReference(child, found == null ? Set.of() : found);
+                    Set<String> allowedRefs = references.getOrDefault(childId, Set.of());
+                    handleReference(child, allowedRefs);
                 }
 
-                child.getValues().forEach(value -> {
+                for (Base value : child.getValues()) {
                     if (value.isEmpty() && min > 0) {
-                        Element element = HapiFactory.create(type).addExtension(ABSENT_REASON_EXTENSION);
-                        base.setProperty(child.getName(), element);
-                    } else if (!value.isPrimitive()) {
-                        redact(value, childId, recursion + 1, definition, references);
-                    }
-                });
-
-            } else {
-                if (min > 0 && !Objects.equals(child.getTypeCode(), "Extension")) {
-                    /*
-                    TODO find a good way to only work with reflection here?
-                    Potential issue is primitive types don't have addExtension, somehow generic setField results in dem being set.
-                    E.g. RecordedDate in Condition
-                     */
-                    if (Objects.equals(type, "BackboneElement")) {
-                        String fieldName = child.getName();
-                        ResourceUtils.setField(base, fieldName, ABSENT_REASON_EXTENSION);
+                        Element absent = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
+                        base.setProperty(child.getName(), absent);
                     } else {
-                        try {
-                            Element element = HapiFactory.create(type).addExtension(ABSENT_REASON_EXTENSION);
-                            base.setProperty(child.getName(), element);
-                        } catch (FHIRException e) {
-                            logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementId, child.getName(), type, min);
-                        }
+                        redact(value, childId, definition, references);
                     }
                 }
+            } else {
+                if (min > 0 && !"Extension".equals(child.getTypeCode())) {
+                    addDataAbsentReason(base, child, type, baseId);
+                }
+
             }
         });
-
-        return base;
     }
+
+    private String getChildType(Property child, ElementDefinition def) {
+        if (def == null) return child.getTypeCode();
+        return def.getType().stream().map(ElementDefinition.TypeRefComponent::getWorkingCode).findFirst().orElse(child.getTypeCode());
+    }
+
+    /**
+     * Adds a DataAbsentReason for a child property of a base.
+     *
+     * @param base     the parent of the child
+     * @param child    property without values to be checked
+     * @param type     type of the child to be handled
+     * @param parentId elementId of the parent
+     */
+    private void addDataAbsentReason(Base base, Property child, String type, String parentId) {
+        try {
+            if ("BackboneElement".equals(type)) {
+                ResourceUtils.setField(base, child.getName(), createAbsentReasonExtension(MASKED));
+            } else {
+                Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
+                base.setProperty(child.getName(), element);
+            }
+        } catch (FHIRException e) {
+            logger.warn("Unresolvable elementID {} in field {} Type {} ", parentId, child.getName(), type);
+        }
+    }
+
 }
