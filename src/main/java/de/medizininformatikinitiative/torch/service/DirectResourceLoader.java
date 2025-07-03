@@ -78,7 +78,7 @@ public class DirectResourceLoader {
     }
 
     private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
-        return Flux.fromIterable(group.queries(dseMappingTreeBase, structureDefinitionsHandler.getResourceType(group.groupReference())));
+        return Flux.fromIterable(group.queries(dseMappingTreeBase, group.resourceType()));
     }
 
     Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
@@ -181,6 +181,7 @@ public class DirectResourceLoader {
                     if (profileMustHaveChecker.fulfilled(tuple.resource, group)) {
 
                         safeGroup.add(tuple.patientId);
+                        System.out.println("Ref" + group.groupReference() + "Type" + group.resourceType() + " ID " + group.id());
                         bundle.put(tuple.resource, group.id(), true);
                     } else {
                         bundle.put(tuple.resource, group.id(), false);

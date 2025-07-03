@@ -160,11 +160,11 @@ class ReferenceResolverIT {
 
         var filter = new Filter("date", "birthdate", LocalDate.of(2000, 1, 1), LocalDate.of(2005, 1, 1));
         var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
 
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
 
-        conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
@@ -218,7 +218,7 @@ class ReferenceResolverIT {
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
         var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
         var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
-        AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+        AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
         Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
             put("Patient1", patientGroupWithUnsatisfiedFilter);
             put("Condition1", conditionGroup);
@@ -391,7 +391,7 @@ class ReferenceResolverIT {
             AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
             var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
             var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
-            AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+            AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
             Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
                 put("Patient1", patientGroupWithUnsatisfiedFilter);
                 put("Condition1", conditionGroup);

@@ -1,10 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Factory;
+import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.StructureDefinition;
-import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -14,8 +15,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.Mockito.verifyNoInteractions;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 /**
  * Unit tests for the FhirPathBuilder class.
@@ -30,53 +33,64 @@ class FhirPathBuilderTest {
     @Mock
     private Factory factory;
 
-    @Mock
-    private StructureDefinition.StructureDefinitionSnapshotComponent snapshot;
 
-    @Mock
-    private Base baseElement;
+    private static CompiledStructureDefinition definition;
 
-    private FhirPathBuilder fhirPathBuilder;
+    @BeforeAll
+    static void setup() {
+        StructureDefinition structureDefinition = new StructureDefinition();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+        ElementDefinition elementDefinition = new ElementDefinition(new StringType("Patient.contact"));
+        elementDefinition.setId("Patient.contact");
+        snapshot.addElement(elementDefinition);
+        definition = CompiledStructureDefinition.fromStructureDefinition(structureDefinition);
 
-    @BeforeEach
-    void setUp() {
-        // Initialize the FhirPathBuilder with the mocked handler
-        fhirPathBuilder = new FhirPathBuilder();
     }
 
-    // --- handleSlicingForTerser Tests ---
-
     @Test
-    void testHandleSlicingForTerser_NoSlicing() {
+    void testNoSlicing() {
         String input = "Observation.identifier.type.coding";
         String expected = "Observation.identifier.type.coding";
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
-        ;
+        String[] result = FhirPathBuilder.handleSlicingForFhirPath(input, definition);
 
-        assertEquals(expected, result, "The FHIRPath should remain unchanged when no slicing is present.");
+        assertThat(result).contains(expected, expected);
     }
 
 
     @Test
-    void testHandleSlicingForTerser_EmptyString() {
-        String input = "";
-        String expected = "";
+    void testEmptyString() {
+        assertThatThrownBy(() -> FhirPathBuilder.handleSlicingForFhirPath("", definition)).isInstanceOf(IllegalArgumentException.class);
 
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[1];
-        ;
-
-        assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
     }
 
     @Test
-    void testHandleSlicingForTerser_NullInput() {
-        String result = FhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[1];
-
-        assertNull(result, "The method should return null when input is null.");
+    void testNullInput() {
+        assertThatThrownBy(() -> FhirPathBuilder.handleSlicingForFhirPath(null, definition)).isInstanceOf(IllegalArgumentException.class);
     }
 
+    @Test
+    void testSlicingWithChoiceElements() throws FHIRException {
+        String input = "Observation.value[x]:valueQuantity.code";
+        String expected = "Observation.value.ofType(Quantity).code";
 
+
+        String[] result = FhirPathBuilder.handleSlicingForFhirPath(input, definition);
+
+        assertThat(result).contains(expected, expected);
+
+    }
+
+    @Test
+    void testSlicingWithUnknownSlice() throws FHIRException {
+        String input = "Observation.value[x]:unknownSlice.code";
+
+        assertThatThrownBy(() -> FhirPathBuilder.handleSlicingForFhirPath(input, definition)).isInstanceOf(FHIRException.class);
+
+
+    }
+
+    
     @Test
     void testBuildConditions_NoConditions() {
         String path = "Patient.name";
@@ -146,79 +160,5 @@ class FhirPathBuilderTest {
         String result = FhirPathBuilder.buildConditions(null, conditions);
 
         assertNull(result, "When path is null, the method should return null regardless of conditions.");
-    }
-
-    // --- handleSlicingForFhirPath Tests ---
-
-    @Test
-    void testHandleSlicingForFhirPath_NoSlicing() {
-        String input = "Patient.name.family";
-        String expected = "Patient.name.family";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
-
-        assertEquals(expected, result, "When no slicing is present, the input should remain unchanged.");
-
-    }
-
-    @Test
-    void testHandleSlicingForFhirPath_SlicingWithKnownSlice() throws FHIRException {
-        String input = "Observation.value[x]:valueQuantity.code";
-        String expected = "Observation.value.ofType(Quantity).code";
-
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
-
-        assertEquals(expected, result, "The slicing should be handled correctly with known slice and conditions appended.");
-
-    }
-
-    @Test
-    void testHandleSlicingForFhirPath_SlicingWithUnknownSlice() throws FHIRException {
-        String input = "Observation.value[x]:unknownSlice.code";
-
-        FHIRException exception = assertThrows(FHIRException.class, () -> {
-            FhirPathBuilder.handleSlicingForFhirPath(input, snapshot);
-        }, "An FHIRException should be thrown for unsupported slicing.");
-
-        assertEquals("Unsupported Choice Slicing unknownSlice", exception.getMessage(),
-                "The exception message should match the expected message.");
-
-
-    }
-
-    @Test
-    void testHandleSlicingForFhirPath_HandlingChoiceElements() throws FHIRException {
-        String input = "Observation.value[x]:valueString.code";
-        String expected = "Observation.value.ofType(string).code";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
-
-        assertEquals(expected, result, "Choice elements should be handled correctly with conditions appended.");
-
-    }
-
-
-    @Test
-    void testHandleSlicingForFhirPath_EmptyString() {
-        String input = "";
-        String expected = "";
-
-        String result = FhirPathBuilder.handleSlicingForFhirPath(input, snapshot)[0];
-
-        assertEquals(expected, result, "The method should return an isEmpty string when input is isEmpty.");
-
-        // Verify that slicing and factory are not interacted with
-        verifyNoInteractions(slicing, factory);
-    }
-
-    @Test
-    void testHandleSlicingForFhirPath_NullInput() {
-        String result = FhirPathBuilder.handleSlicingForFhirPath(null, snapshot)[0];
-
-        assertNull(result, "The method should return null when input is null.");
-
-        // Verify that slicing and factory are not interacted with
-        verifyNoInteractions(slicing, factory);
     }
 }

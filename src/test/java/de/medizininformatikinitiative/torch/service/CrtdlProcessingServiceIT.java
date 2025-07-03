@@ -48,7 +48,7 @@ class CrtdlProcessingServiceIT {
     private static final Logger logger = LoggerFactory.getLogger(CrtdlProcessingServiceIT.class);
 
     // Create an instance of BaseTestSetup
-    private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
+    private static IntegrationTestSetup INTEGRATION_TEST_SETUP;
 
 
     @Autowired
@@ -69,7 +69,7 @@ class CrtdlProcessingServiceIT {
 
     @BeforeAll
     void init() throws IOException, ValidationException {
-
+        INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
         crtdlAllObservations = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();

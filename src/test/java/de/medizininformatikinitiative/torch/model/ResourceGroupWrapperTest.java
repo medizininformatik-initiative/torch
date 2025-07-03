@@ -1,24 +1,16 @@
 package de.medizininformatikinitiative.torch.model;
 
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResourceGroupWrapperTest {
 
-    public static final AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
-    public static final ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of(), "group1", "test");
-    public static final AnnotatedAttributeGroup group1 = new AnnotatedAttributeGroup("group1", "12345", "reference", List.of(), List.of(), null, false);
-    public static final AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("group2", "2345", "reference", List.of(), List.of(), null, false);
     Patient patient1 = new Patient();
     Patient patient2 = new Patient();
     Patient patient3 = new Patient();

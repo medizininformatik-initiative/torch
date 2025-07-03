@@ -299,7 +299,7 @@ public class TestConfig {
 
     @Bean
     public StructureDefinitionHandler cdsStructureDefinitionHandler(ResourceReader resourceReader) {
-        return new StructureDefinitionHandler(torchProperties.profile().dir(), resourceReader);
+        return new StructureDefinitionHandler(new File(torchProperties.profile().dir()), resourceReader);
     }
 
     @Bean

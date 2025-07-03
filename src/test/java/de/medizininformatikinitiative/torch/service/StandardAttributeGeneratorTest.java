@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
@@ -25,7 +26,7 @@ class StandardAttributeGeneratorTest {
     }
 
     @Test
-    void patient() {
+    void patient() throws ValidationException {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(new Attribute("Patient.name", false)), List.of());
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
@@ -38,7 +39,7 @@ class StandardAttributeGeneratorTest {
     }
 
     @Test
-    void consent() {
+    void consent() throws ValidationException {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", List.of(new Attribute("Consent.identifier", false)), List.of());
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
@@ -52,7 +53,7 @@ class StandardAttributeGeneratorTest {
     }
 
     @Test
-    void observation() {
+    void observation() throws ValidationException {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.identifier", false)), List.of());
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "group1");
@@ -66,7 +67,7 @@ class StandardAttributeGeneratorTest {
     }
 
     @Test
-    void coreCase() {
+    void coreCase() throws ValidationException {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(), List.of());
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
@@ -80,7 +81,7 @@ class StandardAttributeGeneratorTest {
     }
 
     @Test
-    void defaultCase() {
+    void defaultCase() throws ValidationException {
         var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(new Attribute("Condition.code", false)), List.of());
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");

@@ -8,10 +8,10 @@ import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Property;
 import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,7 +32,7 @@ import static java.util.Objects.requireNonNull;
 public class Redaction {
 
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);
-    private static final String MASKED = "masked";
+    private static final Extension ABSENT_REASON_EXTENSION = createAbsentReasonExtension("masked");
 
     private final StructureDefinitionHandler structureDefinitionHandler;
 
@@ -43,6 +43,20 @@ public class Redaction {
      */
     public Redaction(StructureDefinitionHandler structureDefinitionHandler) {
         this.structureDefinitionHandler = requireNonNull(structureDefinitionHandler);
+    }
+
+    private static void handleReference(Property child, Set<String> references) {
+        child.getValues().forEach(referenceValue -> {
+            if (((Reference) referenceValue).hasReference() && !references.contains(((Reference) referenceValue).getReference())) {
+                referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
+            }
+            referenceValue.children().forEach(childValue -> {
+                String name = childValue.getName();
+                if (!"reference".equals(name) && !"extension".equals(name) && childValue.hasValues()) {
+                    childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
+                }
+            });
+        });
     }
 
     /**
@@ -74,15 +88,15 @@ public class Redaction {
                 resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
             }
 
-            Optional<StructureDefinition> structureDefinition = structureDefinitionHandler.getDefinition(wrapper.profiles());
-            if (structureDefinition.isEmpty()) {
+            Optional<CompiledStructureDefinition> definition = structureDefinitionHandler.getDefinition(wrapper.profiles());
+            if (definition.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
             }
 
             meta.setProfile(resourceProfiles);
 
-            return this.redact(resource, String.valueOf(resource.getResourceType()), 0, Definition.fromStructureDefinition(structureDefinition.get()), references);
+            return this.redact(resource, String.valueOf(resource.getResourceType()), 0, definition.get(), references);
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
@@ -90,14 +104,14 @@ public class Redaction {
     /**
      * Executes redaction operation on the given base element recursively.
      *
-     * @param base                Base to be redacted (e.g. a Resource or an Element)
-     * @param elementId           Element IDs of parent currently handled; initially the resource type"
-     * @param recursion           recursion depth (for debug purposes)
+     * @param base       Base to be redacted (e.g. a Resource or an Element)
+     * @param elementId  Element IDs of parent currently handled; initially the resource type"
+     * @param recursion  recursion depth (for debug purposes)
      * @param definition Structure definition of the Resource.
-     * @param references          Allowed references
+     * @param references Allowed references
      * @return redacted Base
      */
-    private Base redact(Base base, String elementId, int recursion, Definition definition, Map<String, Set<String>> references) {
+    private Base redact(Base base, String elementId, int recursion, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
         ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
         if (elementDefinition == null) {
             throw new NoSuchElementException("Definition unknown for " + base.fhirType() + " in Element ID " + elementId + " in StructureDefinition " + definition.structureDefinition().getUrl());
@@ -111,7 +125,7 @@ public class Redaction {
             if (slicedElementDefinition == null) {
                 base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
                 if (elementDefinition.getMin() > 0) {
-                    base.setProperty("extension", createAbsentReasonExtension(MASKED));
+                    base.setProperty("extension", ABSENT_REASON_EXTENSION);
                 }
 
                 return base;
@@ -146,7 +160,7 @@ public class Redaction {
 
                 child.getValues().forEach(value -> {
                     if (value.isEmpty() && min > 0) {
-                        Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
+                        Element element = HapiFactory.create(type).addExtension(ABSENT_REASON_EXTENSION);
                         base.setProperty(child.getName(), element);
                     } else if (!value.isPrimitive()) {
                         redact(value, childId, recursion + 1, definition, references);
@@ -162,10 +176,10 @@ public class Redaction {
                      */
                     if (Objects.equals(type, "BackboneElement")) {
                         String fieldName = child.getName();
-                        ResourceUtils.setField(base, fieldName, createAbsentReasonExtension(MASKED));
+                        ResourceUtils.setField(base, fieldName, ABSENT_REASON_EXTENSION);
                     } else {
                         try {
-                            Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
+                            Element element = HapiFactory.create(type).addExtension(ABSENT_REASON_EXTENSION);
                             base.setProperty(child.getName(), element);
                         } catch (FHIRException e) {
                             logger.warn("Unresolvable elementID {} in field  {} Standard Type {} with cardinality {} ", finalElementId, child.getName(), type, min);
@@ -176,19 +190,5 @@ public class Redaction {
         });
 
         return base;
-    }
-
-    private static void handleReference(Property child, Set<String> references) {
-        child.getValues().forEach(referenceValue -> {
-            if (((Reference) referenceValue).hasReference() && !references.contains(((Reference) referenceValue).getReference())) {
-                referenceValue.setProperty("reference", HapiFactory.create("string").addExtension(createAbsentReasonExtension("masked")));
-            }
-            referenceValue.children().forEach(childValue -> {
-                String name = childValue.getName();
-                if (!"reference".equals(name) && !"extension".equals(name) && childValue.hasValues()) {
-                    childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
-                }
-            });
-        });
     }
 }

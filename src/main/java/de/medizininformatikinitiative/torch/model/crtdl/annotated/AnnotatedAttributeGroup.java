@@ -18,7 +18,7 @@ import static java.util.Objects.requireNonNull;
 public record AnnotatedAttributeGroup(
         String name,
         String id,
-        String groupReference,
+        String resourceType, String groupReference,
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
         Predicate<Resource> compiledFilter,
@@ -27,12 +27,12 @@ public record AnnotatedAttributeGroup(
 
     public static final String PATIENT = "Patient";
 
-    public AnnotatedAttributeGroup(String id,
+    public AnnotatedAttributeGroup(String id, String resourceType,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
                                    List<Filter> filter,
                                    Predicate<Resource> compiledFilter) {
-        this("", id, groupReference, attributes, filter, compiledFilter, false); // Default value for includeReferenceOnly
+        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false); // Default value for includeReferenceOnly
     }
 
 
@@ -89,11 +89,11 @@ public record AnnotatedAttributeGroup(
 
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AnnotatedAttributeGroup(name, id, groupReference, tempAttributes, filter, compiledFilter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, tempAttributes, filter, compiledFilter, includeReferenceOnly);
     }
 
     public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
-        return new AnnotatedAttributeGroup(name, id, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
     public String resourceType() {

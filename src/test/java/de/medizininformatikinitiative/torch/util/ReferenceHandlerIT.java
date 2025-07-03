@@ -114,15 +114,15 @@ class ReferenceHandlerIT {
 
         AnnotatedAttribute patientID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
         AnnotatedAttribute patientGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patientID, patientGender), List.of(), null);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patientID, patientGender), List.of(), null);
 
         AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
-        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
+        AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
         AnnotatedAttribute medicationID = new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true, List.of());
         AnnotatedAttribute medicationAdherence = new AnnotatedAttribute("Medication.adherence", "Medication.adherence", "Medication.adherence", true, List.of());
-        AnnotatedAttributeGroup medicationGroup = new AnnotatedAttributeGroup("Medication1", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID), List.of(), null);
-        AnnotatedAttributeGroup medicationGroup2 = new AnnotatedAttributeGroup("Medication2", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID, medicationAdherence), List.of(), null);
+        AnnotatedAttributeGroup medicationGroup = new AnnotatedAttributeGroup("Medication1", "Medication", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID), List.of(), null);
+        AnnotatedAttributeGroup medicationGroup2 = new AnnotatedAttributeGroup("Medication2", "Medication", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID, medicationAdherence), List.of(), null);
 
         attributeGroupMap.put("Patient1", patientGroup);
         attributeGroupMap.put("Condition1", conditionGroup);

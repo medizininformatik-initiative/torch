@@ -3,7 +3,14 @@ package de.medizininformatikinitiative.torch;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Medication;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.Test;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -30,6 +37,9 @@ public class RedactionTest {
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
 
     private final FhirContext fhirContext = FhirContext.forR4();
+
+    public RedactionTest() throws IOException {
+    }
 
     @ParameterizedTest
     @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})

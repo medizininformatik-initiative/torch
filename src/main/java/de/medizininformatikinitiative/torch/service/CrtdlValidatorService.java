@@ -9,15 +9,18 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 import java.util.function.Predicate;
 
 public class CrtdlValidatorService {
@@ -29,7 +32,7 @@ public class CrtdlValidatorService {
     private final FilterService filterService;
 
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) throws IOException {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
         this.filterService = filterService;
@@ -49,17 +52,15 @@ public class CrtdlValidatorService {
         String patientAttributeGroupId = "";
 
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
-            StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
-            if (definition != null) {
-                if (Objects.equals(definition.getType(), "Patient")) {
-                    if (exactlyOnePatientGroup) {
-                        throw new ValidationException(" More than one Patient Attribute Group");
-                    } else {
-                        exactlyOnePatientGroup = true;
-                        patientAttributeGroupId = attributeGroup.id();
-                        logger.debug("Found Patient Attribute Group {}", patientAttributeGroupId);
-                    }
-
+            CompiledStructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference())
+                    .orElseThrow(() -> new ValidationException("Unknown Profile: " + attributeGroup.groupReference()));
+            if (Objects.equals(definition.type(), "Patient")) {
+                if (exactlyOnePatientGroup) {
+                    throw new ValidationException(" More than one Patient Attribute Group");
+                } else {
+                    exactlyOnePatientGroup = true;
+                    patientAttributeGroupId = attributeGroup.id();
+                    logger.debug("Found Patient Attribute Group {}", patientAttributeGroupId);
                 }
             }
         }
@@ -68,19 +69,15 @@ public class CrtdlValidatorService {
         }
 
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
-            StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
-            if (definition != null) {
-
-                for (Attribute attribute : attributeGroup.attributes()) {
-                    linkedGroups.addAll(attribute.linkedGroups());
-                }
-                annotatedAttributeGroups.add(annotateGroup(attributeGroup, definition, patientAttributeGroupId));
-                successfullyAnnotatedGroups.add(attributeGroup.id());
-
-
-            } else {
-                throw new ValidationException("Unknown Profile: " + attributeGroup.groupReference());
+            CompiledStructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference())
+                    .orElseThrow(() -> new ValidationException("Unknown Profile: " + attributeGroup.groupReference()));
+            for (Attribute attribute : attributeGroup.attributes()) {
+                linkedGroups.addAll(attribute.linkedGroups());
             }
+            annotatedAttributeGroups.add(annotateGroup(attributeGroup, definition, patientAttributeGroupId));
+            successfullyAnnotatedGroups.add(attributeGroup.id());
+
+
         }
 
         linkedGroups.removeAll(successfullyAnnotatedGroups);
@@ -92,12 +89,12 @@ public class CrtdlValidatorService {
         return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups));
     }
 
-    private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, StructureDefinition
+    private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, CompiledStructureDefinition
             definition, String patientGroupId) throws ValidationException {
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
 
         for (Attribute attribute : attributeGroup.attributes()) {
-            ElementDefinition elementDefinition = definition.getSnapshot().getElementById(attribute.attributeRef());
+            ElementDefinition elementDefinition = definition.elementDefinitionById(attribute.attributeRef());
             if (elementDefinition == null) {
                 throw new ValidationException("Unknown Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
             }
@@ -110,7 +107,7 @@ public class CrtdlValidatorService {
                 throw new ValidationException("Typeless Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
             }
 
-            String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition.getSnapshot());
+            String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition);
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
         }
 
@@ -120,7 +117,7 @@ public class CrtdlValidatorService {
 
         if (!attributeGroup.filter().isEmpty()) {
             try {
-                Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.getType());
+                Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.type());
                 return group.setCompiledFilter(filter);
             } catch (Exception e) {
                 throw new RuntimeException(e);
