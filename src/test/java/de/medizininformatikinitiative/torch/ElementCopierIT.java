@@ -5,19 +5,27 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 
 public class ElementCopierIT {
@@ -27,11 +35,14 @@ public class ElementCopierIT {
     private final ElementCopier copier = new ElementCopier(fhirContext);
     private final StructureDefinitionHandler structureDefinitionHandler = itSetup.structureDefinitionHandler();
 
+    public ElementCopierIT() throws IOException {
+    }
+
     @Test
     public void testDefinitionIsContained() {
-        StructureDefinition definition = itSetup.structureDefinitionHandler().getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
-        assertNotNull(definition, "The element should be contained in the map");
-        assertEquals(ResourceType.StructureDefinition, definition.getResourceType(), "Resource type should be StructureDefinition");
+        Optional<CompiledStructureDefinition> definition = itSetup.structureDefinitionHandler().getDefinition("https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose");
+        assertThat(definition).isPresent();
+        assertEquals(ResourceType.StructureDefinition, definition.get().structureDefinition().getResourceType(), "Resource type should be StructureDefinition");
     }
 
 
@@ -41,7 +52,6 @@ public class ElementCopierIT {
 
         DomainResource src = itSetup.readResource("src/test/resources/InputResources/Condition/" + resource);
         DomainResource expected = itSetup.readResource("src/test/resources/CopyTest/expectedOutput/" + resource);
-        String profileDiagnosis = src.getMeta().getProfile().get(1).getValue();
         Class<? extends DomainResource> resourceClass = src.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
 
@@ -63,7 +73,7 @@ public class ElementCopierIT {
         Observation tgt = new Observation();
         String profile = observation.getMeta().getProfile().getFirst().getValue();
 
-        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueCodeableConcept", structureDefinitionHandler.getSnapshot(profile));
+        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueCodeableConcept", structureDefinitionHandler.getDefinition(profile).get());
         copier.copy(observation, tgt, new AnnotatedAttribute("Observation.value[x]:valueCodeableConcept", paths[0], paths[1], false));
 
         assertThat(fhirContext.newJsonParser().encodeResourceToString(tgt))
@@ -78,7 +88,7 @@ public class ElementCopierIT {
         Observation tgt = new Observation();
         String profile = source.getMeta().getProfile().getFirst().getValue();
 
-        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueCodeableConcept.coding.display", structureDefinitionHandler.getSnapshot(profile));
+        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueCodeableConcept.coding.display", structureDefinitionHandler.getDefinition(profile).get());
 
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.value[x]:valueCodeableConcept.coding.display", paths[0], paths[1], true));
@@ -96,7 +106,7 @@ public class ElementCopierIT {
         Observation tgt = new Observation();
 
         String profile = source.getMeta().getProfile().getFirst().getValue();
-        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueQuantity", structureDefinitionHandler.getSnapshot(profile));
+        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Observation.value[x]:valueQuantity", structureDefinitionHandler.getDefinition(profile).get());
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.value[x]:valueQuantity", paths[0], paths[1], false));
 
@@ -112,7 +122,7 @@ public class ElementCopierIT {
         Condition expected = (Condition) itSetup.readResource("src/test/resources/CopyTest/expectedOutput/Diagnosis2Slice.json");
         Condition tgt = new Condition();
         String profile = source.getMeta().getProfile().getFirst().getValue();
-        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Condition.code.coding:icd10-gm", structureDefinitionHandler.getSnapshot(profile));
+        String[] paths = FhirPathBuilder.handleSlicingForFhirPath("Condition.code.coding:icd10-gm", structureDefinitionHandler.getDefinition(profile).get());
 
         copier.copy(source, tgt, new AnnotatedAttribute("Condition.code.coding:icd10-gm", paths[0], paths[1], false));
 
@@ -129,7 +139,6 @@ public class ElementCopierIT {
         Observation expected = (Observation) itSetup.readResource("src/test/resources/CopyTest/expectedOutput/ObservationIdentityList.json");
         Class<? extends DomainResource> resourceClass = source.getClass().asSubclass(DomainResource.class);
         DomainResource tgt = resourceClass.getDeclaredConstructor().newInstance();
-        String profile = source.getMeta().getProfile().getFirst().getValue();
 
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.identifier", "Observation.identifier", "Observation.identifier", false));
         copier.copy(source, tgt, new AnnotatedAttribute("Observation.referenceRange.low", "Observation.referenceRange.low", "Observation.referenceRange.low", false));
@@ -147,7 +156,6 @@ public class ElementCopierIT {
         Encounter source = (Encounter) itSetup.readResource("src/test/resources/InputResources/Encounter/Encounter-mii-exa-fall-kontakt-gesundheitseinrichtung-2.json");
         Encounter expected = (Encounter) itSetup.readResource("src/test/resources/CopyTest/expectedOutput/Encounter.json");
         Encounter tgt = new Encounter();
-        String profile = source.getMeta().getProfile().getFirst().getValue();
 
         copier.copy(source, tgt, new AnnotatedAttribute("Encounter.diagnosis.use", "Encounter.diagnosis.use", "Encounter.diagnosis.use", false));
 
@@ -173,16 +181,12 @@ public class ElementCopierIT {
             ));
             source.setMeta(meta);
             Observation tgt = new Observation();
-            String profile = source.getMeta().getProfile().getFirst().getValue();
-
 
             copier.copy(source, tgt, new AnnotatedAttribute("Observation.effective[x]", "Observation.effective", "Observation.effective[x]", false));
             copier.copy(source, tgt, new AnnotatedAttribute("Observation.meta", "Observation.meta", "Observation.meta", false));
 
             assertThat(fhirContext.newJsonParser().encodeResourceToString(tgt))
                     .isEqualTo(fhirContext.newJsonParser().encodeResourceToString(source));
-
-
         }
 
 

@@ -14,6 +14,9 @@ public record Attribute(@JsonProperty(required = true) String attributeRef,
 
     public Attribute {
         requireNonNull(attributeRef);
+        if (attributeRef.isEmpty()) {
+            throw new IllegalArgumentException("attributeRef must not be empty");
+        }
         linkedGroups = linkedGroups == null ? List.of() : List.copyOf(linkedGroups);
     }
 

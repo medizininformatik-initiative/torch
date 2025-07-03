@@ -1,6 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -21,7 +26,7 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
         Base base = Mockito.mock(Base.class);
 
-        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", Definition.fromStructureDefinition(structureDefinition));
+        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
 
         assertThat(result).isNull();
     }
@@ -44,7 +49,7 @@ class SlicingTest {
         subElementDefinition.setSlicing(slicingComponent);
         snapshot.addElement(subElementDefinition);
 
-        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
 
         assertThat(result).containsExactly(
                 "relationship.coding.system='System'",
@@ -63,7 +68,7 @@ class SlicingTest {
         elementDefinition.setId("Patient.contact");
         snapshot.addElement(elementDefinition);
 
-        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
 
         assertThat(result).containsExactly();
     }
@@ -79,14 +84,15 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
 
 
-        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", snapshot);
+        List<String> result = Slicing.generateConditionsForFHIRPath("Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
 
         assertThat(result).containsExactly("unknown.conformsTo({profile})");
     }
 
     @Test
     void testCollectConditionsFromPattern_WithValidPattern() {
-        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = new StructureDefinition.StructureDefinitionSnapshotComponent();
+        StructureDefinition structureDefinition = new StructureDefinition();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
         ElementDefinition elementDefinition = new ElementDefinition();
         elementDefinition.setId("Patient.contact");
         elementDefinition.setPath("Patient.contact");
@@ -101,7 +107,7 @@ class SlicingTest {
         snapshot.addElement(subElementDefinition);
 
 
-        List<String> result = Slicing.collectConditionsfromPattern("Patient.contact", snapshot, "relationship");
+        List<String> result = Slicing.collectConditionsfromPattern("Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition), "relationship");
 
         assertThat(result).containsExactly(
                 "relationship.coding.system='System'",

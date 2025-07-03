@@ -5,9 +5,15 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.PrimitiveType;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,6 +23,9 @@ public class ElementCopierTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final FhirContext fhirContext = FhirContext.forR4();
     private final ElementCopier copier = new ElementCopier(fhirContext);
+
+    public ElementCopierTest() throws IOException {
+    }
 
     @Test
     void singleProfile() throws MustHaveViolatedException {

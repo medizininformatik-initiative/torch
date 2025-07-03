@@ -48,13 +48,11 @@ class DirectResourceLoaderTest {
         void testIgnoresEmptyFlux() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
-
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
 
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.empty());
 
             var result = directResourceLoader.processPatientAttributeGroups(
@@ -75,14 +73,11 @@ class DirectResourceLoaderTest {
         void testIgnoresEmptyResource() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
-
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
 
-
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.just(new Observation()));
 
             var result = directResourceLoader.processPatientAttributeGroups(
@@ -104,7 +99,7 @@ class DirectResourceLoaderTest {
         void testIgnoresObservationOfUnknownPatient() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
 
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -114,7 +109,6 @@ class DirectResourceLoaderTest {
             observation.setId("Observation/xyz");
             observation.setSubject(new Reference("Patient/2"));
 
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.just(observation));
 
             var result = directResourceLoader.processPatientAttributeGroups(
@@ -135,7 +129,7 @@ class DirectResourceLoaderTest {
         void testIgnoresResourceWithoutPatientReference() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -143,7 +137,6 @@ class DirectResourceLoaderTest {
             Observation observation = new Observation();
             observation.setId("xyz");
 
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.just(observation));
 
             var result = directResourceLoader.processPatientAttributeGroups(
@@ -165,7 +158,7 @@ class DirectResourceLoaderTest {
         void testStoresObservationWithInvalidMustHave() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -174,7 +167,6 @@ class DirectResourceLoaderTest {
             observation.setId("xyz");
             observation.setSubject(new Reference("Patient/1"));
 
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.just(observation));
             when(profileMustHaveChecker.fulfilled(observation, attributeGroup)).thenReturn(false);
 
@@ -203,7 +195,7 @@ class DirectResourceLoaderTest {
         void testStoresObservationWithKnownPatient() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -212,7 +204,6 @@ class DirectResourceLoaderTest {
             observation.setId("xyz");
             observation.setSubject(new Reference("Patient/1"));
 
-            when(structureDefinitionHandler.getResourceType("groupRef")).thenReturn("Observation");
             when(dataStore.search(any(), any())).thenAnswer(invocation -> Flux.just(observation));
             when(profileMustHaveChecker.fulfilled(observation, attributeGroup)).thenReturn(true);
 

@@ -2,11 +2,11 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
-import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -20,9 +20,9 @@ class ProcessedGroupFactoryTest {
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     ProcessedGroupFactory processor = new ProcessedGroupFactory(new CompartmentManager("compartmentdefinition-patient.json"));
-    AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "12345", "patient", List.of(new AnnotatedAttribute("Patient.test", "", "", false)), List.of(), null, false);
-    AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("Test2", "1234567", "medication", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, false);
-    AnnotatedAttributeGroup group3 = new AnnotatedAttributeGroup("Test3", "1235678", "medication2", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, true);
+    AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "12345", "Patient", "patient", List.of(new AnnotatedAttribute("Patient.test", "", "", false)), List.of(), null, false);
+    AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("Test2", "1234567", "Medication", "medication", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, false);
+    AnnotatedAttributeGroup group3 = new AnnotatedAttributeGroup("Test3", "1235678", "Medication", "medication2", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, true);
     Map<String, AnnotatedAttributeGroup> resultMap = new HashMap<>();
 
 

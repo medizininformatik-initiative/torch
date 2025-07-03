@@ -1,8 +1,9 @@
 package de.medizininformatikinitiative.torch.management;
 
+import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
+import jakarta.annotation.PostConstruct;
 import org.hl7.fhir.r4.model.StructureDefinition;
-import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,85 +13,35 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 /**
- * Handler for loading and serving structure definitions.
+ * Handler for loading and serving FHIR structure definitions.
  */
-@Component
 public class StructureDefinitionHandler {
 
-    private final Map<String, StructureDefinition> definitions = new HashMap<>();
+    private final Map<String, CompiledStructureDefinition> definitions = new HashMap<>();
     private final ResourceReader resourceReader;
-
-    public StructureDefinitionHandler(String fileDirectory, ResourceReader resourceReader) {
-        try {
-            this.resourceReader = resourceReader;
-            processDirectory(fileDirectory);
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
+    private final File directory;
 
     /**
-     * @param profile to check if known
-     * @return returns if profile is known.
-     */
-    public Boolean known(String profile) {
-        return definitions.containsKey(profile);
-    }
-
-    /**
-     * Reads a StructureDefinition from a file and stores it in the definitionsMap
-     */
-    public void readStructureDefinition(String filePath) throws IOException {
-        StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
-        definitions.put(structureDefinition.getUrl(), structureDefinition);
-    }
-
-    /**
-     * Returns the StructureDefinition with the given URL.
-     * Handles versioned URLs by splitting on the '|' character.
+     * Creates a new StructureDefinitionHandler.
      *
-     * @param url The URL of the StructureDefinition, possibly including a version.
-     * @return The StructureDefinition corresponding to the base URL (ignores version).
+     * @param directory      the directory containing JSON structure definition files
+     * @param resourceReader utility for reading and parsing FHIR resources
      */
-    public StructureDefinition getDefinition(String url) {
-        String[] versionSplit = url.split("\\|");
-        return definitions.get(versionSplit[0]);
+    public StructureDefinitionHandler(File directory, ResourceReader resourceReader) {
+        this.resourceReader = requireNonNull(resourceReader);
+        this.directory = requireNonNull(directory);
     }
 
     /**
-     * Returns the first non-null StructureDefinition from a list of URLs.
-     * <p>
-     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     * Reads all JSON files in a directory and stores their StructureDefinitions.
      *
-     * @param urls a list of URLs for which to find the corresponding StructureDefinition.
-     * @return The first non-null StructureDefinition found, or empty if none are found.
+     * @throws IOException if any file cannot be read or parsed
      */
-    public Optional<StructureDefinition> getDefinition(Set<String> urls) {
-        return urls.stream().map(definitions::get).filter(Objects::nonNull).findFirst();
-    }
-
-    public StructureDefinition.StructureDefinitionSnapshotComponent getSnapshot(String url) {
-        if (definitions.get(url) != null) {
-            return (definitions.get(url)).getSnapshot();
-        } else {
-            throw new IllegalArgumentException("Unknown Profile: " + url);
-        }
-    }
-
-    public String getResourceType(String url) {
-        if (definitions.get(url) != null) {
-            return (definitions.get(url)).getType();
-        } else {
-            throw new IllegalArgumentException("Unknown Profile: " + url);
-        }
-    }
-
-    /**
-     * Reads all JSON files in a directory and stores their StructureDefinitions in the definitionsMap
-     */
-    private void processDirectory(String directoryPath) throws IOException {
-        File directory = new File(directoryPath);
+    @PostConstruct
+    public void processDirectory() throws IOException {
         if (directory.isDirectory()) {
             File[] files = directory.listFiles((dir, name) -> name.toLowerCase().endsWith(".json"));
             if (files != null) {
@@ -99,5 +50,64 @@ public class StructureDefinitionHandler {
                 }
             }
         }
+    }
+
+    /**
+     * Checks if a profile URL is known to this handler.
+     *
+     * @param profile the profile URL to check
+     * @return true if the profile is known, false otherwise
+     */
+    public boolean known(String profile) {
+        return definitions.containsKey(stripVersion(profile));
+    }
+
+    /**
+     * Returns the StructureDefinition with the given URL.
+     * Handles versioned URLs by splitting on the '|' character.
+     *
+     * @param url The URL of the StructureDefinition, possibly including a version
+     * @return The StructureDefinition corresponding to the base URL (ignores version)
+     */
+    public Optional<CompiledStructureDefinition> getDefinition(String url) {
+        return getDefinition(Set.of(url));
+    }
+
+    /**
+     * Returns the first found StructureDefinition from a list of URLs.
+     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     * Removes version flags making the handling version agnostic.
+     *
+     * @param urls a list of URLs for which to find the corresponding StructureDefinition
+     * @return the first StructureDefinition found, or empty if none are found
+     */
+    public Optional<CompiledStructureDefinition> getDefinition(Set<String> urls) {
+        return urls.stream()
+                .map(this::stripVersion)
+                .map(definitions::get)
+                .filter(Objects::nonNull)
+                .findFirst();
+    }
+
+    /**
+     * Reads a StructureDefinition from a file and stores it in the definitions map.
+     *
+     * @param filePath the absolute path to the JSON file
+     * @throws IOException if the file cannot be read or parsed
+     */
+    private void readStructureDefinition(String filePath) throws IOException {
+        StructureDefinition structureDefinition = (StructureDefinition) resourceReader.readResource(filePath);
+        definitions.put(structureDefinition.getUrl(), CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
+    }
+
+    /**
+     * Strips version information from a FHIR canonical URL.
+     *
+     * @param url the potentially versioned URL
+     * @return the URL with version information removed
+     */
+    private String stripVersion(String url) {
+        int pipeIndex = url.indexOf('|');
+        return pipeIndex == -1 ? url : url.substring(0, pipeIndex);
     }
 }

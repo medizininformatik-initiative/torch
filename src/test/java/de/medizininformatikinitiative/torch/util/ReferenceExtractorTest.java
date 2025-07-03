@@ -23,7 +23,7 @@ class ReferenceExtractorTest {
     public static final AnnotatedAttribute ATTRIBUTE = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("SubjectGroup"));
     public static final AnnotatedAttribute ATTRIBUTE_2 = new AnnotatedAttribute("Condition.asserter", "Condition.asserter", "Condition.asserter", true, List.of("AssertionGroup"));
     private final FhirContext fhirContext = FhirContext.forR4();
-    static AnnotatedAttributeGroup GROUP_TEST = new AnnotatedAttributeGroup("Test", "test", List.of(ATTRIBUTE, ATTRIBUTE_2), List.of(), null);
+    static AnnotatedAttributeGroup GROUP_TEST = new AnnotatedAttributeGroup("Test", "Condition", "test", List.of(ATTRIBUTE, ATTRIBUTE_2), List.of(), null);
     static Map<String, AnnotatedAttributeGroup> GROUPS = new HashMap<>();
 
 

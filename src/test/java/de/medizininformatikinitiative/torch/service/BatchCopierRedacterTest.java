@@ -8,10 +8,13 @@ import de.medizininformatikinitiative.torch.model.management.ExtractionRedaction
 import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
-import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -21,7 +24,11 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.util.*;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,7 +39,6 @@ import static org.mockito.Mockito.when;
 class BatchCopierRedacterTest {
 
 
-    private static final IntegrationTestSetup INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
     public static final String OBSERVATION = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
     @Mock
     DataStore dataStore;

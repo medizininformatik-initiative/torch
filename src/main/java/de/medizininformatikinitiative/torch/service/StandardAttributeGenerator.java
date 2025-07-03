@@ -1,12 +1,13 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -34,11 +35,13 @@ public class StandardAttributeGenerator {
      * @param attributeGroup attribute group to be handled
      * @return attribute group with added standard attributes
      */
-    public AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String patientGroupId) {
+    public AnnotatedAttributeGroup generate(AttributeGroup attributeGroup, String patientGroupId) throws ValidationException {
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>();
 
-        StructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference());
-        String resourceType = definition.getType();
+        CompiledStructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference())
+                .orElseThrow(() -> new ValidationException("No StructureDefinition found for: " + attributeGroup.groupReference()));
+
+        String resourceType = definition.type();
         String id = resourceType + ".id";
         tempAttributes.add(new AnnotatedAttribute(id, id, id, false));
         String profile = resourceType + ".meta.profile";
@@ -48,13 +51,13 @@ public class StandardAttributeGenerator {
         if (compartmentManager.isInCompartment(resourceType)) {
             for (String field : patientRefFields) {
                 String fieldString = resourceType + "." + field;
-                ElementDefinition elementDefinition = definition.getSnapshot().getElementById(fieldString);
+                ElementDefinition elementDefinition = definition.elementDefinitionById(fieldString);
                 if (elementDefinition != null) {
                     tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, fieldString, false, List.of(patientGroupId)));
                 }
             }
         }
 
-        return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), null, attributeGroup.includeReferenceOnly());
+        return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), resourceType, attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), null, attributeGroup.includeReferenceOnly());
     }
 }

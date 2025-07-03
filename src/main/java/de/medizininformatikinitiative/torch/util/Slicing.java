@@ -4,7 +4,6 @@ import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.hl7.fhir.r4.model.UriType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,7 +30,7 @@ public class Slicing {
      * @param definition definition of the Resource to which the element belongs
      * @return Returns null if no slicing is found and an ElementDefinition for the slice otherwise
      */
-    static ElementDefinition checkSlicing(Base base, String elementId, Definition definition) {
+    static ElementDefinition checkSlicing(Base base, String elementId, CompiledStructureDefinition definition) {
         ElementDefinition slicedElement = definition.elementDefinitionById(elementId);
 
         if (slicedElement == null) {
@@ -89,20 +88,20 @@ public class Slicing {
     /**
      * Generates FHIR Path conditions based on the element ID and the snapshot of the StructureDefinition.
      *
-     * @param elementID ElementID that needs to be resolved
-     * @param snapshot  StructureDefinitionSnapshotComponent containing the structure definition
+     * @param elementID  ElementID that needs to be resolved
+     * @param definition compiled Structure Definition for improved performance
      * @return List of FHIR Path conditions as strings
      */
-    public static List<String> generateConditionsForFHIRPath(String elementID, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
+    public static List<String> generateConditionsForFHIRPath(String elementID, CompiledStructureDefinition definition) {
         List<String> conditions = new ArrayList<>();
         // Find the sliced element using the element ID
-        ElementDefinition slicedElement = snapshot.getElementById(elementID);
+        ElementDefinition slicedElement = definition.elementDefinitionById(elementID);
         if (slicedElement == null) {
             throw new IllegalArgumentException("Element with ID " + elementID + " not found in snapshot.");
         }
 
         // Find the parent element using the path of the sliced element
-        ElementDefinition parentElement = snapshot.getElementById(slicedElement.getPath());
+        ElementDefinition parentElement = definition.elementDefinitionById(slicedElement.getPath());
         if (parentElement != null && parentElement.hasSlicing()) {
             ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.getSlicing();
 
@@ -116,7 +115,7 @@ public class Slicing {
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
                             logger.trace("Pattern discriminator found");
-                            conditions.addAll(Slicing.collectConditionsfromPattern(elementID, snapshot, path));
+                            conditions.addAll(Slicing.collectConditionsfromPattern(elementID, definition, path));
                             break;
                         case EXISTS:
                             conditions.add(path + ".exists()");
@@ -144,13 +143,13 @@ public class Slicing {
     }
 
 
-    static List<String> collectConditionsfromPattern(String elementId, StructureDefinition.StructureDefinitionSnapshotComponent snapshot, String path) {
+    static List<String> collectConditionsfromPattern(String elementId, CompiledStructureDefinition definition, String path) {
         List<String> conditions = new ArrayList<>();
         if (!path.equals("$this")) {
             elementId += "." + path;
         }
         logger.trace("Getting Conditions {}", elementId);
-        ElementDefinition elementDefinition = snapshot.getElementById(elementId);
+        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
         if (elementDefinition == null) {
 
             logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);

@@ -12,6 +12,7 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.File;
 import java.io.IOException;
 
 public class IntegrationTestSetup {
@@ -27,13 +28,13 @@ public class IntegrationTestSetup {
     private final FhirPathBuilder builder;
 
     // Constructor initializes all fields
-    public IntegrationTestSetup() {
+    public IntegrationTestSetup() throws IOException {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
-        this.structHandler = new StructureDefinitionHandler("structureDefinitions/", resourceReader);
+        this.structHandler = new StructureDefinitionHandler(new File("structureDefinitions/"), resourceReader);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-
+        structHandler.processDirectory();
 
         builder = new FhirPathBuilder();
         this.copier = new ElementCopier(ctx);

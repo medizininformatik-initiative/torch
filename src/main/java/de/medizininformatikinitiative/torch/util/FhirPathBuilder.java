@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.StructureDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,26 +17,11 @@ public class FhirPathBuilder {
 
     private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
 
-
-    /**
-     * For Terser, the base path is the primary concern. This method removes any slicing
-     * information that is denoted by colons. For example:
-     * - `condition.onset[x]` will not be modified as the method does not handle square brackets.
-     * - `Observation.identifier:analyseBefundCode.type.coding` becomes `Observation.identifier.type.coding`.
-     *
-     * @param input the input string representing the path with potential slicing
-     * @return a string with slicing removed according to the Terser base path rules
-     */
-    public static String handleSlicingForTerser(String input) {
-        if (input == null) {
-            return null;
+    public static String[] handleSlicingForFhirPath(String input, CompiledStructureDefinition definition) throws FHIRException {
+        if (input == null || input.isEmpty()) {
+            throw new IllegalArgumentException("Fhir Path must not be empty");
         }
-        // Remove anything after colons (:) until the next dot (.) or end of the string
-        return input.replaceAll(":[^.]*", "");
-    }
-
-    public static String[] handleSlicingForFhirPath(String input, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) throws FHIRException {
-        if (input == null || (!input.contains(":") && !input.contains("[x]"))) {
+        if (!input.contains(":") && !input.contains("[x]")) {
             return new String[]{input, input};
         }
 
@@ -60,7 +44,7 @@ public class FhirPathBuilder {
             elementIDSoFar.append(e);
 
             if (e.contains("[x]")) {
-                String path = e.split("\\[x\\]")[0];  // Remove [x] for FHIRPath expression
+                String path = e.split("\\[x]")[0];  // Remove [x] for FHIRPath expression
 
                 fhirPath.append(path);
 
@@ -94,7 +78,7 @@ public class FhirPathBuilder {
                 String basePath = e.substring(0, e.indexOf(":")).trim();
                 fhirPath.append(basePath);
                 terserPath.append(basePath);
-                List<String> conditions = Slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), snapshot);
+                List<String> conditions = Slicing.generateConditionsForFHIRPath(String.valueOf(elementIDSoFar), definition);
                 if (!conditions.isEmpty()) {
                     String combinedConditions = String.join(" and ", conditions);
                     fhirPath.append(".where(").append(combinedConditions).append(")");
