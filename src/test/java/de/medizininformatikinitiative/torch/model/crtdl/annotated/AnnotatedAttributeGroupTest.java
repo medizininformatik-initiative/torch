@@ -15,7 +15,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +45,7 @@ class AnnotatedAttributeGroupTest {
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    new Query("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile", stringValue("groupRef")))
+                    new Query("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupRef")))
             );
         }
 
@@ -57,8 +59,8 @@ class AnnotatedAttributeGroupTest {
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    new Query("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile", stringValue("groupRef"))),
-                    new Query("Observation", QueryParams.of("code", codeValue(CODE2)).appendParam("_profile", stringValue("groupRef")))
+                    new Query("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupRef"))),
+                    new Query("Observation", QueryParams.of("code", codeValue(CODE2)).appendParam("_profile:below", stringValue("groupRef")))
             );
         }
 
@@ -70,7 +72,7 @@ class AnnotatedAttributeGroupTest {
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    new Query("Observation", QueryParams.of("date", dateValue(GREATER_EQUAL, DATE_START)).appendParam("date", dateValue(LESS_EQUAL, DATE_END)).appendParam("_profile", stringValue("groupRef")))
+                    new Query("Observation", QueryParams.of("date", dateValue(GREATER_EQUAL, DATE_START)).appendParam("date", dateValue(LESS_EQUAL, DATE_END)).appendParam("_profile:below", stringValue("groupRef")))
             );
         }
 
