@@ -54,7 +54,7 @@ public class ConsentFetcher {
     }
 
     private static Query getConsentQuery(PatientBatch batch) {
-        return Query.of("Consent", batch.compartmentSearchParam("Consent").appendParam("_profile", stringValue(CDS_CONSENT_PROFILE_URL)));
+        return Query.of("Consent", batch.compartmentSearchParam("Consent").appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
     }
 
     /**

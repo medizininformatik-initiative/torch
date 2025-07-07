@@ -48,7 +48,7 @@ public class ConsentHandler {
     }
 
     private static Query getEncounterQuery(PatientBatch batch) {
-        return Query.of("Encounter", batch.compartmentSearchParam("Encounter").appendParam("_profile", stringValue(CDS_ENCOUNTER_PROFILE_URL)));
+        return Query.of("Encounter", batch.compartmentSearchParam("Encounter").appendParam("_profile:below", stringValue(CDS_ENCOUNTER_PROFILE_URL)));
     }
 
     private static Mono<Map<String, Collection<Encounter>>> groupEncounterByPatient(Flux<Encounter> encounters) {

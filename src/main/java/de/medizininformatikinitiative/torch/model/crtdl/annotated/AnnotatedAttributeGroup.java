@@ -76,10 +76,10 @@ public record AnnotatedAttributeGroup(
 
         if (codeParams.isEmpty()) {
             // Add a single QueryParams with the date filter (if available) and profile parameter
-            return List.of(dateParams.appendParam("_profile", stringValue(groupReference)));
+            return List.of(dateParams.appendParam("_profile:below", stringValue(groupReference)));
         } else {
             return codeParams.stream()
-                    .map(p -> p.appendParams(dateParams).appendParam("_profile", stringValue(groupReference)))
+                    .map(p -> p.appendParams(dateParams).appendParam("_profile:below", stringValue(groupReference)))
                     .toList();
         }
     }

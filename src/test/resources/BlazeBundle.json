@@ -368,7 +368,7 @@
         "id": "VHF00006-E-1-A-1",
         "meta": {
           "profile": [
-            "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung|2024"
           ]
         },
         "status": "finished",
@@ -590,7 +590,7 @@
         "id": "1",
         "meta": {
           "profile": [
-            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient"
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient|123"
           ]
         },
         "identifier": [
@@ -677,7 +677,7 @@
         "id": "b84c9b34-d374-4d76-ae61-544ecb84265f",
         "meta": {
           "profile": [
-            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab"
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab|2025"
           ]
         },
         "status": "final",
@@ -1243,8 +1243,8 @@
           "versionId": "6",
           "lastUpdated": "2024-09-27T09:01:54.858Z",
           "profile": [
-            "http://fhir.de/ConsentManagement/StructureDefinition/Consent",
-            "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"
+            "http://fhir.de/ConsentManagement/StructureDefinition/Consent|2023",
+            "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung|2025"
           ]
         },
         "resourceType": "Consent",
