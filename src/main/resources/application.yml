@@ -5,7 +5,7 @@ server:
 torch:
   base:
     url:
-      http://localhost:8080
+
   profile:
     dir: structureDefinitions
   mapping:
@@ -13,16 +13,16 @@ torch:
     type_to_consent: mappings/type_to_consent.json
   search_parameters_file: search-parameters.json
   fhir:
-    user: ""
-    password: ""
+    user:
+    password:
     oauth:
       issuer:
-        uri: ""
+        uri:
       client:
-        id: ""
-        secret: ""
+        id:
+        secret:
 
-    url: http://localhost:8081/fhir
+    url:
     page:
       count: 500
     max:
@@ -30,7 +30,7 @@ torch:
     disable:
       async: false
   flare:
-    url: http://localhost:8084
+    url:
   results:
     dir: output/
     persistence: PT2160H # Time Block in ISO 8601 format
@@ -54,5 +54,3 @@ logging:
 spring:
   profiles:
     active: active
-  codec:
-    max-in-memory-size: 100MB

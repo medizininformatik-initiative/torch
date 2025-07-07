@@ -3,8 +3,6 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
-import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -12,7 +10,6 @@ import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
-import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
@@ -22,7 +19,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import reactor.core.publisher.Flux;
@@ -101,17 +97,8 @@ class ReferenceHandlerIT {
     public static final String PAT_REFERENCE = "Patient/VHF00006";
     public static final String REFERENCE_MEDICATION = "Medication/testMedication";
 
-    @MockBean
-    private DataStore dataStore;
-
     @Autowired
     private ProfileMustHaveChecker profileMustHaveChecker;
-
-    @Autowired
-    private CompartmentManager compartmentManager;
-
-    @MockBean
-    private ConsentValidator consentValidator;
 
 
     private ReferenceHandler referenceHandler;
@@ -119,8 +106,6 @@ class ReferenceHandlerIT {
     private IParser parser;
 
     AnnotatedAttributeGroup patientGroup;
-    private Organization organization;
-    private AnnotatedAttribute medicationID;
     private AnnotatedAttribute referenceAttribute;
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -134,7 +119,7 @@ class ReferenceHandlerIT {
         AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
         AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
-        medicationID = new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true, List.of());
+        AnnotatedAttribute medicationID = new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true, List.of());
         AnnotatedAttribute medicationAdherence = new AnnotatedAttribute("Medication.adherence", "Medication.adherence", "Medication.adherence", true, List.of());
         AnnotatedAttributeGroup medicationGroup = new AnnotatedAttributeGroup("Medication1", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID), List.of(), null);
         AnnotatedAttributeGroup medicationGroup2 = new AnnotatedAttributeGroup("Medication2", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID, medicationAdherence), List.of(), null);
@@ -144,7 +129,7 @@ class ReferenceHandlerIT {
         attributeGroupMap.put("Medication1", medicationGroup);
         attributeGroupMap.put("Medication2", medicationGroup2);
 
-        organization = new Organization();
+        Organization organization = new Organization();
         organization.setId("evilInc");
 
 

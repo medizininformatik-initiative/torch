@@ -391,12 +391,13 @@ public class AppConfig {
 
 
     @Bean
-    ExchangeFilterFunction oauthExchangeFilterFunction(
-            @Value("${torch.fhir.oauth.issuer.uri:}") String issuerUri,
-            @Value("${torch.fhir.oauth.client.id:}") String clientId,
-            @Value("${torch.fhir.oauth.client.secret:}") String clientSecret) {
+    ExchangeFilterFunction oauthExchangeFilterFunction(TorchProperties torchProperties) {
+        String issuerUri = torchProperties.fhir().oauth().issuer().uri();
+        String clientId = torchProperties.fhir().oauth().client().id();
+        String clientSecret = torchProperties.fhir().oauth().client().secret();
+
         if (!issuerUri.isEmpty() && !clientId.isEmpty() && !clientSecret.isEmpty()) {
-            logger.debug("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
+            logger.info("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
                     issuerUri, clientId);
             var clientRegistration = ClientRegistrations.fromIssuerLocation(issuerUri)
                     .registrationId(REGISTRATION_ID)
@@ -414,7 +415,7 @@ public class AppConfig {
 
             return oAuthExchangeFilterFunction;
         } else {
-            logger.debug("Skipping OAuth2 authentication.");
+            logger.info("Skipping OAuth2 authentication.");
             return (request, next) -> next.exchange(request);
         }
     }
