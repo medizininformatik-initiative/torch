@@ -5,7 +5,6 @@ server:
 torch:
   base:
     url:
-      http://localhost:8080
   profile:
     dir: structureDefinitions
   mapping:
@@ -13,7 +12,7 @@ torch:
     type_to_consent: mappings/type_to_consent.json
   search_parameters_file: search-parameters.json
   fhir:
-    url: http://localhost:8082/fhir
+    url:
     page:
       count: 500
     max:
@@ -24,12 +23,12 @@ torch:
       path: src/test/resources/BlazeBundle.json
     oauth:
       issuer:
-        uri: "https://auth.localhost:444/realms/blaze"
+        uri:
       client:
-        id: "test"
-        secret: "tast"
+        id:
+        secret:
   flare:
-    url: http://localhost:8084
+    url:
   results:
     dir: output/
     persistence: PT2160H # Time Block in ISO 8601 format
@@ -51,6 +50,3 @@ logging:
     ca.uhn.fhir: WARN
     org.hl7.fhir: WARN
 
-spring:
-  codec:
-    max-in-memory-size: 100MB
