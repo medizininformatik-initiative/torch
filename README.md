@@ -79,8 +79,6 @@ For the latest build see: https://github.com/medizininformatik-initiative/torch/
 | TORCH_CONCEPT_TREE_FILE                             | ontology/mapping_tree.json          | The file for the concept tree mapping.                                                               |
 | TORCH_DSE_MAPPING_TREE_FILE                         | ontology/dse_mapping_tree.json      | The file for DSE concept tree mapping.                                                               |
 | TORCH_USE_CQL                                       | true                                | Flag indicating if CQL should be used.                                                               |
-| TORCH_BASE_URL                                      | –                                   | The server name before the proxy from which torch is accessed                                        |
-| TORCH_OUTPUT_FILE_SERVER_URL                        | –                                   | The URL to access Result location TORCH_RESULTS_DIR  served by a proxy/fileserver                    |
 | LOG_LEVEL<br/>_DE_MEDIZININFORMATIKINITIATIVE_TORCH | info                                | Log level for torch core functionality.                                                              |
 | LOG_LEVEL<br/>_CA_UHN_FHIR                          | error                               | Log level for HAPI FHIR library.                                                                     |
 | SPRING_PROFILES_ACTIVE                              | active                              | The active Spring profile.                                                                           |
@@ -217,6 +215,9 @@ This can be used to track the progress of your data extraction.
 
 If a server is set up for the files e.g. NGINX, the files can be fetched by a Request on the URL set in
 TORCH_OUTPUT_FILE_SERVER_URL in [enviroment variables](#environment-variables).
+**Torch assumes that the files are served from the baseurl that is next to the fhir api**
+E.g.: if localhost:8080/test/fhir is the url from which torch gets called (before forwarding), then
+the file url would start with **http://localhost:8080/test/**
 
 ```sh
 curl -s "http://localhost:8080/da4a1c56-f5d9-468c-b57a-b8186ea4fea8/f33634bd-d51b-463c-a956-93409d96935f.ndjson"
