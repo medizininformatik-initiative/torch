@@ -95,11 +95,22 @@ public class CrtdlProcessingService {
      * @return mono finishes when complete
      */
     public Mono<Void> process(AnnotatedCrtdl crtdl, String jobID, List<String> patientIds) {
+        Flux<PatientBatch> batches;
+
         if (patientIds.isEmpty()) {
-            return processIntern(crtdl, jobID, fetchPatientBatches(crtdl));
+            batches = fetchPatientBatches(crtdl);
         } else {
-            return processIntern(crtdl, jobID, Flux.just(new PatientBatch(patientIds)));
+            batches = Flux.fromIterable(splitIntoBatches(patientIds));
         }
+        return processIntern(crtdl, jobID, batches);
+    }
+
+    /**
+     * Splits the patient IDs into batches based on configured batch size.
+     * Extracted for testability.
+     */
+    public List<PatientBatch> splitIntoBatches(List<String> patientIds) {
+        return PatientBatch.of(patientIds).split(batchSize);
     }
 
     private Mono<Void> processIntern(AnnotatedCrtdl crtdl, String jobID, Flux<PatientBatch> batches) {
