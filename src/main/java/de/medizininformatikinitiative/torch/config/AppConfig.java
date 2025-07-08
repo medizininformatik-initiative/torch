@@ -58,6 +58,7 @@ import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunctions;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.adapter.ForwardedHeaderTransformer;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
@@ -90,6 +91,11 @@ public class AppConfig {
 
     public AppConfig(TorchProperties torchProperties) {
         this.torchProperties = torchProperties;
+    }
+
+    @Bean
+    public ForwardedHeaderTransformer forwardedHeaderTransformer() {
+        return new ForwardedHeaderTransformer();
     }
 
 
@@ -370,7 +376,7 @@ public class AppConfig {
 
     @Bean
     public ResultFileManager resultFileManager(FhirContext fhirContext) {
-        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext, torchProperties.base().url(), torchProperties.output().file().server().url());
+        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext);
     }
 
     @Bean
