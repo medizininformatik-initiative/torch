@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.assertions.Assertions;
 import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.hl7.fhir.r4.model.Bundle;
@@ -18,6 +19,7 @@ import java.nio.file.Path;
 import java.util.List;
 import java.util.Set;
 
+import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -60,15 +62,10 @@ class SpecificExecutionIT {
     public void executeStandardTests(List<Bundle> patientBundles) {
 
         // test if referenced IDs match the actual patient's IDs
-        assertThat(patientBundles).allSatisfy(bundle -> Assertions.assertThat(bundle).extractOnlyPatient().satisfies(patient ->
-                Assertions.assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(condition ->
-                        Assertions.assertThat(condition).extractChildrenStringsAt("subject.reference").hasSize(1).first().isEqualTo(patient.getId()))));
+        assertThat(patientBundles).allSatisfy(bundle -> Assertions.assertThat(bundle).extractOnlyPatient().satisfies(patient -> Assertions.assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(condition -> Assertions.assertThat(condition).extractChildrenStringsAt("subject.reference").hasSize(1).first().isEqualTo(patient.getId()))));
 
         // test that IDs are properly formatted
-        assertThat(patientBundles).allSatisfy(bundle ->
-                assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
-                        r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
-                ));
+        assertThat(patientBundles).allSatisfy(bundle -> assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))));
     }
 
     @Test
@@ -104,26 +101,19 @@ class SpecificExecutionIT {
         executeStandardTests(patientBundles);
 
         // all conditions in all patient bundles must have the given top fields
-        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition)
-                .allSatisfy(
-                        r -> assertThat(r).extractTopElementNames()
-                                .containsExactlyInAnyOrder("id", "resourceType", "meta", "clinicalStatus", "verificationStatus", "code", "subject", "recordedDate", "encounter")));
+        assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Condition).allSatisfy(r -> assertThat(r).extractTopElementNames().containsExactlyInAnyOrder("id", "resourceType", "meta", "clinicalStatus", "verificationStatus", "code", "subject", "recordedDate", "encounter")));
 
         // diab encounter included
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Encounter", "torch-test-diag-enc-diag-enc-1").isNotNull());
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle -> assertThat(bundle).extractResourceById("Encounter", "torch-test-diag-enc-diag-enc-1").isNotNull());
 
         // diab condition included
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-1").isNotNull());
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle -> assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-1").isNotNull());
 
         // other linked condition included
-        assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-2").isNotNull());
+        assertThat(patientBundles).satisfiesOnlyOnce(bundle -> assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-2").isNotNull());
 
         // other not linked condition not included
-        assertThat(patientBundles).noneSatisfy(bundle ->
-                assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-3"));
+        assertThat(patientBundles).noneSatisfy(bundle -> assertThat(bundle).extractResourceById("Condition", "torch-test-diag-enc-diag-diag-3"));
 
 
         // condition with given id must have a data absent reason at its recordedDate (primitive type)
@@ -152,6 +142,63 @@ class SpecificExecutionIT {
 
         executeStandardTests(patientBundles);
     }
+
+    @Test
+    void testDoubleProfileRef() throws IOException {
+        var testName = "diag-diag-profile-double";
+        uploadTestData(testName);
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json")).block();
+        assertThat(statusUrl).isNotNull();
+
+        /*
+            This tests the combination of having one resource with three profiles, two of which match different AttributeGroups
+            Resource (R) id = torch-test-diag-diag-profile-double-diag-2
+
+            Expected outcome is:
+            R is downloaded once through AGdiag-prim-tum and AGdiag-base
+            => R should have both profiles added to it
+            => Further it should combine the profile requirements with the stronger profile requirement being set
+            => e.g. if one has a field a 1..* and one does not, and the field is selected in neither a DAR should be set.
+         */
+
+        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        assertThat(statusResponse).isNotNull();
+
+        var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
+        var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
+
+        var patientBundle = patientBundles.get(0);
+
+        FhirContext ctx = new FhirContext();
+        System.out.println(ctx.newJsonParser().encodeResourceToString(patientBundle));
+
+        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(patientBundles).hasSize(1);
+
+        executeStandardTests(patientBundles);
+
+        var diagUrl = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
+        var primDiagUrl = "https://www.medizininformatik-initiative.de/fhir/ext/modul-onko/StructureDefinition/mii-pr-onko-diagnose-primaertumor";
+
+        assertThat(patientBundle).extractResourceById("Condition", "torch-test-diag-diag-profile-double-diag-2")
+                .isNotNull()
+                .extractElementsAt("meta.profile")
+                .containsExactlyInAnyOrder(nodeFromValueString(diagUrl), nodeFromValueString(primDiagUrl));
+
+        Assertions.assertThat(patientBundle).extractResourceById("Condition", "torch-test-diag-diag-profile-double-diag-2")
+                .isNotNull()
+                .hasDataAbsentReasonAt("recordedDate", "masked");
+
+        Assertions.assertThat(patientBundle).extractResourceById("Condition", "torch-test-diag-diag-profile-double-diag-2")
+                .isNotNull()
+                .hasDataAbsentReasonAt("extension.where(url='http://hl7.org/fhir/StructureDefinition/condition-assertedDate')", "masked");
+
+        Assertions.assertThat(patientBundle).extractResourceById("Condition", "torch-test-diag-diag-profile-double-diag-3")
+                .isNotNull()
+                .hasDataAbsentReasonAt("extension.where(url='http://hl7.org/fhir/StructureDefinition/condition-assertedDate')", "masked");
+
+    }
+
 
     @AfterEach
     void cleanup() {
