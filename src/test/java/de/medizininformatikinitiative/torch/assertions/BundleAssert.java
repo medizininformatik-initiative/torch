@@ -55,6 +55,17 @@ public class BundleAssert extends AbstractAssert<BundleAssert, Bundle> {
         return new ListAssert<>(fhirPathEngine.evaluate(actual, "Bundle.entry.request.url", UriType.class).stream().map(UriType::getValueAsString).toList());
     }
 
+    public BundleAssert allRequestsMatchResourceIdentity() {
+        boolean allMatch = actual.getEntry().stream().allMatch(entry ->
+                entry.getRequest().getUrl().equals(entry.getResource().getId())
+        );
+        if (!allMatch) {
+            failWithMessage("Expected bundle to resource ids to match request urls");
+        }
+
+        return myself;
+    }
+
     /**
      * Extracts the only patient of the bundle.
      * <p>
