@@ -269,7 +269,7 @@ public record ResourceBundle(
         Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
         entryComponent.setResource(resource);
         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
-        request.setUrl(resource.getId());
+        request.setUrl(resource.getResourceType() + "/" + resource.getId());
         request.setMethod(PUT);
         entryComponent.setRequest(request);
         return entryComponent;

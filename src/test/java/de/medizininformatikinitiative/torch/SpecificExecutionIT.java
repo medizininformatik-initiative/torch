@@ -59,6 +59,9 @@ class SpecificExecutionIT {
 
     public void executeStandardTests(List<Bundle> patientBundles) {
 
+        assertThat(patientBundles).allSatisfy(bundle ->
+                assertThat(bundle).allRequestsMatchResourceIdentity());
+
         // test if referenced IDs match the actual patient's IDs
         assertThat(patientBundles).allSatisfy(bundle -> Assertions.assertThat(bundle).extractOnlyPatient().satisfies(patient ->
                 Assertions.assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(condition ->

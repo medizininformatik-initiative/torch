@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.assertions.BundleAssert;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -12,6 +13,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 
 import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
@@ -37,7 +39,7 @@ public class CdsExecutionIT {
 
         torchClient = environment.torchClient();
         fileServerClient = environment.fileServerClient();
-        var blazeClient = environment.blazeClient();
+        FhirClient blazeClient = environment.blazeClient();
 
         logger.info("Uploading test data...");
         var bundle = Files.readString(Path.of("target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json"));
@@ -57,8 +59,8 @@ public class CdsExecutionIT {
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
 
-        var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
-        var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
+        List<Bundle> coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
+        List<Bundle> patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
         assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
         assertThat(patientBundles).hasSize(3);
@@ -110,10 +112,13 @@ public class CdsExecutionIT {
                         .extractElementsAt("code.coding.code")
                         .containsExactly(nodeFromValueString("C16.9")));
 
-        // test that IDs are properly formatted
         assertThat(patientBundles).allSatisfy(bundle ->
                 assertThat(bundle).extractResourcesByType(ResourceType.Condition).allSatisfy(
                         r -> assertThat(r).extractChildrenStringsAt("subject.reference").satisfiesExactly(id -> assertThat(id).startsWith("Patient/"))
                 ));
+
+        assertThat(patientBundles).allSatisfy(bundle ->
+                assertThat(bundle).allRequestsMatchResourceIdentity());
+
     }
 }
