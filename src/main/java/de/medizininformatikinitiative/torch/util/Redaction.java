@@ -81,7 +81,7 @@ public class Redaction {
 
                 if (!validProfiles.equals(wrapper.profiles())) {
                     logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
-                    throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
+                    throw new RuntimeException("Resource is missing required profiles: " + wrapper.profiles());
                 }
             } else {
                 resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
