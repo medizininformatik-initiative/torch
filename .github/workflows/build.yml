@@ -15,6 +15,10 @@ on:
     - cron: '0 1 * * *'
   merge_group:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-24.04
