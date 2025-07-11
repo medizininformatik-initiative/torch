@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
@@ -72,11 +72,32 @@ public class RedactionTest {
     @ValueSource(strings = {
             "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json"
     })
-    void testReferenceComplexType(String resource) throws IOException {
+    void referenceComplexType(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+    /**
+     * Test with "DiagnosisWithUndefinedElement.json" for the fields
+     * Condition.clinicalstatus.coding  and Condition.note
+     * not covered by Structuredefintion:
+     * "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+     *
+     * @param resource name of the resource file containing an undefined Element.
+     * @throws IOException e.g. when file not found
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"DiagnosisWithUndefinedElement.json"})
+    void fallbackForUndefinedElement(String resource) throws IOException {
+        DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+        DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));

@@ -23,7 +23,13 @@
         "system": "http://snomed.info/sct",
         "version": "http://snomed.info/sct/900000000000207008/version/20230731",
         "code": "91613004",
-        "display": "Contusion of elbow (disorder)"
+        "display": "Contusion of elbow (disorder)",
+        "extension": [
+          {
+            "url": "unknownExtension",
+            "valueString": "This is an unknown extension"
+          }
+        ]
       }
     ]
   },
