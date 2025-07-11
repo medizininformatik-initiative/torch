@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
@@ -69,7 +70,7 @@ class ConsentFetcherIT {
 
     @Test
     void failsOnNoPatientMatchesConsentKeyBuildingConsent() {
-        var resultBatch = consentFetcher.buildConsentInfo("yes-no-no-yes", BATCH);
+        var resultBatch = consentFetcher.buildConsentInfo(ConsentKey.YES_NO_NO_YES, BATCH);
 
         StepVerifier.create(resultBatch)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -80,7 +81,7 @@ class ConsentFetcherIT {
 
     @Test
     void failsOnUnknownPatientBuildingConsent() {
-        var resultBatch = consentFetcher.buildConsentInfo("yes-yes-yes-yes", BATCH_UNKNOWN);
+        var resultBatch = consentFetcher.buildConsentInfo(ConsentKey.YES_YES_YES_YES, BATCH_UNKNOWN);
 
         StepVerifier.create(resultBatch)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -91,7 +92,7 @@ class ConsentFetcherIT {
 
     @Test
     void successBuildingConsent() {
-        var resultBatch = consentFetcher.buildConsentInfo("yes-yes-yes-yes", BATCH);
+        var resultBatch = consentFetcher.buildConsentInfo(ConsentKey.YES_YES_YES_YES, BATCH);
 
         StepVerifier.create(resultBatch)
                 .assertNext(batch -> {

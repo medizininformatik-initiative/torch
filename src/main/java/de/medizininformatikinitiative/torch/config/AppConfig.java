@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
@@ -257,7 +258,7 @@ public class AppConfig {
     }
 
     @Bean
-    public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException {
+    public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper) throws IOException, ValidationException {
         return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
     }
 
