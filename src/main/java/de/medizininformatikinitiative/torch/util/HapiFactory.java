@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Factory;
+import org.hl7.fhir.r4.model.Narrative;
+import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.Type;
 
 public class HapiFactory {
 
@@ -12,21 +16,15 @@ public class HapiFactory {
      * For complex types, it returns an empty instance. For other types, it falls back to `create`.
      */
     public static Type create(String name) throws FHIRException {
-        switch (name) {
-            case "*":
+        return switch (name) {
+            case "*" ->
                 //Any type allowed
-                return new StringType();
-            case "Reference(Organization)":
-                return new Reference();
-            case "Extension":
-                return new Extension();
-            case "Narrative":
-                return new Narrative();
-            case "Identifier":
-                return new Identifier();
-            default:
+                    new StringType();
+            case "Extension" -> new Extension();
+            case "Narrative" -> new Narrative();
+            default ->
                 // For standard types not considered complex, delegate to the standard create method
-                return FACTORY.create(name);
-        }
+                    FACTORY.create(name);
+        };
     }
 }

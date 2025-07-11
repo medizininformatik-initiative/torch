@@ -17,7 +17,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
-import java.util.NoSuchElementException;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -49,15 +48,16 @@ public class Redaction {
 
     private static void handleReference(Property child, Set<String> references) {
         child.getValues().forEach(referenceValue -> {
-            if (((Reference) referenceValue).hasReference() && !references.contains(((Reference) referenceValue).getReference())) {
+            if (referenceValue instanceof Reference reference && reference.hasReference() && !references.contains(reference.getReference())) {
                 referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
+                referenceValue.children().forEach(childValue -> {
+                    String name = childValue.getName();
+                    if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
+                        childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
+                    }
+                });
             }
-            referenceValue.children().forEach(childValue -> {
-                String name = childValue.getName();
-                if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
-                    childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
-                }
-            });
+
         });
     }
 
@@ -107,7 +107,7 @@ public class Redaction {
      * @return redacted Base
      */
     private Base redact(Base base, String elementId, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
-        ElementDefinition elementDefinition = getElementDefinition(definition, elementId, base);
+        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
 
         redactUnknownExtensions(base, elementId, definition);
 
@@ -115,7 +115,8 @@ public class Redaction {
             return base;
         }
         // Handle slicing and early exit when unknown slice
-        if (!(base instanceof Extension) && elementDefinition.hasSlicing()) {
+        //Only applicable on known Elements
+        if (!(base instanceof Extension) && elementDefinition != null && elementDefinition.hasSlicing()) {
             ElementDefinition sliced = Slicing.checkSlicing(base, elementId, definition);
             if (sliced == null) {
                 removeAllChildren(base);
@@ -130,14 +131,6 @@ public class Redaction {
         redactChildren(base, elementId, definition, references);
 
         return base;
-    }
-
-    private ElementDefinition getElementDefinition(CompiledStructureDefinition definition, String elementId, Base base) {
-        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
-        if (elementDefinition == null) {
-            throw new NoSuchElementException("Definition unknown for " + base.fhirType() + " in Element ID " + elementId + " in StructureDefinition " + definition.structureDefinition().getUrl());
-        }
-        return elementDefinition;
     }
 
     /**
@@ -174,6 +167,13 @@ public class Redaction {
     }
 
     /**
+     * Redacts the children of a given FHIR element based on the provided structure definition.
+     * <p>
+     * Constructs elementids from {@code baseid} and child name.
+     * Attempts to look up the corresponding {@link ElementDefinition} from the given {@code definition}.
+     * If a definition exists, it sets the type and minimum cardinality with the ones defined there;
+     * otherwise, it falls back to the values derived directly from the child element itself.
+     *
      * @param base       base whose children should be redacted
      * @param baseId     ElementId of the base
      * @param definition StructureDefinition to be applied
@@ -184,35 +184,32 @@ public class Redaction {
             String childId = baseId + "." + child.getName();
             ElementDefinition childDef = definition.elementDefinitionById(childId);
 
-            String type = getChildType(child, childDef);
-            int min = (childDef != null) ? childDef.getMin() : child.getMinCardinality();
+            List<String> types = List.of(child.getTypeCode().split("\\|"));
+            int min = child.getMinCardinality();
 
-            if (child.hasValues() && childDef != null) {
-                if ("Reference".equals(type)) {
+            if (childDef != null) {
+                List<String> collectedTypes = childDef.getType().stream()
+                        .map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
+
+                types = collectedTypes.isEmpty() ? types : collectedTypes;
+                min = childDef.getMin();
+            }
+
+            if (child.hasValues()) {
+                if (types.stream().anyMatch(type -> type.contains("Reference"))) {
                     Set<String> allowedRefs = references.getOrDefault(childId, Set.of());
                     handleReference(child, allowedRefs);
                 }
-
                 for (Base value : child.getValues()) {
-                    if (value.isEmpty() && min > 0) {
-                        Element absent = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
-                        base.setProperty(child.getName(), absent);
-                    } else {
-                        redact(value, childId, definition, references);
-                    }
+                    redact(value, childId, definition, references);
                 }
             } else {
-                if (min > 0 && !"Extension".equals(child.getTypeCode())) {
-                    addDataAbsentReason(base, child, type, baseId);
-                }
 
+                if (min > 0) {
+                    addDataAbsentReason(base, child, types.getFirst(), baseId);
+                }
             }
         });
-    }
-
-    private String getChildType(Property child, ElementDefinition def) {
-        if (def == null) return child.getTypeCode();
-        return def.getType().stream().map(ElementDefinition.TypeRefComponent::getWorkingCode).findFirst().orElse(child.getTypeCode());
     }
 
     /**
@@ -224,6 +221,7 @@ public class Redaction {
      * @param parentId elementId of the parent
      */
     private void addDataAbsentReason(Base base, Property child, String type, String parentId) {
+        type = type.replaceFirst("^[^(|]*[(|]", "");
         try {
             if ("BackboneElement".equals(type)) {
                 ResourceUtils.setField(base, child.getName(), createAbsentReasonExtension(MASKED));
