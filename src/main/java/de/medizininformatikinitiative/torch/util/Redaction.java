@@ -50,13 +50,14 @@ public class Redaction {
         child.getValues().forEach(referenceValue -> {
             if (referenceValue instanceof Reference reference && reference.hasReference() && !references.contains(reference.getReference())) {
                 referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
+                referenceValue.children().forEach(childValue -> {
+                    String name = childValue.getName();
+                    if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
+                        childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
+                    }
+                });
             }
-            referenceValue.children().forEach(childValue -> {
-                String name = childValue.getName();
-                if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
-                    childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
-                }
-            });
+
         });
     }
 
@@ -183,20 +184,19 @@ public class Redaction {
             String childId = baseId + "." + child.getName();
             ElementDefinition childDef = definition.elementDefinitionById(childId);
 
-            String type = child.getTypeCode();
+            List<String> types = List.of(child.getTypeCode().split("\\|"));
             int min = child.getMinCardinality();
 
             if (childDef != null) {
-                String collectedTypes = childDef.getType().stream()
-                        .map(ElementDefinition.TypeRefComponent::getWorkingCode)
-                        .collect(Collectors.joining("|"));
+                List<String> collectedTypes = childDef.getType().stream()
+                        .map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
 
-                type = collectedTypes.isEmpty() ? type : collectedTypes;
+                types = collectedTypes.isEmpty() ? types : collectedTypes;
                 min = childDef.getMin();
             }
 
             if (child.hasValues()) {
-                if (type.contains("Reference")) {
+                if (types.stream().anyMatch(type -> type.contains("Reference"))) {
                     Set<String> allowedRefs = references.getOrDefault(childId, Set.of());
                     handleReference(child, allowedRefs);
                 }
@@ -204,8 +204,9 @@ public class Redaction {
                     redact(value, childId, definition, references);
                 }
             } else {
-                if (min > 0 && !"Extension".equals(type)) {
-                    addDataAbsentReason(base, child, type, baseId);
+
+                if (min > 0) {
+                    addDataAbsentReason(base, child, types.getFirst(), baseId);
                 }
             }
         });
