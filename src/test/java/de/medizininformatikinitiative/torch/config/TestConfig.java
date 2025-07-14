@@ -52,6 +52,7 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.server.adapter.ForwardedHeaderTransformer;
 import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
@@ -89,6 +90,10 @@ public class TestConfig {
         this.torchProperties = torchProperties;
     }
 
+    @Bean
+    public ForwardedHeaderTransformer forwardedHeaderTransformer() {
+        return new ForwardedHeaderTransformer();
+    }
 
     @Bean
     public CascadingDelete cascadingDelete() {
@@ -304,7 +309,7 @@ public class TestConfig {
 
     @Bean
     public ResultFileManager resultFileManager(FhirContext fhirContext) {
-        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext, torchProperties.base().url(), torchProperties.output().file().server().url());
+        return new ResultFileManager(torchProperties.results().dir(), torchProperties.results().persistence(), fhirContext);
     }
 
     @Bean
