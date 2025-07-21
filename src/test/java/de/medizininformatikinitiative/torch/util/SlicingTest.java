@@ -11,6 +11,7 @@ import org.mockito.Mockito;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -26,9 +27,9 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
         Base base = Mockito.mock(Base.class);
 
-        ElementDefinition result = Slicing.checkSlicing(base, "Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
+        Optional<ElementDefinition> result = Slicing.resolveSlicing(base, "Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
 
-        assertThat(result).isNull();
+        assertThat(result).isEmpty();
     }
 
     @Test

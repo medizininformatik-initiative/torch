@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
 
@@ -94,13 +95,13 @@ public class CrtdlValidatorService {
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
 
         for (Attribute attribute : attributeGroup.attributes()) {
-            ElementDefinition elementDefinition = definition.elementDefinitionById(attribute.attributeRef());
-            if (elementDefinition == null) {
+            Optional<ElementDefinition> elementDefinition = definition.elementDefinitionById(attribute.attributeRef());
+            if (elementDefinition.isEmpty()) {
                 throw new ValidationException("Unknown Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
             }
 
-            if (elementDefinition.hasType()) {
-                if (!elementDefinition.getType("Reference").isEmpty() && elementDefinition.getType().size() == 1 && attribute.linkedGroups().isEmpty()) {
+            if (elementDefinition.get().hasType()) {
+                if (!elementDefinition.get().getType("Reference").isEmpty() && elementDefinition.get().getType().size() == 1 && attribute.linkedGroups().isEmpty()) {
                     throw new ValidationException("Reference Attribute " + attribute.attributeRef() + " without linked Groups in group " + attributeGroup.id());
                 }
             } else {

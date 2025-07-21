@@ -1,0 +1,72 @@
+{
+  "resourceType": "Observation",
+  "meta": {
+    "profile": [
+      "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing",
+      "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing-modified",
+      "http://example.org/fhir/StructureDefinition/observation-without-slicing"
+    ]
+  },
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "85353-1",
+        "display": "Vital signs, weight, height, head circumference, oxygen saturation and BMI panel"
+      }
+    ],
+    "text": "Vital Signs Panel"
+  },
+  "subject": {
+    "_reference": {
+      "extension": [
+        {
+          "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+          "valueCode": "masked"
+        }
+      ]
+    }
+  },
+  "effectiveDateTime": "2025-07-23T12:00:00+02:00",
+  "issued": "2025-07-23T12:10:00+02:00",
+  "component": [
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://loinc.org",
+            "code": "8867-4",
+            "display": "Heart rate"
+          }
+        ]
+      },
+      "valueQuantity": {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+            "valueCode": "masked"
+          }
+        ]
+      },
+      "dataAbsentReason": {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+            "valueCode": "masked"
+          }
+        ]
+      },
+      "interpretation": [
+        {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

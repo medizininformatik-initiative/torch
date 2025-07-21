@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
+import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -46,7 +47,19 @@ public class Redaction {
         this.structureDefinitionHandler = requireNonNull(structureDefinitionHandler);
     }
 
-    private static void handleReference(Property child, Set<String> references) {
+
+    /**
+     * Redacts disallowed {@link Reference} values in the given property.
+     * <p>
+     * If a reference is not in the provided {@code references} set, it is replaced
+     * with a placeholder containing an absent reason extension, and all non-reference,
+     * non-extension child elements are removed.
+     * </p>
+     *
+     * @param child      the property containing reference values
+     * @param references the set of allowed reference strings
+     */
+    private void handleReference(Property child, Set<String> references) {
         child.getValues().forEach(referenceValue -> {
             if (referenceValue instanceof Reference reference && reference.hasReference() && !references.contains(reference.getReference())) {
                 referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
@@ -61,15 +74,24 @@ public class Redaction {
         });
     }
 
-    /**
-     * @param wrapper ExtractionRedactionWrapper containing the resource, profiles and reference information
-     *                relevant for redaction
-     * @return Base with fulfilled required fields using Data Absent Reasons
-     */
-    public Base redact(ExtractionRedactionWrapper wrapper) {
-        DomainResource resource = wrapper.resource();
-        Map<String, Set<String>> references = wrapper.references();
+    private static List<String> getTypes(Property child, List<String> collectedTypes) {
+        return collectedTypes.isEmpty() ? List.of(child.getTypeCode().split("\\|")) : collectedTypes;
+    }
 
+    /**
+     * Redacts a FHIR resource using structure definitions and allowed references.
+     * <p>
+     * Validates that required profiles are present and known. If valid, structure definitions
+     * are resolved and used to redact the resource, filling required fields with Data Absent Reasons
+     * where necessary.
+     * </p>
+     *
+     * @param wrapper the wrapper containing the resource, profiles, and allowed references
+     * @return the redacted resource with required fields fulfilled
+     * @throws RuntimeException if required profiles are missing or unknown, or if meta is absent
+     */
+    public DomainResource redact(ExtractionRedactionWrapper wrapper) {
+        DomainResource resource = wrapper.resource();
         if (resource.hasMeta()) {
             Meta meta = resource.getMeta();
             List<CanonicalType> resourceProfiles;
@@ -86,62 +108,54 @@ public class Redaction {
             } else {
                 resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
             }
-            Optional<CompiledStructureDefinition> definition = structureDefinitionHandler.getDefinition(wrapper.profiles());
-            if (definition.isEmpty()) {
+            List<CompiledStructureDefinition> definitions = structureDefinitionHandler.getDefinitions(wrapper.profiles());
+            if (definitions.isEmpty()) {
                 logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
                 throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
             }
             meta.setProfile(resourceProfiles);
-            return this.redact(resource, String.valueOf(resource.getResourceType()), definition.get(), references);
+            this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions, wrapper.references()));
+            return resource;
         }
         throw new RuntimeException("Trying to redact Resource without Meta");
     }
 
     /**
-     * Executes redaction operation on the given base element recursively.
+     * Handles redaction of extensions for the given FHIR element:
+     * <ul>
+     *   <li>Removes extensions not allowed by slicing rules</li>
+     *   <li>Recursively redacts known extensions according to structure definitions</li>
+     * </ul>
      *
-     * @param base       Base to be redacted (e.g. a Resource or an Element)
-     * @param elementId  Element IDs of parent currently handled; initially the resource type
-     * @param definition Structure definition of the Resource.
-     * @param references Allowed references
-     * @return redacted Base
+     * @param base    the FHIR element whose extensions are to be validated and redacted
+     * @param context the element context used to evaluate and process extensions
      */
-    private Base redact(Base base, String elementId, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
-        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
-
-        redactUnknownExtensions(base, elementId, definition);
-
-        if (base.isPrimitive()) {
-            return base;
-        }
-        // Handle slicing and early exit when unknown slice
-        //Only applicable on known Elements
-        if (!(base instanceof Extension) && elementDefinition != null && elementDefinition.hasSlicing()) {
-            ElementDefinition sliced = Slicing.checkSlicing(base, elementId, definition);
-            if (sliced == null) {
-                removeAllChildren(base);
-                if (elementDefinition.getMin() > 0) {
-                    base.setProperty(EXTENSION, createAbsentReasonExtension(MASKED));
-                }
-                return base;
-            }
-            elementId = sliced.getId();
-        }
-
-        redactChildren(base, elementId, definition, references);
-
-        return base;
+    private void redactExtensions(Base base, MultiElementContext context) {
+        MultiElementContext extensionsContext = context.descend(EXTENSION);
+        removeUnknownExtensions(base, extensionsContext);
+        redactKnownExtensions(base, extensionsContext);
     }
 
     /**
-     * Checks for extension legality via slicing and explicit test for data-absent-reason system.
+     * Removes extensions from the given FHIR element that are not allowed by slicing rules.
      *
-     * @param base       to be handled
-     * @param elementId  of base to be handled
-     * @param definition applied to the base
+     * @param base    the FHIR element from which unknown extensions should be removed
+     * @param context the context containing allowed extensions for validation
      */
-    private void redactUnknownExtensions(Base base, String elementId, CompiledStructureDefinition definition) {
-        getExtensions(base).stream().filter(extension -> shouldRedactExtension(extension, elementId, definition)).forEach(extension -> base.removeChild(EXTENSION, extension));
+    private void removeUnknownExtensions(Base base, MultiElementContext context) {
+        getExtensions(base).stream()
+                .filter(context::shouldRedactExtension)
+                .forEach(extension -> base.removeChild(EXTENSION, extension));
+    }
+
+    /**
+     * Redacts known extensions of the given FHIR element using the provided structure definitions.
+     *
+     * @param base    the FHIR element whose remaining extensions should be processed
+     * @param context the context for redacting extensions
+     */
+    private void redactKnownExtensions(Base base, MultiElementContext context) {
+        getExtensions(base).forEach(extension -> redactChildren(extension, context));
     }
 
     private List<Extension> getExtensions(Base base) {
@@ -153,17 +167,52 @@ public class Redaction {
         };
     }
 
-    private boolean shouldRedactExtension(Extension extension, String elementId, CompiledStructureDefinition definition) {
-        return !"http://hl7.org/fhir/StructureDefinition/data-absent-reason".equals(extension.getUrl()) && !isKnownExtension(extension, elementId, definition);
+    /**
+     * Recursively redacts the given FHIR element based on its structure definitions and allowed references.
+     * <p>
+     * Handles slicing logic, removes unknown or disallowed children, and sets Data Absent Reason extensions
+     * for required elements when necessary.
+     * </p>
+     *
+     * @param dataElement the FHIR {@link Base} element to redact
+     * @param context     element ID and associated structure definitions
+     */
+    private void redact(Base dataElement, MultiElementContext context) {
+        handleSlicing(dataElement, context).ifPresent(updatedContext -> {
+            redactExtensions(dataElement, updatedContext);
+            if (!dataElement.isPrimitive()) {
+                redactChildren(dataElement, updatedContext);
+            }
+        });
     }
 
-    private boolean isKnownExtension(Extension extension, String elementId, CompiledStructureDefinition definition) {
-        ElementDefinition sliced = Slicing.checkSlicing(extension, elementId + ".extension", definition);
-        return sliced != null;
+    /**
+     * Handles slicing resolution for the given element and context.
+     * If slicing is applicable and no match is found, redacts the element if required.
+     * Unsliced contexts mixed with sliced contexts get passed through to preserve behaviour.
+     *
+     * @return updated ElementContexts if valid, otherwise Optional empty if element was removed due to slicing
+     */
+    private Optional<MultiElementContext> handleSlicing(Base dataElement, MultiElementContext context) {
+        if (dataElement instanceof Extension || !context.hasSlicing()) {
+            return Optional.of(context);
+        }
+        return context.resolveSlices(dataElement, slices -> {
+            if (slices.isEmpty()) {
+                removeAllChildren(dataElement);
+                if (context.required()) {
+                    dataElement.setProperty(EXTENSION, createAbsentReasonExtension(MASKED));
+                }
+                return true;
+            }
+            return false;
+        });
     }
 
     private void removeAllChildren(Base base) {
-        base.children().forEach(child -> child.getValues().forEach(value -> base.removeChild(child.getName(), value)));
+        base.children().stream()
+                .flatMap(child -> child.getValues().stream().map(value -> Map.entry(child.getName(), value)))
+                .forEach(entry -> base.removeChild(entry.getKey(), entry.getValue()));
     }
 
     /**
@@ -174,40 +223,24 @@ public class Redaction {
      * If a definition exists, it sets the type and minimum cardinality with the ones defined there;
      * otherwise, it falls back to the values derived directly from the child element itself.
      *
-     * @param base       base whose children should be redacted
-     * @param baseId     ElementId of the base
-     * @param definition StructureDefinition to be applied
-     * @param references Allowed references
+     * @param baseElement element whose children should be redacted
+     * @param contexts    element ID and associated structure definitions
      */
-    private void redactChildren(Base base, String baseId, CompiledStructureDefinition definition, Map<String, Set<String>> references) {
-        base.children().forEach(child -> {
-            String childId = baseId + "." + child.getName();
-            ElementDefinition childDef = definition.elementDefinitionById(childId);
+    private void redactChildren(Base baseElement, MultiElementContext contexts) {
 
-            List<String> types = List.of(child.getTypeCode().split("\\|"));
-            int min = child.getMinCardinality();
-
-            if (childDef != null) {
-                List<String> collectedTypes = childDef.getType().stream()
-                        .map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
-
-                types = collectedTypes.isEmpty() ? types : collectedTypes;
-                min = childDef.getMin();
-            }
+        baseElement.children().forEach(child -> {
+            MultiElementContext childContexts = contexts.descend(child.getName());
+            List<String> types = getTypes(child, childContexts.workingCodes());
 
             if (child.hasValues()) {
                 if (types.stream().anyMatch(type -> type.contains("Reference"))) {
-                    Set<String> allowedRefs = references.getOrDefault(childId, Set.of());
-                    handleReference(child, allowedRefs);
+                    handleReference(child, childContexts.allowedReferences());
                 }
                 for (Base value : child.getValues()) {
-                    redact(value, childId, definition, references);
+                    redact(value, childContexts);
                 }
-            } else {
-
-                if (min > 0) {
-                    addDataAbsentReason(base, child, types.getFirst(), baseId);
-                }
+            } else if (child.getMinCardinality() > 0 || childContexts.required()) {
+                addDataAbsentReason(baseElement, child, types.getFirst());
             }
         });
     }
@@ -215,12 +248,11 @@ public class Redaction {
     /**
      * Adds a DataAbsentReason for a child property of a base.
      *
-     * @param base     the parent of the child
-     * @param child    property without values to be checked
-     * @param type     type of the child to be handled
-     * @param parentId elementId of the parent
+     * @param base  the parent of the child
+     * @param child property without values to be checked
+     * @param type  type of the child to be handled
      */
-    private void addDataAbsentReason(Base base, Property child, String type, String parentId) {
+    private void addDataAbsentReason(Base base, Property child, String type) {
         type = type.replaceFirst("^[^(|]*[(|]", "");
         try {
             if ("BackboneElement".equals(type)) {
@@ -230,8 +262,7 @@ public class Redaction {
                 base.setProperty(child.getName(), element);
             }
         } catch (FHIRException e) {
-            logger.warn("Unresolvable elementID {} in field {} Type {} ", parentId, child.getName(), type);
+            logger.warn("Unresolvable elementID {} in field {} Type {} ", base.fhirType(), child.getName(), type);
         }
     }
-
 }

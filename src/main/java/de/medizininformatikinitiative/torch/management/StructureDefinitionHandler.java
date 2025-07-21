@@ -8,6 +8,7 @@ import org.hl7.fhir.r4.model.StructureDefinition;
 import java.io.File;
 import java.io.IOException;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,30 +64,28 @@ public class StructureDefinitionHandler {
     }
 
     /**
-     * Returns the StructureDefinition with the given URL.
+     * Returns the CompiledStructureDefinition with the given URL.
      * Handles versioned URLs by splitting on the '|' character.
      *
      * @param url The URL of the StructureDefinition, possibly including a version
-     * @return The StructureDefinition corresponding to the base URL (ignores version)
+     * @return CompiledStructureDefinition corresponding to the base URL (ignores version)
      */
     public Optional<CompiledStructureDefinition> getDefinition(String url) {
-        return getDefinition(Set.of(url));
+        return Optional.ofNullable(definitions.get(stripVersion(url)));
     }
 
     /**
-     * Returns the first found StructureDefinition from a list of URLs.
-     * Iterates over the list of URLs, returning the first valid StructureDefinition.
+     * Returns the all CompiledStructureDefinition from a list of URLs.
      * Removes version flags making the handling version agnostic.
      *
      * @param urls a list of URLs for which to find the corresponding StructureDefinition
-     * @return the first StructureDefinition found, or empty if none are found
+     * @return all StructureDefinitions found, or empty if none are found
      */
-    public Optional<CompiledStructureDefinition> getDefinition(Set<String> urls) {
+    public List<CompiledStructureDefinition> getDefinitions(Set<String> urls) {
         return urls.stream()
                 .map(this::stripVersion)
                 .map(definitions::get)
-                .filter(Objects::nonNull)
-                .findFirst();
+                .filter(Objects::nonNull).toList();
     }
 
     /**
@@ -109,5 +108,10 @@ public class StructureDefinitionHandler {
     private String stripVersion(String url) {
         int pipeIndex = url.indexOf('|');
         return pipeIndex == -1 ? url : url.substring(0, pipeIndex);
+    }
+
+    @Override
+    public String toString() {
+        return definitions.keySet().toString();
     }
 }
