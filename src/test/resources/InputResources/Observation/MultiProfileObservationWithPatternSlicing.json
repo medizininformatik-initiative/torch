@@ -1,0 +1,56 @@
+{
+  "resourceType": "Observation",
+  "meta": {
+    "profile": [
+      "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing",
+      "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing-modified",
+      "http://example.org/fhir/StructureDefinition/observation-without-slicing"
+    ]
+  },
+  "status": "final",
+  "code": {
+    "coding": [
+      {
+        "system": "http://loinc.org",
+        "code": "85353-1",
+        "display": "Vital signs, weight, height, head circumference, oxygen saturation and BMI panel"
+      }
+    ],
+    "text": "Vital Signs Panel"
+  },
+  "subject": {
+    "reference": "Patient/example"
+  },
+  "effectiveDateTime": "2025-07-23T12:00:00+02:00",
+  "issued": "2025-07-23T12:10:00+02:00",
+  "component": [
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://loinc.org",
+            "code": "8867-4",
+            "display": "Heart rate"
+          }
+        ]
+      }
+    },
+    {
+      "code": {
+        "coding": [
+          {
+            "system": "http://loinc.org",
+            "code": "9279-1",
+            "display": "Respiratory rate"
+          }
+        ]
+      },
+      "valueQuantity": {
+        "value": 16,
+        "unit": "breaths/minute",
+        "system": "http://unitsofmeasure.org",
+        "code": "/min"
+      }
+    }
+  ]
+}

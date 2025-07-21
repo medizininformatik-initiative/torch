@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.StructureDefinition;
 
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -30,8 +31,8 @@ public record CompiledStructureDefinition(StructureDefinition structureDefinitio
         return new CompiledStructureDefinition(structureDefinition, structureDefinition.getSnapshot().getElement().stream().collect(Collectors.toMap(ElementDefinition::getId, Functions.identity())));
     }
 
-    public ElementDefinition elementDefinitionById(String id) {
-        return elementDefinitions.get(requireNonNull(id));
+    public Optional<ElementDefinition> elementDefinitionById(String id) {
+        return Optional.ofNullable(elementDefinitions.get(requireNonNull(id)));
     }
 
     Stream<ElementDefinition> elementDefinitionByPath(String path) {

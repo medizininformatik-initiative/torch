@@ -10,6 +10,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -19,6 +20,9 @@ import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.re
  * Class for resolving and checking Slicing
  */
 public class Slicing {
+
+    private Slicing() {
+    }
 
     private static final Logger logger = LoggerFactory.getLogger(Slicing.class);
 
@@ -30,37 +34,32 @@ public class Slicing {
      * @param definition definition of the Resource to which the element belongs
      * @return Returns null if no slicing is found and an ElementDefinition for the slice otherwise
      */
-    static ElementDefinition checkSlicing(Base base, String elementId, CompiledStructureDefinition definition) {
-        ElementDefinition slicedElement = definition.elementDefinitionById(elementId);
+    public static Optional<ElementDefinition> resolveSlicing(Base base, String elementId, CompiledStructureDefinition definition) {
+        Optional<ElementDefinition> slicedElement = definition.elementDefinitionById(elementId);
 
-        if (slicedElement == null) {
-            return null;
+        if (slicedElement.isEmpty()) {
+            return Optional.empty();
         }
 
-        if (!slicedElement.hasSlicing()) {
-            return null;
+        if (!slicedElement.get().hasSlicing()) {
+            return Optional.empty();
         }
 
-        AtomicReference<ElementDefinition> returnElement = new AtomicReference<>(null);
-        List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.getSlicing().getDiscriminator();
+        AtomicReference<Optional<ElementDefinition>> returnElement = new AtomicReference<>(Optional.empty());
+        List<ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent> slicingDiscriminator = slicedElement.get().getSlicing().getDiscriminator();
 
-        Stream<ElementDefinition> elementDefinitions = definition.elementDefinitionByPath(slicedElement.getPath());
+        Stream<ElementDefinition> elementDefinitions = definition.elementDefinitionByPath(slicedElement.get().getPath());
         elementDefinitions.filter(ElementDefinition::hasSliceName).forEach(element -> {
 
             boolean foundSlice = true;
 
             for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
-
                 if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
-
                     if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
                         UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
-                        List<CanonicalType> profiles = element.getType().stream()
-                                .flatMap(type -> type.getProfile().stream())
-                                .toList();
+                        List<CanonicalType> profiles = element.getType().stream().flatMap(type -> type.getProfile().stream()).toList();
                         // Check if any profile matches the base type URL
-                        boolean anyMatchBaseUrl = profiles.stream()
-                                .anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
+                        boolean anyMatchBaseUrl = profiles.stream().anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
                         if (anyMatchBaseUrl) {
                             continue;
                         } else {
@@ -68,7 +67,6 @@ public class Slicing {
                             break;
                         }
                     }
-
                 }
                 if (!resolveDiscriminator(base, element, discriminator, definition.structureDefinition().getSnapshot())) {
                     foundSlice = false;
@@ -76,7 +74,7 @@ public class Slicing {
                 }
             }
             if (foundSlice) {
-                returnElement.set(element);
+                returnElement.set(Optional.of(element));
             }
 
 
@@ -95,15 +93,15 @@ public class Slicing {
     public static List<String> generateConditionsForFHIRPath(String elementID, CompiledStructureDefinition definition) {
         List<String> conditions = new ArrayList<>();
         // Find the sliced element using the element ID
-        ElementDefinition slicedElement = definition.elementDefinitionById(elementID);
-        if (slicedElement == null) {
+        Optional<ElementDefinition> slicedElement = definition.elementDefinitionById(elementID);
+        if (slicedElement.isEmpty()) {
             throw new IllegalArgumentException("Element with ID " + elementID + " not found in snapshot.");
         }
 
         // Find the parent element using the path of the sliced element
-        ElementDefinition parentElement = definition.elementDefinitionById(slicedElement.getPath());
-        if (parentElement != null && parentElement.hasSlicing()) {
-            ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.getSlicing();
+        Optional<ElementDefinition> parentElement = definition.elementDefinitionById(slicedElement.get().getPath());
+        if (parentElement.isPresent() && parentElement.get().hasSlicing()) {
+            ElementDefinition.ElementDefinitionSlicingComponent slicing = parentElement.get().getSlicing();
 
             if (slicing.hasDiscriminator()) {
                 // Iterate over discriminators to generate conditions
@@ -132,11 +130,6 @@ public class Slicing {
                     }
                 }
             }
-
-            // TODO : Future handling for ordered and rules if needed
-            // TODO (slicing.hasOrdered())
-            // TODO (slicing.hasRules()) {
-
         }
 
         return conditions;
@@ -149,15 +142,15 @@ public class Slicing {
             elementId += "." + path;
         }
         logger.trace("Getting Conditions {}", elementId);
-        ElementDefinition elementDefinition = definition.elementDefinitionById(elementId);
-        if (elementDefinition == null) {
+        Optional<ElementDefinition> elementDefinition = definition.elementDefinitionById(elementId);
+        if (elementDefinition.isEmpty()) {
 
             logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);
             return conditions;
         }
-        if (elementDefinition.hasFixedOrPattern()) {
+        if (elementDefinition.get().hasFixedOrPattern()) {
 
-            Element pattern = elementDefinition.getFixedOrPattern();
+            Element pattern = elementDefinition.get().getFixedOrPattern();
             conditions.addAll(Slicing.traverseValueRec(path, pattern));
         } else {
             logger.warn("No Pattern found {} in its Pattern/Value slicing", elementId);
@@ -173,12 +166,9 @@ public class Slicing {
         if (pattern.isPrimitive()) {
             conditions.add(basePath + "='" + pattern.primitiveValue() + "'");
         } else {
-            pattern.children().forEach(
-                    child -> {
+            pattern.children().forEach(child -> {
                         if (child.hasValues()) {
-                            child.getValues().forEach(
-                                    value -> conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value))
-                            );
+                            child.getValues().forEach(value -> conditions.addAll(traverseValueRec(basePath + "." + child.getName(), (Element) value)));
 
                         }
 
@@ -188,7 +178,6 @@ public class Slicing {
             );
 
         }
-
 
         return conditions;
 

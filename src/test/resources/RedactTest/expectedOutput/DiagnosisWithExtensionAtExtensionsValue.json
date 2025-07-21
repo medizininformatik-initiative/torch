@@ -24,7 +24,6 @@
       },
       {
         "system": "http://fhir.de/CodeSystem/bfarm/icd-10-gm",
-        "display": "Prellung des Ellenbogens",
         "_version": {
           "extension": [
             {
@@ -32,7 +31,16 @@
               "valueCode": "masked"
             }
           ]
-        }
+        },
+        "_code": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "display": "Prellung des Ellenbogens"
       }
     ],
     "text": "Prellung des linken Ellenbogens"
@@ -45,5 +53,13 @@
   },
   "onsetPeriod": {
     "end": "2020-03-05T13:00:00+01:00"
+  },
+  "_recordedDate": {
+    "extension": [
+      {
+        "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+        "valueCode": "masked"
+      }
+    ]
   }
 }

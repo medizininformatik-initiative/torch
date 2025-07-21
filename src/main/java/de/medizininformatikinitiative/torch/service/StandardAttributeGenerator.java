@@ -7,7 +7,6 @@ import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
-import org.hl7.fhir.r4.model.ElementDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,8 +50,7 @@ public class StandardAttributeGenerator {
         if (compartmentManager.isInCompartment(resourceType)) {
             for (String field : patientRefFields) {
                 String fieldString = resourceType + "." + field;
-                ElementDefinition elementDefinition = definition.elementDefinitionById(fieldString);
-                if (elementDefinition != null) {
+                if (definition.elementDefinitionById(fieldString).isPresent()) {
                     tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, fieldString, false, List.of(patientGroupId)));
                 }
             }

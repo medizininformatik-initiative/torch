@@ -1,0 +1,33 @@
+{
+  "resourceType": "Condition",
+  "id": "Diagnose1",
+  "meta": {
+    "profile": [
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Todesursache",
+      "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+    ]
+  },
+  "category": {
+    "coding": [
+      {
+        "system": "http://snomed.info/sct",
+        "code": "16100001"
+      },
+      {
+        "system": "http://loinc.org",
+        "code": "79378-6"
+      }
+    ]
+  },
+  "code": {
+    "coding": [
+      {
+        "system": "http://hl7.org/fhir/sid/icd-10"
+      }
+    ]
+  },
+  "subject": {
+    "reference": "Patient/123"
+  },
+  "onsetDateTime": "2024-10"
+}

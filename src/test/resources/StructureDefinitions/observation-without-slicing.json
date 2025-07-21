@@ -1,0 +1,27 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "observation-with-pattern-slicing-modified",
+  "url": "http://example.org/fhir/StructureDefinition/observation-without-slicing",
+  "version": "1.0.0",
+  "name": "ObservationWithPatternSlicing",
+  "status": "draft",
+  "date": "2025-07-23",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Observation",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Observation.component",
+        "path": "Observation.component"
+      },
+      {
+        "id": "Observation.component.dataAbsentReason",
+        "path": "Observation.component.dataAbsentReason",
+        "min": 1
+      }
+    ]
+  }
+}

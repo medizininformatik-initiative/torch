@@ -1,0 +1,57 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "observation-with-pattern-slicing-modified",
+  "url": "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing-modified",
+  "version": "1.0.0",
+  "name": "ObservationWithPatternSlicing",
+  "status": "draft",
+  "date": "2025-07-23",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Observation",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Observation.component",
+        "path": "Observation.component",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "pattern",
+              "path": "code"
+            }
+          ],
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Observation.component:heartRateModified",
+        "path": "Observation.component",
+        "sliceName": "heartRate",
+        "min": 1,
+        "max": "1"
+      },
+      {
+        "id": "Observation.component:heartRateModified.code",
+        "path": "Observation.component.code",
+        "patternCodeableConcept": {
+          "coding": [
+            {
+              "system": "http://loinc.org",
+              "code": "8867-4",
+              "display": "Heart rate"
+            }
+          ]
+        },
+        "min": 1
+      },
+      {
+        "id": "Observation.component:heartRateModified.interpretation",
+        "path": "Observation.component.interpretation",
+        "min": 1
+      }
+    ]
+  }
+}

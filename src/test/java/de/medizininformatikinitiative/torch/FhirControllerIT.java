@@ -53,7 +53,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Objects;
 import java.util.Scanner;
 import java.util.stream.Stream;
 
@@ -191,16 +190,11 @@ class FhirControllerIT {
             try {
                 long start = System.nanoTime();
                 ResponseEntity<String> response = restTemplate.exchange(url, HttpMethod.POST, entity, String.class);
-
                 assertThat(response.getStatusCode().value()).isEqualTo(202);
                 assertThat(durationSecondsSince(start)).isLessThan(1);
-
                 List<String> locations = response.getHeaders().get("Content-Location");
                 assertThat(locations).hasSize(1);
-
                 pollStatusEndpoint(restTemplate, headers, locations.getFirst(), expectedFinalCode);
-
-                System.out.println("locations.getFirst().substring(locations.getFirst().lastIndexOf('/')) = " + locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
                 clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);

@@ -29,7 +29,15 @@
           "extension": [
             {
               "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-              "valueCode": "masked"
+              "valueCode": "masked",
+              "_valueCode": {
+                "extension": [
+                  {
+                    "url": "unknownSlice",
+                    "valueCode": "123"
+                  }
+                ]
+              }
             }
           ]
         }
