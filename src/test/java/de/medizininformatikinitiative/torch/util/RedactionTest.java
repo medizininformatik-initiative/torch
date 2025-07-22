@@ -1,4 +1,4 @@
-package de.medizininformatikinitiative.torch;
+package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
@@ -34,16 +34,17 @@ public class RedactionTest {
     public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
 
-    private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
+    private final IntegrationTestSetup integrationTestSetup;
 
     private final FhirContext fhirContext = FhirContext.forR4();
 
     public RedactionTest() throws IOException {
+        integrationTestSetup = new IntegrationTestSetup();
     }
 
     @ParameterizedTest
     @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})
-    public void testObservationLab(String resource) throws IOException {
+    void testObservationLab(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -57,7 +58,7 @@ public class RedactionTest {
     @ValueSource(strings = {
             "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json"
     })
-    public void testValueSetBindingPassingThroughAsDiscriminator(String resource) throws IOException {
+    void testValueSetBindingPassingThroughAsDiscriminator(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -71,11 +72,32 @@ public class RedactionTest {
     @ValueSource(strings = {
             "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json"
     })
-    public void testReferenceComplexType(String resource) throws IOException {
+    void referenceComplexType(String resource) throws IOException {
         DomainResource src = integrationTestSetup.readResource("src/test/resources/InputResources/Observation/" + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+    /**
+     * Test with "DiagnosisWithUndefinedElement.json" for the fields
+     * Condition.clinicalstatus.coding  and Condition.note
+     * not covered by Structuredefintion:
+     * "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+     *
+     * @param resource name of the resource file containing an undefined Element.
+     * @throws IOException e.g. when file not found
+     */
+    @ParameterizedTest
+    @ValueSource(strings = {"DiagnosisWithUndefinedElement.json"})
+    void fallbackForUndefinedElement(String resource) throws IOException {
+        DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+        DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
         DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -99,61 +121,16 @@ public class RedactionTest {
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
-    @Nested
-    class Condition {
+    @ParameterizedTest
+    @ValueSource(strings = {"DiagnosisUnknownPrimitiveExtension.json", "DiagnosisWithExtensionAtCode.json", "DiagnosisUnknownComplexExtension.json"})
+    void removeUnknownPrimitiveAndComplexExtension(String resource) throws IOException {
+        DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+        DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+        DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
 
-        @ParameterizedTest
-        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-multiple-kodierungen.json", "Condition-mii-exa-test-data-patient-1-diagnose-1.json", "Condition-mii-exa-test-data-patient-1-diagnose-2.json", "Condition-mii-exa-test-data-patient-3-diagnose-1.json", "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
-        public void diagnosisAllValid(String resource) throws IOException {
-            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            DomainResource expected = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/mii-exa-test-data-patient-1", "Patient/mii-exa-test-data-patient-3"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
-            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
-
-            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
-        }
-
-        @ParameterizedTest
-        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json"})
-        public void invalidReferences(String resource) throws IOException {
-            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
-
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of(), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
-            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
-
-            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
-        }
-
-
-        @ParameterizedTest
-        @ValueSource(strings = {"DiagnosisWithInvalidSliceCode.json"})
-        public void diagnosisInvalidElements(String resource) throws IOException {
-            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
-
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
-            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
-
-            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
-        }
-
-
-        @ParameterizedTest
-        @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
-        public void diagnosisMissingElements(String resource) throws IOException {
-            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
-
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
-            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
-
-            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
-        }
-
-
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
     }
 
 
@@ -202,5 +179,55 @@ public class RedactionTest {
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedPatient));
     }
 
+    @Nested
+    class Condition {
 
+        @ParameterizedTest
+        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-multiple-kodierungen.json", "Condition-mii-exa-test-data-patient-1-diagnose-1.json", "Condition-mii-exa-test-data-patient-1-diagnose-2.json", "Condition-mii-exa-test-data-patient-3-diagnose-1.json", "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
+        void diagnosisAllValid(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/mii-exa-test-data-patient-1", "Patient/mii-exa-test-data-patient-3"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json"})
+        void invalidReferences(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of(), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"DiagnosisWithInvalidSliceCode.json"})
+        void diagnosisInvalidElements(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
+        void diagnosisMissingElements(String resource) throws IOException {
+            DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
+            DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            DomainResource tgt = (DomainResource) integrationTestSetup.redaction().redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+    }
 }
