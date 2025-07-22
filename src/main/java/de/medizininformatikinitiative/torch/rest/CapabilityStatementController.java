@@ -35,7 +35,7 @@ public class CapabilityStatementController {
         capabilityStatement.setDate(new java.util.Date());
         capabilityStatement.setFhirVersion(Enumerations.FHIRVersion._4_0_1);
         capabilityStatement.setKind(CapabilityStatement.CapabilityStatementKind.INSTANCE);
-        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0-alpha.5");
+        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0-alpha.6");
         capabilityStatement.getImplementation().setDescription("Torch FHIR Server Implementation");
         logger.trace("Created basic metadata for CapabilityStatement");
 
@@ -50,7 +50,6 @@ public class CapabilityStatementController {
         resource.getInteraction().add(new CapabilityStatement.ResourceInteractionComponent().setCode(CapabilityStatement.TypeRestfulInteraction.READ));
         resource.getInteraction().add(new CapabilityStatement.ResourceInteractionComponent().setCode(CapabilityStatement.TypeRestfulInteraction.SEARCHTYPE));
         rest.getResource().add(resource);
-        // logger.debug("Defined supported resources and operations");
 
         capabilityStatement.getRest().add(rest);
 

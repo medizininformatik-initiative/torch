@@ -13,7 +13,7 @@
 
     <groupId>de.medizininformatikinitiative</groupId>
     <artifactId>torch</artifactId>
-    <version>1.0.0-alpha.5</version>
+    <version>1.0.0-alpha.6</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -326,7 +326,9 @@
                                     <arguments>
                                         <argument>-f</argument>
                                         <argument>src/test/jq/transaction-bundle-converter.jq</argument>
-                                        <argument>target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json</argument>
+                                        <argument>
+                                            target/kds-testdata-2024.0.1/resources/Bundle-mii-exa-test-data-bundle.json
+                                        </argument>
                                     </arguments>
                                     <outputFile>target/Bundle-mii-exa-test-data-bundle.json</outputFile>
                                 </configuration>
