@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.RecordedRequest;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +37,12 @@ import static org.hl7.fhir.r4.model.ResourceType.Patient;
 
 class DataStoreTest {
 
+    private static final String INVALID_RESOURCE = """
+            {
+              "resourceType": "Invalid"
+            }
+            """;
+
     private static final String PATIENT_BUNDLE = """
             {
               "resourceType": "Bundle",
@@ -50,7 +57,6 @@ class DataStoreTest {
               ]
             }
             """;
-
 
     private static final String BATCH_RESPONSE = """
             {                "resourceType": "Bundle",
@@ -173,6 +179,15 @@ class DataStoreTest {
 
             StepVerifier.create(result).expectNextMatches(resource -> resource.getResourceType() == Patient).verifyComplete();
         }
+
+        @Test
+        void emptyResultAfterParsingError() {
+            mockStore.enqueue(new MockResponse().setResponseCode(200).setBody(INVALID_RESOURCE));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result).verifyComplete();
+        }
     }
 
     @Nested
@@ -202,6 +217,14 @@ class DataStoreTest {
                     .verify();
         }
 
+        @Test
+        void emptyResultAfterParsingError() {
+            mockStore.enqueue(new MockResponse().setResponseCode(200).setBody(INVALID_RESOURCE));
+
+            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+
+            StepVerifier.create(result).verifyComplete();
+        }
 
         @ParameterizedTest
         @ValueSource(ints = {404, 500})
@@ -230,7 +253,6 @@ class DataStoreTest {
             StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
         }
 
-
     }
 
     @Nested
@@ -241,9 +263,9 @@ class DataStoreTest {
         private String batchResponseError;
         private String batchResponseErrorDiagnosis;
 
-        private static Parameters params(String measureUri) {
+        private static Parameters params() {
             var parameters = new Parameters();
-            parameters.setParameter("measure", measureUri);
+            parameters.setParameter("measure", "uri-152349");
             return parameters;
         }
 
@@ -262,8 +284,9 @@ class DataStoreTest {
         private Dispatcher dispatcher(String response, String batchResponse, AtomicInteger numRequiredAsyncPolls) {
             return new Dispatcher() {
 
+                @NotNull
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public MockResponse dispatch(@NotNull RecordedRequest request) {
                     assert request.getPath() != null;
                     return switch (request.getPath()) {
                         case "/fhir/Measure/$evaluate-measure" -> evaluateMeasureResponse(request, response);
@@ -279,8 +302,9 @@ class DataStoreTest {
         private Dispatcher statusEndpointNotFoundDispatcher(String response) {
             return new Dispatcher() {
 
+                @NotNull
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public MockResponse dispatch(@NotNull RecordedRequest request) {
                     return "/fhir/Measure/$evaluate-measure".equals(request.getPath())
                             ? evaluateMeasureResponse(request, response)
                             : new MockResponse().setResponseCode(404);
@@ -292,8 +316,9 @@ class DataStoreTest {
             var asyncPollIndex = new AtomicInteger(0);
             return new Dispatcher() {
 
+                @NotNull
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public MockResponse dispatch(@NotNull RecordedRequest request) {
                     assert request.getPath() != null;
                     return switch (request.getPath()) {
                         case "/fhir/Measure/$evaluate-measure" -> evaluateMeasureResponse(request, response);
@@ -327,7 +352,7 @@ class DataStoreTest {
             void failsOnOperationNotFound() {
                 mockStore.enqueue(new MockResponse().setResponseCode(404));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result).expectError(WebClientResponseException.NotFound.class).verify();
             }
@@ -336,7 +361,7 @@ class DataStoreTest {
             void failsOnStatusEndpointNotFound() {
                 mockStore.setDispatcher(statusEndpointNotFoundDispatcher(responseSuccess));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result).expectError().verify();
             }
@@ -345,7 +370,7 @@ class DataStoreTest {
             void failsOnErrorInResponseBundle() {
                 mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseError));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result)
                         .expectErrorSatisfies(e -> assertThat(e)
@@ -358,7 +383,7 @@ class DataStoreTest {
             void failsOnErrorInResponseBundleWithDiagnosis() {
                 mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseErrorDiagnosis));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result)
                         .expectErrorSatisfies(e -> assertThat(e)
@@ -371,7 +396,7 @@ class DataStoreTest {
             void successOnStatusEndpointOneInternalServerError() {
                 mockStore.setDispatcher(statusEndpointOneInternalServerErrorDispatcher(responseSuccess, batchResponseSuccess));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result)
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
@@ -383,7 +408,7 @@ class DataStoreTest {
             void success(int numRequiredAsyncPolls) {
                 mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseSuccess, new AtomicInteger(numRequiredAsyncPolls)));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result)
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
@@ -404,7 +429,7 @@ class DataStoreTest {
             void failsOnOperationNotFound() {
                 mockStore.enqueue(new MockResponse().setResponseCode(404));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result).expectError(WebClientResponseException.NotFound.class).verify();
             }
@@ -413,7 +438,7 @@ class DataStoreTest {
             void failsOnOperationInternalServerError() {
                 mockStore.enqueue(new MockResponse().setResponseCode(500));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result).expectError(WebClientResponseException.InternalServerError.class).verify();
             }
@@ -422,7 +447,7 @@ class DataStoreTest {
             void success() {
                 mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseSuccess));
 
-                var result = dataStore.evaluateMeasure(params("uri-152349"));
+                var result = dataStore.evaluateMeasure(params());
 
                 StepVerifier.create(result)
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
