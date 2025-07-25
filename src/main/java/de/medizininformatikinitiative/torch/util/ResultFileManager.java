@@ -4,17 +4,14 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +20,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -38,18 +41,14 @@ public class ResultFileManager {
 
     private final Path resultsDirPath;
     private final FhirContext fhirContext;
-    private final String hostname;
-    private final String fileServerName;
     public final ConcurrentHashMap<String, HttpStatus> jobStatusMap = new ConcurrentHashMap<>();
 
-    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
+    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.fhirContext = fhirContext;
 
 
         Duration duration1 = Duration.parse(duration);
-        this.hostname = hostname;
-        this.fileServerName = fileServerName;
 
 
         logger.debug("Duration of persistence {}", duration1);
@@ -213,7 +212,15 @@ public class ResultFileManager {
         }
     }
 
-    public Map<String, Object> loadBundleFromFileSystem(String jobId, String transactionTime) {
+    /**
+     * Generates the server response for a successful operation.
+     *
+     * @param url             of the calling request.
+     * @param jobId           id to be handled
+     * @param transactionTime time of the transaction
+     * @return Map Containing the server response with file locations
+     */
+    public Map<String, Object> loadBundleFromFileSystem(String url, String jobId, String transactionTime) {
         Map<String, Object> response = new HashMap<>();
         try {
             Path jobDir = getJobDirectory(jobId);
@@ -224,10 +231,9 @@ public class ResultFileManager {
 
                 Files.list(jobDir).forEach(file -> {
                     String fileName = file.getFileName().toString();
-                    String url = fileServerName + "/" + jobId + "/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
-                    fileEntry.put("url", url);
+                    fileEntry.put("url", url + "/" + jobId + "/" + fileName);
 
                     if (fileName.endsWith(".ndjson")) {
                         fileEntry.put("type", "NDJSON Bundle");
@@ -244,7 +250,7 @@ public class ResultFileManager {
                 logger.debug("OutputFiles size {}", outputFiles.size());
 
                 response.put("transactionTime", transactionTime);
-                response.put("request", hostname + "/fhir/$extract-data");
+                response.put("request", url + "/fhir/$extract-data");
                 response.put("requiresAccessToken", false);
                 response.put("output", outputFiles);
                 response.put("deleted", deletedFiles);
