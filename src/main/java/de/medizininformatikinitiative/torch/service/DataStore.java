@@ -106,7 +106,11 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC)
-                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
+                .flatMap(body -> parseResource(Bundle.class, body))
+                .onErrorResume(e -> {
+                    logger.error("Failed to parse FHIR bundle in batch {}: {}", batchId, e.getMessage(), e);
+                    return Mono.just(new Bundle());
+                })
                 .map(this::extractResourcesFromBundle)
                 .doOnSuccess(resources ->
                         logger.debug(
@@ -162,7 +166,7 @@ public class DataStore {
                 .bodyValue(query.params().appendParam("_count", stringValue(Integer.toString(pageCount))).toString())
                 .retrieve()
                 .bodyToMono(String.class)
-                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
+                .flatMap(body -> parseResource(Bundle.class, body))
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
@@ -187,7 +191,7 @@ public class DataStore {
                 .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
-                .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
+                .flatMap(response -> parseResource(Bundle.class, response));
     }
 
     public Mono<Void> transact(Bundle bundle) {
