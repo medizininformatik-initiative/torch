@@ -96,10 +96,6 @@ public record AnnotatedAttributeGroup(
         return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
-    public String resourceType() {
-        return attributes.getFirst().attributeRef().split("\\.")[0];
-    }
-
     public boolean hasMustHave() {
         return attributes.stream().anyMatch(AnnotatedAttribute::mustHave);
     }
@@ -110,4 +106,3 @@ public record AnnotatedAttributeGroup(
     }
 
 }
-
