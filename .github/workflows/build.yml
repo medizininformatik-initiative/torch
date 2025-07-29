@@ -155,6 +155,7 @@ jobs:
       - name: Load Torch Image
         run: docker load --input /tmp/torch.tar
 
+
       - name: Check out Git repository
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
 
@@ -177,12 +178,68 @@ jobs:
 
       - name: Run Blackbox Integration Tests
         run: mvn -P blackbox-integration-tests -B verify
+  
+  
+  script-integration-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: torch-image
+          path: /tmp
 
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Start Docker Compose
+        working-directory: .github/workflows/script-integration-test
+        run: docker compose up -d
+
+      - name: Wait for source-fhir-server to become healthy
+        run: |
+          set -e
+
+          echo "⏳ Waiting for source-fhir-server container to become healthy..."
+
+          # Get the container name (adjust if you're not using default naming)
+          CONTAINER=$(docker ps --filter "name=source-fhir-server" --format "{{.Names}}" | head -n1)
+
+          if [ -z "$CONTAINER" ]; then
+            echo "❌ No container found matching source-fhir-server"
+            docker ps -a
+            exit 1
+          fi
+
+          for i in {1..30}; do
+            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER" || echo "unavailable")
+            echo "Attempt $i - Status: $STATUS"
+            if [ "$STATUS" == "healthy" ]; then
+              echo "✅ $CONTAINER is healthy"
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "❌ $CONTAINER did not become healthy in time"
+          docker logs "$CONTAINER"
+          exit 1
+
+      - name: Run integration script
+        run: .github/workflows/script-integration-test/integration-test.sh
+  
+  
+  
   push-image:
     needs:
       - test
       - image-scan
       - blackbox-integration-tests
+      - script-integration-test
     runs-on: ubuntu-24.04
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
 

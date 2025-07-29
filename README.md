@@ -270,6 +270,37 @@ For example a CRTDL only extracting Condition.onset will result in this:
 }
 ```
 
+## Transfer Script
+
+TORCH provides a companion **transfer script** designed to automate the workflow of submitting a data extraction
+request, polling the status, and transferring the resulting files to a target FHIR server.
+
+The transfer script will:
+
+1. Take the **CRTDL** and generate a FHIR parameters resource to send to TORCH.
+2. Execute $extract-data operation on the TORCH server using parameters resource as input.
+3. Poll the TORCH status endpoint until the export is complete.
+4. Download the resulting patient-oriented FHIR bundles into a temp dir.
+5. Upload these files to a configured target FHIR server using the `blazectl` tool.
+6. Provide progress feedback and error handling at each step.
+
+### Usage Example
+
+```bash
+./transfer-extraction-to-dup-fhir-server.sh -c src/test/resources/CRTDL/CRTDL_observation.json -t  http://target-fhir-server:8080/fhir
+```
+
+### Environment Variables
+
+The transfer script respects several environment variables to configure server URLs, directories, retry counts, and
+timing:
+
+| Variable       | Default               | Description                                         |
+|----------------|-----------------------|-----------------------------------------------------|
+| TORCH_BASE_URL | http://localhost:8080 | Base URL of the TORCH server                        |
+| MAX_RETRIES    | 60                    | Number of status polling attempts before timing out |
+| SLEEP_SECONDS  | 5                     | Seconds to wait between polling attempts            |
+
 ## Supported Features
 
 - Loading of StructureDefinitions
