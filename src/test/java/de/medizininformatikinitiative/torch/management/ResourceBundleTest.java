@@ -34,7 +34,7 @@ class ResourceBundleTest {
 
     @BeforeEach
     void setUp() {
-        patient1.setId("patient1");
+        patient1.setId("http://blaze.com/fhir/Patient/patient1");
         patient2.setId("patient2");
         patient3.setId("patient3");
         Set<String> attributeGroups1 = Set.of("group1", "group2");
@@ -52,7 +52,7 @@ class ResourceBundleTest {
         cache.put(wrapper1);
 
         var fhirBundle = cache.toFhirBundle();
-
+        assertThat(fhirBundle.getEntry().getFirst().getRequest().getUrl()).isEqualTo("Patient/patient1");
         assertThat(fhirBundle)
                 .containsNEntries(1)
                 .extractResources()
