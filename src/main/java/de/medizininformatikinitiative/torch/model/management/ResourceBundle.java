@@ -257,9 +257,7 @@ public record ResourceBundle(
         bundle.setId(UUID.randomUUID().toString());
 
         cache.values().forEach(resource -> {
-                    if (resource.isPresent()) {
-                        bundle.addEntry(createBundleEntry(resource.get()));
-                    }
+                    resource.ifPresent(value -> bundle.addEntry(createBundleEntry(value)));
                 }
         );
         return bundle;
@@ -269,7 +267,7 @@ public record ResourceBundle(
         Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
         entryComponent.setResource(resource);
         Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
-        request.setUrl(resource.getResourceType() + "/" + resource.getId());
+        request.setUrl(ResourceUtils.getRelativeURL(resource));
         request.setMethod(PUT);
         entryComponent.setRequest(request);
         return entryComponent;
