@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -42,15 +41,13 @@ public class DirectResourceLoader {
 
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
-    private final StructureDefinitionHandler structureDefinitionsHandler;
     private final ProfileMustHaveChecker profileMustHaveChecker;
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, StructureDefinitionHandler structureDefinitionHandler, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
         this.dataStore = dataStore;
         this.consentValidator = validator;
         this.dseMappingTreeBase = dseMappingTreeBase;
-        this.structureDefinitionsHandler = structureDefinitionHandler;
         this.profileMustHaveChecker = profileMustHaveChecker;
     }
 
@@ -73,7 +70,14 @@ public class DirectResourceLoader {
 
     private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet).map(bundle -> patientBatchWithConsent.keep(safeSet));
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet)
+                .doOnNext(bundle -> {
+                    logger.debug(" {} out of {} patients passed consent checks",
+                            safeSet.size(),
+                            patientBatchWithConsent.patientBatch().ids().size());
+                    logger.trace("Surviving patient IDs: {}", String.join(", ", safeSet));
+                })
+                .map(bundle -> patientBatchWithConsent.keep(safeSet));
     }
 
     private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
@@ -122,7 +126,6 @@ public class DirectResourceLoader {
         }).then(Mono.defer(() -> {
             if (atLeastOneResource.get()) {
                 return Mono.empty();
-
             } else {
                 logger.error("MustHave violated for group: {}", group.groupReference());
                 return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
@@ -181,6 +184,7 @@ public class DirectResourceLoader {
                         safeGroup.add(tuple.patientId);
                         bundle.put(tuple.resource, group.id(), true);
                     } else {
+                        logger.trace("Resource {} has not fulfilled must have checks for group {}", tuple.resource.getId(), group.id());
                         bundle.put(tuple.resource, group.id(), false);
                     }
                 })
