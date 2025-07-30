@@ -43,6 +43,17 @@ public class ResourceUtils {
 
     }
 
+    /**
+     * Strips version information from a FHIR canonical URL.
+     *
+     * @param url the potentially versioned URL
+     * @return the URL with version information removed
+     */
+    public static String stripVersion(String url) {
+        int pipeIndex = url.indexOf('|');
+        return pipeIndex == -1 ? url : url.substring(0, pipeIndex);
+    }
+
 
     private static String getPatientIdViaReflection(DomainResource resource) throws PatientIdNotFoundException {
 
@@ -88,8 +99,8 @@ public class ResourceUtils {
             throw new PatientIdNotFoundException("Bundle is isEmpty or null");
         }
         Resource resource = bundle.getEntryFirstRep().getResource();
-        if (resource instanceof DomainResource) {
-            return patientId((DomainResource) resource);
+        if (resource instanceof DomainResource domainResource) {
+            return patientId(domainResource);
         }
         throw new PatientIdNotFoundException("First entry in bundle is not a DomainResource");
     }
