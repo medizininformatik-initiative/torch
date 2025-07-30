@@ -32,6 +32,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 public class CrtdlProcessingService {
@@ -128,6 +129,7 @@ public class CrtdlProcessingService {
         ).then(
                 // Step 3: Write the Final Core Resource Bundle to File
                 Mono.defer(() -> {
+                    logger.debug("Handling Final Core Bundle");
                     PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
                     PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
                     return writeBatch(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
@@ -136,10 +138,14 @@ public class CrtdlProcessingService {
     }
 
     private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {
+        UUID id = UUID.randomUUID();
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
+                .doOnNext(loadedBatch -> logger.debug("Directly loaded patient compartment for batch {} with {} patients", id, loadedBatch.patientIds().size()))
                 .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
+                .doOnNext(loadedBatch -> logger.debug("Batch resolved references {} with {} patients", id, loadedBatch.patientIds().size()))
                 .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
+                .doOnNext(loadedBatch -> logger.debug("Batch finished extraction  {} ", id))
                 .flatMap(patientBatch -> {
                             batchToCoreWriter.updateCore(patientBatch, coreBundle);
                             return writeBatch(jobID, patientBatch);
