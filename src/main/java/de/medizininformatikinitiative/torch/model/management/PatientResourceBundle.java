@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.Resource;
 
 import java.util.Collection;
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -84,5 +85,9 @@ public record PatientResourceBundle(String patientId, Provisions provisions, Res
 
     public void addStaticInfo(CachelessResourceBundle staticInfo) {
         bundle.merge(staticInfo);
+    }
+
+    public Set<ResourceGroup> getValidResourceGroups() {
+        return bundle.getValidResourceGroups();
     }
 }
