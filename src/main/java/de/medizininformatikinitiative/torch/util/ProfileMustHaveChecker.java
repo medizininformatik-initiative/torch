@@ -27,7 +27,7 @@ public class ProfileMustHaveChecker {
             return false;
         }
         DomainResource resource = (DomainResource) src;
-        List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).toList();
+        List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).map(ResourceUtils::stripVersion).toList();
 
         if (resource.getResourceType().toString().equals("Patient") || profiles.contains(group.groupReference())) {
             if (group.hasMustHave()) {

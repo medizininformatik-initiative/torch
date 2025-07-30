@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.management;
 
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import jakarta.annotation.PostConstruct;
 import org.hl7.fhir.r4.model.StructureDefinition;
 
@@ -60,7 +61,7 @@ public class StructureDefinitionHandler {
      * @return true if the profile is known, false otherwise
      */
     public boolean known(String profile) {
-        return definitions.containsKey(stripVersion(profile));
+        return definitions.containsKey(ResourceUtils.stripVersion(profile));
     }
 
     /**
@@ -71,7 +72,7 @@ public class StructureDefinitionHandler {
      * @return CompiledStructureDefinition corresponding to the base URL (ignores version)
      */
     public Optional<CompiledStructureDefinition> getDefinition(String url) {
-        return Optional.ofNullable(definitions.get(stripVersion(url)));
+        return Optional.ofNullable(definitions.get(ResourceUtils.stripVersion(url)));
     }
 
     /**
@@ -83,7 +84,7 @@ public class StructureDefinitionHandler {
      */
     public List<CompiledStructureDefinition> getDefinitions(Set<String> urls) {
         return urls.stream()
-                .map(this::stripVersion)
+                .map(ResourceUtils::stripVersion)
                 .map(definitions::get)
                 .filter(Objects::nonNull).toList();
     }
@@ -99,16 +100,6 @@ public class StructureDefinitionHandler {
         definitions.put(structureDefinition.getUrl(), CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
     }
 
-    /**
-     * Strips version information from a FHIR canonical URL.
-     *
-     * @param url the potentially versioned URL
-     * @return the URL with version information removed
-     */
-    private String stripVersion(String url) {
-        int pipeIndex = url.indexOf('|');
-        return pipeIndex == -1 ? url : url.substring(0, pipeIndex);
-    }
 
     @Override
     public String toString() {
