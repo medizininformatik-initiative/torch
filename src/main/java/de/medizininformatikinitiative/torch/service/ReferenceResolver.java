@@ -106,8 +106,9 @@ public class ReferenceResolver {
             ResourceBundle coreBundle,
             boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
-
-        return Mono.just(patientBundle.bundle().getValidResourceGroups())
+        int groupValidity = patientBundle.getValidResourceGroups().size();
+        logger.trace("Resolving Patient Resource Bundle {} with {} valid groups", patientBundle.patientId(), groupValidity);
+        return Mono.just(patientBundle.getValidResourceGroups())
                 .map(groups -> groups.stream()
                         .filter(compartmentManager::isInCompartment) // your custom filter logic
                         .collect(Collectors.toSet()))
@@ -221,14 +222,10 @@ public class ReferenceResolver {
         }
 
         Optional<Resource> resource = isPatientResource
-                ? patientBundle.bundle().get(resourceGroup.resourceId())
+                ? patientBundle.get(resourceGroup.resourceId())
                 : coreBundle.get(resourceGroup.resourceId());
 
-        if (resource.isPresent()) {
-            return extractReferences(resourceGroup, resource.get(), groupMap, processingBundle);
-        } else {
-            return handleMissingResource(resourceGroup, processingBundle);
-        }
+        return resource.map(value -> extractReferences(resourceGroup, value, groupMap, processingBundle)).orElseGet(() -> handleMissingResource(resourceGroup, processingBundle));
     }
 
     /**
@@ -258,9 +255,7 @@ public class ReferenceResolver {
             List<ReferenceWrapper> extracted = referenceExtractor.extract(resource, groupMap, resourceGroup.groupId());
             return Map.entry(resourceGroup, extracted);
         } catch (MustHaveViolatedException e) {
-            synchronized (processingBundle) {
-                processingBundle.addResourceGroupValidity(resourceGroup, false);
-            }
+            processingBundle.addResourceGroupValidity(resourceGroup, false);
             return Map.entry(resourceGroup, Collections.emptyList());
         }
     }
@@ -275,11 +270,8 @@ public class ReferenceResolver {
     private Map.Entry<ResourceGroup, List<ReferenceWrapper>> handleMissingResource(
             ResourceGroup resourceGroup,
             ResourceBundle processingBundle) {
-
-        synchronized (processingBundle) {
-            logger.warn("Empty resource marked as valid for group {}", resourceGroup);
-            processingBundle.addResourceGroupValidity(resourceGroup, false);
-        }
+        logger.warn("Empty resource marked as valid for group {}", resourceGroup);
+        processingBundle.addResourceGroupValidity(resourceGroup, false);
         return Map.entry(resourceGroup, Collections.emptyList());
     }
 

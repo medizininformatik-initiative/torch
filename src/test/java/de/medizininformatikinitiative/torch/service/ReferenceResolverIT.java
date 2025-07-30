@@ -257,7 +257,7 @@ class ReferenceResolverIT {
 
 
         @Test
-        void notFetchingResources() {
+        void processResourceGroups_notFetchingResources() {
             Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
                 put("Patient1", patientGroup);
                 put("Condition1", conditionGroup);
@@ -273,7 +273,7 @@ class ReferenceResolverIT {
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
             patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
 
-            var result = referenceResolver.processResourceGroups(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
+            var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
 
 
             StepVerifier.create(result)
@@ -281,6 +281,48 @@ class ReferenceResolverIT {
                     .verifyComplete();
         }
 
+        @Test
+        void processResourceGroups_mustHaveViolation() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            ResourceBundle coreBundle = new ResourceBundle();
+            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            Condition condition = parser.parseResource(Condition.class, CONDITION).setSubject(null); // marked as must-have
+
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+
+
+            var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
+
+
+            StepVerifier.create(result)
+                    .verifyComplete();
+        }
+
+        @Test
+        void processResourceGroups_withMissingResource() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+            }};
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            ResourceBundle coreBundle = new ResourceBundle();
+
+            patientBundle.put("Condition/2"); // add an empty reference
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+
+
+            var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
+
+
+            StepVerifier.create(result)
+                    .verifyComplete();
+        }
 
         @Test
         void loadReferences_success() {
@@ -298,7 +340,7 @@ class ReferenceResolverIT {
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
-            var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
+            var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
 
             assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
         }

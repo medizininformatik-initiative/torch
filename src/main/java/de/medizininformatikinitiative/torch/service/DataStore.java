@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 
@@ -154,8 +155,10 @@ public class DataStore {
      */
     public <T extends Resource> Flux<T> search(Query query, Class<T> resourceType) {
         var start = System.nanoTime();
-        logger.trace("Execute query: {}", query);
-
+        var queryId = UUID.randomUUID();
+        logger.debug("Executing query {} for resource type {}", queryId, query.type());
+        logger.trace("Full query: {}", query);
+        var counter = new AtomicInteger();
         return client.post()
                 .uri("/" + query.type() + "/_search")
                 .contentType(APPLICATION_FORM_URLENCODED)
@@ -170,14 +173,15 @@ public class DataStore {
                 .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
                 .flatMap(resource -> {
                     if (resourceType.isInstance(resource)) {
+                        counter.incrementAndGet();
                         return Mono.just(resourceType.cast(resource));
                     } else {
                         logger.warn("Found miss match resource type {} querying type {}", resource.getClass().getSimpleName(), query.type());
                         return Mono.empty();
                     }
                 })
-                .doOnComplete(() -> logger.trace("Finished query `{}` in {} seconds.", query,
-                        "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
+                .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds with {} resources.", queryId,
+                        "%.1f".formatted(TimeUtils.durationSecondsSince(start)), counter.get()))
                 .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 

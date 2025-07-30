@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
@@ -69,21 +68,11 @@ public class ReferenceBundleLoader {
                             }
                             notLoaded.forEach(unloaded -> {
                                 if (compartmentManager.isInCompartment(unloaded) && patientBundle != null) {
-                                    patientBundle.bundle().put(unloaded);
+                                    patientBundle.put(unloaded);
                                 } else {
                                     coreBundle.put(unloaded);
                                 }
                             });
-                        }).onErrorResume(DataStoreException.class, e -> {
-                            logger.error("Failed to fetch resources, marking all as invalid: {}", e.getMessage());
-                            unknownReferences.forEach(ref -> {
-                                if (compartmentManager.isInCompartment(ref) && patientBundle != null) {
-                                    patientBundle.bundle().put(ref);
-                                } else {
-                                    coreBundle.put(ref);
-                                }
-                            });
-                            return Mono.empty();
                         }).then();
     }
 
