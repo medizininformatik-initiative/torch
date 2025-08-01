@@ -106,8 +106,9 @@ public class ReferenceResolver {
             ResourceBundle coreBundle,
             boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
-
-        return Mono.just(patientBundle.bundle().getValidResourceGroups())
+        int groupValidity = patientBundle.getValidResourceGroups().size();
+        logger.debug("Resolving Patient Resource Bundle {} with {} valid groups", patientBundle.patientId(), groupValidity);
+        return Mono.just(patientBundle.getValidResourceGroups())
                 .map(groups -> groups.stream()
                         .filter(compartmentManager::isInCompartment) // your custom filter logic
                         .collect(Collectors.toSet()))
@@ -216,7 +217,7 @@ public class ReferenceResolver {
         }
 
         Optional<Resource> resource = isPatientResource
-                ? patientBundle.bundle().get(resourceGroup.resourceId())
+                ? patientBundle.get(resourceGroup.resourceId())
                 : coreBundle.get(resourceGroup.resourceId());
 
         if (resource.isPresent()) {
