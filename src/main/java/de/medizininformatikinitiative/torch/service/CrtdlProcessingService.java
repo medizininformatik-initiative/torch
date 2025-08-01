@@ -98,7 +98,7 @@ public class CrtdlProcessingService {
         if (patientIds.isEmpty()) {
             return processIntern(crtdl, jobID, fetchPatientBatches(crtdl));
         } else {
-            return processIntern(crtdl, jobID, Flux.just(new PatientBatch(patientIds)));
+            return processIntern(crtdl, jobID, Flux.fromIterable(PatientBatch.of(patientIds).split(batchSize)));
         }
     }
 
