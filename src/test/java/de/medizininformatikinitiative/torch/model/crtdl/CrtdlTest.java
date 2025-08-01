@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.crtdl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -10,7 +11,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-public class CrtdlTest {
+class CrtdlTest {
 
     private ObjectMapper objectMapper;
 
@@ -21,7 +22,7 @@ public class CrtdlTest {
     }
 
     @Test
-    public void testCondition() throws Exception {
+    void testCondition() throws Exception {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_date.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
 
@@ -31,7 +32,7 @@ public class CrtdlTest {
     }
 
     @Test
-    public void testObservation() throws Exception {
+    void testObservation() throws Exception {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
 
@@ -43,21 +44,22 @@ public class CrtdlTest {
     }
 
     @Test
-    public void consentKeyEmpty() throws Exception {
+    void consentKeyEmpty() throws Exception {
         try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
 
-            assertThat(crtdl.consentKey()).isEqualTo(Optional.empty());
+            assertThat(crtdl.consentKey()).isNotPresent();
         }
     }
 
-/*
+
     @Test
-    public void consentKeyPopulated() throws Exception {
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_all_fields_consent.json")) {
+    void consentKeyPopulated() throws Exception {
+        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_consent.json")) {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            assertThat(crtdl.consentKey()).isEqualTo(Optional.of("yes-yes-no-yes"));
+            assertThat(crtdl.consentKey()).isEqualTo(Optional.of(ConsentKey.YES_YES_NO_YES));
         }
     }
-*/
+
+
 }

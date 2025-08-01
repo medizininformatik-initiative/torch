@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,7 +35,7 @@ class ProcessedGroupFactoryTest {
 
     @Test
     void create() {
-        AnnotatedCrtdl crtdl = new AnnotatedCrtdl(node, new AnnotatedDataExtraction(List.of(group, group2, group3)));
+        AnnotatedCrtdl crtdl = new AnnotatedCrtdl(node, new AnnotatedDataExtraction(List.of(group, group2, group3)), Optional.empty());
 
         GroupsToProcess result = processor.create(crtdl);
 
