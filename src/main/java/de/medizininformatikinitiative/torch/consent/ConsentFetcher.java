@@ -106,6 +106,7 @@ public class ConsentFetcher {
         return dataStore.search(getConsentQuery(batch), Consent.class)
                 .doOnSubscribe(subscription -> logger.trace("Fetching resources for batch: {}", batch.ids()))
                 .doOnNext(resource -> logger.trace("Consent resource with id {} fetched for ConsentBuild", resource.getIdPart()))
+                .filter(consent -> consent.getStatus() == Consent.ConsentState.ACTIVE)
                 .concatMap(consent -> {
                     try {
                         String patientId = ResourceUtils.patientId(consent);

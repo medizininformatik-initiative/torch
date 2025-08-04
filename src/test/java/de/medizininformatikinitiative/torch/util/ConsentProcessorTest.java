@@ -78,6 +78,7 @@ class ConsentProcessorTest {
 
 
         when(mockProvision.getPeriod()).thenReturn(mockPeriod);
+        when(mockProvision.getType()).thenReturn(Consent.ConsentProvisionType.PERMIT);
         when(mockProvision.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(mockCoding)));
 
 
@@ -110,6 +111,25 @@ class ConsentProcessorTest {
         assertThrows(ConsentViolatedException.class, () -> consentProcessor.transformToConsentPeriodByCode(consent, validCodes));
     }
 
+    @Test
+    @DisplayName("Test transformToConsentPeriodByCode - some codes are missing and should throw ConsentViolatedException")
+    void failsOnDeny() {
+        Consent consent = mock(Consent.class);
+
+        // Assume we are requesting two valid codes, but only one will be found
+        Set<String> validCodes = Set.of("VALID_CODE_1", "VALID_CODE_2");
+
+        // Mock provision for VALID_CODE_1
+        Consent.ProvisionComponent invalidProvision = mock(Consent.ProvisionComponent.class);
+        when(invalidProvision.getType()).thenReturn(Consent.ConsentProvisionType.DENY);
+        // Only VALID_CODE_1 is provided, VALID_CODE_2 is missing
+        when(fhirPath.evaluate(any(), anyString(), eq(Base.class))).thenReturn(List.of(invalidProvision));  // Only one valid provision
+
+        // Since VALID_CODE_2 is missing, an exception should be thrown
+        assertThrows(ConsentViolatedException.class, () -> consentProcessor.transformToConsentPeriodByCode(consent, validCodes));
+
+    }
+
 
     @Test
     @DisplayName("Test transformToConsentPeriodByCode - some codes are missing and should throw ConsentViolatedException")
@@ -121,6 +141,7 @@ class ConsentProcessorTest {
 
         // Mock provision for VALID_CODE_1
         Consent.ProvisionComponent validProvision1 = mock(Consent.ProvisionComponent.class);
+        when(validProvision1.getType()).thenReturn(Consent.ConsentProvisionType.PERMIT);
         Period validPeriod1 = mock(Period.class);
         when(validProvision1.getPeriod()).thenReturn(validPeriod1);
         when(validProvision1.getCode()).thenReturn(Collections.singletonList(new CodeableConcept().addCoding(new Coding().setCode("VALID_CODE_1"))));
