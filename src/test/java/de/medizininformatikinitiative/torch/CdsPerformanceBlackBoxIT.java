@@ -4,7 +4,6 @@ import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.Disabled;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -18,9 +17,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * => mvn clean package -DskipTests && docker build -t torch:latest . && mvn -P blackbox-integration-tests -B verify
  */
 @Testcontainers
-public class CdsPerformanceExecutionIT {
+public class CdsPerformanceBlackBoxIT {
 
-    private static final Logger logger = LoggerFactory.getLogger(CdsPerformanceExecutionIT.class);
+    private static final Logger logger = LoggerFactory.getLogger(CdsPerformanceBlackBoxIT.class);
 
     private static PerformanceIntegrationTestEnv environment;
     private static TorchClient torchClient;
