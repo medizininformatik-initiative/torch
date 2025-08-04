@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.7] - 2025-08-04
+
+### Added
+
+- Transfer script to FHIR DUP Server [#394](https://github.com/medizininformatik-initiative/torch/pull/394)
+
+### Fixed
+
+- Fix Bundle PUT URL Not Set To Relative URL [#392](https://github.com/medizininformatik-initiative/torch/pull/392)
+- Bug Fix ProfileMustHaveChecker Does Not Strip
+  Versions [#397](https://github.com/medizininformatik-initiative/torch/pull/397)
+
 ## [v1.0.0-alpha.6] - 2025-07-23
 
 ### Added
