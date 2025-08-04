@@ -24,9 +24,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * => mvn clean package -DskipTests && docker build -t torch:latest .
  */
 @Testcontainers
-public class CdsExecutionIT {
+public class CdsBlackBoxIT {
 
-    private static final Logger logger = LoggerFactory.getLogger(CdsExecutionIT.class);
+    private static final Logger logger = LoggerFactory.getLogger(CdsBlackBoxIT.class);
 
     private static BlackBoxIntegrationTestEnv environment;
     private static TorchClient torchClient;
@@ -55,7 +55,6 @@ public class CdsExecutionIT {
     public void testExamples() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json")).block();
         assertThat(statusUrl).isNotNull();
-
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
 

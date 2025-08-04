@@ -26,9 +26,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  * => mvn clean package -DskipTests && docker build -t torch:latest .
  */
 @Testcontainers
-class SpecificExecutionIT {
+class SpecificBlackBoxIT {
 
-    private static final Logger logger = LoggerFactory.getLogger(SpecificExecutionIT.class);
+    private static final Logger logger = LoggerFactory.getLogger(SpecificBlackBoxIT.class);
 
     private static BlackBoxIntegrationTestEnv environment;
     private static TorchClient torchClient;

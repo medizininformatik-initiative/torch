@@ -343,7 +343,7 @@
                         <artifactId>maven-failsafe-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/*ExecutionIT.java</include>
+                                <include>**/*BlackBoxIT.java</include>
                             </includes>
                             <!-- Override the global excludes with an empty set -->
                             <excludes combine.self="override">
@@ -389,7 +389,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <excludes>
-                        <exclude>**/*ExecutionIT.java</exclude>
+                        <exclude>**/*BlackBoxIT.java</exclude>
                     </excludes>
                 </configuration>
             </plugin>
