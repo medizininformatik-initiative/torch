@@ -72,15 +72,17 @@ public class ConsentProcessor {
         List<Base> provisionPeriodList = extractConsentProvisions(consent);
         for (Base provisionBase : provisionPeriodList) {
             Consent.ProvisionComponent provision = (Consent.ProvisionComponent) provisionBase;
-            String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
-            if (requiredCodes.contains(code)) {
-                Period period = provision.getPeriod();
-                DateTimeType start = period.hasStart() ? period.getStartElement() : null;
-                DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
+            if (provision.getType().equals(Consent.ConsentProvisionType.PERMIT)) {
+                String code = provision.getCode().getFirst().getCoding().getFirst().getCode();
+                if (requiredCodes.contains(code)) {
+                    Period period = provision.getPeriod();
+                    DateTimeType start = period.hasStart() ? period.getStartElement() : null;
+                    DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
 
-                // If no start or end period is present, skip to the next provision
-                if (start != null && end != null) {
-                    consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
+                    // If no start or end period is present, skip to the next provision
+                    if (start != null && end != null) {
+                        consentPeriodMap.computeIfAbsent(code, k -> new ArrayList<>()).add(de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period));
+                    }
                 }
             }
 
