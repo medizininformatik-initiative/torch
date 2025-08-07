@@ -1,0 +1,135 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.0.6 Chrome/138.0.7204.100 Electron/37.2.3 Safari/537.36" version="28.0.6">
+  <diagram name="Page-1" id="pWjcNrsv2ojRSrethCiz">
+    <mxGraphModel dx="3281" dy="1453" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-1" value="Resolve References" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;" vertex="1" parent="1">
+          <mxGeometry x="16" y="80" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-2" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-3" target="Sx4SoqxQZN3EeWnCLFUO-5">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-3" value="Resource" style="shape=parallelogram;html=1;strokeWidth=2;perimeter=parallelogramPerimeter;whiteSpace=wrap;rounded=1;arcSize=12;size=0.23;" vertex="1" parent="1">
+          <mxGeometry x="26" y="170" width="100" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-4" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-5" target="Sx4SoqxQZN3EeWnCLFUO-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-5" value="Extract&amp;nbsp; and process References" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="196" y="170" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-6" value="Source Resource +&lt;div&gt;Reference +&lt;div&gt;AttrGroups&lt;/div&gt;&lt;/div&gt;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="396" y="170" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-7" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-8" target="Sx4SoqxQZN3EeWnCLFUO-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-8" value="Source Resource +&lt;div&gt;Reference +&lt;div&gt;ref. AttrGroups&lt;/div&gt;&lt;/div&gt;" style="shape=parallelogram;perimeter=parallelogramPerimeter;whiteSpace=wrap;html=1;fixedSize=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="25" y="370" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-9" value="For Each Reference" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;" vertex="1" parent="1">
+          <mxGeometry x="15" y="300" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-10" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-11" target="Sx4SoqxQZN3EeWnCLFUO-16">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-11" value="Load Resources&lt;div&gt;(including Filter Match from all AttrGroups)&lt;/div&gt;" style="whiteSpace=wrap;html=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="225" y="370" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-12" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-16" target="Sx4SoqxQZN3EeWnCLFUO-21">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="484.9999999999998" y="440" as="sourcePoint" />
+            <Array as="points">
+              <mxPoint x="485.97" y="468" />
+              <mxPoint x="485.97" y="481" />
+              <mxPoint x="484.97" y="481" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-13" value="No" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Sx4SoqxQZN3EeWnCLFUO-12">
+          <mxGeometry x="-0.156" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-14" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-16" target="Sx4SoqxQZN3EeWnCLFUO-31">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-15" value="yes" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Sx4SoqxQZN3EeWnCLFUO-14">
+          <mxGeometry x="-0.2312" y="2" relative="1" as="geometry">
+            <mxPoint x="15" y="-18" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-16" value="At least One ref. Attribute Group&amp;nbsp;&amp;nbsp;&lt;div&gt;Must Have Conditions&amp;nbsp;&lt;div&gt;Match?&lt;/div&gt;&lt;/div&gt;" style="rhombus;whiteSpace=wrap;html=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="396" y="316.25" width="200.97" height="167.5" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-21" target="Sx4SoqxQZN3EeWnCLFUO-22">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-18" value="Yes" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Sx4SoqxQZN3EeWnCLFUO-17">
+          <mxGeometry x="0.0954" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-19" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-21" target="Sx4SoqxQZN3EeWnCLFUO-23">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-20" value="No" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Sx4SoqxQZN3EeWnCLFUO-19">
+          <mxGeometry x="-0.1425" y="1" relative="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-21" value="Reference Must Have?" style="rhombus;whiteSpace=wrap;html=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="445" y="520" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-22" value="Mark Source Resource as Deleted" style="whiteSpace=wrap;html=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="265" y="530" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-23" value="Replace Reference with Data Absent Reason in Source Resource" style="rounded=1;whiteSpace=wrap;html=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="425" y="690" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-24" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-26" target="Sx4SoqxQZN3EeWnCLFUO-27">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-25" value="yes" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];" vertex="1" connectable="0" parent="Sx4SoqxQZN3EeWnCLFUO-24">
+          <mxGeometry x="-0.0297" y="2" relative="1" as="geometry">
+            <mxPoint x="29" y="4" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-26" value="New Unprocessed Resource + Attribute Group Combinations" style="rhombus;whiteSpace=wrap;html=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="950.97" y="322.5" width="145.47" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-27" value="add to new References to be resolved&amp;nbsp;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;rounded=1;strokeWidth=2;arcSize=12;" vertex="1" parent="1">
+          <mxGeometry x="963.7" y="570" width="120" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-28" value="&lt;span style=&quot;color: rgb(0, 0, 0); font-family: Helvetica; font-size: 12px; font-style: normal; font-variant-ligatures: normal; font-variant-caps: normal; font-weight: 400; letter-spacing: normal; orphans: 2; text-align: center; text-indent: 0px; text-transform: none; widows: 2; word-spacing: 0px; -webkit-text-stroke-width: 0px; white-space: normal; background-color: rgb(251, 251, 251); text-decoration-thickness: initial; text-decoration-style: initial; text-decoration-color: initial; float: none; display: inline !important;&quot;&gt;Extract process References&lt;/span&gt;" style="text;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="-125" y="380" width="140" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-29" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-31" target="Sx4SoqxQZN3EeWnCLFUO-26">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Sx4SoqxQZN3EeWnCLFUO-31" target="Sx4SoqxQZN3EeWnCLFUO-33">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-31" value="Assign Attribute Groups to Resources&amp;nbsp;" style="shape=process;whiteSpace=wrap;html=1;backgroundOutline=1;" vertex="1" parent="1">
+          <mxGeometry x="645.97" y="355" width="150" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-32" value="Need Management Structure for this" style="shape=callout;whiteSpace=wrap;html=1;perimeter=calloutPerimeter;" vertex="1" parent="1">
+          <mxGeometry x="963.7" y="240" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-33" value="annotated&amp;nbsp;&lt;div&gt;Resources&lt;/div&gt;" style="ellipse;whiteSpace=wrap;html=1;" vertex="1" parent="1">
+          <mxGeometry x="660.97" y="520" width="120" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-34" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#b85450;" vertex="1" parent="1">
+          <mxGeometry x="-200" y="40" width="1370" height="760" as="geometry" />
+        </mxCell>
+        <mxCell id="Sx4SoqxQZN3EeWnCLFUO-35" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1135.97" y="720" as="sourcePoint" />
+            <mxPoint x="1135.97" y="740" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

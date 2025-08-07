@@ -52,7 +52,6 @@ public class DirectResourceLoader {
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.structureDefinitionsHandler = structureDefinitionHandler;
         this.profileMustHaveChecker = profileMustHaveChecker;
-
     }
 
     /**
@@ -179,9 +178,7 @@ public class DirectResourceLoader {
                 .doOnNext(tuple -> {
                     PatientResourceBundle bundle = mutableBundles.get(tuple.patientId);
                     if (profileMustHaveChecker.fulfilled(tuple.resource, group)) {
-
                         safeGroup.add(tuple.patientId);
-                        System.out.println("Ref" + group.groupReference() + "Type" + group.resourceType() + " ID " + group.id());
                         bundle.put(tuple.resource, group.id(), true);
                     } else {
                         bundle.put(tuple.resource, group.id(), false);
