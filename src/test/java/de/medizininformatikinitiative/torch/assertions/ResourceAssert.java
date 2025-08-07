@@ -7,12 +7,13 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import org.apache.commons.compress.utils.Lists;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.ListAssert;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Resource;
 
+import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -98,11 +99,17 @@ public class ResourceAssert extends AbstractAssert<ResourceAssert, Resource> {
 
         try {
             JsonNode obj = mapper.readTree(encoded);
-            return new ListAssert<>(Lists.newArrayList(obj.fieldNames()));
+            return new ListAssert<>(iteratorToList(obj.fieldNames()));
         } catch (JsonProcessingException e) {
             failWithMessage("Could not parse value to JsonNode: %s", encoded);
             return new ListAssert<>(List.of());
         }
+    }
+
+    private List<String> iteratorToList(Iterator<String> it) {
+        var list = new ArrayList<String>();
+        it.forEachRemaining(list::add);
+        return list;
     }
 
     public ResourceAssert hasDataAbsentReasonAt(String path, String absentReason) throws JsonProcessingException {
