@@ -273,7 +273,7 @@ class ReferenceResolverIT {
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
             patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
 
-            var result = referenceResolver.processResourceGroups(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
+            var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
 
 
             StepVerifier.create(result)
@@ -298,7 +298,7 @@ class ReferenceResolverIT {
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
 
-            var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.bundle().getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
+            var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
 
             assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
         }
