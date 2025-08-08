@@ -154,11 +154,13 @@ public class AppConfig {
 
     @Bean
     @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   ExchangeFilterFunction oauthExchangeFilterFunction,
-                                   @Value("${torch.fhir.user}") String user,
-                                   @Value("${torch.fhir.password}") String password,
-                                   @Value("${torch.fhir.max.connections}") int maxConnections) {
+    public WebClient fhirWebClient(TorchProperties torchProperties,
+                                   ExchangeFilterFunction oauthExchangeFilterFunction
+    ) {
+        String user = torchProperties.fhir().user();
+        String password = torchProperties.fhir().password();
+        int maxConnections = torchProperties.fhir().max().connections();
+        String baseUrl = torchProperties.fhir().url();
         logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
 
         // Configure buffer size to 10MB
@@ -178,7 +180,7 @@ public class AppConfig {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/fhir+json");
 
-        if (!user.isEmpty() && !password.isEmpty()) {
+        if (!user.isBlank() && !password.isBlank()) {
             builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
             logger.info("Added basic authentication for user: {}", user);
         } else {
@@ -190,8 +192,8 @@ public class AppConfig {
 
     @Bean
     @Qualifier("flareClient")
-    public WebClient flareWebClient(@Value("${torch.flare.url}") String baseUrl) {
-        logger.info("Initializing Flare WebClient with URL: {}", baseUrl);
+    public WebClient flareWebClient(TorchProperties torchProperties) {
+        logger.info("Initializing Flare WebClient with URL: {}", torchProperties.flare().url());
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
@@ -199,7 +201,7 @@ public class AppConfig {
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(torchProperties.flare().url())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/sq+json");
 
@@ -213,7 +215,7 @@ public class AppConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) throws IOException {
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) {
         return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
     }
 
@@ -396,7 +398,7 @@ public class AppConfig {
         String clientId = torchProperties.fhir().oauth().client().id();
         String clientSecret = torchProperties.fhir().oauth().client().secret();
 
-        if (!issuerUri.isEmpty() && !clientId.isEmpty() && !clientSecret.isEmpty()) {
+        if (!issuerUri.isBlank() && !clientId.isBlank() && !clientSecret.isBlank()) {
             logger.info("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
                     issuerUri, clientId);
             var clientRegistration = ClientRegistrations.fromIssuerLocation(issuerUri)
