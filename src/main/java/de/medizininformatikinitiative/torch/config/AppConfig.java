@@ -81,11 +81,6 @@ import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterN
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 
-
-    @Value("compartmentdefinition-patient.json")
-    private String compartmentPath;
-
-
     private final TorchProperties torchProperties;
 
     public AppConfig(TorchProperties torchProperties) {
@@ -108,9 +103,20 @@ public class AppConfig {
         return new CascadingDelete();
     }
 
+    /**
+     * Creates a CompartmentManager initialized with the default compartment definition
+     * for patients shipped with the application.
+     * <p>
+     * This default configuration is intended for use within the application and
+     * should not be overridden or configured differently in production environments.
+     * </p>
+     *
+     * @return a CompartmentManager initialized with the default patient compartment definition
+     * @throws IOException if loading the compartment definition resource fails
+     */
     @Bean
     public CompartmentManager compartmentManager() throws IOException {
-        return new CompartmentManager(compartmentPath);
+        return new CompartmentManager("compartmentdefinition-patient.json");
     }
 
     @Bean
@@ -152,46 +158,13 @@ public class AppConfig {
         return new BatchCopierRedacter(copier, redaction);
     }
 
-    @Bean
-    @Qualifier("fhirClient")
-    public WebClient fhirWebClient(@Value("${torch.fhir.url}") String baseUrl,
-                                   ExchangeFilterFunction oauthExchangeFilterFunction,
-                                   @Value("${torch.fhir.user}") String user,
-                                   @Value("${torch.fhir.password}") String password,
-                                   @Value("${torch.fhir.max.connections}") int maxConnections) {
-        logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
-
-        // Configure buffer size to 10MB
-        ExchangeStrategies strategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer
-                        .defaultCodecs()
-                        .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
-                .build();
-
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(torchProperties.fhir().max().connections())
-                .build();
-        HttpClient httpClient = HttpClient.create(provider);
-        WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
-                .exchangeStrategies(strategies)
-                .clientConnector(new ReactorClientHttpConnector(httpClient))
-                .defaultHeader("Accept", "application/fhir+json");
-
-        if (!user.isEmpty() && !password.isEmpty()) {
-            builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
-            logger.info("Added basic authentication for user: {}", user);
-        } else {
-            logger.info("Using OAuth");
-        }
-
-        return builder.filter(oauthExchangeFilterFunction).build();
+    static boolean oAuthEnabled(String issuerUri, String clientId, String clientSecret) {
+        return !issuerUri.isBlank() && !clientId.isBlank() && !clientSecret.isBlank();
     }
 
-    @Bean
-    @Qualifier("flareClient")
-    public WebClient flareWebClient(@Value("${torch.flare.url}") String baseUrl) {
-        logger.info("Initializing Flare WebClient with URL: {}", baseUrl);
+    @Bean("flareClient")
+    public WebClient flareWebClient(TorchProperties torchProperties) {
+        logger.info("Initializing Flare WebClient with URL: {}", torchProperties.flare().url());
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
                 .maxConnections(4)
@@ -199,7 +172,7 @@ public class AppConfig {
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
-                .baseUrl(baseUrl)
+                .baseUrl(torchProperties.flare().url())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/sq+json");
 
@@ -213,7 +186,7 @@ public class AppConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) throws IOException {
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) {
         return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
     }
 
@@ -389,6 +362,45 @@ public class AppConfig {
         return Clock.systemDefaultZone();
     }
 
+    static boolean isBasicAuthConfigured(String user, String password) {
+        return !user.isBlank() && !password.isBlank();
+    }
+
+    @Bean("fhirClient")
+    public WebClient fhirWebClient(TorchProperties torchProperties,
+                                   ExchangeFilterFunction oauthExchangeFilterFunction
+    ) {
+        String user = torchProperties.fhir().user();
+        String password = torchProperties.fhir().password();
+        int maxConnections = torchProperties.fhir().max().connections();
+        String baseUrl = torchProperties.fhir().url();
+        logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
+
+        // Configure buffer size to 10MB
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(configurer -> configurer
+                        .defaultCodecs()
+                        .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
+                .build();
+
+        ConnectionProvider provider = ConnectionProvider.builder("data-store")
+                .maxConnections(torchProperties.fhir().max().connections())
+                .build();
+        HttpClient httpClient = HttpClient.create(provider);
+        WebClient.Builder builder = WebClient.builder()
+                .baseUrl(baseUrl)
+                .exchangeStrategies(strategies)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .defaultHeader("Accept", "application/fhir+json");
+
+        if (isBasicAuthConfigured(user, password)) {
+            builder = builder.filter(ExchangeFilterFunctions.basicAuthentication(user, password));
+            logger.info("Added basic authentication for user: {}", user);
+            return builder.build();
+        } else {
+            return builder.filter(oauthExchangeFilterFunction).build();
+        }
+    }
 
     @Bean
     ExchangeFilterFunction oauthExchangeFilterFunction(TorchProperties torchProperties) {
@@ -396,7 +408,7 @@ public class AppConfig {
         String clientId = torchProperties.fhir().oauth().client().id();
         String clientSecret = torchProperties.fhir().oauth().client().secret();
 
-        if (!issuerUri.isEmpty() && !clientId.isEmpty() && !clientSecret.isEmpty()) {
+        if (oAuthEnabled(issuerUri, clientId, clientSecret)) {
             logger.info("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
                     issuerUri, clientId);
             var clientRegistration = ClientRegistrations.fromIssuerLocation(issuerUri)
