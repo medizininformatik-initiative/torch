@@ -50,6 +50,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.security.oauth2.client.AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager;
+import org.springframework.security.oauth2.client.InMemoryReactiveOAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.registration.ClientRegistrations;
+import org.springframework.security.oauth2.client.registration.InMemoryReactiveClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.reactive.function.client.ServerOAuth2AuthorizedClientExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
@@ -67,6 +73,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Map.entry;
+import static org.springframework.security.oauth2.core.AuthorizationGrantType.CLIENT_CREDENTIALS;
+import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
 
 @Configuration
 @Profile("test")
@@ -152,7 +160,7 @@ public class TestConfig {
 
     @Bean
     @Qualifier("fhirClient")
-    public WebClient fhirWebClient(ContainerManager containerManager) {
+    public WebClient fhirWebClient(ContainerManager containerManager, ExchangeFilterFunction oauthExchangeFilterFunction) {
         String host = containerManager.getBlazeHost();
         String baseUrl = String.format("http://%s/fhir", host);
         logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
@@ -177,6 +185,7 @@ public class TestConfig {
                 .exchangeStrategies(strategies)
                 .defaultHeader("Accept", "application/fhir+json")
                 .defaultHeader("X-Forwarded-Host", host)
+                .filter(oauthExchangeFilterFunction)
                 .build();
     }
 
@@ -205,7 +214,7 @@ public class TestConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) throws IOException {
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) {
         return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
     }
 
@@ -321,6 +330,36 @@ public class TestConfig {
     @Bean
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
+    }
+
+    @Bean
+    ExchangeFilterFunction oauthExchangeFilterFunction(TorchProperties torchProperties) {
+        String issuerUri = torchProperties.fhir().oauth().issuer().uri();
+        String clientId = torchProperties.fhir().oauth().client().id();
+        String clientSecret = torchProperties.fhir().oauth().client().secret();
+
+        if (!issuerUri.isEmpty() && !clientId.isEmpty() && !clientSecret.isEmpty()) {
+            logger.info("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
+                    issuerUri, clientId);
+            var clientRegistration = ClientRegistrations.fromIssuerLocation(issuerUri)
+                    .registrationId(REGISTRATION_ID)
+                    .clientId(clientId)
+                    .clientSecret(clientSecret)
+                    .authorizationGrantType(CLIENT_CREDENTIALS)
+                    .build();
+            var registrations = new InMemoryReactiveClientRegistrationRepository(clientRegistration);
+            var clientService = new InMemoryReactiveOAuth2AuthorizedClientService(registrations);
+            var authorizedClientManager = new AuthorizedClientServiceReactiveOAuth2AuthorizedClientManager(
+                    registrations, clientService);
+            var oAuthExchangeFilterFunction = new ServerOAuth2AuthorizedClientExchangeFilterFunction(
+                    authorizedClientManager);
+            oAuthExchangeFilterFunction.setDefaultClientRegistrationId(REGISTRATION_ID);
+
+            return oAuthExchangeFilterFunction;
+        } else {
+            logger.info("Skipping OAuth2 authentication.");
+            return (request, next) -> next.exchange(request);
+        }
     }
 
 
