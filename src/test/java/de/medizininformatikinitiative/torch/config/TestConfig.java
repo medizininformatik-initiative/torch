@@ -74,9 +74,6 @@ public class TestConfig {
     private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
 
 
-    @Value("compartmentdefinition-patient.json")
-    private String compartmentPath;
-
     @Bean
     public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
         return searchParametersFile;
@@ -97,7 +94,7 @@ public class TestConfig {
 
     @Bean
     public CompartmentManager compartmentManager() throws IOException {
-        return new CompartmentManager(compartmentPath);
+        return new CompartmentManager("compartmentdefinition-patient.json");
     }
 
     @Bean
@@ -150,8 +147,7 @@ public class TestConfig {
     }
 
 
-    @Bean
-    @Qualifier("fhirClient")
+    @Bean("fhirClient")
     public WebClient fhirWebClient(ContainerManager containerManager) {
         String host = containerManager.getBlazeHost();
         String baseUrl = String.format("http://%s/fhir", host);
@@ -182,8 +178,7 @@ public class TestConfig {
 
 
     // Bean for the Flare WebClient initialized with the dynamically determined URL
-    @Bean
-    @Qualifier("flareClient")
+    @Bean("flareClient")
     public WebClient flareWebClient(ContainerManager containerManager) {
         String flareBaseUrl = containerManager.getFlareBaseUrl();
         logger.info("Initializing Flare WebClient with URL: {}", flareBaseUrl);
@@ -205,7 +200,7 @@ public class TestConfig {
     }
 
     @Bean
-    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) throws IOException {
+    public CrtdlValidatorService crtdlValidatorService(StructureDefinitionHandler structureDefinitionHandler, StandardAttributeGenerator standardAttributeGenerator, FilterService filterService) {
         return new CrtdlValidatorService(structureDefinitionHandler, standardAttributeGenerator, filterService);
     }
 
@@ -322,6 +317,5 @@ public class TestConfig {
     public Clock systemDefaultZone() {
         return Clock.systemDefaultZone();
     }
-
 
 }

@@ -4,7 +4,7 @@ server:
   port: 8086
 torch:
   base:
-    url:
+    url: dummy.torch.server
   profile:
     dir: structureDefinitions
   mapping:
@@ -12,7 +12,7 @@ torch:
     type_to_consent: mappings/type_to_consent.json
   search_parameters_file: search-parameters.json
   fhir:
-    url:
+    url: dummy.fhir.server
     page:
       count: 500
     max:
@@ -21,12 +21,6 @@ torch:
       async: false
     testPopulation:
       path: src/test/resources/BlazeBundle.json
-    oauth:
-      issuer:
-        uri:
-      client:
-        id:
-        secret:
   flare:
     url:
   results:
@@ -37,7 +31,7 @@ torch:
   mappingsFile: ontology/mapping_cql.json
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
-  useCql: false
+  useCql: true
   bufferSize: 100
   output:
     file:

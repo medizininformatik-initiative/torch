@@ -236,14 +236,38 @@ jobs:
       - name: Run integration script
         run: .github/workflows/script-integration-test/integration-test.sh
   
-  
-  
+  env-var-check:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Run without required env vars
+        run: |
+          set -e
+          # Run Torch without required env vars
+          if docker run --rm torch:latest 2>&1 | tee output.log | grep -q "APPLICATION FAILED TO START"; then
+            echo "✅ Container failed as expected due to missing required config"
+          else
+            echo "❌ Container did not fail with missing config"
+            cat output.log
+            exit 1
+          fi
+
   push-image:
     needs:
       - test
       - image-scan
       - blackbox-integration-tests
       - script-integration-test
+      - env-var-check
     runs-on: ubuntu-24.04
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
 
