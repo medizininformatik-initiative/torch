@@ -126,7 +126,7 @@ public class AppConfig {
 
 
     @Bean
-    ReferenceHandler referenceHandler(DataStore dataStore, ProfileMustHaveChecker mustHaveChecker, CompartmentManager compartmentManager, ConsentValidator consentValidator) {
+    ReferenceHandler referenceHandler(ProfileMustHaveChecker mustHaveChecker) {
         return new ReferenceHandler(mustHaveChecker);
     }
 
