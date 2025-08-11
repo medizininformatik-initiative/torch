@@ -30,7 +30,7 @@ public class ElementCopier {
     /**
      * Constructor
      *
-     * @param handler, contains all structuredefinition and FHIR ctx
+     * @param ctx the FHIRContext to use for creating the FhirPathEngine
      */
     public ElementCopier(FhirContext ctx) {
         this.ctx = ctx;

@@ -2,6 +2,8 @@ package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.assertions.Assertions;
 import de.medizininformatikinitiative.torch.assertions.BundleAssert;
+import org.assertj.core.api.AbstractAssert;
+import org.assertj.core.api.InstanceOfAssertFactory;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
@@ -19,6 +21,7 @@ import java.util.List;
 import java.util.Set;
 
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
+import static de.medizininformatikinitiative.torch.assertions.BundleAssertFactory.BUNDLE_ASSERT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -101,7 +104,7 @@ class SpecificBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles);
@@ -150,7 +153,7 @@ class SpecificBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles);

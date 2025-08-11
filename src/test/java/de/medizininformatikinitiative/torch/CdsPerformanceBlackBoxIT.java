@@ -10,6 +10,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 import java.io.IOException;
 
+import static de.medizininformatikinitiative.torch.assertions.BundleAssertFactory.BUNDLE_ASSERT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -50,7 +51,7 @@ public class CdsPerformanceBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
         assertThat(patientBundles).hasSize(25000);
     }
 
@@ -65,7 +66,7 @@ public class CdsPerformanceBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(25000);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(25000);
         assertThat(patientBundles).hasSize(25000);
     }
 }

@@ -17,6 +17,7 @@ import java.util.List;
 
 import static de.medizininformatikinitiative.torch.TestUtils.nodeFromValueString;
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
+import static de.medizininformatikinitiative.torch.assertions.BundleAssertFactory.BUNDLE_ASSERT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -61,7 +62,7 @@ public class CdsBlackBoxIT {
         List<Bundle> coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         List<Bundle> patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles, BundleAssert.class).singleElement().containsNEntries(0);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
         assertThat(patientBundles).hasSize(3);
 
         // test if referenced IDs match the actual patient's IDs
