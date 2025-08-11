@@ -1,9 +1,4 @@
-FROM eclipse-temurin:21.0.8_9-jre@sha256:ea350fe1d8bc9b18dea4ad46bb9a0f4d6fbd0dbb3548092e3ff8f1a3fef09efe
-
-RUN apt-get update && apt-get upgrade -y && \
-    apt-get purge wget libbinutils libctf0 libctf-nobfd0 libncurses6 -y && \
-    apt-get autoremove -y && apt-get clean && \
-    rm -rf /var/lib/apt/lists/
+FROM eclipse-temurin:21.0.8_9-jre-alpine@sha256:4ca7eff3ab0ef9b41f5fefa35efaeda9ed8d26e161e1192473b24b3a6c348aef
 
 ENV JAVA_TOOL_OPTIONS="-Xmx4g"
 ENV CERTIFICATE_PATH=/app/certs
@@ -27,4 +22,4 @@ RUN chmod +x /docker-entrypoint.sh
 WORKDIR /app
 USER 1001
 
-ENTRYPOINT ["/bin/bash", "/docker-entrypoint.sh"]
+ENTRYPOINT ["/bin/sh", "/docker-entrypoint.sh"]
