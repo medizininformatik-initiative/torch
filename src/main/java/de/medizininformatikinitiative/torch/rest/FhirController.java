@@ -20,10 +20,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
+import org.springframework.web.util.UriComponentsBuilder;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -47,6 +49,7 @@ public class FhirController {
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
 
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
+    public static final String FHIR_STATUS = "/fhir/__status/";
 
     private final ObjectMapper objectMapper;
     private final FhirContext fhirContext;
@@ -82,7 +85,7 @@ public class FhirController {
 
     @Autowired
     public FhirController(ObjectMapper objectMapper, FhirContext fhirContext, ResultFileManager resultFileManager,
-            CrtdlProcessingService crtdlProcessingService, CrtdlValidatorService validatorService) {
+                          CrtdlProcessingService crtdlProcessingService, CrtdlValidatorService validatorService) {
         this.objectMapper = objectMapper;
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
@@ -119,7 +122,7 @@ public class FhirController {
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(GET("/fhir/__status/"), this::getGlobalStatus);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(GET(FHIR_STATUS), this::getGlobalStatus);
     }
 
     private record DecodedCRTDLContent(Crtdl crtdl, List<String> patientIds) {
@@ -183,7 +186,7 @@ public class FhirController {
                             .subscribeOn(Schedulers.boundedElastic()).subscribe(); // final fire-and-forget
 
                     return accepted()
-                            .header("Content-Location", request.uriBuilder().replacePath("/fhir/__status/" + jobId).build().toString())
+                            .header("Content-Location", request.uriBuilder().replacePath(FHIR_STATUS + jobId).build().toString())
                             .build();
                 })
                 .onErrorResume(IllegalArgumentException.class, e -> {
@@ -228,7 +231,30 @@ public class FhirController {
         return objectMapper.readValue(content, Crtdl.class);
     }
 
+    public String stripToBasePath(URI originalUri, String basePath) {
+
+        String fullPath = originalUri.getPath();
+
+        int index = fullPath.indexOf(basePath);
+        if (index == -1) {
+            return originalUri.toString(); // fallback: no change
+        }
+
+        String newPath = fullPath.substring(0, index);
+
+        return UriComponentsBuilder
+                .fromUri(originalUri)
+                .replacePath(newPath)
+                .replaceQuery(null)
+                .fragment(null)
+                .build()
+                .toUriString();
+    }
+
+
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
+        String truncatedUrl = stripToBasePath(request.uri(), FHIR_STATUS);
+        logger.info("Base url: {}", truncatedUrl);
         var jobId = request.pathVariable("jobId");
         HttpStatus status = resultFileManager.getStatus(jobId);
 
@@ -242,7 +268,7 @@ public class FhirController {
             case HttpStatus.OK -> {
                 // Capture the full request URL and transaction time
                 String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
-                return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(jobId, transactionTime))
+                return Mono.fromCallable(() -> resultFileManager.loadBundleFromFileSystem(truncatedUrl, jobId, transactionTime))
                         .flatMap(bundleMap -> {
                             if (bundleMap == null) {
                                 return ServerResponse.notFound().build();
