@@ -1,9 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
 import de.medizininformatikinitiative.torch.assertions.Assertions;
-import de.medizininformatikinitiative.torch.assertions.BundleAssert;
-import org.assertj.core.api.AbstractAssert;
-import org.assertj.core.api.InstanceOfAssertFactory;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
