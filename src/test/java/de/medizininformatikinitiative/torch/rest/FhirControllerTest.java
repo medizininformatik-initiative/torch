@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
+import de.medizininformatikinitiative.torch.util.CrtdlFactory;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -14,6 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -21,12 +24,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FhirControllerTest {
+
+    private final static String BASE_URL = "http://base-url";
 
     @Mock
     ResultFileManager resultFileManager;
@@ -42,12 +48,7 @@ class FhirControllerTest {
     @BeforeEach
     void setup() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirController fhirController = new FhirController(
-                fhirContext,
-                resultFileManager,
-                extractDataParametersParser,
-                extractDataService
-        );
+        FhirController fhirController = new FhirController(fhirContext, resultFileManager, extractDataParametersParser, extractDataService, BASE_URL);
         client = WebTestClient.bindToRouterFunction(fhirController.queryRouter()).build();
     }
 
@@ -55,12 +56,24 @@ class FhirControllerTest {
     void checkAcceptedStatus() {
         when(resultFileManager.getStatus("accepted-job")).thenReturn(HttpStatus.ACCEPTED);
 
-        var response = client.get()
-                .uri("/fhir/__status/{jobId}", "accepted-job")
-                .exchange();
+        var response = client.get().uri("/fhir/__status/{jobId}", "accepted-job").exchange();
 
-        response.expectStatus().isEqualTo(HttpStatus.ACCEPTED)
-                .expectBody().isEmpty();
+        response.expectStatus().isEqualTo(HttpStatus.ACCEPTED).expectBody().isEmpty();
+    }
+
+    @Test
+    void extractDataSuccess() {
+
+        ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), Collections.emptyList());
+        when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+        when(extractDataService.startJob(any(), any(), any())).thenReturn(Mono.empty());
+
+        WebTestClient.ResponseSpec response = client.post().uri("/fhir/$extract-data").contentType(MediaType.APPLICATION_JSON).bodyValue("{}").exchange();
+
+        response.expectStatus().isAccepted().expectHeader()
+                .value("Content-Location",
+                        location -> assertThat(location).startsWith(BASE_URL + "/fhir/__status/"));
+
     }
 
     @ParameterizedTest
@@ -77,52 +90,42 @@ class FhirControllerTest {
 
             case "ok" -> {
                 when(resultFileManager.getStatus(jobId)).thenReturn(HttpStatus.OK);
-                when(resultFileManager.loadBundleFromFileSystem(eq(jobId), anyString()))
-                        .thenReturn(Map.of("message", "bundle content"));
+                when(resultFileManager.loadBundleFromFileSystem(eq(jobId), anyString())).thenReturn(Map.of("message", "bundle content"));
             }
             case "ok-null" -> {
                 when(resultFileManager.getStatus(jobId)).thenReturn(HttpStatus.OK);
-                when(resultFileManager.loadBundleFromFileSystem(eq(jobId), anyString()))
-                        .thenReturn(Map.of());
+                when(resultFileManager.loadBundleFromFileSystem(eq(jobId), anyString())).thenReturn(Map.of());
             }
             case "missing" -> {
                 when(resultFileManager.getStatus(jobId)).thenReturn(HttpStatus.NOT_FOUND);
-                when(resultFileManager.loadErrorFromFileSystem(jobId))
-                        .thenReturn("Error file not found for job: " + jobId);
+                when(resultFileManager.loadErrorFromFileSystem(jobId)).thenReturn("Error file not found for job: " + jobId);
             }
             case "error" -> {
                 when(resultFileManager.getStatus(jobId)).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
-                when(resultFileManager.loadErrorFromFileSystem(jobId))
-                        .thenReturn("{\"resourceType\":\"OperationOutcome\"}");
+                when(resultFileManager.loadErrorFromFileSystem(jobId)).thenReturn("{\"resourceType\":\"OperationOutcome\"}");
             }
             case "read-fail" -> {
                 when(resultFileManager.getStatus(jobId)).thenReturn(HttpStatus.INTERNAL_SERVER_ERROR);
                 // Throw the IOException when loadErrorFromFileSystem is called
-                when(resultFileManager.loadErrorFromFileSystem(jobId))
-                        .thenAnswer(invocation -> {
-                            throw new IOException("disk failure");
-                        });
+                when(resultFileManager.loadErrorFromFileSystem(jobId)).thenAnswer(invocation -> {
+                    throw new IOException("disk failure");
+                });
             }
             default -> throw new IllegalArgumentException("Unexpected scenario: " + scenario);
         }
 
-        var response = client.get()
-                .uri("/fhir/__status/{jobId}", jobId)
-                .exchange();
+        var response = client.get().uri("/fhir/__status/{jobId}", jobId).exchange();
 
-        response.expectStatus().isEqualTo(expectedStatus)
-                .expectHeader().contentType(expectedContentType)
-                .expectBody(String.class)
-                .value(body -> {
-                    switch (scenario) {
-                        case "ok" -> assertThat(body).contains("bundle content");
-                        case "ok-null" -> assertThat(body).contains("Results could not be loaded for job: test-job");
-                        case "error" -> assertThat(body).contains("\"resourceType\":\"OperationOutcome\"");
-                        case "missing" -> assertThat(body).contains("Error file not found for job");
-                        case "read-fail" -> assertThat(body).contains("Error file could not be read: disk failure");
-                        default -> throw new IllegalArgumentException("Unexpected scenario: " + scenario);
-                    }
-                });
+        response.expectStatus().isEqualTo(expectedStatus).expectHeader().contentType(expectedContentType).expectBody(String.class).value(body -> {
+            switch (scenario) {
+                case "ok" -> assertThat(body).contains("bundle content");
+                case "ok-null" -> assertThat(body).contains("Results could not be loaded for job: test-job");
+                case "error" -> assertThat(body).contains("\"resourceType\":\"OperationOutcome\"");
+                case "missing" -> assertThat(body).contains("Error file not found for job");
+                case "read-fail" -> assertThat(body).contains("Error file could not be read: disk failure");
+                default -> throw new IllegalArgumentException("Unexpected scenario: " + scenario);
+            }
+        });
     }
 
 
@@ -133,14 +136,10 @@ class FhirControllerTest {
         void emptyStatusMapReturnsEmptyJson() {
             when(resultFileManager.getJobStatusMap()).thenReturn(Collections.emptyMap());
 
-            var response = client.get()
-                    .uri("/fhir/__status/");
+            var response = client.get().uri("/fhir/__status/").exchange();
 
-            response.exchange()
-                    .expectStatus().isOk()
-                    .expectHeader().contentType(MediaType.APPLICATION_JSON)
-                    .expectBody()
-                    .json("{}");
+            response.expectStatus().isOk().expectHeader().contentType(MediaType.APPLICATION_JSON)
+                    .expectBody().json("{}");
         }
 
         @Test
@@ -150,11 +149,9 @@ class FhirControllerTest {
             map.put("job2", HttpStatus.OK);
             when(resultFileManager.getJobStatusMap()).thenReturn(map);
 
-            var response = client.get()
-                    .uri("/fhir/__status/");
+            var response = client.get().uri("/fhir/__status/").exchange();
 
-            response.exchange().expectStatus().isOk()
-                    .expectHeader().contentType(MediaType.APPLICATION_JSON)
+            response.expectStatus().isOk().expectHeader().contentType(MediaType.APPLICATION_JSON)
                     .expectBody()
                     .jsonPath("$.job1").isEqualTo("202 Accepted")
                     .jsonPath("$.job2").isEqualTo("200 OK");
@@ -166,10 +163,9 @@ class FhirControllerTest {
 
         @Test
         void emptyRequestBodyTriggersBadRequest() {
-            client.post()
-                    .uri("/fhir/$extract-data")
-                    .exchange()
-                    .expectStatus().isBadRequest()
+            var response = client.post().uri("/fhir/$extract-data").exchange();
+
+            response.expectStatus().isBadRequest()
                     .expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
@@ -177,16 +173,11 @@ class FhirControllerTest {
 
         @Test
         void blankRequestBodyTriggersBadRequest() {
-            client.post()
-                    .uri("/fhir/$extract-data")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .bodyValue("  ")
-                    .exchange()
-                    .expectStatus().isBadRequest()
-                    .expectHeader().contentType("application/fhir+json")
+            var response = client.post().uri("/fhir/$extract-data").contentType(MediaType.APPLICATION_JSON).bodyValue("  ").exchange();
+
+            response.expectStatus().isBadRequest().expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
-
         }
     }
 }

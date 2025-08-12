@@ -82,8 +82,4 @@ public class BlackBoxIntegrationTestEnv {
                 .baseUrl("http://%s:%s".formatted(host, port))
                 .build());
     }
-
-    public int getTorchPort() {
-        return environment.getServicePort("torch", 8080);
-    }
 }

@@ -31,7 +31,6 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -60,7 +59,7 @@ import static de.medizininformatikinitiative.torch.util.TimeUtils.durationSecond
 import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
-@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class FhirControllerIT {
@@ -90,7 +89,8 @@ class FhirControllerIT {
     ResultFileManager resultFileManager;
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
-    @LocalServerPort
+
+    @Value("${server.port}")
     private int port;
 
     @BeforeAll
