@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
@@ -56,7 +55,7 @@ public class CdsBlackBoxIT {
     public void testExamples() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json")).block();
         assertThat(statusUrl).isNotNull();
-        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        var statusResponse = torchClient.pollStatus(environment.torchUrlFor(statusUrl)).block();
         assertThat(statusResponse).isNotNull();
 
         List<Bundle> coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();

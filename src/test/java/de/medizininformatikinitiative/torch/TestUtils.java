@@ -11,7 +11,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
-import java.util.List;
 
 public class TestUtils {
 
@@ -35,5 +34,31 @@ public class TestUtils {
         var parameters = new Parameters();
         parameters.setParameter("crtdl", new Base64BinaryType(crtdl));
         return parameters;
+    }
+
+    public static String updateStatusURL(String path, String baseUrl) {
+        // Ensure baseUrl has no trailing slash
+        if (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        // Find the "/fhir" segment in path (ignore protocol and host before it)
+        int fhirIndex = path.indexOf("/fhir");
+        String fhirPath;
+
+        if (fhirIndex != -1) {
+            fhirPath = path.substring(fhirIndex);
+        } else {
+            if (!path.startsWith("/")) {
+                path = "/" + path;
+            }
+            fhirPath = "/fhir" + path;
+        }
+
+        String finalUrl = baseUrl + fhirPath;
+
+        System.out.println("Updating status URL: " + finalUrl);
+
+        return finalUrl;
     }
 }

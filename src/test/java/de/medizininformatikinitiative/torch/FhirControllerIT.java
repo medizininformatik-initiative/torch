@@ -93,6 +93,7 @@ class FhirControllerIT {
     @LocalServerPort
     private int port;
 
+
     @BeforeAll
     void init() throws IOException {
         webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
@@ -214,7 +215,7 @@ class FhirControllerIT {
             try {
                 i++;
                 HttpEntity<String> entity = new HttpEntity<>(null, headers);
-                ResponseEntity<String> response = restTemplate.exchange(statusUrl, HttpMethod.GET, entity, String.class);
+                ResponseEntity<String> response = restTemplate.exchange(TestUtils.updateStatusURL(statusUrl, "http://localhost:" + port), HttpMethod.GET, entity, String.class);
 
                 logger.trace("Poll {}: status={}, body={}", i, response.getStatusCode(), response.getBody());
 
