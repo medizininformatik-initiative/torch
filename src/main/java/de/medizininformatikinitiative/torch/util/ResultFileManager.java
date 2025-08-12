@@ -4,17 +4,14 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
-import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.BufferedWriter;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -23,7 +20,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -35,12 +38,14 @@ import static java.util.Objects.requireNonNull;
 public class ResultFileManager {
 
     private static final Logger logger = LoggerFactory.getLogger(ResultFileManager.class);
+    private static final String NDJSON = ".ndjson";
+    private static final String ERROR_JSON = "error.json";
 
     private final Path resultsDirPath;
     private final FhirContext fhirContext;
     private final String hostname;
     private final String fileServerName;
-    public final ConcurrentHashMap<String, HttpStatus> jobStatusMap = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<String, HttpStatus> jobStatusMap = new ConcurrentHashMap<>();
 
     public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
@@ -68,6 +73,10 @@ public class ResultFileManager {
         return resultsDirPath.resolve(jobId);
     }
 
+    public Map<String, HttpStatus> getJobStatusMap() {
+        return jobStatusMap;
+    }
+
     public void loadExistingResults() {
         try (Stream<Path> jobDirs = Files.list(resultsDirPath)) {
             jobDirs.filter(Files::isDirectory)
@@ -76,7 +85,7 @@ public class ResultFileManager {
                         String jobId = jobDir.getFileName().toString();
                         try (Stream<Path> files = Files.list(jobDir)) {
                             // Find any .ndjson files in the job directory
-                            Path errorFilePath = jobDir.resolve("error.json");
+                            Path errorFilePath = jobDir.resolve(ERROR_JSON);
 
                             if (Files.exists(errorFilePath)) {
                                 try (InputStream is = Files.newInputStream(errorFilePath)) {
@@ -92,7 +101,7 @@ public class ResultFileManager {
                                         logger.debug("Fatal issue {}", fatalIssue.get().getCode());
                                         OperationOutcome.IssueType code = fatalIssue.get().getCode();
                                         if (code.equals(OperationOutcome.IssueType.INVALID)) {
-                                            setStatus(jobId, HttpStatus.BAD_REQUEST);
+                                            setStatus(jobId, HttpStatus.INTERNAL_SERVER_ERROR);
                                         }
                                     }
                                 } catch (IOException e) {
@@ -102,7 +111,7 @@ public class ResultFileManager {
                             }
 
                             if (!fatalIssuePresent) {
-                                boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(".ndjson"));
+                                boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(NDJSON));
 
                                 if (ndjsonExists) {
                                     logger.debug("Loaded existing job with jobId: {}", jobId);
@@ -137,7 +146,6 @@ public class ResultFileManager {
 
                         return jobDir;
                     } catch (IOException e) {
-                        logger.error("Failed to initialize directory for jobId {}: {}", jobId, e.getMessage());
                         throw new RuntimeException("Failed to initialize job directory", e);
                     }
                 })
@@ -165,12 +173,12 @@ public class ResultFileManager {
             ndjsonFile = jobDir.resolve("core.ndjson");
             Files.deleteIfExists(ndjsonFile);
         } else {
-            ndjsonFile = jobDir.resolve(UUID.randomUUID() + ".ndjson");
+            ndjsonFile = jobDir.resolve(UUID.randomUUID() + NDJSON);
         }
         return ndjsonFile;
     }
 
-    public Mono<Void> saveErrorToJSON(String jobId, OperationOutcome outcome, HttpStatus status) {
+    public Mono<Void> saveErrorToJson(String jobId, OperationOutcome outcome, HttpStatus status) {
 
         return Mono.fromRunnable(() -> {
                     Path jobDir = getJobDirectory(jobId);
@@ -178,12 +186,11 @@ public class ResultFileManager {
                         Files.createDirectories(jobDir); // Ensure job directory exists
                         String errorJson = fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToString(outcome);
                         Path errorFile;
-                        errorFile = jobDir.resolve("error.json");
+                        errorFile = jobDir.resolve(ERROR_JSON);
                         Files.writeString(errorFile, errorJson + System.lineSeparator(), StandardOpenOption.CREATE, StandardOpenOption.WRITE);
                         setStatus(jobId, status);
                     } catch (IOException e) {
-                        logger.error("Failed to save errorFile for job {}: {}", jobId, e.getMessage());
-                        throw new RuntimeException("Failed to save bundle", e);
+                        throw new RuntimeException("Failed to save error file", e);
                     }
                 })
                 .doOnError(e -> logger.error("Async write failed for job {}: {}", jobId, e.getMessage(), e))
@@ -204,7 +211,7 @@ public class ResultFileManager {
 
     public String loadErrorFromFileSystem(String jobId) {
         Path jobDir = getJobDirectory(jobId);
-        Path errorFile = jobDir.resolve("error.json");
+        Path errorFile = jobDir.resolve(ERROR_JSON);
 
         try {
             return Files.readString(errorFile, StandardCharsets.UTF_8);
@@ -215,24 +222,24 @@ public class ResultFileManager {
 
     public Map<String, Object> loadBundleFromFileSystem(String jobId, String transactionTime) {
         Map<String, Object> response = new HashMap<>();
-        try {
-            Path jobDir = getJobDirectory(jobId);
-            if (Files.exists(jobDir) && Files.isDirectory(jobDir)) {
-                List<Map<String, String>> outputFiles = new ArrayList<>();
-                List<Map<String, String>> deletedFiles = new ArrayList<>();
-                List<Map<String, String>> errorFiles = new ArrayList<>();
+        Path jobDir = getJobDirectory(jobId);
+        if (Files.exists(jobDir) && Files.isDirectory(jobDir)) {
+            List<Map<String, String>> outputFiles = new ArrayList<>();
+            List<Map<String, String>> deletedFiles = new ArrayList<>();
+            List<Map<String, String>> errorFiles = new ArrayList<>();
 
-                Files.list(jobDir).forEach(file -> {
+            try (Stream<Path> files = Files.list(jobDir)) {
+                files.forEach(file -> {
                     String fileName = file.getFileName().toString();
                     String url = fileServerName + "/" + jobId + "/" + fileName;
 
                     Map<String, String> fileEntry = new HashMap<>();
                     fileEntry.put("url", url);
 
-                    if (fileName.endsWith(".ndjson")) {
+                    if (fileName.endsWith(NDJSON)) {
                         fileEntry.put("type", "NDJSON Bundle");
                         outputFiles.add(fileEntry);
-                    } else if (fileName.equals("error.json")) {
+                    } else if (fileName.equals(ERROR_JSON)) {
                         fileEntry.put("type", "OperationOutcome");
                         errorFiles.add(fileEntry);
                     } else if (fileName.contains("del")) {
@@ -240,23 +247,21 @@ public class ResultFileManager {
                         deletedFiles.add(fileEntry);
                     }
                 });
-
-                logger.debug("OutputFiles size {}", outputFiles.size());
-
-                response.put("transactionTime", transactionTime);
-                response.put("request", hostname + "/fhir/$extract-data");
-                response.put("requiresAccessToken", false);
-                response.put("output", outputFiles);
-                response.put("deleted", deletedFiles);
-                response.put("error", errorFiles);
-            } else {
-                logger.warn("Job directory does not exist or is not a directory for jobId: {}", jobId);
+            } catch (IOException e) {
+                logger.error("Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
             }
-        } catch (IOException e) {
-            logger.error("Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
+
+            logger.debug("OutputFiles size {}", outputFiles.size());
+
+            response.put("transactionTime", transactionTime);
+            response.put("request", hostname + "/fhir/$extract-data");
+            response.put("requiresAccessToken", false);
+            response.put("output", outputFiles);
+            response.put("deleted", deletedFiles);
+            response.put("error", errorFiles);
+        } else {
+            logger.warn("Job directory does not exist or is not a directory for jobId: {}", jobId);
         }
-
-        return response.isEmpty() ? null : response;
+        return response;
     }
-
 }
