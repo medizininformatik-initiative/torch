@@ -4,7 +4,7 @@ server:
   port: 8086
 torch:
   base:
-    url: dummy.torch.server
+    url: http://localhost:8086
   profile:
     dir: structureDefinitions
   mapping:

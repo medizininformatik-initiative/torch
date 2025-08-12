@@ -7,6 +7,7 @@ import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -43,14 +44,16 @@ public class FhirController {
     private final ResultFileManager resultFileManager;
     private final ExtractDataParametersParser extractDataParametersParser;
     private final ExtractDataService extractDataService;
+    private final String baseUrl;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ResultFileManager resultFileManager,
-                          ExtractDataParametersParser parser, ExtractDataService extractDataService) {
+                          ExtractDataParametersParser parser, ExtractDataService extractDataService, @Value("${torch.base.url}") String baseUrl) {
         this.fhirContext = requireNonNull(fhirContext);
         this.resultFileManager = requireNonNull(resultFileManager);
         this.extractDataParametersParser = requireNonNull(parser);
         this.extractDataService = requireNonNull(extractDataService);
+        this.baseUrl = baseUrl;
     }
 
     private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
@@ -94,9 +97,7 @@ public class FhirController {
                     jobMono.subscribe();
                     return ServerResponse.accepted()
                             .header("Content-Location",
-                                    request.uriBuilder()
-                                            .replacePath("/fhir/__status/" + jobId)
-                                            .build().toString())
+                                    baseUrl + "/fhir/__status/" + jobId)
                             .build();
                 }).onErrorResume(Exception.class, e -> {
                     HttpStatus status = (e instanceof IllegalArgumentException)

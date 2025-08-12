@@ -46,7 +46,7 @@ services:
     restart: unless-stopped
     image: torch:latest
     ports:
-      - "8080"
+      - "8080:8080"
     environment:
       TORCH_PROFILE_DIR: /app/structureDefinitions
       TORCH_MAPPING_CONSENT: /app/mappings/consent-mappings_fhir.json

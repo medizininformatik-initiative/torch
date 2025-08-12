@@ -17,7 +17,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * => mvn clean package -DskipTests && docker build -t torch:latest . && mvn -P blackbox-integration-tests -B verify
  */
 @Testcontainers
-public class CdsPerformanceBlackBoxIT {
+class CdsPerformanceBlackBoxIT {
 
     private static final Logger logger = LoggerFactory.getLogger(CdsPerformanceBlackBoxIT.class);
 
