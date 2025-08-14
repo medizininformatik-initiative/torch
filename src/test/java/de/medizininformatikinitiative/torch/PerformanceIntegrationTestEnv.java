@@ -60,4 +60,13 @@ public class PerformanceIntegrationTestEnv {
                 .baseUrl("http://%s:%s".formatted(host, port))
                 .build());
     }
+
+    public String torchUrlFor(String path) {
+
+        String baseUrl = "http://%s:%s".formatted(
+                environment.getServiceHost("torch", 8080),
+                environment.getServicePort("torch", 8080)
+        );
+        return TestUtils.updateStatusURL(path, baseUrl);
+    }
 }

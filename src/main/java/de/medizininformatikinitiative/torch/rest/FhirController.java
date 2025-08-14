@@ -1,15 +1,11 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
+import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.service.ExtractDataService;
+import de.medizininformatikinitiative.torch.util.CrtdlParser;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.OperationOutcome;
-import org.hl7.fhir.r4.model.Parameters;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,14 +17,10 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
-import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -48,11 +40,11 @@ public class FhirController {
 
     private static final MediaType MEDIA_TYPE_FHIR_JSON = MediaType.valueOf("application/fhir+json");
 
-    private final ObjectMapper objectMapper;
     private final FhirContext fhirContext;
     private final ResultFileManager resultFileManager;
-    private final CrtdlProcessingService crtdlProcessingService;
-    private final CrtdlValidatorService validatorService;
+    private final CrtdlParser crtdlParser;
+    private final ExtractDataService extractDataService;
+    private final String baseUrl;
 
     private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
         return Mono.fromCallable(() -> resultFileManager.jobStatusMap)
@@ -77,43 +69,17 @@ public class FhirController {
                 });
     }
 
-    private record DecodedContent(byte[] crtdl, List<String> patientIds) {
-    }
 
     @Autowired
-    public FhirController(ObjectMapper objectMapper, FhirContext fhirContext, ResultFileManager resultFileManager,
-            CrtdlProcessingService crtdlProcessingService, CrtdlValidatorService validatorService) {
-        this.objectMapper = objectMapper;
+    public FhirController(FhirContext fhirContext, ResultFileManager resultFileManager,
+                          CrtdlParser parser, ExtractDataService extractDataService, TorchProperties torchProperties) {
         this.fhirContext = fhirContext;
         this.resultFileManager = resultFileManager;
-        this.crtdlProcessingService = crtdlProcessingService;
-        this.validatorService = validatorService;
+        this.crtdlParser = parser;
+        this.extractDataService = extractDataService;
+        this.baseUrl = torchProperties.base().url();
     }
 
-    private static DecodedContent decodeCrtdlContent(Parameters parameters) {
-        byte[] crtdlContent = null;
-        List<String> patientIds = new ArrayList<>();
-
-        for (var parameter : parameters.getParameter()) {
-            if (parameter.hasValue()) {
-                var value = parameter.getValue();
-                if ("crtdl".equals(parameter.getName()) && value.hasType("base64Binary")) {
-                    logger.debug("Found crtdl content for parameter '{}'", parameter.getName());
-                    crtdlContent = ((Base64BinaryType) parameter.getValue()).getValue();
-                }
-                if ("patient".equals(parameter.getName()) && value.hasType("string")) {
-                    logger.debug("Found Patient content for parameter '{}' {}", parameter.getName(), parameter.getValue());
-                    patientIds.add(value.primitiveValue());
-                }
-            }
-        }
-
-        if (crtdlContent == null) {
-            throw new IllegalArgumentException("No base64 encoded CRDTL content found in Parameters resource");
-        }
-
-        return new DecodedContent(crtdlContent, patientIds);
-    }
 
     @Bean
     public RouterFunction<ServerResponse> queryRouter() {
@@ -122,111 +88,50 @@ public class FhirController {
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus).andRoute(GET("/fhir/__status/"), this::getGlobalStatus);
     }
 
-    private record DecodedCRTDLContent(Crtdl crtdl, List<String> patientIds) {
-    }
-
-
-    private Mono<DecodedCRTDLContent> parseCrtdl(String body) {
-
-        var parameters = fhirContext.newJsonParser().parseResource(Parameters.class, body);
-        if (parameters.isEmpty()) {
-            logger.debug("Empty Parameters");
-            throw new IllegalArgumentException("Empty Parameters");
-        }
-
-        try {
-            var decodedContent = decodeCrtdlContent(parameters);
-            byte[] crtdlBytes = decodedContent.crtdl();
-            List<String> patientIds = decodedContent.patientIds();
-
-            // Process crtdl content, potentially using patientIds
-            return Mono.just(new DecodedCRTDLContent(parseCrtdlContent(crtdlBytes), patientIds));
-        } catch (IOException e) {
-            return Mono.error(e);
-        }
-    }
 
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
         String jobId = UUID.randomUUID().toString();
+
         return request.bodyToMono(String.class)
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
-                .flatMap(this::parseCrtdl)
-                .flatMap(decoded -> {
-
-                    logger.info("Create data extraction job id: {}", jobId);
-                    resultFileManager.setStatus(jobId, HttpStatus.ACCEPTED);
-
-                    // Kick off background processing (fire-and-forget, safely)
-                    Mono.defer(() ->
-                                    resultFileManager.initJobDir(jobId)
-                                            .then(Mono.fromCallable(() -> validatorService.validate(decoded.crtdl))
-                                                    .subscribeOn(Schedulers.boundedElastic()))
-                                            .flatMap(validated -> crtdlProcessingService.process(validated, jobId, decoded.patientIds))
-                                            .doOnSuccess(v -> resultFileManager.setStatus(jobId, HttpStatus.OK))
-                                            .doOnError(e -> {
-                                                logger.error("Job {} failed: {}", jobId, e.getMessage(), e);
-
-                                                HttpStatus status;
-                                                if (e instanceof IllegalArgumentException || e instanceof ValidationException) {
-                                                    status = HttpStatus.BAD_REQUEST;
-                                                } else {
-                                                    status = HttpStatus.INTERNAL_SERVER_ERROR;
-                                                }
-                                                OperationOutcome outcome = createOperationOutcome(jobId, e);
-
-                                                resultFileManager.saveErrorToJSON(jobId, outcome, status)
-                                                        .subscribeOn(Schedulers.boundedElastic())
-                                                        .subscribe(); // fine here as it's clearly a background side effect
-                                            })
-                                            .onErrorResume(e -> Mono.empty())
-                            )
-                            .subscribeOn(Schedulers.boundedElastic()).subscribe(); // final fire-and-forget
-
-                    return accepted()
-                            .header("Content-Location", request.uriBuilder().replacePath("/fhir/__status/" + jobId).build().toString())
-                            .build();
-                })
+                .flatMap(crtdlParser::parseCrtdl) // returns your decoded object
+                .flatMap(decoded -> extractDataService.startJob(decoded.crtdl(), decoded.patientIds(), jobId)
+                        .then(ServerResponse.accepted()
+                                .header("Content-Location", baseUrl + "/fhir/__status/" + jobId)
+                                .build()
+                        ))
                 .onErrorResume(IllegalArgumentException.class, e -> {
                     logger.warn("Bad request: {}", e.getMessage());
                     OperationOutcome outcome = createOperationOutcome(jobId, e);
 
-                    // Prepare the response immediately
-                    Mono<ServerResponse> response = ServerResponse.badRequest()
+                    return ServerResponse.badRequest()
                             .contentType(MEDIA_TYPE_FHIR_JSON)
-                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(outcome));
-
-                    // Save the error in the background but don't block the response
-                    return response.delayUntil(r ->
-                            resultFileManager.saveErrorToJSON(jobId, outcome, HttpStatus.BAD_REQUEST)
-                                    .onErrorResume(writeError -> {
-                                        logger.error("Failed to save error file: {}", writeError.getMessage(), writeError);
-                                        return Mono.empty();
-                                    })
-                    );
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(outcome))
+                            .delayUntil(r ->
+                                    resultFileManager.saveErrorToJSON(jobId, outcome, HttpStatus.BAD_REQUEST)
+                                            .onErrorResume(writeError -> {
+                                                logger.error("Failed to save error file: {}", writeError.getMessage(), writeError);
+                                                return Mono.empty();
+                                            })
+                            );
                 })
                 .onErrorResume(Exception.class, e -> {
                     logger.error("Unexpected error: {}", e.getMessage(), e);
                     OperationOutcome outcome = createOperationOutcome(jobId, e);
 
-                    // Prepare the response immediately
-                    Mono<ServerResponse> response = ServerResponse.status(500)
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                             .contentType(MEDIA_TYPE_FHIR_JSON)
-                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(outcome));
-
-                    // Save the error in the background but don't block the response
-                    return response.delayUntil(r ->
-                            resultFileManager.saveErrorToJSON(jobId, outcome, HttpStatus.INTERNAL_SERVER_ERROR)
-                                    .onErrorResume(writeError -> {
-                                        logger.error("Failed to save error file: {}", writeError.getMessage(), writeError);
-                                        return Mono.empty();
-                                    })
-                    );
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(outcome))
+                            .delayUntil(r ->
+                                    resultFileManager.saveErrorToJSON(jobId, outcome, HttpStatus.INTERNAL_SERVER_ERROR)
+                                            .onErrorResume(writeError -> {
+                                                logger.error("Failed to save error file: {}", writeError.getMessage(), writeError);
+                                                return Mono.empty();
+                                            })
+                            );
                 });
     }
 
-    private Crtdl parseCrtdlContent(byte[] content) throws IOException {
-        return objectMapper.readValue(content, Crtdl.class);
-    }
 
     public Mono<ServerResponse> checkStatus(ServerRequest request) {
         var jobId = request.pathVariable("jobId");

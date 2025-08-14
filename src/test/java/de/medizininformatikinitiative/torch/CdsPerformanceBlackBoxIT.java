@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -45,7 +44,7 @@ public class CdsPerformanceBlackBoxIT {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-wo-ref.json")).block();
         assertThat(statusUrl).isNotNull();
 
-        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        var statusResponse = torchClient.pollStatus(environment.torchUrlFor(statusUrl)).block();
         assertThat(statusResponse).isNotNull();
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
@@ -60,7 +59,7 @@ public class CdsPerformanceBlackBoxIT {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-w-ref.json")).block();
         assertThat(statusUrl).isNotNull();
 
-        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        var statusResponse = torchClient.pollStatus(environment.torchUrlFor(statusUrl)).block();
         assertThat(statusResponse).isNotNull();
 
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
