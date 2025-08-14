@@ -1,0 +1,82 @@
+{
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "display": "",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "",
+    "inclusionCriteria": [
+      [
+        {
+          "context": {
+            "code": "Einwilligung",
+            "display": "Einwilligung",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "termCodes": [
+            {
+              "code": "yes-yes-no-yes",
+              "display": "Verteilte, EU-DSGVO konforme Analyse, ohne Krankenassendaten, und mit Rekontaktierung",
+              "system": "fdpg.consent.combined"
+            }
+          ]
+        },
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "system": "http://snomed.info/sct",
+              "display": "Geschlecht"
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0",
+            "display": "Patient"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              },
+              {
+                "code": "male",
+                "display": "Male",
+                "system": "http://hl7.org/fhir/administrative-gender"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "diagnosis basic",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+        "attributes": [
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "Patient",
+        "includeReferenceOnly": true,
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "attributes": [
+        ],
+        "filter": [
+        ]
+      }
+    ]
+  }
+}
+
+

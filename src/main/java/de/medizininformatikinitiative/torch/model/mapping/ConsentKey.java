@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.model.mapping;
 
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+
 import static java.util.Objects.requireNonNull;
 
 public enum ConsentKey {
@@ -30,5 +32,14 @@ public enum ConsentKey {
     @Override
     public String toString() {
         return s;
+    }
+
+    public static ConsentKey fromString(String value) throws ValidationException {
+        for (ConsentKey key : values()) {
+            if (key.toString().equalsIgnoreCase(value)) {
+                return key;
+            }
+        }
+        throw new ValidationException("Unknown consent key: " + value);
     }
 }
