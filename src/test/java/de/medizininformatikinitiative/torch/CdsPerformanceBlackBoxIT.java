@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch;
 
-import de.medizininformatikinitiative.torch.assertions.BundleAssert;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -41,7 +40,7 @@ public class CdsPerformanceBlackBoxIT {
     }
 
     @Test
-    public void testWithoutReferences() throws IOException {
+    void testWithoutReferences() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-wo-ref.json")).block();
         assertThat(statusUrl).isNotNull();
 
@@ -56,7 +55,7 @@ public class CdsPerformanceBlackBoxIT {
     }
 
     @Test
-    public void testWithReferences() throws IOException {
+    void testWithReferences() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-w-ref.json")).block();
         assertThat(statusUrl).isNotNull();
 
