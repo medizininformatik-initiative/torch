@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.8] - 2025-08-25
+
+### Added
+
+- Sign Docker images with cosign [#444](https://github.com/medizininformatik-initiative/torch/pull/444)
+- Add Permit Type and Consent Status in Consent
+  Calculation [#408](https://github.com/medizininformatik-initiative/torch/pull/408)
+
+### Fixed
+
+- Fix NullPointer Exception oauth if no params provided and set default to no
+  params [#423](https://github.com/medizininformatik-initiative/torch/pull/423)
+- Fix Torch does not provide Base URL in Status
+  Response [#436](https://github.com/medizininformatik-initiative/torch/pull/436)
+
 ## [v1.0.0-alpha.7] - 2025-08-04
 
 ### Added
