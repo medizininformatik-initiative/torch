@@ -67,6 +67,13 @@
             <version>${Hapi.version}</version>
         </dependency>
 
+        <!-- Overriding apache commons that comes from hapi and causes a vulnerability in the older version -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.18.0</version>
+        </dependency>
+
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
