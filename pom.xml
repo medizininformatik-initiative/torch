@@ -67,7 +67,21 @@
             <version>${Hapi.version}</version>
         </dependency>
 
-        <!-- Overriding apache commons that comes from hapi and causes a vulnerability in the older version -->
+        <!-- Overriding apache commons compress that comes from the maven dependency tree and causes a vulnerability in the older version -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.28.0</version>
+        </dependency>
+
+        <!-- Overriding nimbus jose jwt that comes from the maven dependency tree and causes a vulnerability in the older version -->
+        <dependency>
+            <groupId>com.nimbusds</groupId>
+            <artifactId>nimbus-jose-jwt</artifactId>
+            <version>10.4.2</version>
+        </dependency>
+
+        <!-- Overriding apache commons lang that comes from hapi and causes a vulnerability in the older version -->
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
