@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
-import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.springframework.http.HttpStatus;
@@ -18,24 +18,19 @@ import static java.util.Objects.requireNonNull;
 public class ExtractDataService {
 
     private final ResultFileManager resultFileManager;
-    private final CrtdlValidatorService validatorService;
     private final CrtdlProcessingService processingService;
 
     public ExtractDataService(ResultFileManager resultFileManager,
-                              CrtdlValidatorService validatorService,
                               CrtdlProcessingService processingService) {
         this.resultFileManager = requireNonNull(resultFileManager);
-        this.validatorService = requireNonNull(validatorService);
         this.processingService = requireNonNull(processingService);
     }
 
-    public Mono<Void> startJob(Crtdl crtdl, List<String> patientIds, String jobId) {
+    public Mono<Void> startJob(AnnotatedCrtdl crtdl, List<String> patientIds, String jobId) {
         resultFileManager.setStatus(jobId, HttpStatus.ACCEPTED);
 
         return resultFileManager.initJobDir(jobId)
-                .then(Mono.fromCallable(() -> validatorService.validate(crtdl))
-                        .subscribeOn(Schedulers.boundedElastic()))
-                .flatMap(validated -> processingService.process(validated, jobId, patientIds))
+                .then(processingService.process(crtdl, jobId, patientIds))
                 .doOnSuccess(v -> resultFileManager.setStatus(jobId, HttpStatus.OK))
                 .doOnError(e -> handleJobError(jobId, e))
                 .onErrorResume(e -> Mono.empty());

@@ -116,7 +116,7 @@ class DirectResourceLoaderIT {
 
     private AnnotatedCrtdl readCrdtl(String name) throws IOException, ValidationException {
         try (FileInputStream fis = new FileInputStream(name)) {
-            return validator.validate(objectMapper.readValue(fis, Crtdl.class));
+            return validator.validateAndAnnotate(objectMapper.readValue(fis, Crtdl.class));
         }
     }
 }
