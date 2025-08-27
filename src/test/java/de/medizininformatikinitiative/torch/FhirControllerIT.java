@@ -17,11 +17,7 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -31,11 +27,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -181,7 +173,7 @@ class FhirControllerIT {
         fis.close();
     }
 
-    void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
+    void testExecutor(String filePath, String url, HttpHeaders headers) {
         TestRestTemplate restTemplate = new TestRestTemplate();
         try {
             String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
@@ -194,7 +186,7 @@ class FhirControllerIT {
                 assertThat(durationSecondsSince(start)).isLessThan(1);
                 List<String> locations = response.getHeaders().get("Content-Location");
                 assertThat(locations).hasSize(1);
-                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), expectedFinalCode);
+                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), 200);
                 clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
@@ -282,7 +274,7 @@ class FhirControllerIT {
         void validObservation(String parametersFile) {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers);
         }
 
         @Test
@@ -299,12 +291,18 @@ class FhirControllerIT {
             assertThat(response.getBody()).contains("Empty request body");
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
-        void invalidCRTDLReturnsValidationException(String parametersFile) {
+        @Test
+        void invalidCRTDLReturnsBadRequest() throws IOException {
+            TestRestTemplate restTemplate = new TestRestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
+            String fileContent = Files.readString(Paths.get("src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"), StandardCharsets.UTF_8);
+            HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+            long start = System.nanoTime();
+            ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/$extract-data", HttpMethod.POST, entity, String.class);
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+            assertThat(durationSecondsSince(start)).isLessThan(1);
         }
+
     }
 }
