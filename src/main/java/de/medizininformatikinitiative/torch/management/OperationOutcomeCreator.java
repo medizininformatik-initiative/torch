@@ -11,7 +11,7 @@ public class OperationOutcomeCreator {
         OperationOutcome.OperationOutcomeIssueComponent issueComponent = new OperationOutcome.OperationOutcomeIssueComponent();
         issueComponent.setSeverity(OperationOutcome.IssueSeverity.FATAL);
         issueComponent.setCode(createIssueType(throwable));
-        issueComponent.setDiagnostics(throwable.getClass().getSimpleName() + ": " + throwable.getMessage());
+        issueComponent.setDiagnostics(throwable.getMessage());
         operationOutcome.addIssue(issueComponent);
         return operationOutcome;
     }

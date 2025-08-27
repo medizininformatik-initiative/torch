@@ -1,6 +1,8 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -26,9 +28,7 @@ import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static java.util.Objects.requireNonNull;
-import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
-import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
-import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
+import static org.springframework.web.reactive.function.server.RequestPredicates.*;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
 import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
@@ -45,15 +45,17 @@ public class FhirController {
     private final ExtractDataParametersParser extractDataParametersParser;
     private final ExtractDataService extractDataService;
     private final String baseUrl;
+    private final CrtdlValidatorService validator;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ResultFileManager resultFileManager,
-                          ExtractDataParametersParser parser, ExtractDataService extractDataService, @Value("${torch.base.url}") String baseUrl) {
+                          ExtractDataParametersParser parser, ExtractDataService extractDataService, @Value("${torch.base.url}") String baseUrl, CrtdlValidatorService validator) {
         this.fhirContext = requireNonNull(fhirContext);
         this.resultFileManager = requireNonNull(resultFileManager);
         this.extractDataParametersParser = requireNonNull(parser);
         this.extractDataService = requireNonNull(extractDataService);
         this.baseUrl = baseUrl;
+        this.validator = requireNonNull(validator);
     }
 
     private Mono<ServerResponse> getGlobalStatus(ServerRequest serverRequest) {
@@ -90,10 +92,13 @@ public class FhirController {
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .map(extractDataParametersParser::parseParameters)
                 .flatMap(parameters -> {
-                    Mono<Void> jobMono = extractDataService
-                            .startJob(parameters.crtdl(), parameters.patientIds(), jobId);
-
-                    // Launch it asynchronously
+                    Mono<Void> jobMono;
+                    try {
+                        jobMono = extractDataService
+                                .startJob(validator.validateAndAnnotate(parameters.crtdl()), parameters.patientIds(), jobId);
+                    } catch (ValidationException e) {
+                        return Mono.error(new IllegalArgumentException(e.getMessage()));
+                    }
                     jobMono.subscribe();
                     return ServerResponse.accepted()
                             .header("Content-Location",

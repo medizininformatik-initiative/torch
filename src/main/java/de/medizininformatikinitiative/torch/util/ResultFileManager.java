@@ -77,7 +77,7 @@ public class ResultFileManager {
         return jobStatusMap;
     }
 
-    public void loadExistingResults() {
+    private void loadExistingResults() {
         try (Stream<Path> jobDirs = Files.list(resultsDirPath)) {
             jobDirs.filter(Files::isDirectory)
                     .forEach(jobDir -> {

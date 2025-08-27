@@ -16,12 +16,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Predicate;
 
 public class CrtdlValidatorService {
@@ -45,7 +40,7 @@ public class CrtdlValidatorService {
      * @param crtdl the Crtdl to be validated.
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
      */
-    public AnnotatedCrtdl validate(Crtdl crtdl) throws ValidationException {
+    public AnnotatedCrtdl validateAndAnnotate(Crtdl crtdl) throws ValidationException {
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();

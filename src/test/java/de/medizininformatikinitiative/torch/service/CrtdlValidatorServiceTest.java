@@ -12,7 +12,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -37,35 +36,29 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
-    void unknownProfile() throws ValidationException {
+    void unknownProfile() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
 
-        assertThatThrownBy(() -> {
-            validatorService.validate(crtdl);
-        }).isInstanceOf(ValidationException.class)
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Unknown Profile: unknown.test");
 
     }
 
 
     @Test
-    void unknownAttribute() throws ValidationException {
+    void unknownAttribute() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Condition.unknown", false)), List.of()))));
 
-        assertThatThrownBy(() -> {
-            validatorService.validate(crtdl);
-        }).isInstanceOf(ValidationException.class)
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Unknown Attribute Condition.unknown in group test");
 
     }
 
     @Test
-    void referenceWithoutLinkedGroups() throws ValidationException {
+    void referenceWithoutLinkedGroups() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.subject", false)), List.of()))));
 
-        assertThatThrownBy(() -> {
-            validatorService.validate(crtdl);
-        }).isInstanceOf(ValidationException.class)
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
                 .hasMessageContaining("Reference Attribute Observation.subject without linked Groups in group test");
 
     }
@@ -74,7 +67,7 @@ class CrtdlValidatorServiceTest {
     void validInput_withoutFilter() throws ValidationException {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup)));
 
-        var validatedCrtdl = validatorService.validate(crtdl);
+        var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
         assertThat(validatedCrtdl).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().compiledFilter()).isNull();
@@ -91,18 +84,17 @@ class CrtdlValidatorServiceTest {
                 new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
                         List.of(), List.of(new Filter("token", "code", List.of(new Code("some-system", "some-code"))))))));
 
-        var validatedCrtdl = validatorService.validate(crtdl);
+        var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
         assertThat(validatedCrtdl).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).compiledFilter()).isNotNull();
-        assertThat(validatorService.validate(crtdl).dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
+        assertThat(validatorService.validateAndAnnotate(crtdl).dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
                         new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
                         new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("patientGroupId"))
                 ));
     }
-
 
 
 }

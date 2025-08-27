@@ -8,12 +8,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -47,9 +42,6 @@ class CrtdlProcessingServiceIT {
 
     private static final Logger logger = LoggerFactory.getLogger(CrtdlProcessingServiceIT.class);
 
-    // Create an instance of BaseTestSetup
-    private static IntegrationTestSetup INTEGRATION_TEST_SETUP;
-
 
     @Autowired
     CrtdlProcessingService service;
@@ -69,18 +61,19 @@ class CrtdlProcessingServiceIT {
 
     @BeforeAll
     void init() throws IOException, ValidationException {
-        INTEGRATION_TEST_SETUP = new IntegrationTestSetup();
+        // Create an instance of BaseTestSetup
+        IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
-        crtdlAllObservations = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        crtdlAllObservations = validator.validateAndAnnotate(integrationTestSetup.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_not_contained.json");
-        crtdlNoPatients = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        crtdlNoPatients = validator.validateAndAnnotate(integrationTestSetup.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_linked_encounter.json");
-        crtdlObservationLinked = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        crtdlObservationLinked = validator.validateAndAnnotate(integrationTestSetup.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_MedicationAdministraion_linked_encounter_linked_medication.json");
-        crtdlObservationMedicationLinked = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        crtdlObservationMedicationLinked = validator.validateAndAnnotate(integrationTestSetup.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
 
         webClient.post()

@@ -148,7 +148,7 @@ class FhirControllerIT {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
-        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validateAndAnnotate(crtdl);
         Mono<PatientBatchWithConsent> collectedResourcesMono = transformer.directLoadPatientCompartment(annotatedCrtdl.dataExtraction().attributeGroups(), patients);
         PatientBatchWithConsent result = collectedResourcesMono.block(); // Blocking to get the result
         assertThat(result).isNotNull();
@@ -162,7 +162,7 @@ class FhirControllerIT {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-        AnnotatedCrtdl annotatedCrtdl = validatorService.validate(crtdl);
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validateAndAnnotate(crtdl);
         Mono<ResourceBundle> collectedResourcesMono = transformer.processCoreAttributeGroups(annotatedCrtdl.dataExtraction().attributeGroups(), new ResourceBundle());
 
         // Verify that the Mono fails with the expected exception
@@ -173,7 +173,7 @@ class FhirControllerIT {
         fis.close();
     }
 
-    void testExecutor(String filePath, String url, HttpHeaders headers, int expectedFinalCode) {
+    void testExecutor(String filePath, String url, HttpHeaders headers) {
         TestRestTemplate restTemplate = new TestRestTemplate();
         try {
             String fileContent = Files.readString(Paths.get(filePath), StandardCharsets.UTF_8);
@@ -186,7 +186,7 @@ class FhirControllerIT {
                 assertThat(durationSecondsSince(start)).isLessThan(1);
                 List<String> locations = response.getHeaders().get("Content-Location");
                 assertThat(locations).hasSize(1);
-                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), expectedFinalCode);
+                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), 200);
                 clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
@@ -274,7 +274,7 @@ class FhirControllerIT {
         void validObservation(String parametersFile) {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 200);
+            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers);
         }
 
         @Test
@@ -291,12 +291,17 @@ class FhirControllerIT {
             assertThat(response.getBody()).contains("Empty request body");
         }
 
-        @ParameterizedTest
-        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"})
-        void invalidCRTDLReturnsValidationException(String parametersFile) {
+        @Test
+        void invalidCRTDLReturnsBadRequest() throws IOException {
+            TestRestTemplate restTemplate = new TestRestTemplate();
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
-            testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
+            String fileContent = Files.readString(Paths.get("src/test/resources/CRTDL_Parameters/Parameters_invalid_CRTDL.json"), StandardCharsets.UTF_8);
+            HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+            long start = System.nanoTime();
+            ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/$extract-data", HttpMethod.POST, entity, String.class);
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+            assertThat(durationSecondsSince(start)).isLessThan(1);
         }
 
         @Test

@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
+import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.util.CrtdlFactory;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
@@ -24,15 +26,13 @@ import java.util.HashMap;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FhirControllerTest {
 
-    private final static String BASE_URL = "http://base-url";
+    private static final String BASE_URL = "http://base-url";
 
     @Mock
     ResultFileManager resultFileManager;
@@ -43,12 +43,15 @@ class FhirControllerTest {
     @Mock
     ExtractDataService extractDataService;
 
+    @Mock
+    CrtdlValidatorService validator;
+
     WebTestClient client;
 
     @BeforeEach
     void setup() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirController fhirController = new FhirController(fhirContext, resultFileManager, extractDataParametersParser, extractDataService, BASE_URL);
+        FhirController fhirController = new FhirController(fhirContext, resultFileManager, extractDataParametersParser, extractDataService, BASE_URL, validator);
         client = WebTestClient.bindToRouterFunction(fhirController.queryRouter()).build();
     }
 
@@ -178,6 +181,23 @@ class FhirControllerTest {
             response.expectStatus().isBadRequest().expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
+    class Validator {
+        @Test
+        void invalidCrtdlTriggersBadRequest() throws ValidationException {
+            ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), Collections.emptyList());
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenThrow(new ValidationException("Invalid CRTDL"));
+
+            var response = client.post().uri("/fhir/$extract-data").contentType(MediaType.APPLICATION_JSON).bodyValue("{}").exchange();
+
+            response.expectStatus().isBadRequest().expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome")
+                    .jsonPath("$.issue[0].diagnostics").isEqualTo("Invalid CRTDL");
         }
     }
 }
