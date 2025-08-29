@@ -69,7 +69,7 @@ public class ReferenceBundleLoader {
                             }
                             notLoaded.forEach(unloaded -> {
                                 if (compartmentManager.isInCompartment(unloaded) && patientBundle != null) {
-                                    patientBundle.bundle().put(unloaded);
+                                    patientBundle.put(unloaded);
                                 } else {
                                     coreBundle.put(unloaded);
                                 }
@@ -78,7 +78,7 @@ public class ReferenceBundleLoader {
                             logger.error("Failed to fetch resources, marking all as invalid: {}", e.getMessage());
                             unknownReferences.forEach(ref -> {
                                 if (compartmentManager.isInCompartment(ref) && patientBundle != null) {
-                                    patientBundle.bundle().put(ref);
+                                    patientBundle.put(ref);
                                 } else {
                                     coreBundle.put(ref);
                                 }
