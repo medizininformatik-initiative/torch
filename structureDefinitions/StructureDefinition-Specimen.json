@@ -2,28 +2,12 @@
   "resourceType": "StructureDefinition",
   "id": "Specimen",
   "url": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Specimen",
+  "version": "2025.0.4",
   "name": "ProfileSpecimenBioprobe",
   "title": "Profile - Specimen - Bioprobe",
   "status": "active",
   "description": "Abbildung einer MII Bioprobe",
   "fhirVersion": "4.0.1",
-  "mapping": [
-    {
-      "identity": "rim",
-      "uri": "http://hl7.org/v3",
-      "name": "RIM Mapping"
-    },
-    {
-      "identity": "w5",
-      "uri": "http://hl7.org/fhir/fivews",
-      "name": "FiveWs Pattern Mapping"
-    },
-    {
-      "identity": "v2",
-      "uri": "http://hl7.org/v2",
-      "name": "HL7 v2 Mapping"
-    }
-  ],
   "kind": "resource",
   "abstract": false,
   "type": "Specimen",
@@ -95,6 +79,8 @@
             "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -130,20 +116,11 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
+        "isModifier": false,
         "isSummary": true
       },
       {
         "id": "Specimen.meta",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.meta",
         "short": "Metadata about the resource",
         "definition": "The metadata about the resource. This is content that is maintained by the infrastructure. Changes to the content might not always be associated with version changes to the resource.",
@@ -159,9 +136,6 @@
             "code": "Meta"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -172,30 +146,11 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
-        "isSummary": true,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          },
-          {
-            "identity": "rim",
-            "map": "N/A"
-          }
-        ]
+        "isModifier": false,
+        "isSummary": true
       },
       {
         "id": "Specimen.implicitRules",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.implicitRules",
         "short": "A set of rules under which this content was created",
         "definition": "A reference to a set of rules that were followed when the resource was constructed, and which must be understood when processing the content. Often, this is a reference to an implementation guide that defines the special rules along with other profiles etc.",
@@ -212,9 +167,6 @@
             "code": "uri"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -227,26 +179,10 @@
         ],
         "isModifier": true,
         "isModifierReason": "This element is labeled as a modifier because the implicit rules may provide additional knowledge about the resource that modifies it's meaning or interpretation",
-        "isSummary": true,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          }
-        ]
+        "isSummary": true
       },
       {
         "id": "Specimen.language",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.language",
         "short": "Language of the resource content",
         "definition": "The base language in which the resource is written.",
@@ -263,9 +199,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -276,6 +209,8 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "binding": {
           "extension": [
             {
@@ -294,13 +229,7 @@
           "strength": "preferred",
           "description": "A human language.",
           "valueSet": "http://hl7.org/fhir/ValueSet/languages"
-        },
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          }
-        ]
+        }
       },
       {
         "id": "Specimen.text",
@@ -349,6 +278,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -387,6 +317,8 @@
             "code": "Resource"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -459,9 +391,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -487,8 +420,68 @@
         ],
         "path": "Specimen.extension",
         "sliceName": "festgestellteDiagnose",
-        "short": "Extension - Diagnose",
-        "definition": "Mittels dieser Extension kann ausgedrückt werden, dass Material mit der referenzierten Diagnose in der Probe enthalten ist.",
+        "short": "Festgestellte Diagnose",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Festgestellte Diagnose"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Diagnosed condition"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Verweis auf eine Diagnose, für die Material in der Probe enthalten ist.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verweis auf eine Diagnose, für die Material in der Probe enthalten ist."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Reference to a diagnosis for which material is present in the specimen."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "There can be no stigma associated with the use of extensions by any application, project, or standard - regardless of the institution or jurisdiction that uses or defines the extensions.  The use of extensions is what allows the FHIR specification to retain a core level of simplicity for everyone.",
         "alias": [
           "extensions",
@@ -527,10 +520,11 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -556,8 +550,68 @@
         ],
         "path": "Specimen.extension",
         "sliceName": "gehoertZu",
-        "short": "Extension - Verwaltende Organisation",
-        "definition": "Die Organisation, die die Probe verwaltet, soll mithilfe dieser Extension referenziert werden. Anfragen zu den Proben sollen mittels dieser Verlinkung und der in der Organization hinterlegten Kontaktinformationen möglich sein.",
+        "short": "Verwaltende Organisation",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verwaltende Organisation"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Managing organization"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Zuordnung der Probe zu einer Sammlung oder Biobank, die für die Verwaltung verantwortlich ist.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Zuordnung der Probe zu einer Sammlung oder Biobank, die für die Verwaltung verantwortlich ist."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Assignment of the specimen to a collection or biobank responsible for its management."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "There can be no stigma associated with the use of extensions by any application, project, or standard - regardless of the institution or jurisdiction that uses or defines the extensions.  The use of extensions is what allows the FHIR specification to retain a core level of simplicity for everyone.",
         "alias": [
           "extensions",
@@ -596,10 +650,11 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -672,7 +727,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -701,8 +756,68 @@
           }
         ],
         "path": "Specimen.identifier",
-        "short": "External Identifier",
-        "definition": "Id for specimen.",
+        "short": "Proben-ID",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Proben-ID"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen ID"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Einrichtungsinterner Identifier der Probe.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Einrichtungsinterner Identifier der Probe."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Internal identifier of the specimen at the institution."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "*",
         "base": {
@@ -729,6 +844,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -801,6 +917,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -835,19 +952,69 @@
       },
       {
         "id": "Specimen.status",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.status",
-        "short": "available | unavailable | unsatisfactory | entered-in-error",
-        "definition": "The availability of the specimen.",
+        "short": "Verfügbarkeitsstatus",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verfügbarkeitsstatus"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Availability status"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Status der Probe in Bezug auf die Verfügbarkeit für Forschung.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Status der Probe in Bezug auf die Verfügbarkeit für Forschung."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The status of the specimen in terms of its availability for research."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "This element is labeled as a modifier because the status contains codes that mark the resource as not currently valid.",
         "min": 1,
         "max": "1",
@@ -860,9 +1027,6 @@
           {
             "code": "code"
           }
-        ],
-        "condition": [
-          "ele-1"
         ],
         "constraint": [
           {
@@ -891,10 +1055,6 @@
         },
         "mapping": [
           {
-            "identity": "rim",
-            "map": "n/a"
-          },
-          {
             "identity": "w5",
             "map": "FiveWs.status"
           },
@@ -921,8 +1081,68 @@
           }
         ],
         "path": "Specimen.type",
-        "short": "Kind of material that forms the specimen",
-        "definition": "The kind of material that forms the specimen.",
+        "short": "Probenart",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Probenart"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen type"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Die Art der Probe, codiert in SNOMED CT.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Die Art der Probe, codiert in SNOMED CT."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The type of the specimen, encoded as SNOMED CT code."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "The type can change the way that a specimen is handled and drives what kind of analyses can properly be performed on the specimen. It is frequently used in diagnostic work flow decision making systems.",
         "min": 1,
         "max": "1",
@@ -950,6 +1170,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "binding": {
           "extension": [
@@ -1086,9 +1307,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1151,6 +1373,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1226,6 +1449,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "binding": {
           "strength": "extensible",
@@ -1355,9 +1579,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1371,16 +1596,6 @@
       },
       {
         "id": "Specimen.type.coding:sct.system",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.type.coding.system",
         "short": "Identity of the terminology system",
         "definition": "The identification of the code system that defines the meaning of the symbol in the code.",
@@ -1412,6 +1627,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1434,16 +1650,6 @@
       },
       {
         "id": "Specimen.type.coding:sct.version",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.type.coding.version",
         "short": "Version of the system - if relevant",
         "definition": "The version of the code system which was used when choosing this code. Note that a well-maintained code system does not need the version reported, because the meaning of codes is consistent across versions. However this cannot consistently be assured, and when the meaning is not guaranteed to be consistent, the version SHOULD be exchanged.",
@@ -1473,6 +1679,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1495,16 +1702,6 @@
       },
       {
         "id": "Specimen.type.coding:sct.code",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.type.coding.code",
         "short": "Symbol in syntax defined by the system",
         "definition": "A symbol in syntax defined by the system. The symbol may be a predefined code or an expression in a syntax defined by the coding system (e.g. post-coordination).",
@@ -1522,9 +1719,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -1535,12 +1729,9 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          },
           {
             "identity": "v2",
             "map": "C*E.1"
@@ -1558,14 +1749,6 @@
       {
         "id": "Specimen.type.coding:sct.display",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -1601,6 +1784,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1623,16 +1807,6 @@
       },
       {
         "id": "Specimen.type.coding:sct.userSelected",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.type.coding.userSelected",
         "short": "If this coding was chosen directly by the user",
         "definition": "Indicates that this coding was chosen by a user directly - e.g. off a pick list of available items (codes or displays).",
@@ -1663,6 +1837,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1686,14 +1861,6 @@
       {
         "id": "Specimen.type.text",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -1729,6 +1896,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1762,8 +1930,68 @@
           }
         ],
         "path": "Specimen.subject",
-        "short": "Where the specimen came from. This may be from patient(s), from a location (e.g., the source of an environmental sample), or a sampling of a substance or a device",
-        "definition": "Where the specimen came from. This may be from patient(s), from a location (e.g., the source of an environmental sample), or a sampling of a substance or a device.",
+        "short": "Patient:in",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Patient:in"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Patient"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Verweis auf die Person, von der die Probe stammt.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verweis auf die Person, von der die Probe stammt."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Reference to the person from whom the specimen was collected."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "References SHALL be a reference to an actual FHIR resource, and SHALL be resolveable (allowing for access control, temporary unavailability, etc.). Resolution can be either by retrieval from the URL, or, where applicable by resource type, by treating an absolute reference as a canonical URL and looking it up in a local registry/repository.",
         "requirements": "Must know the subject context.",
         "min": 1,
@@ -1799,10 +2027,11 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1829,16 +2058,6 @@
       },
       {
         "id": "Specimen.receivedTime",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.receivedTime",
         "short": "The time when specimen was received for processing",
         "definition": "Time when specimen was received for processing or testing.",
@@ -1867,6 +2086,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1900,8 +2120,68 @@
           }
         ],
         "path": "Specimen.parent",
-        "short": "Specimen from which this specimen originated",
-        "definition": "Reference to the parent (source) specimen which is used when the specimen was either derived from or a component of another specimen.",
+        "short": "Ist gewonnen aus",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Ist gewonnen aus"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Derived from"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Referenz auf eine übergeordnete Probe, aus der diese Probe gewonnen wurde.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Referenz auf eine übergeordnete Probe, aus der diese Probe gewonnen wurde."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Reference to a parent specimen from which this specimen was derived."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "The parent specimen could be the source from which the current specimen is derived by some processing step (e.g. an aliquot or isolate or extracted nucleic acids from clinical samples) or one of many specimens that were combined to create a pooled sample.",
         "min": 0,
         "max": "*",
@@ -1936,10 +2216,11 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1968,8 +2249,68 @@
           }
         ],
         "path": "Specimen.request",
-        "short": "Why the specimen was collected",
-        "definition": "Details concerning a service request that required a specimen to be collected.",
+        "short": "Entnahme-ID",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Entnahme-ID"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Collection ID"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Identifier der Probenentnahme.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Identifier der Probenentnahme."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The identifier for the specimen collection."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "The request may be explicit or implied such with a ServiceRequest that requires a blood draw.",
         "min": 0,
         "max": "*",
@@ -2004,10 +2345,11 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2044,8 +2386,68 @@
           }
         ],
         "path": "Specimen.collection",
-        "short": "Collection details",
-        "definition": "Details concerning the specimen collection.",
+        "short": "Probenentnahme",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Probenentnahme"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen sampling"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Informationen über den Prozess der Probenentnahme, einschließlich Entnahmezeitpunkt und -stelle.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Informationen über den Prozess der Probenentnahme, einschließlich Entnahmezeitpunkt und -stelle."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Information about the specimen collection process, including collection time and site."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 1,
         "max": "1",
         "base": {
@@ -2072,6 +2474,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2113,6 +2516,8 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2122,16 +2527,6 @@
       },
       {
         "id": "Specimen.collection.extension",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.extension",
         "slicing": {
           "discriminator": [
@@ -2163,9 +2558,6 @@
             "code": "Extension"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -2180,18 +2572,16 @@
             "severity": "error",
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
-            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), \"value\")])",
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
             "map": "n/a"
-          },
-          {
-            "identity": "rim",
-            "map": "N/A"
           }
         ]
       },
@@ -2249,10 +2639,12 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2316,7 +2708,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -2383,9 +2775,10 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -2423,8 +2816,68 @@
           }
         ],
         "path": "Specimen.collection.collected[x]",
-        "short": "Collection time",
-        "definition": "Time when specimen was collected from subject - the physiologically relevant time.",
+        "short": "Entnahmezeitpunkt",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Entnahmezeitpunkt"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Sampling time"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Zeitpunkt, zu dem die Probe entnommen oder gesammelt wurde.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Zeitpunkt, zu dem die Probe entnommen oder gesammelt wurde."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The time when the specimen was collected or obtained."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 1,
         "max": "1",
         "base": {
@@ -2520,7 +2973,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "drt-1",
@@ -2528,25 +2981,11 @@
             "human": "There SHALL be a code if there is a value and it SHALL be an expression of time.  If system is present, it SHALL be UCUM.",
             "expression": "code.exists() implies ((system = %ucum) and value.exists())",
             "xpath": "(f:code or not(f:value)) and (not(exists(f:system)) or f:system/@value='http://unitsofmeasure.org')",
-            "source": "http://hl7.org/fhir/StructureDefinition/Specimen"
+            "source": "http://hl7.org/fhir/StructureDefinition/Duration"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
-        "binding": {
-          "extension": [
-            {
-              "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-maxValueSet",
-              "valueCanonical": "http://hl7.org/fhir/ValueSet/all-time-units"
-            },
-            {
-              "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-bindingName",
-              "valueString": "DurationUnits"
-            }
-          ],
-          "strength": "extensible",
-          "description": "Appropriate units for Duration.",
-          "valueSet": "http://hl7.org/fhir/ValueSet/duration-units"
-        },
         "mapping": [
           {
             "identity": "rim",
@@ -2619,7 +3058,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "sqty-1",
@@ -2627,7 +3066,7 @@
             "human": "The comparator is not used on a SimpleQuantity",
             "expression": "comparator.empty()",
             "xpath": "not(exists(f:comparator))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/SimpleQuantity"
           }
         ],
         "isModifier": false,
@@ -2695,6 +3134,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "binding": {
           "extension": [
             {
@@ -2746,8 +3186,68 @@
           }
         ],
         "path": "Specimen.collection.bodySite",
-        "short": "Anatomical collection site",
-        "definition": "Anatomical location from which the specimen was collected (if subject is a patient). This is the target site.  This element is not used for environmental specimens.",
+        "short": "Anatomische Lokalisation",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Anatomische Lokalisation"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Anatomical localisation"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Die Körperstelle, von der die Probe entnommen wurde gemäß icd-o-3.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Die Körperstelle, von der die Probe entnommen wurde gemäß icd-o-3."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The body site from which the specimen was collected according to icd-o-3."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "If the use case requires  BodySite to be handled as a separate resource instead of an inline coded element (e.g. to identify and track separately)  then use the standard extension [bodySite](extension-bodysite.html).",
         "min": 0,
         "max": "1",
@@ -2782,6 +3282,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "binding": {
           "extension": [
             {
@@ -2913,9 +3414,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2978,6 +3480,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3054,6 +3557,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "binding": {
           "strength": "required",
@@ -3183,9 +3687,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -3199,16 +3704,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:sct.system",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.system",
         "short": "Identity of the terminology system",
         "definition": "The identification of the code system that defines the meaning of the symbol in the code.",
@@ -3240,6 +3735,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3262,16 +3758,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:sct.version",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.version",
         "short": "Version of the system - if relevant",
         "definition": "The version of the code system which was used when choosing this code. Note that a well-maintained code system does not need the version reported, because the meaning of codes is consistent across versions. However this cannot consistently be assured, and when the meaning is not guaranteed to be consistent, the version SHOULD be exchanged.",
@@ -3301,6 +3787,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3323,16 +3810,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:sct.code",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.code",
         "short": "Symbol in syntax defined by the system",
         "definition": "A symbol in syntax defined by the system. The symbol may be a predefined code or an expression in a syntax defined by the coding system (e.g. post-coordination).",
@@ -3350,9 +3827,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -3363,12 +3837,9 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          },
           {
             "identity": "v2",
             "map": "C*E.1"
@@ -3386,14 +3857,6 @@
       {
         "id": "Specimen.collection.bodySite.coding:sct.display",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -3429,6 +3892,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3451,16 +3915,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:sct.userSelected",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.userSelected",
         "short": "If this coding was chosen directly by the user",
         "definition": "Indicates that this coding was chosen by a user directly - e.g. off a pick list of available items (codes or displays).",
@@ -3491,6 +3945,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3555,6 +4010,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "binding": {
           "strength": "required",
@@ -3684,9 +4140,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -3700,16 +4157,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:icd-o-3.system",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.system",
         "short": "Identity of the terminology system",
         "definition": "The identification of the code system that defines the meaning of the symbol in the code.",
@@ -3741,6 +4188,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3763,16 +4211,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:icd-o-3.version",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.version",
         "short": "Version of the system - if relevant",
         "definition": "The version of the code system which was used when choosing this code. Note that a well-maintained code system does not need the version reported, because the meaning of codes is consistent across versions. However this cannot consistently be assured, and when the meaning is not guaranteed to be consistent, the version SHOULD be exchanged.",
@@ -3802,6 +4240,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3824,16 +4263,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:icd-o-3.code",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.code",
         "short": "Symbol in syntax defined by the system",
         "definition": "A symbol in syntax defined by the system. The symbol may be a predefined code or an expression in a syntax defined by the coding system (e.g. post-coordination).",
@@ -3851,9 +4280,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -3864,12 +4290,9 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          },
           {
             "identity": "v2",
             "map": "C*E.1"
@@ -3887,14 +4310,6 @@
       {
         "id": "Specimen.collection.bodySite.coding:icd-o-3.display",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -3930,6 +4345,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3952,16 +4368,6 @@
       },
       {
         "id": "Specimen.collection.bodySite.coding:icd-o-3.userSelected",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.collection.bodySite.coding.userSelected",
         "short": "If this coding was chosen directly by the user",
         "definition": "Indicates that this coding was chosen by a user directly - e.g. off a pick list of available items (codes or displays).",
@@ -3992,6 +4398,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -4015,14 +4422,6 @@
       {
         "id": "Specimen.collection.bodySite.text",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -4058,6 +4457,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -4101,8 +4501,68 @@
           "ordered": false,
           "rules": "open"
         },
-        "short": "Whether or how long patient abstained from food and/or drink",
-        "definition": "Abstinence or reduction from some or all food, drink, or both, for a period of time prior to sample collection.",
+        "short": "Nüchternstatus",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Nüchternstatus"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Fasting status"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Nüchternstatus der Person zum Zeitpunkt der Probenentnahme.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Nüchternstatus der Person zum Zeitpunkt der Probenentnahme."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The fasting status of the person at the time the specimen was collected."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "Representing fasting status using this element is preferred to representing it with an observation using a 'pre-coordinated code'  such as  LOINC 2005-7 (Calcium [Moles/​time] in 2 hour Urine --12 hours fasting), or  using  a component observation ` such as `Observation.component code`  = LOINC 49541-6 (Fasting status - Reported).",
         "requirements": "Many diagnostic tests require fasting  to facilitate accurate interpretation.",
         "min": 0,
@@ -4245,8 +4705,68 @@
           ],
           "rules": "open"
         },
-        "short": "Processing and processing step details",
-        "definition": "Details concerning processing and processing steps for the specimen.",
+        "short": "Probenverarbeitung",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Probenverarbeitung"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen processing"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Details zur Verarbeitung der Probe, einschließlich Prozeduren und Verarbeitungszeitraum.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Details zur Verarbeitung der Probe, einschließlich Prozeduren und Verarbeitungszeitraum."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Details about the processing of the specimen, including procedures and processing period."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "*",
         "base": {
@@ -4273,6 +4793,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4310,6 +4831,8 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4319,16 +4842,6 @@
       },
       {
         "id": "Specimen.processing.extension",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.extension",
         "slicing": {
           "discriminator": [
@@ -4360,9 +4873,6 @@
             "code": "Extension"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -4377,18 +4887,16 @@
             "severity": "error",
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
-            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), \"value\")])",
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
             "map": "n/a"
-          },
-          {
-            "identity": "rim",
-            "map": "N/A"
           }
         ]
       },
@@ -4446,10 +4954,12 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4513,7 +5023,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -4532,16 +5042,6 @@
       },
       {
         "id": "Specimen.processing.description",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.description",
         "short": "Textual description of procedure",
         "definition": "Textual description of procedure.",
@@ -4571,6 +5071,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4595,8 +5096,68 @@
           }
         ],
         "path": "Specimen.processing.procedure",
-        "short": "Indicates the treatment step  applied to the specimen",
-        "definition": "A coded value specifying the procedure used to process the specimen.",
+        "short": "Verarbeitungstyp",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verarbeitungstyp"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Processing procedure"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Die angewendete Prozedur zur Verarbeitung der Probe, z.B. Zentrifugation.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Die angewendete Prozedur zur Verarbeitung der Probe, z.B. Zentrifugation."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The procedure applied to process the specimen, e.g. centrifugation."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "Not all terminology uses fit this general pattern. In some cases, models should not use CodeableConcept and use Coding directly and provide their own structure for managing text, codings, translations and the relationship between elements and pre- and post-coordination.",
         "min": 1,
         "max": "1",
@@ -4624,6 +5185,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "binding": {
           "extension": [
             {
@@ -4751,9 +5313,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4816,6 +5379,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -4892,6 +5456,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5017,9 +5582,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5033,16 +5599,6 @@
       },
       {
         "id": "Specimen.processing.procedure.coding:sct.system",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.procedure.coding.system",
         "short": "Identity of the terminology system",
         "definition": "The identification of the code system that defines the meaning of the symbol in the code.",
@@ -5074,6 +5630,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5096,16 +5653,6 @@
       },
       {
         "id": "Specimen.processing.procedure.coding:sct.version",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.procedure.coding.version",
         "short": "Version of the system - if relevant",
         "definition": "The version of the code system which was used when choosing this code. Note that a well-maintained code system does not need the version reported, because the meaning of codes is consistent across versions. However this cannot consistently be assured, and when the meaning is not guaranteed to be consistent, the version SHOULD be exchanged.",
@@ -5135,6 +5682,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5157,16 +5705,6 @@
       },
       {
         "id": "Specimen.processing.procedure.coding:sct.code",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.procedure.coding.code",
         "short": "Symbol in syntax defined by the system",
         "definition": "A symbol in syntax defined by the system. The symbol may be a predefined code or an expression in a syntax defined by the coding system (e.g. post-coordination).",
@@ -5184,9 +5722,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -5197,12 +5732,9 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          },
           {
             "identity": "v2",
             "map": "C*E.1"
@@ -5220,14 +5752,6 @@
       {
         "id": "Specimen.processing.procedure.coding:sct.display",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -5263,6 +5787,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5285,16 +5810,6 @@
       },
       {
         "id": "Specimen.processing.procedure.coding:sct.userSelected",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.procedure.coding.userSelected",
         "short": "If this coding was chosen directly by the user",
         "definition": "Indicates that this coding was chosen by a user directly - e.g. off a pick list of available items (codes or displays).",
@@ -5325,6 +5840,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5348,14 +5864,6 @@
       {
         "id": "Specimen.processing.procedure.text",
         "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
           {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
@@ -5391,6 +5899,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5424,8 +5933,68 @@
           }
         ],
         "path": "Specimen.processing.additive",
-        "short": "Material used in the processing step",
-        "definition": "Material used in the processing step.",
+        "short": "Additive bei Verarbeitung",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Additive bei Verarbeitung"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Processing additives"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Zusatzstoffe, die während der Probenverarbeitung verwendet wurden, z.B. Fixierungsmittel.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Zusatzstoffe, die während der Probenverarbeitung verwendet wurden, z.B. Fixierungsmittel."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Additives used during the specimen processing, e.g. fixatives."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "References SHALL be a reference to an actual FHIR resource, and SHALL be resolveable (allowing for access control, temporary unavailability, etc.). Resolution can be either by retrieval from the URL, or, where applicable by resource type, by treating an absolute reference as a canonical URL and looking it up in a local registry/repository.",
         "min": 0,
         "max": "*",
@@ -5460,10 +6029,11 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5562,8 +6132,68 @@
         ],
         "path": "Specimen.processing.time[x]",
         "sliceName": "timePeriod",
-        "short": "Date and time of specimen processing",
-        "definition": "A record of the time or period when the specimen processing occurred.  For example the time of sample fixation or the period of time the sample was in formalin.",
+        "short": "Verarbeitungszeitraum",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verarbeitungszeitraum"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Processing period"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Zeitraum, in dem die Probe verarbeitet wurde.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Zeitraum, in dem die Probe verarbeitet wurde."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The time period during which the specimen was processed."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "1",
         "base": {
@@ -5694,9 +6324,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5710,16 +6341,6 @@
       },
       {
         "id": "Specimen.processing.time[x]:timePeriod.start",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.time[x].start",
         "short": "Starting time with inclusive boundary",
         "definition": "The start of the period. The boundary is inclusive.",
@@ -5751,6 +6372,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5769,16 +6391,6 @@
       },
       {
         "id": "Specimen.processing.time[x]:timePeriod.end",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.time[x].end",
         "short": "End time with inclusive boundary, if not ongoing",
         "definition": "The end of the period. If the end of the period is missing, it means no end was known or planned at the time the instance was created. The start may be in the past, and the end date in the future, which means that period is expected/planned to end at that time.",
@@ -5811,6 +6423,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -5869,6 +6482,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5906,6 +6520,8 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5915,16 +6531,6 @@
       },
       {
         "id": "Specimen.processing:lagerprozess.extension",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.extension",
         "slicing": {
           "discriminator": [
@@ -5955,9 +6561,6 @@
             "code": "Extension"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -5972,18 +6575,16 @@
             "severity": "error",
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
-            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), \"value\")])",
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
             "map": "n/a"
-          },
-          {
-            "identity": "rim",
-            "map": "N/A"
           }
         ]
       },
@@ -6041,10 +6642,12 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6108,7 +6711,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -6127,16 +6730,6 @@
       },
       {
         "id": "Specimen.processing:lagerprozess.description",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.description",
         "short": "Textual description of procedure",
         "definition": "Textual description of procedure.",
@@ -6166,6 +6759,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6218,6 +6812,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "binding": {
           "extension": [
             {
@@ -6345,9 +6940,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6405,6 +7001,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -6441,14 +7038,6 @@
         "id": "Specimen.processing:lagerprozess.procedure.text",
         "extension": [
           {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          },
-          {
             "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-translatable",
             "valueBoolean": true
           }
@@ -6483,6 +7072,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -6552,9 +7142,10 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Organization"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6587,6 +7178,16 @@
           }
         ],
         "path": "Specimen.processing.time[x]",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "type",
+              "path": "$this"
+            }
+          ],
+          "ordered": false,
+          "rules": "open"
+        },
         "short": "Date and time of specimen processing",
         "definition": "A record of the time or period when the specimen processing occurred.  For example the time of sample fixation or the period of time the sample was in formalin.",
         "min": 1,
@@ -6770,9 +7371,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6786,16 +7388,6 @@
       },
       {
         "id": "Specimen.processing:lagerprozess.time[x]:timePeriod.start",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.time[x].start",
         "short": "Starting time with inclusive boundary",
         "definition": "The start of the period. The boundary is inclusive.",
@@ -6826,6 +7418,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -6844,16 +7437,6 @@
       },
       {
         "id": "Specimen.processing:lagerprozess.time[x]:timePeriod.end",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.processing.time[x].end",
         "short": "End time with inclusive boundary, if not ongoing",
         "definition": "The end of the period. If the end of the period is missing, it means no end was known or planned at the time the instance was created. The start may be in the past, and the end date in the future, which means that period is expected/planned to end at that time.",
@@ -6885,6 +7468,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -6914,8 +7498,68 @@
           }
         ],
         "path": "Specimen.container",
-        "short": "Direct container of specimen (tube/slide, etc.)",
-        "definition": "The container holding the specimen.  The recursive nature of containers; i.e. blood in tube in tray in rack is not addressed here.",
+        "short": "Probenbehältnis",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Probenbehältnis"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen container"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Informationen über den Behälter, in dem die Probe aufbewahrt wird.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Informationen über den Behälter, in dem die Probe aufbewahrt wird."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Information about the container in which the specimen is stored."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "*",
         "base": {
@@ -6942,6 +7586,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6979,6 +7624,8 @@
             "code": "http://hl7.org/fhirpath/System.String"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6988,16 +7635,6 @@
       },
       {
         "id": "Specimen.container.extension",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.container.extension",
         "slicing": {
           "discriminator": [
@@ -7028,9 +7665,6 @@
             "code": "Extension"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -7045,18 +7679,16 @@
             "severity": "error",
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
-            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), \"value\")])",
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "mapping": [
           {
             "identity": "rim",
             "map": "n/a"
-          },
-          {
-            "identity": "rim",
-            "map": "N/A"
           }
         ]
       },
@@ -7112,7 +7744,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/Element"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -7169,6 +7801,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -7199,16 +7832,6 @@
       },
       {
         "id": "Specimen.container.description",
-        "extension": [
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
-            "valueCode": "normative"
-          },
-          {
-            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
-            "valueCode": "4.0.0"
-          }
-        ],
         "path": "Specimen.container.description",
         "short": "Textual description of the container",
         "definition": "Textual description of the container.",
@@ -7238,6 +7861,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -7262,8 +7886,68 @@
           }
         ],
         "path": "Specimen.container.type",
-        "short": "Kind of container directly associated with specimen",
-        "definition": "The type of container associated with the specimen (e.g. slide, aliquot, etc.).",
+        "short": "Containertyp",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Containertyp"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Container type"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Der Typ des Probencontainers, der für diese Probe verwendet wurde.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Der Typ des Probencontainers, der für diese Probe verwendet wurde."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The type of container used for this specimen."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "Not all terminology uses fit this general pattern. In some cases, models should not use CodeableConcept and use Coding directly and provide their own structure for managing text, codings, translations and the relationship between elements and pre- and post-coordination.",
         "min": 1,
         "max": "1",
@@ -7291,6 +7975,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "binding": {
           "extension": [
             {
@@ -7342,8 +8027,68 @@
           }
         ],
         "path": "Specimen.container.capacity",
-        "short": "Container volume or size",
-        "definition": "The capacity (volume or other measure) the container may contain.",
+        "short": "Containerkapazität",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Containerkapazität"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Capacity"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Die maximale Kapazität des Containers, der für die Probe verwendet wurde.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Die maximale Kapazität des Containers, der für die Probe verwendet wurde."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The maximum capacity of the container used for the specimen."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "The context of use may frequently define what kind of quantity this is and therefore what kind of units can be used. The context of use may also restrict the values for the comparator.",
         "min": 0,
         "max": "1",
@@ -7378,7 +8123,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "sqty-1",
@@ -7386,7 +8131,7 @@
             "human": "The comparator is not used on a SimpleQuantity",
             "expression": "comparator.empty()",
             "xpath": "not(exists(f:comparator))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/SimpleQuantity"
           }
         ],
         "mustSupport": true,
@@ -7427,8 +8172,68 @@
           }
         ],
         "path": "Specimen.container.specimenQuantity",
-        "short": "Quantity of specimen within container",
-        "definition": "The quantity of specimen in the container; may be volume, dimensions, or other appropriate measurements, depending on the specimen type.",
+        "short": "Probenmenge",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Probenmenge"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Specimen quantity"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Die Menge des gesammelten Materials.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Die Menge des gesammelten Materials."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "The amount of material collected."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "The context of use may frequently define what kind of quantity this is and therefore what kind of units can be used. The context of use may also restrict the values for the comparator.",
         "min": 0,
         "max": "1",
@@ -7463,7 +8268,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "sqty-1",
@@ -7471,7 +8276,7 @@
             "human": "The comparator is not used on a SimpleQuantity",
             "expression": "comparator.empty()",
             "xpath": "not(exists(f:comparator))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Substance"
+            "source": "http://hl7.org/fhir/StructureDefinition/SimpleQuantity"
           }
         ],
         "mustSupport": true,
@@ -7522,8 +8327,68 @@
           "ordered": false,
           "rules": "open"
         },
-        "short": "Additive associated with container",
-        "definition": "Introduced substance to preserve, maintain or enhance the specimen. Examples: Formalin, Citrate, EDTA.",
+        "short": "Additiv",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Additiv"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Additives"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Zusatzstoffe, die im Probenbehälter enthalten sind z.B. wie Konservierungsmittel.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Zusatzstoffe, die im Probenbehälter enthalten sind z.B. wie Konservierungsmittel."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Additives contained in the specimen container e.g. preservatives."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "1",
         "base": {
@@ -7626,17 +8491,6 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
-        "binding": {
-          "extension": [
-            {
-              "url": "http://hl7.org/fhir/StructureDefinition/elementdefinition-bindingName",
-              "valueString": "SpecimenContainerAdditive"
-            }
-          ],
-          "strength": "example",
-          "description": "Substance added to specimen container.",
-          "valueSet": "http://terminology.hl7.org/ValueSet/v2-0371"
-        },
         "mapping": [
           {
             "identity": "rim",
@@ -7694,6 +8548,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "binding": {
           "extension": [
@@ -7742,8 +8597,68 @@
           }
         ],
         "path": "Specimen.note",
-        "short": "Comments",
-        "definition": "To communicate any details or issues about the specimen or during the specimen collection. (for example: broken vial, sent with patient, frozen).",
+        "short": "Projektnutzung",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Projektnutzung"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Project usage"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Freitextangabe zur Verwendung der Probe in spezifischen Projekten.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Freitextangabe zur Verwendung der Probe in spezifischen Projekten."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Free-text information about the use of the specimen in specific projects."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "comment": "For systems that do not have structured annotations, they can simply communicate a single annotation with no author or time.  This element may need to be included in narrative because of the potential for modifying information.  *Annotations SHOULD NOT* be used to communicate \"modifying\" information that could be computable. (This is a SHOULD because enforcing user behavior is nearly impossible).",
         "min": 0,
         "max": "*",
@@ -7771,6 +8686,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -7816,6 +8732,68 @@
         "id": "Specimen.extension:festgestellteDiagnose",
         "path": "Specimen.extension",
         "sliceName": "festgestellteDiagnose",
+        "short": "Festgestellte Diagnose",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Festgestellte Diagnose"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Diagnosed condition"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Verweis auf eine Diagnose, für die Material in der Probe enthalten ist.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verweis auf eine Diagnose, für die Material in der Probe enthalten ist."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Reference to a diagnosis for which material is present in the specimen."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "1",
         "type": [
@@ -7832,6 +8810,68 @@
         "id": "Specimen.extension:gehoertZu",
         "path": "Specimen.extension",
         "sliceName": "gehoertZu",
+        "short": "Verwaltende Organisation",
+        "_short": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Verwaltende Organisation"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Managing organization"
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
+        "definition": "Zuordnung der Probe zu einer Sammlung oder Biobank, die für die Verwaltung verantwortlich ist.",
+        "_definition": {
+          "extension": [
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "de-DE"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Zuordnung der Probe zu einer Sammlung oder Biobank, die für die Verwaltung verantwortlich ist."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            },
+            {
+              "extension": [
+                {
+                  "url": "lang",
+                  "valueCode": "en-US"
+                },
+                {
+                  "url": "content",
+                  "valueString": "Assignment of the specimen to a collection or biobank responsible for its management."
+                }
+              ],
+              "url": "http://hl7.org/fhir/StructureDefinition/translation"
+            }
+          ]
+        },
         "min": 0,
         "max": "1",
         "type": [

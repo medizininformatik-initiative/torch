@@ -24,11 +24,6 @@
         "code": "447886005",
         "version": "http://snomed.info/sct/900000000000207008/version/20230731",
         "display": "Adenocarcinoma of anorectum (disorder)"
-      },
-      {
-        "system": "http://terminology.hl7.org/CodeSystem/icd-o-3",
-        "code": "8140/3",
-        "display": "Adenokarzinom o.n.A."
       }
     ]
   },
@@ -45,10 +40,6 @@
           "code": "281088000",
           "version": "http://snomed.info/sct/900000000000207008/version/20230731",
           "display": "Structure of anus and/or rectum (body structure)"
-        },
-        {
-          "system": "http://terminology.hl7.org/CodeSystem/icd-o-3",
-          "code": "C21.8"
         }
       ]
     }

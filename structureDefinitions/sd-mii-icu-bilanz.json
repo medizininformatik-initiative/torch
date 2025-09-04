@@ -6,10 +6,10 @@
     "div": "<div xmlns=\"http://www.w3.org/1999/xhtml\">No human-readable text provided in this case.</div>"
   },
   "url": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/bilanz",
-  "version": "1.0.0",
+  "version": "2025.0.3",
   "name": "SD_MII_ICU_Bilanz",
   "title": "SD MII ICU Bilanz",
-  "status": "draft",
+  "status": "active",
   "fhirVersion": "4.0.1",
   "kind": "resource",
   "abstract": false,
@@ -194,6 +194,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -224,9 +225,6 @@
             "code": "uri"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -239,13 +237,7 @@
         ],
         "isModifier": true,
         "isModifierReason": "This element is labeled as a modifier because the implicit rules may provide additional knowledge about the resource that modifies it's meaning or interpretation",
-        "isSummary": true,
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          }
-        ]
+        "isSummary": true
       },
       {
         "id": "Observation.language",
@@ -265,9 +257,6 @@
             "code": "code"
           }
         ],
-        "condition": [
-          "ele-1"
-        ],
         "constraint": [
           {
             "key": "ele-1",
@@ -278,6 +267,8 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
+        "isSummary": false,
         "binding": {
           "extension": [
             {
@@ -296,13 +287,7 @@
           "strength": "preferred",
           "description": "A human language.",
           "valueSet": "http://hl7.org/fhir/ValueSet/languages"
-        },
-        "mapping": [
-          {
-            "identity": "rim",
-            "map": "n/a"
-          }
-        ]
+        }
       },
       {
         "id": "Observation.text",
@@ -351,6 +336,7 @@
             "source": "http://hl7.org/fhir/StructureDefinition/Element"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -460,9 +446,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -535,7 +522,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -687,7 +674,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -771,7 +758,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -1051,9 +1038,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1180,7 +1168,7 @@
           }
         ],
         "patternCoding": {
-          "system": "https://terminology.hl7.org/4.0.0/CodeSystem-observation-category.html"
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category"
         },
         "condition": [
           "ele-1"
@@ -1200,7 +1188,7 @@
         "binding": {
           "strength": "required",
           "description": "A Code of the following value set is required. Only relevant codes for balances should be vital-signs, exam and therapy.",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-observation-bilanzen-hl7"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-category-observation-bilanzen-hl7"
         },
         "mapping": [
           {
@@ -1326,9 +1314,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1477,6 +1466,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -1638,7 +1628,8 @@
           }
         ],
         "patternCoding": {
-          "system": "http://snomed.info/sct"
+          "system": "http://snomed.info/sct",
+          "code": "364396009"
         },
         "condition": [
           "ele-1"
@@ -1655,10 +1646,6 @@
         ],
         "mustSupport": true,
         "isSummary": true,
-        "binding": {
-          "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-observation-bilanzen"
-        },
         "mapping": [
           {
             "identity": "rim",
@@ -1783,9 +1770,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -1934,6 +1922,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -2095,7 +2084,7 @@
           }
         ],
         "patternCoding": {
-          "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-fixed",
+          "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-observation-category-fixed",
           "code": "bilanz"
         },
         "condition": [
@@ -2236,9 +2225,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2387,6 +2377,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -2769,9 +2760,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -2917,7 +2909,7 @@
         "isSummary": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-snomed"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-snomed"
         },
         "mapping": [
           {
@@ -3043,9 +3035,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -3194,6 +3187,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3375,7 +3369,7 @@
         "isSummary": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-loinc"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-loinc"
         },
         "mapping": [
           {
@@ -3501,9 +3495,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -3652,6 +3647,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -3833,7 +3829,7 @@
         "isSummary": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-iso11073"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-iso11073"
         },
         "mapping": [
           {
@@ -3959,9 +3955,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -4110,6 +4107,7 @@
           }
         ],
         "mustSupport": true,
+        "isModifier": false,
         "isSummary": true,
         "mapping": [
           {
@@ -4348,7 +4346,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
@@ -4376,7 +4374,7 @@
           },
           {
             "identity": "rim",
-            "map": "participation[typeCode=RTGT]"
+            "map": "participation[typeCode=RTGT] "
           },
           {
             "identity": "w5",
@@ -4433,7 +4431,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -4517,7 +4515,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
@@ -4551,6 +4549,16 @@
       },
       {
         "id": "Observation.effective[x]",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "normative"
+          },
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
+            "valueCode": "4.0.0"
+          }
+        ],
         "path": "Observation.effective[x]",
         "short": "Clinically relevant time/time-period for observation",
         "definition": "The time or time-period the observed value is asserted as being true. For biological subjects - e.g. human patients - this is usually called the \"physiologically relevant time\". This is usually either the time of the procedure or of specimen collection, but very often the source of the date/time is not known, only the date/time itself.",
@@ -4719,7 +4727,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -4752,6 +4760,16 @@
       },
       {
         "id": "Observation.value[x]",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "normative"
+          },
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
+            "valueCode": "4.0.0"
+          }
+        ],
         "path": "Observation.value[x]",
         "short": "Actual result",
         "definition": "The information determined as a result of making the observation, if the information has a simple value.",
@@ -5265,7 +5283,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
@@ -5346,7 +5364,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "mustSupport": true,
@@ -5536,9 +5554,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -5602,7 +5621,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -5669,7 +5688,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Observation"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "sqty-1",
@@ -5677,7 +5696,7 @@
             "human": "The comparator is not used on a SimpleQuantity",
             "expression": "comparator.empty()",
             "xpath": "not(exists(f:comparator))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Observation"
+            "source": "http://hl7.org/fhir/StructureDefinition/SimpleQuantity"
           }
         ],
         "isModifier": false,
@@ -5754,7 +5773,7 @@
             "human": "If a code for the unit is present, the system SHALL also be present",
             "expression": "code.empty() or system.exists()",
             "xpath": "not(exists(f:code)) or exists(f:system)",
-            "source": "http://hl7.org/fhir/StructureDefinition/Observation"
+            "source": "http://hl7.org/fhir/StructureDefinition/Quantity"
           },
           {
             "key": "sqty-1",
@@ -5762,7 +5781,7 @@
             "human": "The comparator is not used on a SimpleQuantity",
             "expression": "comparator.empty()",
             "xpath": "not(exists(f:comparator))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Observation"
+            "source": "http://hl7.org/fhir/StructureDefinition/SimpleQuantity"
           }
         ],
         "isModifier": false,
@@ -6004,7 +6023,7 @@
             "human": "If present, low SHALL have a lower value than high",
             "expression": "low.empty() or high.empty() or (low <= high)",
             "xpath": "not(exists(f:low/f:value/@value)) or not(exists(f:high/f:value/@value)) or (number(f:low/f:value/@value) <= number(f:high/f:value/@value))",
-            "source": "http://hl7.org/fhir/StructureDefinition/Observation"
+            "source": "http://hl7.org/fhir/StructureDefinition/Range"
           }
         ],
         "mapping": [
@@ -6123,7 +6142,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -6200,7 +6219,7 @@
             "human": "SHALL have a contained resource if a local reference is provided",
             "expression": "reference.startsWith('#').not() or (reference.substring(1).trace('url') in %rootResource.contained.id.trace('ids'))",
             "xpath": "not(starts-with(f:reference/@value, '#')) or exists(ancestor::*[self::f:entry or self::f:parameter]/f:resource/f:*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')]|/*/f:contained/f:*[f:id/@value=substring-after(current()/f:reference/@value, '#')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DeviceMetric"
+            "source": "http://hl7.org/fhir/StructureDefinition/Reference"
           }
         ],
         "isSummary": true,
@@ -6374,9 +6393,10 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
+        "isModifier": false,
         "mapping": [
           {
             "identity": "rim",
@@ -6440,7 +6460,7 @@
             "human": "Must have either extensions or value[x], not both",
             "expression": "extension.exists() != value.exists()",
             "xpath": "exists(f:extension)!=exists(f:*[starts-with(local-name(.), 'value')])",
-            "source": "http://hl7.org/fhir/StructureDefinition/DomainResource"
+            "source": "http://hl7.org/fhir/StructureDefinition/Extension"
           }
         ],
         "isModifier": true,
@@ -6548,6 +6568,16 @@
       },
       {
         "id": "Observation.component.value[x]",
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-standards-status",
+            "valueCode": "normative"
+          },
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/structuredefinition-normative-version",
+            "valueCode": "4.0.0"
+          }
+        ],
         "path": "Observation.component.value[x]",
         "short": "Actual component result",
         "definition": "The information determined as a result of making the observation, if the information has a simple value.",
@@ -6866,13 +6896,13 @@
         "sliceName": "hl7-category",
         "max": "1",
         "patternCoding": {
-          "system": "https://terminology.hl7.org/4.0.0/CodeSystem-observation-category.html"
+          "system": "http://terminology.hl7.org/CodeSystem/observation-category"
         },
         "mustSupport": true,
         "binding": {
           "strength": "required",
           "description": "A Code of the following value set is required. Only relevant codes for balances should be vital-signs, exam and therapy.",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-observation-bilanzen-hl7"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-category-observation-bilanzen-hl7"
         }
       },
       {
@@ -6894,13 +6924,10 @@
         "min": 1,
         "max": "1",
         "patternCoding": {
-          "system": "http://snomed.info/sct"
+          "system": "http://snomed.info/sct",
+          "code": "364396009"
         },
-        "mustSupport": true,
-        "binding": {
-          "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-observation-bilanzen"
-        }
+        "mustSupport": true
       },
       {
         "id": "Observation.category.coding:kdsicu-category.system",
@@ -6921,7 +6948,7 @@
         "min": 1,
         "max": "1",
         "patternCoding": {
-          "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/category-fixed",
+          "system": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-observation-category-fixed",
           "code": "bilanz"
         }
       },
@@ -6969,7 +6996,7 @@
         "mustSupport": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-snomed"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-snomed"
         }
       },
       {
@@ -6999,7 +7026,7 @@
         "mustSupport": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-loinc"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-loinc"
         }
       },
       {
@@ -7029,7 +7056,7 @@
         "mustSupport": true,
         "binding": {
           "strength": "required",
-          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/code-observation-bilanzen-iso11073"
+          "valueSet": "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/ValueSet/vs-mii-icu-code-observation-bilanzen-iso11073"
         }
       },
       {
