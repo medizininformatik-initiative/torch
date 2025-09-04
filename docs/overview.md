@@ -49,12 +49,12 @@ TORCH provides a range of features to support standardized and consent-aware dat
 - **Reference Resolution**:
   Resolves references between resources while maintaining referential integrity under data extraction conditions.
 - **Slicing and Extensions**: Supports slicing and FHIR extensions to handle institution-specific resource structures.
-- **Profile Adherence
-  **: Only keeps elements from extracted resources against specified FHIR profiles (see [Redaction](implementation/redaction)).
-- **FHIR Bulk Data Access
-  **: Implements the [FHIR Bulk Data Access](api/api.md) specification for efficient large-scale data extraction.
-- **FHIR-to-FHIR Transfer
-  **: Create extracted data in a FHIR-compliant format ready for import into another FHIR server or further FHIR based processing, ensuring maximum interoperability.
+- **Profile Adherence**:
+  Only keeps elements from extracted resources against specified FHIR profiles (see [Redaction](implementation/redaction)).
+- **FHIR Bulk Data Access**:
+  Implements the [FHIR Bulk Data Access](api/api.md) specification for efficient large-scale data extraction.
+- **FHIR-to-FHIR Transfer**:
+  Create extracted data in a FHIR-compliant format ready for import into another FHIR server or further FHIR based processing, ensuring maximum interoperability.
 
 ## Limitations
 
