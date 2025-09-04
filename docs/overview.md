@@ -58,10 +58,10 @@ TORCH provides a range of features to support standardized and consent-aware dat
 
 ## Limitations
 
-- **Value Sets Binding Slices
-  **: Since TORCH does not have its own terminology service, it does not support slicing by value set bindings.
-- **FHIR Version Support**: TORCH currently supports only **FHIR R4
-  **. Other versions (e.g., DSTU2, R5) are not supported.
+- **Value Sets Binding Slices**:
+  Since TORCH does not have its own terminology service, it does not support slicing by value set bindings.
+- **FHIR Version Support**: TORCH currently supports only
+  **FHIR R4**. Other versions (e.g., DSTU2, R5) are not supported.
 - **Custom Resources**: TORCH does not support extraction or processing of
   **custom FHIR resources types** (beyond the standard specification).
 - **On the fly profile support**: TORCH only supports a
@@ -69,12 +69,12 @@ TORCH provides a range of features to support standardized and consent-aware dat
 - **Nested Resources**: TORCH does not handle
   **deeply nested resources**; they are currently treated as a single field rather than fully resolved structures.
 - **Performance Constraints**: Large-scale extraction is bound by the
-  **FHIR Bulk Data Access specification
-  ** and server capabilities; performance may vary depending on server implementation.
+  **FHIR Bulk Data Access specification** and server capabilities;
+  performance may vary depending on server implementation.
 - **Consent Complexity**: Consent handling is limited to
   **rule-based approaches defined in the CRTDL**. Complex or non-standard consent models may require customization.
-- **Interoperability**: TORCH ensures FHIR compliance but does not guarantee interoperability with **all vendor-specific
-  FHIR implementations**.
+- **Interoperability**: TORCH ensures FHIR compliance but does not guarantee interoperability with
+  **all vendor-specific FHIR implementations**.
 
 ## License
 
