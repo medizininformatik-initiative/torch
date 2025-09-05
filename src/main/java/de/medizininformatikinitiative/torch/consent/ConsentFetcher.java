@@ -42,7 +42,7 @@ public class ConsentFetcher {
     private final ConsentProcessor consentProcessor;
 
     /**
-     * Constructs a new {@code ConsentHandler} with the specified dependencies.
+     * Constructs a new {@code ConsentFetcher} with the specified dependencies.
      *
      * @param dataStore The {@link DataStore} service for Server Calls.
      * @param mapper    The {@link ConsentCodeMapper} for mapping consent codes.
@@ -54,7 +54,7 @@ public class ConsentFetcher {
     }
 
     private static Query getConsentQuery(PatientBatch batch) {
-        return Query.of("Consent", batch.compartmentSearchParam("Consent").appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
+        return Query.of("Consent", (batch.compartmentSearchParam("Consent").appendParam("status", stringValue("active"))).appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
     }
 
     /**
