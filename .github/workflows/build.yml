@@ -48,7 +48,7 @@ jobs:
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@2d92b76c45b91eb80fc44c74ce3fce0ee94e8f9d # v3
+        uses: github/codeql-action/init@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3
         with:
           languages: java
           queries: security-and-quality
@@ -66,7 +66,7 @@ jobs:
           tags: torch:latest
           outputs: type=docker,dest=/tmp/torch.tar
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@2d92b76c45b91eb80fc44c74ce3fce0ee94e8f9d # v3
+        uses: github/codeql-action/analyze@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3
 
       - name: Upload Torch Jar
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -112,7 +112,7 @@ jobs:
           TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
 
       - name: Upload Trivy Scan Results to GitHub Security Tab
-        uses: github/codeql-action/upload-sarif@2d92b76c45b91eb80fc44c74ce3fce0ee94e8f9d # v3
+        uses: github/codeql-action/upload-sarif@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3
         with:
           sarif_file: trivy-results.sarif
 
