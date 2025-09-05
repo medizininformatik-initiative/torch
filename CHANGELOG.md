@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.9] - 2025-09-05
+
+### Added
+
+- Add Security Policy [#471](https://github.com/medizininformatik-initiative/torch/pull/471)
+
+### Changed
+
+- Update Shipped Structure Definitions [#481](https://github.com/medizininformatik-initiative/torch/pull/481)
+
 ## [v1.0.0-alpha.8] - 2025-08-25
 
 ### Added
