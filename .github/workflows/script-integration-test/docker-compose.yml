@@ -1,7 +1,7 @@
 services:
   source-fhir-server:
     container_name: source-fhir-server
-    image: samply/blaze:1.1@sha256:00fc421c1e252726083db4b91b65ed59b7f3711398de9b3a5efbe291e38130a3
+    image: samply/blaze:1.1@sha256:af980162fea1c1047ffab1e51400c7a8bbe4d61d6669de0ed915198280d46878
     environment:
       BASE_URL: http://source-fhir-server:8080
       LOG_LEVEL: debug
@@ -17,7 +17,7 @@ services:
 
   target-fhir-server:
     container_name: target-fhir-server
-    image: samply/blaze:1.1@sha256:00fc421c1e252726083db4b91b65ed59b7f3711398de9b3a5efbe291e38130a3
+    image: samply/blaze:1.1@sha256:af980162fea1c1047ffab1e51400c7a8bbe4d61d6669de0ed915198280d46878
     environment:
       BASE_URL: http://target-fhir-server:8080
       LOG_LEVEL: debug
