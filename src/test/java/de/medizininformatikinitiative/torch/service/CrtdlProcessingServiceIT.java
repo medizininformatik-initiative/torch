@@ -66,6 +66,7 @@ class CrtdlProcessingServiceIT {
     private AnnotatedCrtdl crtdlNoPatients;
     private AnnotatedCrtdl crtdlObservationLinked;
     private AnnotatedCrtdl crtdlObservationMedicationLinked;
+    private AnnotatedCrtdl crtdlWithConsent;
 
     @BeforeAll
     void init() throws IOException, ValidationException {
@@ -81,6 +82,9 @@ class CrtdlProcessingServiceIT {
         fis.close();
         fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_MedicationAdministraion_linked_encounter_linked_medication.json");
         crtdlObservationMedicationLinked = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
+        fis.close();
+        fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_diagnosis_basic_consent.json");
+        crtdlWithConsent = validator.validate(INTEGRATION_TEST_SETUP.objectMapper().readValue(fis, Crtdl.class));
         fis.close();
 
         webClient.post()
@@ -98,6 +102,7 @@ class CrtdlProcessingServiceIT {
         clearDirectory("processwithrefs");
         clearDirectory("processwithoutrefs");
         clearDirectory("processWithRefsCoreAndPatient");
+        clearDirectory("processWithConsent");
     }
 
 
@@ -130,6 +135,27 @@ class CrtdlProcessingServiceIT {
         Path jobDir = resultFileManager.initJobDir(jobId).block();
 
         Mono<Void> result = service.process(crtdlObservationLinked, jobId, List.of());
+
+
+        Assertions.assertDoesNotThrow(() -> result.block());
+        try {
+            Assertions.assertNotNull(jobDir);
+            try (DirectoryStream<Path> stream = Files.newDirectoryStream(jobDir)) {
+                boolean filesExist = stream.iterator().hasNext();
+                assertTrue(filesExist, "Job directory should contain files.");
+            }
+        } catch (IOException e) {
+            logger.trace(e.getMessage());
+            throw new RuntimeException("Failed to read job directory.");
+        }
+    }
+
+    @Test
+    void processConsent() {
+        String jobId = "processWithConsent";
+        Path jobDir = resultFileManager.initJobDir(jobId).block();
+
+        Mono<Void> result = service.process(crtdlWithConsent, jobId, List.of());
 
 
         Assertions.assertDoesNotThrow(() -> result.block());
