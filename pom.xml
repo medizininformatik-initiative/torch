@@ -88,6 +88,13 @@
             <version>3.18.0</version>
         </dependency>
 
+        <!-- Overriding reactor netty that comes from spring-boot-starter-webflux and causes a vulnerability in the older version -->
+        <dependency>
+            <groupId>io.netty</groupId>
+            <artifactId>netty-codec-http</artifactId>
+            <version>4.2.6.Final</version>
+        </dependency>
+
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
