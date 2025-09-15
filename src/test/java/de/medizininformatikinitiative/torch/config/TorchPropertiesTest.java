@@ -24,6 +24,59 @@ public class TorchPropertiesTest {
     );
 
     @Nested
+    class TestEmptyFields {
+
+        @Test
+        void testIsNotSet_withNull() {
+            String property = null;
+
+            assertThat(TorchProperties.isNotSet(property)).isTrue();
+        }
+
+        @Test
+        void testIsNotSet_withBlankString() {
+            String property = "";
+
+            assertThat(TorchProperties.isNotSet(property)).isTrue();
+        }
+
+        @Test
+        void testIsNotSet_withLiteralQuotes() {
+            String property = "\"\"";
+
+            assertThat(TorchProperties.isNotSet(property)).isTrue();
+        }
+
+        @Test
+        void testIsNotSet_withCharSequence() {
+            String property = "test";
+
+            assertThat(TorchProperties.isNotSet(property)).isFalse();
+        }
+
+        @Test
+        void testFhirProperties() {
+            String clientSecret = "test-111243";
+            TorchProperties.Fhir.Oauth.Issuer issuer = new TorchProperties.Fhir.Oauth.Issuer("");
+            TorchProperties.Fhir.Oauth.Client client = new TorchProperties.Fhir.Oauth.Client(null, clientSecret);
+            TorchProperties.Fhir fhirProperties = new TorchProperties.Fhir(
+                    "some-url",
+                    new TorchProperties.Max(1),
+                    new TorchProperties.Fhir.Page(1),
+                    new TorchProperties.Fhir.Oauth(issuer, client),
+                    new TorchProperties.Fhir.Disable(false),
+                    "\"\"",
+                    null);
+
+            assertThat(issuer.uri()).isBlank();
+            assertThat(client.id()).isBlank();
+            assertThat(client.secret()).isEqualTo(clientSecret);
+            assertThat(fhirProperties.user()).isBlank();
+            assertThat(fhirProperties.password()).isBlank();
+        }
+    }
+
+    @Nested
     class FlareValidation {
 
         @Test
