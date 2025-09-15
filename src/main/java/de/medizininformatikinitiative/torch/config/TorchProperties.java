@@ -25,12 +25,18 @@ public record TorchProperties(
         @NotBlank(message = "DSE mapping tree file path is required") String dseMappingTreeFile,
         boolean useCql
 ) {
+    private static final String EMPTY_QUOTES = "\"\"";
+
+    public static boolean isNotSet(String variable) {
+        return variable == null || variable.isBlank() || EMPTY_QUOTES.equals(variable);
+    }
+
     public TorchProperties {
         if (!useCql) {
             if (flare == null) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
-            if (flare.url() == null || flare.url().isBlank()) {
+            if (isNotSet(flare.url())) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
         }
@@ -38,7 +44,7 @@ public record TorchProperties(
         if (fhir == null) {
             throw new IllegalArgumentException("FHIR URL must not be null or empty");
         }
-        if (fhir.url() == null || fhir.url().isBlank()) {
+        if (isNotSet(fhir.url())) {
             throw new IllegalArgumentException("FHIR URL must not be null or empty");
         }
     }
@@ -74,8 +80,8 @@ public record TorchProperties(
             String password) {
 
         public Fhir {
-            if (user == null) user = "";
-            if (password == null) password = "";
+            if (isNotSet(user)) user = "";
+            if (isNotSet(password)) password = "";
             if (oauth == null) {
                 oauth = new Oauth(new Oauth.Issuer(""), new Oauth.Client("", ""));
             }
@@ -96,14 +102,14 @@ public record TorchProperties(
 
             public record Issuer(String uri) {
                 public Issuer {
-                    if (uri == null) uri = "";
+                    if (isNotSet(uri)) uri = "";
                 }
             }
 
             public record Client(String id, String secret) {
                 public Client {
-                    if (id == null) id = "";
-                    if (secret == null) secret = "";
+                    if (isNotSet(id)) id = "";
+                    if (isNotSet(secret)) secret = "";
                 }
             }
         }
