@@ -6,14 +6,10 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
+import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
-import de.medizininformatikinitiative.torch.model.consent.Provisions;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import org.hl7.fhir.r4.model.Condition;
-import org.hl7.fhir.r4.model.DateTimeType;
-import org.hl7.fhir.r4.model.Medication;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -23,7 +19,6 @@ import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDate;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -36,22 +31,23 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class ConsentValidatorTest {
 
     private static final String PATIENT_ID = "123";
-    private static final Map<String, Provisions> STATIC_PROVISIONS_MAP = createStaticProvisions();
     private PatientResourceBundle patientResourceBundle;
-    Observation observation;
+
 
     @Autowired
     private ConsentValidator consentValidator;
 
-    @BeforeEach
-    void setUp() {
-        patientResourceBundle = new PatientResourceBundle(PATIENT_ID, STATIC_PROVISIONS_MAP.get(PATIENT_ID));
-        observation = new Observation();
-        observation.setId("123");
+    private static NonContinuousPeriod noncontinousPeriod() {
+        Period consentPeriod1 = Period.of(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31));
+        Period consentPeriod2 = Period.of(LocalDate.of(2028, 1, 1), LocalDate.of(2030, 12, 31));
+
+        List<Period> multiplePeriods = Arrays.asList(consentPeriod1, consentPeriod2);
+        return new NonContinuousPeriod(multiplePeriods);
     }
 
     @Test
     void checkConsent_shouldReturnTrue_whenResourceWithinAnyConsentPeriod() {
+        Observation observation = new Observation();
         observation.setEffective(new DateTimeType("2022-04-20"));
         boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
         assertThat(result).isTrue();
@@ -60,6 +56,7 @@ class ConsentValidatorTest {
 
     @Test
     void checkConsent_shouldReturnFalse_whenResourceOutsideAllConsentPeriods() {
+        Observation observation = new Observation();
         observation.setEffective(new DateTimeType("2018-04-20"));
         boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
         assertThat(result).isFalse();
@@ -68,6 +65,7 @@ class ConsentValidatorTest {
 
     @Test
     void checkConsent_shouldReturnTrue_whenResourceWithinSecondConsentPeriod() {
+        Observation observation = new Observation();
         observation.setEffective(new DateTimeType("2029-04-20"));
         boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
         assertThat(result).isTrue();
@@ -81,20 +79,60 @@ class ConsentValidatorTest {
 
     }
 
+    @BeforeEach
+    void setUp() {
+        patientResourceBundle = new PatientResourceBundle(PATIENT_ID, noncontinousPeriod());
 
-    private static Map<String, Provisions> createStaticProvisions() {
-        Map<String, Provisions> provisionsMap = new HashMap<>();
+    }
 
-        Period consentPeriod1 = Period.of(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31));
-        Period consentPeriod2 = Period.of(LocalDate.of(2028, 1, 1), LocalDate.of(2030, 12, 31));
+    @Test
+    void checkConsent_shouldReturnFalse_whenNoPatientBundleFound() {
+        Observation observation = new Observation();
+        // Resource has patient reference
+        observation.setEffective(new DateTimeType("2022-04-20"));
+        observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
 
-        List<Period> multiplePeriods = Arrays.asList(consentPeriod1, consentPeriod2);
-
-        Provisions provisions = new Provisions(
-                Map.of("consent-key", new NonContinuousPeriod(multiplePeriods))
+        // PatientBatchWithConsent with NO entry for "999"
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(
+                Map.of(PATIENT_ID, patientResourceBundle), true
         );
-        provisionsMap.put(PATIENT_ID, provisions);
-        return provisionsMap;
+
+        boolean result = consentValidator.checkConsent(observation, batch);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void checkConsent_shouldReturnFalse_whenPatientIdNotFound() {
+        // Create a resource with NO patient reference
+        Observation noPatientObs = new Observation();
+        noPatientObs.setEffective(new DateTimeType("2022-04-20"));
+        // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
+
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(
+                Map.of(PATIENT_ID, patientResourceBundle), true
+        );
+
+        boolean result = consentValidator.checkConsent(noPatientObs, batch);
+
+        assertThat(result).isFalse();
+    }
+
+    @Test
+    void checkConsent_shouldReturnFalse_whenNoPatientResourceBundleFound() {
+        Observation observation = new Observation();
+        // Resource points to a different patient
+        observation.setSubject(new Reference("Patient/999"));
+        observation.setEffective(new DateTimeType("2022-04-20"));
+
+        // Batch contains only "123", not "999"
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(
+                Map.of(PATIENT_ID, patientResourceBundle), true
+        );
+
+        boolean result = consentValidator.checkConsent(observation, batch);
+
+        assertThat(result).isFalse();
     }
 
 
@@ -146,6 +184,7 @@ class ConsentValidatorTest {
 
         @Test
         void successWithConsent() throws PatientIdNotFoundException, ReferenceToPatientException, ConsentViolatedException {
+            Observation observation = new Observation();
             observation.setEffective(new DateTimeType("2029-04-20"));
             observation.setSubject(new Reference("Patient/123"));
             assertThat(consentValidator.checkPatientIdAndConsent(patientResourceBundle, true, observation)).isTrue();
