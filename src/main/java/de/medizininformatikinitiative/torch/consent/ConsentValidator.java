@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
-import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -89,11 +88,7 @@ public class ConsentValidator {
                 case "DateTimeType" -> Period.fromHapi((DateTimeType) value);
                 default -> throw new IllegalArgumentException("No valid Date Time Value found");
             };
-            boolean hasValidConsent = patientResourceBundle.provisions().periods().entrySet().stream()
-                    .allMatch(innerEntry -> {
-                        NonContinuousPeriod consentPeriods = innerEntry.getValue();
-                        return consentPeriods.within(period);
-                    });
+            boolean hasValidConsent = patientResourceBundle.consentPeriods().within(period);
             if (hasValidConsent) {
                 return true;
             }
@@ -114,20 +109,14 @@ public class ConsentValidator {
      * @return true if fitting otherwise it throws errors
      */
     public boolean checkPatientIdAndConsent(PatientResourceBundle patientBundle, boolean applyConsent, Resource resource) throws PatientIdNotFoundException, ConsentViolatedException, ReferenceToPatientException {
-        try {
-            String resourcePatientId = ResourceUtils.patientId((DomainResource) resource);
-            if (!resourcePatientId.equals(patientBundle.patientId())) {
-                throw new ReferenceToPatientException("Patient loaded reference belonging to another patient");
-            }
-
-            if (applyConsent && !checkConsent((DomainResource) resource, patientBundle)) {
-                throw new ConsentViolatedException("Consent Violated in Patient Resource");
-            }
-
-            return true;
-
-        } catch (PatientIdNotFoundException e) {
-            throw e;
+        String resourcePatientId = ResourceUtils.patientId((DomainResource) resource);
+        if (!resourcePatientId.equals(patientBundle.patientId())) {
+            throw new ReferenceToPatientException("Patient loaded reference belonging to another patient");
         }
+
+        if (applyConsent && !checkConsent((DomainResource) resource, patientBundle)) {
+            throw new ConsentViolatedException("Consent Violated in Patient Resource");
+        }
+        return true;
     }
 }

@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
-import de.medizininformatikinitiative.torch.consent.ConsentFetcher;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
@@ -17,24 +16,8 @@ import de.medizininformatikinitiative.torch.management.StructureDefinitionHandle
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.rest.CapabilityStatementController;
-import de.medizininformatikinitiative.torch.service.BatchCopierRedacter;
-import de.medizininformatikinitiative.torch.service.CascadingDelete;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
-import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.service.DirectResourceLoader;
-import de.medizininformatikinitiative.torch.service.FilterService;
-import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWriter;
-import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
-import de.medizininformatikinitiative.torch.service.ReferenceResolver;
-import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
-import de.medizininformatikinitiative.torch.util.Redaction;
-import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
-import de.medizininformatikinitiative.torch.util.ReferenceHandler;
-import de.medizininformatikinitiative.torch.util.ResourceReader;
-import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import de.medizininformatikinitiative.torch.service.*;
+import de.medizininformatikinitiative.torch.util.*;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.Mapping;
 import de.numcodex.sq2cql.model.MappingContext;
@@ -313,16 +296,6 @@ public class AppConfig {
     @Bean
     public Redaction redaction(StructureDefinitionHandler cds) {
         return new Redaction(cds);
-    }
-
-    @Bean
-    ConsentHandler handler(DataStore dataStore, ConsentFetcher consentFetcherBuilder) {
-        return new ConsentHandler(dataStore, consentFetcherBuilder);
-    }
-
-    @Bean
-    ConsentFetcher consentFetcherBuilder(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
-        return new ConsentFetcher(dataStore, mapper, ctx);
     }
 
     @Bean
