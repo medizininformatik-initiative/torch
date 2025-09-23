@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.consent.ConsentFetcher;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.mapping.ConsentKey;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -26,10 +27,10 @@ public class ConsentHandlerTest {
 
     @Test
     void failsOnNoPatientMatchesConsentKeyBuildingConsent() {
-        when(consentFetcher.buildConsentInfo("yes-no-no-yes", BATCH))
+        when(consentFetcher.buildConsentInfo(ConsentKey.YES_NO_NO_YES, BATCH))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid provisions found for any patients in batch")));
 
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo("yes-no-no-yes", BATCH);
+        var resultBatch = consentHandler.fetchAndBuildConsentInfo(ConsentKey.YES_NO_NO_YES, BATCH);
 
         StepVerifier.create(resultBatch)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -40,10 +41,10 @@ public class ConsentHandlerTest {
 
     @Test
     void failsOnUnknownPatientBuildingConsent() {
-        when(consentFetcher.buildConsentInfo("yes-yes-yes-yes", BATCH_UNKNOWN))
+        when(consentFetcher.buildConsentInfo(ConsentKey.YES_YES_YES_YES, BATCH_UNKNOWN))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid provisions found for any patients in batch")));
 
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo("yes-yes-yes-yes", BATCH_UNKNOWN);
+        var resultBatch = consentHandler.fetchAndBuildConsentInfo(ConsentKey.YES_YES_YES_YES, BATCH_UNKNOWN);
 
         StepVerifier.create(resultBatch)
                 .expectErrorSatisfies(error -> assertThat(error)
