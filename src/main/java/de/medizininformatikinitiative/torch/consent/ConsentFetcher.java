@@ -1,26 +1,25 @@
 package de.medizininformatikinitiative.torch.consent;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.consent.Provisions;
+import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.util.Collection;
+import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static java.util.Objects.requireNonNull;
@@ -31,61 +30,32 @@ import static java.util.Objects.requireNonNull;
  *
  * @see DataStore
  * @see ConsentCodeMapper
- * @see ConsentProcessor
+ * @see ProvisionExtractor
  */
+@Component
 public class ConsentFetcher {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsentFetcher.class);
     private static final String CDS_CONSENT_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
     private final DataStore dataStore;
     private final ConsentCodeMapper mapper;
-    private final ConsentProcessor consentProcessor;
+    private final ProvisionExtractor provisionExtractor;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param dataStore The {@link DataStore} service for Server Calls.
-     * @param mapper    The {@link ConsentCodeMapper} for mapping consent codes.
+     * @param dataStore          The {@link DataStore} service for Server Calls.
+     * @param mapper             The {@link ConsentCodeMapper} for mapping consent codes.
+     * @param provisionExtractor The {@link ProvisionExtractor} for extracting provisions from consent resources.
      */
-    public ConsentFetcher(DataStore dataStore, ConsentCodeMapper mapper, FhirContext ctx) {
+    public ConsentFetcher(DataStore dataStore, ConsentCodeMapper mapper, ProvisionExtractor provisionExtractor) {
         this.dataStore = requireNonNull(dataStore);
         this.mapper = requireNonNull(mapper);
-        this.consentProcessor = new ConsentProcessor(ctx);
+        this.provisionExtractor = provisionExtractor;
     }
 
     private static Query getConsentQuery(PatientBatch batch) {
         return Query.of("Consent", batch.compartmentSearchParam("Consent").appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
-    }
-
-    /**
-     * Creates out of merged Provisions a map of PatientResourceBundles.
-     *
-     * <p> Patients without provisions are filtered out, since no consent info was found for them.
-     *
-     * @param batch            batch of patientIds to be processed
-     * @param mergedProvisions provisions grouped by patientId
-     * @return map of PatientResourceBundle grouped by patientId
-     */
-    private static Map<String, PatientResourceBundle> createBundles(PatientBatch batch, Map<String, Provisions> mergedProvisions) {
-        return batch.ids().stream()
-                .filter(mergedProvisions::containsKey)
-                .map(patientId -> Map.entry(patientId, new PatientResourceBundle(patientId, mergedProvisions.get(patientId))))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    }
-
-    /**
-     * Takes all provisions grouped by patientId and merges them to a single one per patientId.
-     *
-     * @param provisions map of list of provisions grouped by patientId to be merged
-     * @return map of nonempty merged provisions by patientId
-     */
-    private static Map<String, Provisions> mergeAllProvisions(Map<String, Collection<Provisions>> provisions) {
-        return provisions.entrySet().stream()
-                .flatMap(entry -> {
-                    Provisions mergedProvisions = Provisions.merge(entry.getValue());
-                    return mergedProvisions.isEmpty() ? Stream.empty() : Stream.of(Map.entry(entry.getKey(), mergedProvisions));
-                })
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
     }
 
     /**
@@ -98,7 +68,7 @@ public class ConsentFetcher {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Mono<PatientBatchWithConsent> buildConsentInfo(String key, PatientBatch batch) {
+    public Mono<Map<String, List<ConsentProvisions>>> fetchConsentInfo(String key, PatientBatch batch) {
         logger.debug("Starting to build consent info for key {} and {} patients", key, batch.ids().size());
 
         Set<String> codes = mapper.getRelevantCodes(key);
@@ -110,29 +80,56 @@ public class ConsentFetcher {
                 .concatMap(consent -> {
                     try {
                         String patientId = ResourceUtils.patientId(consent);
-                        logger.trace("Processing consent for patient {}", patientId);
-
-                        Provisions provisions = consentProcessor.transformToConsentPeriodByCode(consent, codes);
-
-                        return Mono.just(Map.entry(patientId, provisions));
-                    } catch (ConsentViolatedException e) {
-                        logger.warn("Skipping consent resource {} due to consent violation: {}", consent.getId(), e.getMessage());
-                        return Mono.empty(); // Omit invalid patients
+                        DateTimeType consentTime = consent.getDateTimeElement();
+                        if (consentTime.isEmpty()) {
+                            logger.warn("Skipping consent resource {} due to missing consent date", consent.getId());
+                            return Mono.empty();
+                        }
+                        return Mono.just(Map.entry(patientId, consent));
                     } catch (PatientIdNotFoundException e) {
                         logger.warn("Skipping consent resource {} due to patient not found: {}", consent.getId(), e.getMessage());
-                        return Mono.empty(); // Omit invalid patients
-
+                        return Mono.empty(); // Omit invalid consents
                     }
                 })
                 .collectMultimap(Map.Entry::getKey, Map.Entry::getValue)
-                .flatMap(provisions -> {
-                    if (provisions.isEmpty()) {
-                        return Mono.error(new ConsentViolatedException("No valid provisions found for any patients in batch " + batch.ids()));
+                .flatMap(consentsByPatient -> {
+                    if (consentsByPatient.isEmpty()) {
+                        return Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch " + batch.ids()));
                     }
 
-                    Map<String, Provisions> mergedProvisions = mergeAllProvisions(provisions);
-                    Map<String, PatientResourceBundle> bundles = createBundles(batch, mergedProvisions);
-                    return Mono.just(new PatientBatchWithConsent(bundles, true));
+                    Map<String, List<ConsentProvisions>> provisionsByPatient =
+                            consentsByPatient.entrySet().stream()
+                                    .map(entry -> Map.entry(
+                                            entry.getKey(),
+                                            entry.getValue().stream()
+                                                    .map(consent -> {
+                                                        try {
+                                                            return provisionExtractor.extractProvisionsPeriodByCode(consent, codes);
+                                                        } catch (ConsentViolatedException |
+                                                                 PatientIdNotFoundException e) {
+                                                            logger.warn("Skipping consent {} for patient {}: {}",
+                                                                    consent.getId(), entry.getKey(), e.getMessage());
+                                                            return null;
+                                                        }
+                                                    })
+                                                    .filter(Objects::nonNull)
+                                                    .toList()
+                                    ))
+                                    .filter(e -> {
+                                        if (e.getValue().isEmpty()) {
+                                            logger.info("Throwing away patient {}: no valid provisions", e.getKey());
+                                            return false;
+                                        }
+                                        return true;
+                                    })
+                                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+                    if (provisionsByPatient.isEmpty()) {
+                        return Mono.error(new ConsentViolatedException(
+                                "All patients in batch " + batch.ids() + " have no valid consentPeriods"));
+                    }
+
+                    return Mono.just(provisionsByPatient);
                 });
     }
 }
