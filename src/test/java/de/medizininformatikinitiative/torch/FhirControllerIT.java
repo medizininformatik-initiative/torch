@@ -17,11 +17,7 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -31,11 +27,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -305,6 +297,54 @@ class FhirControllerIT {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
             testExecutor(parametersFile, "http://localhost:" + port + "/fhir/$extract-data", headers, 400);
+        }
+
+        @Test
+        void testPayloadJustBelow2Mb() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.valueOf("application/fhir+json"));
+
+            // Generate JSON payload just below 2 MB
+            String payload = buildJsonPayload(2 * 1024 * 1024 - 50); // 2MB - 50 bytes
+
+            TestRestTemplate restTemplate = new TestRestTemplate();
+            HttpEntity<String> entity = new HttpEntity<>(payload, headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "http://localhost:" + port + "/fhir/$extract-data",
+                    entity,
+                    String.class
+            );
+
+            assertThat(response.getStatusCode().value()).isEqualTo(400);
+        }
+
+        @Test
+        void testPayloadJustAbove2Mb() {
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.valueOf("application/fhir+json"));
+
+            // Generate JSON payload just above 2 MB
+            String payload = buildJsonPayload(2 * 1024 * 1024 + 50); // 2MB + 50 bytes
+
+            TestRestTemplate restTemplate = new TestRestTemplate();
+            HttpEntity<String> entity = new HttpEntity<>(payload, headers);
+
+            ResponseEntity<String> response = restTemplate.postForEntity(
+                    "http://localhost:" + port + "/fhir/$extract-data",
+                    entity,
+                    String.class
+            );
+
+            // Expect failure due to exceeding maxInMemorySize
+            assertThat(response.getStatusCode().is5xxServerError()).isTrue();
+        }
+
+        private String buildJsonPayload(int sizeInBytes) {
+            // Simple JSON with a single string field
+            return "{\"parameter\":[{\"name\":\"data\",\"valueString\":\"" +
+                    "x".repeat(Math.max(0, sizeInBytes)) +
+                    "\"}]}";
         }
     }
 }
