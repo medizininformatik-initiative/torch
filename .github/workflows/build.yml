@@ -2,15 +2,17 @@ name: Build
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
     branches:
       - main
-      - develop
     tags:
       - 'v*.*.*'
   pull_request:
     branches:
       - main
-      - develop
+    paths-ignore:
+      - 'docs/**'
   schedule:
     - cron: '0 1 * * *'
   merge_group:
