@@ -1,12 +1,12 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.Encounter;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -34,6 +34,24 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
     public static PatientBatchWithConsent fromList(List<PatientResourceBundle> batch) {
         return new PatientBatchWithConsent(batch.stream()
                 .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
+    }
+
+    public static PatientBatchWithConsent fromBatchAndConsent(PatientBatch batch, Map<String, NonContinuousPeriod> consentPeriodsMap) throws ConsentViolatedException {
+        // Filter only patients that have a consent period (non-empty)
+        Map<String, PatientResourceBundle> filtered = batch.ids().stream()
+                .filter(consentPeriodsMap::containsKey)  // patient has a consent period
+                .filter(id -> !consentPeriodsMap.get(id).isEmpty()) // consent period not empty
+                .collect(Collectors.toMap(
+                        id -> id,
+                        id -> new PatientResourceBundle(id, consentPeriodsMap.get(id)) // use the constructor here
+                ));
+
+        if (filtered.isEmpty()) {
+            throw new ConsentViolatedException("No patients with valid consent periods found in batch");
+        }
+
+        return new PatientBatchWithConsent(filtered, true);
+
     }
 
     public void addStaticInfo(CachelessResourceBundle staticInfo) {
@@ -65,25 +83,5 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
             fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
             out.append("\n");
         }
-    }
-
-    public PatientBatchWithConsent adjustConsentPeriodsByPatientEncounters(Map<String, Collection<Encounter>> encountersByPatient) {
-        return new PatientBatchWithConsent(bundles.entrySet().stream()
-                .map(entry ->
-                        {
-                            String patientId = entry.getKey();
-                            PatientResourceBundle bundle = entry.getValue();
-                            Collection<Encounter> encounters = encountersByPatient.get(patientId);
-
-                            if (encounters == null || encounters.isEmpty()) {
-
-                                return Map.entry(patientId, bundle);
-                            } else {
-
-                                return Map.entry(patientId, bundle.adjustConsentPeriodsByPatientEncounters(encounters));
-                            }
-                        }
-                )
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)), applyConsent);
     }
 }

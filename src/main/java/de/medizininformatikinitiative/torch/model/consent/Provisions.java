@@ -19,10 +19,10 @@ public record Provisions(Map<String, NonContinuousPeriod> periods) {
     }
 
     /**
-     * Helper method to update consent provisions for a patient based on their encounters.
+     * Helper method to update consent consentPeriods for a patient based on their encounters.
      *
-     * <p>This method adjusts the start dates of consent provisions to align with the start dates of the patient's
-     * encounters, ensuring that consents are valid during the provisions of active encounters.*
+     * <p>This method adjusts the start dates of consent consentPeriods to align with the start dates of the patient's
+     * encounters, ensuring that consents are valid during the consentPeriods of active encounters.*
      *
      * @param encounters A list of {@link Encounter} resources associated with the patient.
      * @return ConsentInfo with updated period info

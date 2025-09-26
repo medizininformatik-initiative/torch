@@ -1,23 +1,11 @@
 package de.medizininformatikinitiative.torch.consent;
 
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.hl7.fhir.r4.model.Encounter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import reactor.core.publisher.Flux;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
-import reactor.util.function.Tuple2;
-import reactor.util.function.Tuples;
 
-import java.util.Collection;
-import java.util.Map;
-
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -26,72 +14,56 @@ import static java.util.Objects.requireNonNull;
  *
  * @see DataStore
  * @see ConsentCodeMapper
- * @see ConsentProcessor
+ * @see ProvisionExtractor
  */
+@Component
 public class ConsentHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConsentHandler.class);
-    private static final String CDS_ENCOUNTER_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
 
-    private final DataStore dataStore;
     private final ConsentFetcher consentFetcher;
+    private final ConsentAdjuster consentAdjuster;
+    private final ConsentCalculator consentCalculator;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param dataStore      The {@link DataStore} service for Server Calls.
-     * @param consentFetcher The {@link ConsentFetcher} for fetching and building Consent provisions
+     * @param consentFetcher    The {@link ConsentFetcher} for fetching and building Consent consentPeriods
+     * @param consentAdjuster   The {@link ConsentAdjuster} for adjusting consent periods by encounter periods
+     * @param consentCalculator The {@link ConsentCalculator} for calculating effective consent periods
      */
-    public ConsentHandler(DataStore dataStore, ConsentFetcher consentFetcher) {
-        this.dataStore = requireNonNull(dataStore);
-        this.consentFetcher = consentFetcher;
-    }
-
-    private static Query getEncounterQuery(PatientBatch batch) {
-        return Query.of("Encounter", batch.compartmentSearchParam("Encounter").appendParam("_profile:below", stringValue(CDS_ENCOUNTER_PROFILE_URL)));
-    }
-
-    private static Mono<Map<String, Collection<Encounter>>> groupEncounterByPatient(Flux<Encounter> encounters) {
-        return encounters
-                .flatMap(encounter -> {
-                    try {
-                        String patientId = ResourceUtils.patientId(encounter);
-                        return Mono.just(Tuples.of(patientId, encounter));
-                    } catch (PatientIdNotFoundException e) {
-                        return Mono.error(e);
-                    }
-                }).collectMultimap(Tuple2::getT1, Tuple2::getT2);
+    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator) {
+        this.consentFetcher = requireNonNull(consentFetcher);
+        this.consentAdjuster = requireNonNull(consentAdjuster);
+        this.consentCalculator = requireNonNull(consentCalculator);
     }
 
     /**
-     * Returns a Mono which will emit a {@code ConsentInfo} for the given consent key and batch.
+     * Fetches and builds consent information for a batch of patients.
      * <p>
-     * This method starts the fetching and consent building process from Consent resources from a FHIR server and
-     * then adjust consent provisions by encounter periods.
+     * This method performs the following steps in a reactive pipeline:
+     * <ol>
+     *     <li>Fetches consent provisions from a FHIR server for the given {@code consentKey} and patient batch.</li>
+     *     <li>Adjusts the fetched consent periods based on patient encounters.</li>
+     *     <li>Calculates the effective consent periods per patient.</li>
+     *     <li>Filters the batch to include only patients with valid consent periods.</li>
+     * </ol>
+     * <p>
+     * If no patients have valid consent periods, the resulting {@link Mono} will emit a
+     * {@link de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException}.
      *
-     * @param consentKey Consent consentKey for which the ConsentInfo should be built.
-     * @param batch      Batch of patient IDs.
-     * @return {@link Mono<PatientBatchWithConsent>} containing all required provisions by patient with valid times.
+     * @param consentKey the consent key for which consent information should be built
+     * @param batch      the batch of patient IDs to process
+     * @return a {@link Mono} emitting a {@link PatientBatchWithConsent} containing patients with valid consent periods
      */
     public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(String consentKey, PatientBatch batch) {
-        return consentFetcher.buildConsentInfo(consentKey, batch)
-                .flatMap(this::adjustConsentPeriodsByPatientEncounters);
+        return consentFetcher.fetchConsentInfo(consentKey, batch)
+                .flatMap(consentProvisions ->
+                        consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions)
+                )
+                .map(consentProvisions -> consentCalculator.calculateConsent(consentKey, consentProvisions))
+                .flatMap(consentPeriodsMap ->
+                        Mono.fromCallable(() -> PatientBatchWithConsent.fromBatchAndConsent(batch, consentPeriodsMap))
+                );
     }
 
-    /**
-     * Adjusts consent periods start in a batch of patient resource bundles using their associated encounters.
-     *
-     * <p>Only patients with existing consent provisions are processed. Encounters are fetched and used
-     * to update the consent periods for each relevant patient.</p>
-     *
-     * @param batch The batch containing patients and their consent data
-     * @return A {@link Mono} emitting the updated batch with consent periods adjusted based on encounters
-     */
-    private Mono<PatientBatchWithConsent> adjustConsentPeriodsByPatientEncounters(PatientBatchWithConsent batch) {
-
-        Flux<Encounter> encounters = dataStore.search(getEncounterQuery(batch.patientBatch()), Encounter.class)
-                .doOnSubscribe(s -> logger.trace("Fetching encounters for batch: {}", batch.patientIds()));
-
-        return groupEncounterByPatient(encounters).map(batch::adjustConsentPeriodsByPatientEncounters);
-    }
 }
