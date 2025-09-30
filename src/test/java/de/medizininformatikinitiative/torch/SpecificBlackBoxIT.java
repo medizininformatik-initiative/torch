@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Set;
 
 import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
-import static de.medizininformatikinitiative.torch.assertions.BundleAssertFactory.BUNDLE_ASSERT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
@@ -101,7 +100,7 @@ class SpecificBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
+        assertThat(coreBundles).isEmpty();
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles);
@@ -150,7 +149,7 @@ class SpecificBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
+        assertThat(coreBundles).isEmpty();
         assertThat(patientBundles).hasSize(1);
 
         executeStandardTests(patientBundles);
