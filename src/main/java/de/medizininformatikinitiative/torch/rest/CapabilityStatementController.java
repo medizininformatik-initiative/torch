@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class CapabilityStatementController {
 
     private static final Logger logger = LoggerFactory.getLogger(CapabilityStatementController.class);
+    private static final String VERSION = "1.0.0-alpha.10";
 
     @Autowired
     FhirContext fhirContext;
@@ -35,7 +36,7 @@ public class CapabilityStatementController {
         capabilityStatement.setDate(new java.util.Date());
         capabilityStatement.setFhirVersion(Enumerations.FHIRVersion._4_0_1);
         capabilityStatement.setKind(CapabilityStatement.CapabilityStatementKind.INSTANCE);
-        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0-alpha.10");
+        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion(VERSION);
         capabilityStatement.getImplementation().setDescription("Torch FHIR Server Implementation");
         logger.trace("Created basic metadata for CapabilityStatement");
 

@@ -1,0 +1,120 @@
+name: Prepare Changelog Draft
+
+on:
+  milestone:
+    types: [ closed ]
+  workflow_dispatch:
+    inputs:
+      milestone:
+        description: "Milestone title for testing"
+        required: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  changelog:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5
+
+      - name: Set milestone variable
+        id: milestone
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "title=${{ github.event.inputs.milestone }}" >> $GITHUB_OUTPUT
+          else
+            echo "title=${{ github.event.milestone.title }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Update Maven version
+        run: |
+          milestone="${{ steps.milestone.outputs.title }}"
+          version="${milestone#v}"
+          echo "Updating Maven version to: $version"
+          mvn versions:set -DnewVersion="$version" -DgenerateBackupPoms=false
+
+      - name: Update Java VERSION constant
+        run: |
+          milestone="${{ steps.milestone.outputs.title }}"
+          version="${milestone#v}"
+          echo "Updating Java VERSION constant to: $version"
+          
+          # Update the specific file - adjust the path to match your project
+          file="src/main/java/de/medizininformatikinitiative/torch/rest/CapabilityStatementController.java"
+          
+          if [ -f "$file" ]; then
+            sed -i 's/private static final String VERSION = ".*";/private static final String VERSION = "'"$version"'";/' "$file"
+            echo "Updated version in: $file"
+          else
+            echo "Warning: File not found at $file"
+            exit 1
+          fi    
+
+      - name: Generate changelog entry
+        run: |
+          milestone="${{ steps.milestone.outputs.title }}"
+          release="${milestone#v}"
+          echo "Release: $release"
+          today=$(date +'%Y-%m-%d')
+          tmp="tmp_changelog.md"
+
+          echo "## [$release] - $today" > $tmp
+          echo "" >> $tmp
+
+          # Function to add section if it has content
+          add_section() {
+            local section_name=$1
+            local label_filter=$2
+            local content=$(gh api repos/${{ github.repository }}/issues \
+              --paginate -q '.[] | select(.milestone.title=="'"$milestone"'") |
+                select('"$label_filter"') |
+                "- " + .title + " [#" + (.number|tostring) + "](" + .html_url + ")"')
+          
+            if [ -n "$content" ]; then
+              echo "### $section_name" >> $tmp
+              echo "$content" >> $tmp
+              echo "" >> $tmp
+            fi
+          }
+
+          # Add sections only if they have content
+          add_section "Added" '.labels[].name=="feature" or .labels[].name=="enhancement"'
+          add_section "Changed" '.labels[].name=="chore" or .labels[].name=="refactor" or .labels[].name=="ci"'
+          add_section "Fixed" '.labels[].name=="bug" or .labels[].name=="fix"'
+          add_section "Removed" '.labels[].name=="remove" or .labels[].name=="deprecated"'
+
+          # Prepend to CHANGELOG.md (keeping first 4 lines)
+          {
+            head -n 4 CHANGELOG.md
+            echo ""
+            cat $tmp
+            tail -n +5 CHANGELOG.md
+          } > new_changelog.md
+
+          mv new_changelog.md CHANGELOG.md
+          rm $tmp
+
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: release/${{ steps.milestone.outputs.title }}
+          base: main
+          title: "Draft Release: ${{ steps.milestone.outputs.title }}"
+          body: |
+            Draft changelog for milestone **${{ steps.milestone.outputs.title }}**.
+            Please edit and finalize release notes before merging.
+          commit-message: "chore: draft changelog for ${{ steps.milestone.outputs.title }}"
+          committer: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
+          author: github-actions[bot] <github-actions[bot]@users.noreply.github.com>
