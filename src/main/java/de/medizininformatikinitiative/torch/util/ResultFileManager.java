@@ -20,13 +20,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -156,7 +150,10 @@ public class ResultFileManager {
     public void saveBatchToNDJSON(String jobId, PatientBatchWithConsent batch) throws IOException {
         requireNonNull(jobId);
         requireNonNull(batch);
-
+        if (batch.isEmpty()) {
+            logger.trace("Attempted to save empty batch for jobId: {}", jobId);
+            return;
+        }
         var ndJsonFile = createNdJsonFile(jobId, batch);
 
         try (BufferedWriter out = Files.newBufferedWriter(ndJsonFile)) {

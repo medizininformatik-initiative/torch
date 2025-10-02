@@ -50,7 +50,7 @@ class CdsPerformanceBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(0);
+        assertThat(coreBundles).isEmpty();
         assertThat(patientBundles).hasSize(25000);
     }
 

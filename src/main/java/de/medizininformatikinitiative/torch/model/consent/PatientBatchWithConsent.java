@@ -26,6 +26,10 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
         bundles = Map.copyOf(bundles);
     }
 
+    public Boolean isEmpty() {
+        return bundles.values().stream().allMatch(PatientResourceBundle::isEmpty);
+    }
+
     public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
         return new PatientBatchWithConsent(batch.ids().stream().collect(
                 Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false);
