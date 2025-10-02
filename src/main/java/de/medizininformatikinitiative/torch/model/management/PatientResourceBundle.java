@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.Optional;
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -78,5 +79,9 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
 
     public void addStaticInfo(CachelessResourceBundle staticInfo) {
         bundle.merge(staticInfo);
+    }
+
+    public Set<ResourceGroup> getValidResourceGroups() {
+        return bundle.getValidResourceGroups();
     }
 }
