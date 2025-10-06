@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.11] - 2025-10-06
+
+### Added
+
+- Implement Conflict Handling in Consent [#513](https://github.com/medizininformatik-initiative/torch/pull/513)
+
+### Fixed
+
+- Do not write empty ndjson [#528](https://github.com/medizininformatik-initiative/torch/pull/528)
+- Increase WebFlux Buffer Size [#514](https://github.com/medizininformatik-initiative/torch/pull/514)
+- Fix Literal Quotes in Env Vars [#504](https://github.com/medizininformatik-initiative/torch/pull/504)
+
 ## [v1.0.0-alpha.10] - 2025-09-05
 
 ### Changed
