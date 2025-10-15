@@ -1,10 +1,13 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
+
+import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
 
@@ -51,16 +54,16 @@ public class ConsentHandler {
      * If no patients have valid consent periods, the resulting {@link Mono} will emit a
      * {@link de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException}.
      *
-     * @param consentKey the consent key for which consent information should be built
-     * @param batch      the batch of patient IDs to process
+     * @param consentCodes the consent key for which consent information should be built
+     * @param batch        the batch of patient IDs to process
      * @return a {@link Mono} emitting a {@link PatientBatchWithConsent} containing patients with valid consent periods
      */
-    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(String consentKey, PatientBatch batch) {
-        return consentFetcher.fetchConsentInfo(consentKey, batch)
+    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(Set<ConsentCode> consentCodes, PatientBatch batch) {
+        return consentFetcher.fetchConsentInfo(consentCodes, batch)
                 .flatMap(consentProvisions ->
                         consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions)
                 )
-                .map(consentProvisions -> consentCalculator.calculateConsent(consentKey, consentProvisions))
+                .map(consentProvisions -> consentCalculator.calculateConsent(consentCodes, consentProvisions))
                 .flatMap(consentPeriodsMap ->
                         Mono.fromCallable(() -> PatientBatchWithConsent.fromBatchAndConsent(batch, consentPeriodsMap))
                 );

@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,15 +13,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class ConsentCodeMapperTest {
+class ConsentCodeMapperTest {
 
     private ObjectMapper objectMapperMock;
     private ConsentCodeMapper consentCodeMapper;
@@ -28,12 +27,19 @@ public class ConsentCodeMapperTest {
     private static final String EXAMPLE_JSON = """
             [
                 {
+                    "context": {
+                      "code": "Einwilligung",
+                      "display": "Einwilligung",
+                      "system": "fdpg.mii.cds"
+                      },
                     "key": { "code": "CONSENT_KEY_1" },
                     "fixedCriteria": [
                         {
                             "value": [
-                                { "code": "CODE_1" },
-                                { "code": "CODE_2" }
+                                {"system": "testSystem",
+                                "code": "CODE_1" },
+                                { "system": "testSystem",
+                                "code": "CODE_2" }
                             ]
                         }
                     ]
@@ -42,7 +48,7 @@ public class ConsentCodeMapperTest {
             """;
 
     @BeforeEach
-    public void setUp() throws IOException {
+    void setUp() throws IOException {
 
 
         // Mock ObjectMapper behavior to read JSON string instead of a file
@@ -57,9 +63,9 @@ public class ConsentCodeMapperTest {
     // Positive Tests
     @Test
     @DisplayName("Test getRelevantCodes returns expected codes for valid key")
-    public void testGetRelevantCodes() {
-        Set<String> relevantCodes = consentCodeMapper.getRelevantCodes("CONSENT_KEY_1");
-        Set<String> expectedCodes = new HashSet<>(List.of("CODE_1", "CODE_2"));
+    void testGetRelevantCodes() {
+        Set<ConsentCode> relevantCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "CONSENT_KEY_1"));
+        Set<ConsentCode> expectedCodes = Set.of(new ConsentCode("testSystem", "CODE_1"), new ConsentCode("testSystem", "CODE_2"));
 
         assertEquals(expectedCodes, relevantCodes);
     }
@@ -67,28 +73,26 @@ public class ConsentCodeMapperTest {
     // Negative Tests
     @Test
     @DisplayName("Test getRelevantCodes returns isEmpty set for non-existent key")
-    public void testGetRelevantCodesForNonExistentKey() {
-        Set<String> relevantCodes = consentCodeMapper.getRelevantCodes("NON_EXISTENT_KEY");
+    void testGetRelevantCodesForNonExistentKey() {
+        Set<ConsentCode> relevantCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "NON_EXISTENT_KEY"));
 
         assertTrue(relevantCodes.isEmpty(), "Expected an isEmpty set for a non-existent key");
     }
 
     @Test
     @DisplayName("Test IOException is thrown during file reading")
-    public void testIOExceptionThrown() throws IOException {
+    void testIOExceptionThrown() throws IOException {
         // Simulate an IOException
         when(objectMapperMock.readTree(any(File.class))).thenThrow(new IOException("Test exception"));
 
-        IOException thrown = assertThrows(IOException.class, () -> {
-            new ConsentCodeMapper("/invalid/path", objectMapperMock);
-        });
+        IOException thrown = assertThrows(IOException.class, () -> new ConsentCodeMapper("/invalid/path", objectMapperMock));
 
         assertEquals("Test exception", thrown.getMessage(), "Expected IOException message to match");
     }
 
     @Test
     @DisplayName("Test invalid JSON structure returns isEmpty set")
-    public void testInvalidJsonStructure() throws IOException {
+    void testInvalidJsonStructure() throws IOException {
         // Simulate an invalid JSON by returning an isEmpty root node
         JsonNode invalidNode = mock(JsonNode.class);
         when(objectMapperMock.readTree(any(File.class))).thenReturn(invalidNode);
@@ -97,6 +101,6 @@ public class ConsentCodeMapperTest {
         // Reinitialize with the mocked ObjectMapper
         consentCodeMapper = new ConsentCodeMapper("/dummy/path", objectMapperMock);
 
-        assertTrue(consentCodeMapper.getRelevantCodes("ANY_KEY").isEmpty(), "Expected isEmpty set for invalid JSON structure");
+        assertTrue(consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "ANY_KEY")).isEmpty(), "Expected isEmpty set for invalid JSON structure");
     }
 }
