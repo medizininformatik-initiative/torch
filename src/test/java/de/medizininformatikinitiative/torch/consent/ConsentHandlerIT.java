@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import org.hl7.fhir.r4.model.DateTimeType;
@@ -21,6 +22,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -48,31 +50,31 @@ class ConsentHandlerIT {
     }
 
 
-    private void assertConsentTrue(PatientBatchWithConsent batch, String patientId, String date) {
+    private void assertConsentTrue(PatientBatchWithConsent batch, String date) {
         Observation observation = new Observation();
-        observation.setSubject(new Reference("Patient/" + patientId));
+        observation.setSubject(new Reference("Patient/" + PATIENT_ID));
         observation.setEffective(new DateTimeType(date));
         assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
     }
 
-    private void assertConsentFalse(PatientBatchWithConsent batch, String patientId, String date) {
+    private void assertConsentFalse(PatientBatchWithConsent batch) {
         Observation observation = new Observation();
-        observation.setSubject(new Reference("Patient/" + patientId));
-        observation.setEffective(new DateTimeType(date));
+        observation.setSubject(new Reference("Patient/" + PATIENT_ID));
+        observation.setEffective(new DateTimeType("2019-01-01T00:00:00+01:00"));
         assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
     }
 
     @Test
     void successAfterEncounterUpdatesProvisions() {
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo("yes-yes-yes-yes", BATCH);
+        var resultBatch = consentHandler.fetchAndBuildConsentInfo(Set.of(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes")), BATCH);
 
         StepVerifier.create(resultBatch)
                 .assertNext(batch -> {
                     assertThat(batch.patientIds()).containsExactly(PATIENT_ID);
                     assertThat(batch.bundles().get(PATIENT_ID).consentPeriods().periods()).isNotEmpty();
-                    assertConsentTrue(batch, PATIENT_ID, "2021-01-02T00:00:00+01:00");
-                    assertConsentTrue(batch, PATIENT_ID, "2020-01-01T00:00:00+01:00");
-                    assertConsentFalse(batch, PATIENT_ID, "2019-01-01T00:00:00+01:00");
+                    assertConsentTrue(batch, "2021-01-02T00:00:00+01:00");
+                    assertConsentTrue(batch, "2020-01-01T00:00:00+01:00");
+                    assertConsentFalse(batch);
                 }).verifyComplete();
     }
 }

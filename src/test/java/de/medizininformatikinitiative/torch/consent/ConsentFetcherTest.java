@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -26,14 +27,12 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ConsentFetcherTest {
 
+    public static final Set<ConsentCode> CODES = Set.of(new ConsentCode("s1", "c1"));
     @Mock
     private DataStore dataStore;
 
     @Mock
-    private ConsentCodeMapper mapper;
-
-    @Mock
-    ProvisionExtractor extractor;
+    private ProvisionExtractor extractor;
 
     @InjectMocks
     private ConsentFetcher consentFetcher;
@@ -44,9 +43,8 @@ class ConsentFetcherTest {
         consent.setStatus(Consent.ConsentState.INACTIVE);
 
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("c1"));
 
-        var resultBatch = consentFetcher.fetchConsentInfo("validCode", new PatientBatch(List.of("123")));
+        var resultBatch = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("123")));
 
         StepVerifier.create(resultBatch)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -65,13 +63,13 @@ class ConsentFetcherTest {
 
         // mock search
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("code1"));
+
 
         // mock static ResourceUtils.patientId
         try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
             mocked.when(() -> ResourceUtils.patientId(consent)).thenReturn("patient1");
 
-            var result = consentFetcher.fetchConsentInfo("key", new PatientBatch(List.of("patient1")));
+            var result = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("patient1")));
 
             StepVerifier.create(result)
                     .expectError(ConsentViolatedException.class) // because the consent is skipped
@@ -88,13 +86,13 @@ class ConsentFetcherTest {
         consent.setDateTimeElement(null);
         // mock search
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("code1"));
+
 
         // mock static ResourceUtils.patientId
         try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
             mocked.when(() -> ResourceUtils.patientId(consent)).thenReturn("patient1");
 
-            var result = consentFetcher.fetchConsentInfo("key", new PatientBatch(List.of("patient1")));
+            var result = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("patient1")));
 
             StepVerifier.create(result)
                     .expectError(ConsentViolatedException.class) // because the consent is skipped
@@ -110,12 +108,11 @@ class ConsentFetcherTest {
         consent.setDateTimeElement(new DateTimeType()); // empty datetime
 
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("c1"));
 
         try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
             mocked.when(() -> ResourceUtils.patientId(consent)).thenReturn("p1");
 
-            var resultBatch = consentFetcher.fetchConsentInfo("validCode", new PatientBatch(List.of("p1")));
+            var resultBatch = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("p1")));
 
             StepVerifier.create(resultBatch)
                     .expectError(ConsentViolatedException.class)
@@ -130,13 +127,12 @@ class ConsentFetcherTest {
         consent.setDateTimeElement(new DateTimeType("2020-01-01"));
 
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("c1"));
 
         try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
             mocked.when(() -> ResourceUtils.patientId(consent))
                     .thenThrow(new PatientIdNotFoundException("not found"));
 
-            var resultBatch = consentFetcher.fetchConsentInfo("validCode", new PatientBatch(List.of("p1")));
+            var resultBatch = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("p1")));
 
             StepVerifier.create(resultBatch)
                     .expectError(ConsentViolatedException.class)
@@ -151,14 +147,13 @@ class ConsentFetcherTest {
         consent.setDateTimeElement(new DateTimeType("2020-01-01"));
 
         when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
-        when(mapper.getRelevantCodes(any())).thenReturn(Set.of("c1"));
 
         try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
             mocked.when(() -> ResourceUtils.patientId(consent)).thenReturn("p1");
             when(extractor.extractProvisionsPeriodByCode(any(), anySet()))
                     .thenThrow(new ConsentViolatedException("bad"));
 
-            var resultBatch = consentFetcher.fetchConsentInfo("validCode", new PatientBatch(List.of("p1")));
+            var resultBatch = consentFetcher.fetchConsentInfo(CODES, new PatientBatch(List.of("p1")));
 
             StepVerifier.create(resultBatch)
                     .expectError(ConsentViolatedException.class)

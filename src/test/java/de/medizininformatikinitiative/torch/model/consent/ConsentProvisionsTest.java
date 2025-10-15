@@ -12,6 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ConsentProvisionsTest {
 
+    public static final ConsentCode CODE = new ConsentCode("sys1", "code1");
+
     // Helper to create an Encounter with a specific period
     private Encounter createEncounter(LocalDate start, LocalDate end) {
         Encounter encounter = new Encounter();
@@ -28,7 +30,7 @@ class ConsentProvisionsTest {
 
     @Test
     void updateByEncounters_noEncounters_returnsSameProvisions() {
-        Provision p1 = new Provision("code1", Period.of(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         ConsentProvisions updated = consent.updateByEncounters(List.of());
@@ -38,7 +40,7 @@ class ConsentProvisionsTest {
 
     @Test
     void updateByEncounters_nonOverlappingEncounters_returnsSameProvisions() {
-        Provision p1 = new Provision("code1", Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 5));
@@ -51,7 +53,7 @@ class ConsentProvisionsTest {
 
     @Test
     void updateByEncounters_singleOverlappingEncounter_shiftsStart() {
-        Provision p1 = new Provision("code1", Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
@@ -65,7 +67,7 @@ class ConsentProvisionsTest {
 
     @Test
     void updateByEncounters_multipleOverlappingEncounters_shiftsToEarliest() {
-        Provision p1 = new Provision("code1", Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 8), LocalDate.of(2025, 9, 12));
