@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
@@ -18,6 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProvisionExtractorTest {
 
+    public static final ConsentCode CODE_1 = new ConsentCode("sys", "code1");
+    public static final ConsentCode CODE_2 = new ConsentCode("sys", "code2");
+    public static final ConsentCode CODE_3 = new ConsentCode("sys", "code3");
     private ProvisionExtractor extractor;
 
     @BeforeEach
@@ -59,12 +63,12 @@ class ProvisionExtractorTest {
         parentProvision.setProvision(List.of(nestedValid, nestedMissingStart, nestedMissingEnd));
         consent.setProvision(parentProvision);
 
-        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of("code1", "code2", "code3"));
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1, CODE_2, CODE_3));
 
         // Only the valid nested provision should be included
         assertThat(result.provisions()).hasSize(1);
         Provision p = result.provisions().getFirst();
-        assertThat(p.code()).isEqualTo("code1");
+        assertThat(p.code()).isEqualTo(CODE_1);
         assertThat(p.period()).isEqualTo(Period.of(LocalDate.of(2022, 1, 1), LocalDate.of(2022, 12, 31)));
         assertThat(p.permit()).isTrue();
     }
@@ -87,7 +91,7 @@ class ProvisionExtractorTest {
         parentProvision.setProvision(List.of(nestedProvision));
         consent.setProvision(parentProvision);
 
-        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of("code1"));
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
 
         assertThat(result.provisions()).isEmpty();
     }
@@ -110,11 +114,11 @@ class ProvisionExtractorTest {
         parentProvision.setProvision(List.of(nestedDeny));
         consent.setProvision(parentProvision);
 
-        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of("code1"));
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
 
         assertThat(result.provisions()).hasSize(1);
         Provision p = result.provisions().getFirst();
-        assertThat(p.code()).isEqualTo("code1");
+        assertThat(p.code()).isEqualTo(CODE_1);
         assertThat(p.period()).isEqualTo(Period.of(LocalDate.of(2022, 1, 1), LocalDate.of(2022, 12, 31)));
         assertThat(p.permit()).isFalse();
     }
@@ -139,7 +143,7 @@ class ProvisionExtractorTest {
         parentProvision.setProvision(List.of(nestedProvisionNoCode));
         consent.setProvision(parentProvision);
 
-        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of("code1", "code2"));
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1, CODE_2));
 
         // No provisions should be extracted
         assertThat(result.provisions()).isEmpty();
@@ -153,7 +157,7 @@ class ProvisionExtractorTest {
         consent.setPatient(new Reference("Patient/123"));
         consent.setProvision(new Consent.ProvisionComponent());
 
-        assertThatThrownBy(() -> extractor.extractProvisionsPeriodByCode(consent, Set.of("code1")))
+        assertThatThrownBy(() -> extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1)))
                 .isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-no-date has no valid consent date");
     }
@@ -166,7 +170,7 @@ class ProvisionExtractorTest {
         consent.setProvision(new Consent.ProvisionComponent());
         consent.setDateTimeElement(null);
 
-        assertThatThrownBy(() -> extractor.extractProvisionsPeriodByCode(consent, Set.of("code1")))
+        assertThatThrownBy(() -> extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1)))
                 .isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-empty-date has no valid consent date");
     }
@@ -180,7 +184,7 @@ class ProvisionExtractorTest {
         consent.setDateTimeElement(new DateTimeType()); // empty date triggers branch
 
         assertThatThrownBy(() ->
-                extractor.extractProvisionsPeriodByCode(consent, Set.of("anyCode"))
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1))
         ).isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-empty-date has no valid consent date");
     }
@@ -206,7 +210,7 @@ class ProvisionExtractorTest {
         consent.setDateTimeElement(null); // triggers exception
 
         assertThatThrownBy(() ->
-                extractor.extractProvisionsPeriodByCode(consent, Set.of("code1"))
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1))
         ).isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-null-date has no valid consent date");
     }
@@ -244,7 +248,7 @@ class ProvisionExtractorTest {
 
         consent.setProvision(parentProvision);
 
-        Set<String> requiredCodes = Set.of("code1", "code2", "code3", "codeX");
+        Set<ConsentCode> requiredCodes = Set.of(CODE_1, CODE_2, CODE_3);
 
         ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, requiredCodes);
 
@@ -254,7 +258,7 @@ class ProvisionExtractorTest {
         // Verify extracted codes
         assertThat(result.provisions())
                 .extracting(Provision::code)
-                .containsExactlyInAnyOrder("code1", "code2", "code3");
+                .containsExactlyInAnyOrder(CODE_1, CODE_2, CODE_3);
 
         // Verify all periods are the same
         result.provisions().forEach(p ->
@@ -287,7 +291,7 @@ class ProvisionExtractorTest {
         consent.setDateTimeElement(new DateTimeType()); // empty date triggers branch
 
         assertThatThrownBy(() ->
-                extractor.extractProvisionsPeriodByCode(consent, Set.of("code2"))
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_2))
         ).isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-empty-date has no valid consent date");
     }
@@ -300,7 +304,7 @@ class ProvisionExtractorTest {
         consent.setProvision(new Consent.ProvisionComponent());
 
         assertThatThrownBy(() ->
-                extractor.extractProvisionsPeriodByCode(consent, Set.of("anyCode"))
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(new ConsentCode("sys", "anyCode")))
         ).isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-null-date has no valid consent date");
     }

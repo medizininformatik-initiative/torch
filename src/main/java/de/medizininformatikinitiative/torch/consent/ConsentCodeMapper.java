@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 
 import java.io.File;
 import java.io.IOException;
@@ -13,7 +14,7 @@ import java.util.*;
  */
 public class ConsentCodeMapper {
 
-    private final Map<String, List<String>> consentMap;
+    private final Map<ConsentCode, List<ConsentCode>> consentMap;
     private final ObjectMapper objectMapper;
 
 
@@ -29,26 +30,30 @@ public class ConsentCodeMapper {
         //init method
         File file = new File(filePath);
         JsonNode consentMappingData = objectMapper.readTree(file.getAbsoluteFile());
+
         for (JsonNode consent : consentMappingData) {
+            JsonNode context = consent.get("context");
+            String system = context.get("system").asText();
             String keyCode = consent.get("key").get("code").asText();
-            List<String> relevantCodes = new ArrayList<>();
+            List<ConsentCode> relevantCodes = new ArrayList<>();
 
             JsonNode fixedCriteria = consent.get("fixedCriteria");
             if (fixedCriteria != null) {
                 for (JsonNode criterion : fixedCriteria) {
                     Iterator<JsonNode> values = criterion.get("value").elements();
+
                     while (values.hasNext()) {
                         JsonNode value = values.next();
-                        relevantCodes.add(value.get("code").asText());
+                        relevantCodes.add(new ConsentCode(value.get("system").asText(), value.get("code").asText()));
                     }
                 }
             }
 
-            consentMap.put(keyCode, relevantCodes);
+            consentMap.put(new ConsentCode(system, keyCode), relevantCodes);
         }
     }
 
-    public Set<String> getRelevantCodes(String key) {
+    public Set<ConsentCode> getCombinedCodes(ConsentCode key) {
         return new HashSet<>(consentMap.getOrDefault(key, Collections.emptyList()));
     }
 }

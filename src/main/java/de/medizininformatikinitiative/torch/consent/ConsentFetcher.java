@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
@@ -38,19 +39,16 @@ public class ConsentFetcher {
     private static final Logger logger = LoggerFactory.getLogger(ConsentFetcher.class);
     private static final String CDS_CONSENT_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
     private final DataStore dataStore;
-    private final ConsentCodeMapper mapper;
     private final ProvisionExtractor provisionExtractor;
 
     /**
      * Constructs a new {@code ConsentFetcher} with the specified dependencies.
      *
      * @param dataStore          The {@link DataStore} service for Server Calls.
-     * @param mapper             The {@link ConsentCodeMapper} for mapping consent codes.
      * @param provisionExtractor The {@link ProvisionExtractor} for extracting provisions from consent resources.
      */
-    public ConsentFetcher(DataStore dataStore, ConsentCodeMapper mapper, ProvisionExtractor provisionExtractor) {
+    public ConsentFetcher(DataStore dataStore, ProvisionExtractor provisionExtractor) {
         this.dataStore = requireNonNull(dataStore);
-        this.mapper = requireNonNull(mapper);
         this.provisionExtractor = provisionExtractor;
     }
 
@@ -64,14 +62,12 @@ public class ConsentFetcher {
      * <p>This method retrieves relevant consent resources, processes them, and structures the consent
      * information in a map organized by patient ID and consent codes.
      *
-     * @param key   A string key used to retrieve relevant consent codes from the {@link ConsentCodeMapper}.
+     * @param codes Set of relevant consent codes from the {@link ConsentCodeMapper}.
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Mono<Map<String, List<ConsentProvisions>>> fetchConsentInfo(String key, PatientBatch batch) {
-        logger.debug("Starting to build consent info for key {} and {} patients", key, batch.ids().size());
-
-        Set<String> codes = mapper.getRelevantCodes(key);
+    public Mono<Map<String, List<ConsentProvisions>>> fetchConsentInfo(Set<ConsentCode> codes, PatientBatch batch) {
+        logger.debug("Starting to build consent info for codes {} and {} patients", codes, batch.ids().size());
 
         return dataStore.search(getConsentQuery(batch), Consent.class)
                 .doOnSubscribe(subscription -> logger.trace("Fetching resources for batch: {}", batch.ids()))

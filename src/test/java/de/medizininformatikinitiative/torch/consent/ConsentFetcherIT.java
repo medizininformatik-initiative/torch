@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,9 @@ class ConsentFetcherIT {
     WebClient webClient;
     @Autowired
     ConsentFetcher consentFetcher;
+    @Autowired
+    ConsentCodeMapper consentCodeMapper;
+    @Autowired
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
 
@@ -49,7 +53,8 @@ class ConsentFetcherIT {
 
     @Test
     void failsOnUnknownPatientBuildingConsent() {
-        var result = consentFetcher.fetchConsentInfo("yes-yes-yes-yes", BATCH_UNKNOWN);
+        var codes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        var result = consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN);
 
         StepVerifier.create(result)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -60,13 +65,15 @@ class ConsentFetcherIT {
 
     @Test
     void successBuildingConsent() {
-        var result = consentFetcher.fetchConsentInfo("yes-yes-yes-yes", BATCH);
+
+        var codes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        var result = consentFetcher.fetchConsentInfo(codes, BATCH);
 
         StepVerifier.create(result)
                 .assertNext(provisionsMap -> {
                     assertThat(provisionsMap).hasSize(1);
                     assertThat(provisionsMap.keySet()).containsExactly(PATIENT_ID);
-                    assertThat(provisionsMap.get(PATIENT_ID).get(0).provisions()).hasSize(10);
+                    assertThat(provisionsMap.get(PATIENT_ID).getFirst().provisions()).hasSize(10);
                 }).verifyComplete();
     }
 }
