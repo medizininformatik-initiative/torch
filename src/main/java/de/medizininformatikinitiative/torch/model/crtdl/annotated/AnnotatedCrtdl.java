@@ -1,10 +1,14 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 
+import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 import static java.util.Objects.requireNonNull;
 
@@ -15,24 +19,34 @@ public record AnnotatedCrtdl(JsonNode cohortDefinition, AnnotatedDataExtraction 
         requireNonNull(dataExtraction);
     }
 
-    public Optional<String> consentKey() {
+    public Optional<Set<ConsentCode>> consentKey() {
         JsonNode inclusionCriteria = cohortDefinition.get("inclusionCriteria");
-        if (inclusionCriteria != null && inclusionCriteria.isArray()) {
-            for (JsonNode criteriaGroup : inclusionCriteria) {
-                for (JsonNode criteria : criteriaGroup) {
-                    JsonNode context = criteria.get("context");
-                    if (context != null && "Einwilligung".equals(context.get("code").asText())) {
-                        JsonNode termcodes = criteria.get("termCodes");
-                        if (termcodes != null && termcodes.isArray()) {
-                            JsonNode firstTermcode = termcodes.get(0);
-                            if (firstTermcode != null && firstTermcode.has("code")) {
-                                return Optional.of(firstTermcode.get("code").asText());
-                            }
-                        }
-                    }
-                }
-            }
+        if (inclusionCriteria == null || !inclusionCriteria.isArray()) {
+            return Optional.empty();
         }
-        return Optional.empty();
+        Set<ConsentCode> codes = StreamSupport.stream(inclusionCriteria.spliterator(), false)
+                .filter(JsonNode::isArray)
+                .flatMap(group -> StreamSupport.stream(group.spliterator(), false))
+                .filter(criteria -> "Einwilligung".equals(criteria.path("context").path("code").asText(null)))
+                .flatMap(criteria -> {
+                    JsonNode termCodes = criteria.path("termCodes");
+                    if (termCodes.isArray()) {
+                        return StreamSupport.stream(termCodes.spliterator(), false)
+                                .map(tc -> {
+                                    String system = tc.path("system").asText(null);
+                                    String code = tc.path("code").asText(null);
+                                    if (system != null && code != null) {
+                                        return new ConsentCode(system, code);
+                                    } else {
+                                        return null; // skip nodes missing data
+                                    }
+                                })
+                                .filter(Objects::nonNull);
+                    }
+                    return Stream.empty();
+                })
+                .collect(Collectors.toSet());
+
+        return codes.isEmpty() ? Optional.empty() : Optional.of(codes);
     }
 }
