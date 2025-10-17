@@ -52,12 +52,12 @@ public class ReferenceHandler {
     public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
-                                                Map<String, AnnotatedAttributeGroup> groupMap) throws MustHaveViolatedException {
+                                                Map<String, AnnotatedAttributeGroup> groupMap,
+                                                Set<ResourceGroup> knownGroups) throws MustHaveViolatedException {
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
         ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
 
         List<ReferenceWrapper> unprocessedReferences = filterUnprocessedReferences(references, processingBundle);
-        Set<ResourceGroup> knownGroups = processingBundle.getKnownResourceGroups();
         return Flux.fromIterable(unprocessedReferences)
                 .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, groupMap).doOnNext(
                         resourceGroupList -> {
