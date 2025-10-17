@@ -41,19 +41,20 @@ Recursive Walk through Resource:
 
 1. **Profile Identification**: Determine the profile(s) associated with the resource to understand the structure and
    allowed elements.
-   Associate the resource with the all profiles associated with it during the extraction process.
-   **multiple profiles per resource are supported** the context for the profiles (i.e. the element id in the structure
+   Link the resource to all profiles associated with it during the extraction process.
+   
+    **Multiple profiles per resource are supported**: the context for the profiles (i.e. the element id in the structure
    definition) is tracked in parallel for all profiles.
 
 2. **Element Evaluation**: For each element in the resource, evaluate whether it is allowed by the profile.
     1. Handle Slicing
     2. Handle Extensions
-    3. (if not primitive) Handle Children
+    3. (If not primitive) Handle Children
 
 3. Handling Children
-    1. descend into children (update context for profiles)
-   2. resolve references (remove references to resources not identified during reference resolve)
-    3. if empty set Data Absent Reason if required by any profile
+    1. Descend into children (update context for profiles)
+    2. Resolve references (remove references to resources not identified during reference resolve)
+    3. If empty and required by any profile, set Data Absent Reason
 
 ## 3. Limitations and Considerations
 

@@ -1,6 +1,6 @@
 # Consent Handling in TORCH
 
-TORCH implements **privacy-aware consent handling** to ensure that extracted data strictly complies with patient
+TORCH implements **privacy-aware consent handling** to ensure that the extracted data strictly complies with patient
 permissions and applicable regulations.
 
 ---
@@ -22,23 +22,22 @@ permissions and applicable regulations.
 Before any data extraction:
 
 1. TORCH retrieves a consent key from the CRTDL
-2. For a batch all patient **Consent** resources are fetched from the FHIR server.
+2. For a batch all **Consent** resources are fetched per patient from the FHIR server.
 3. For the current extraction request the valid consent records are identified based on:
     - Patient ID
     - Status
     - Provision codes
 
 4. Shift start of Consent by related Encounter if applicable:
-    - The assumption is that consents are valid from the start of the encounters that have the start of the consent
-      within
-      their encounter period.
+    - The assumption is that a consent can be valid beginning at the start of an **encounter** when the start of the consent
+      lies within the encounter period.
 5. Calculate the Consent Periods:
     - order them oldest to newest (by Consent.dateTime)
     - for each:
-        - add permits to the current consent period
-        - if denies are present subtract them from the current consent period
+        - add periods of permitted provisions to the current consent period
+        - if denied (i.e. non-permitted) provisions are present, subtract them from the current consent period
 6. During extraction TORCH determines:
-    - Whether the requested resources lie within the consent period for patient as calculated based on the CRTDL.
+    - Whether the requested resources lie within the consent period per patient as calculated based on the CRTDL.
     - If any resources dates are outside the period, they are excluded from the result set.
 
 ## 3. Enforcement in Data Processing

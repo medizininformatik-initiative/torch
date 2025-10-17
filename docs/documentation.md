@@ -9,7 +9,7 @@ TORCH is configured using environment variables that control its behavior and in
 ### API
 
 TORCH provides a FHIR REST API for extracting data based on the CRTDL.
-It implements the FHIR [Asynchronous Bulk Data Request Pattern][1]..
+It implements the FHIR [Asynchronous Bulk Data Request Pattern][1].
 
 👉 Visit the [**API Documentation**](./api/api.md) for details on endpoints, request/response formats, and usage
 examples.

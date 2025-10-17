@@ -5,7 +5,7 @@ extracted.
 
 The extraction process consists of the following 2 steps:
 1. **Attribute Extraction**: Extract only the attributes specified in the profiles.
-2. **Redaction**: Remove any unnecessary data from the resources according to predefined rules and fixes resources to
+2. **Redaction**: Remove any unnecessary data from the resources according to predefined rules and fix resources to
    ensure compliance with the profiles.
    see [Redaction](redaction.md) for details.
 
@@ -16,7 +16,7 @@ It is based on fhir path expressions that are evaluated against the resources.
 The extraction process is as follows:
 1. Merge extraction behaviour e.g. if multiple attribute groups extract the same attribute, the union of all extraction
    rules is applied.
-   Also hierarchical extraction is supported e.g. if a parent element is extracted the children elements don't need to
+   Also, hierarchical extraction is supported, e.g. if a parent element is extracted the child elements don't need to
    be extracted explicitly.
 2. Evaluate FHIR Path expressions against the resources to extract the specified attributes.
 3. Write the extracted attributes to the output resources using HAPI Terser.

@@ -64,8 +64,8 @@ TORCH provides a range of features to support standardized and consent-aware dat
 - **FHIR Version Support**: TORCH currently supports only
   **FHIR R4**. Other versions (e.g., DSTU2, R5) are not supported.
 - **On the fly profile support**: TORCH only supports a
-  **set FHIR of profiles
-  ** given at program startup via config by mounting all valid Structure Definitions (see [Configuration](configuration.md)).
+  **set of FHIR profiles** 
+given at program startup via config by mounting all valid Structure Definitions (see [Configuration](configuration.md)).
 - **Nested Resources**: TORCH does not handle
   **deeply nested resources**; they are currently treated as a single field rather than fully resolved structures.
 - **Performance Constraints**: Large-scale extraction is bound by the

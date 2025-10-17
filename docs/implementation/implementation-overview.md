@@ -15,10 +15,8 @@ based on the Clinical Resource Transfer Definition Language (CRTDL). The main co
 
 1. **Validate CRTDL Definition**: Ensure the CRTDL definition is correctly formatted and contains valid criteria.
 2. **Cohort Evaluation**: Evaluate the cohort via FHIR Search or CQL, unless patient IDs passed directly as parameter.
-3. **Preprocessing of directly loaded core Resources
-   **: Directly loaded core resources are processed first, as to ensure the results can be shared over all patients.
-4. **Handling Patient Resources
-   **: For each patient, the pipeline processes the resources according to the CRTDL definition.
+3. **Preprocessing of directly loaded core Resources**: Directly loaded core resources are processed first, as to ensure the results can be shared over all patients.
+4. **Handling Patient Resources**: For each patient, the pipeline processes the resources according to the CRTDL definition.
 5. **Handling Core Resources**: Patients can load new core resources, which are then postprocessed.
 6. **Writing Output**: The final output is written in NDJSON format, with each patient’s data in a separate bundle.
 

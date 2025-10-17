@@ -1,7 +1,7 @@
 ## Filter
 
-In the crtdl date and token are supported as filter types.
-For all filter types the `name` responds to a FHIR Search parameter which identfies how the filter should be applied.
+In the CRTDL date and token are supported as filter types.
+For all filters, the `name` field in the CRTDL corresponds to the `code` field in a FHIR Search parameter, which identifies how the filter should be applied.
 
 ### Date Filter
 
