@@ -141,6 +141,10 @@ public class ReferenceResolver {
         Map<ResourceGroup, List<ReferenceWrapper>> referencesGroupedByResourceGroup =
                 loadReferencesByResourceGroup(validResourceGroups, patientBundle, coreBundle, groupMap);
 
+        // Get knownGroups ONCE before processing to avoid O(n²) copy operations
+        ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
+        Set<ResourceGroup> knownGroups = processingBundle.getKnownResourceGroups();
+
         return bundleLoader.fetchUnknownResources(referencesGroupedByResourceGroup, patientBundle, coreBundle, applyConsent)
                 .thenMany(
                         Flux.fromIterable(referencesGroupedByResourceGroup.entrySet())
@@ -151,7 +155,8 @@ public class ReferenceResolver {
                                                         entry.getValue(),
                                                         patientBundle,
                                                         coreBundle,
-                                                        groupMap
+                                                        groupMap,
+                                                        knownGroups
                                                 );
                                             } catch (MustHaveViolatedException e) {
                                                 return Flux.empty();
