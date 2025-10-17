@@ -1,6 +1,6 @@
 # Handling Attribute Groups Directly
 
-TORCH distinguishes between directly loaded and refrenced attributeGroups, where referenced attributeGroups are identified by the flag
+TORCH distinguishes between directly loaded and referenced attributeGroups, where referenced attributeGroups are identified by the flag
 `IncludeReferenceOnly`.
 Directly loaded attributeGroups can be loaded directly as their inclusion in the extraction does not depend on any referencing.
 
@@ -11,8 +11,7 @@ the attribute group.
 
 The processing has two separate workflows due to the different nature of the resources:
 
-1. **Core Resources
-   **: These are resources that are outside the patient compartment (no direct link to Patient - e.g. Medication).
+1. **Core Resources**: These are resources that are outside the patient compartment (no direct link to Patient - e.g. Medication).
 2. **Patient Resources**: These are resources that are directly loaded and processed for each patient.
 
 ## 1. Directly Loaded Core Attribute Groups

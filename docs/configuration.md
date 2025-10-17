@@ -7,7 +7,7 @@ for flexible deployment and customization based on the specific requirements of 
 
 This document provides an overview of the environment variables used to configure TORCH, including their default values
 and descriptions.
-These variables can be set in the application.yml file or as system environment variables when running the application.
+These variables can be set in the application.yml file during development or as system environment variables when running the application.
 
 When running TORCH as a container, it is recommended to set these variables or pass them as environment variables during container startup.
 ## Backend
@@ -16,7 +16,7 @@ When running TORCH as a container, it is recommended to set these variables or p
 
 #### `SERVER_PORT` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
-The port on which the server listens for incoming connections.
+The port on which TORCH server listens for incoming connections.
 If running a container it is the port inside the container.
 
 **Default:** `8080`
@@ -97,7 +97,7 @@ Base URL of the FHIR server that TORCH connects to.
 
 #### `TORCH_FHIR_MAX_CONNECTIONS` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
-Maximum number of concurrent connections allowed to the FHIR server. Must be equal to `TORCH_MAXCONCURRENCY + 1`.
+Maximum number of concurrent connections allowed to the FHIR server. Must be at least `TORCH_MAXCONCURRENCY + 1`.
 
 **Default:** `5`
 
@@ -217,7 +217,7 @@ URL used to access the result files in `TORCH_RESULTS_DIR` via a proxy or file s
 
 #### `LOG_LEVEL_DE_MEDIZININFORMATIKINITIATIVE_TORCH` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
-Logging level for core TORCH functionality.
+Logging level for core TORCH functionality (`error`/ `warn`/ `info`/ `debug`/ `trace`).
 
 **Default:** `info`
 
@@ -225,7 +225,7 @@ Logging level for core TORCH functionality.
 
 #### `LOG_LEVEL_CA_UHN_FHIR` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
-Logging level for the HAPI FHIR library.
+Logging level for the HAPI FHIR library (`error`/ `warn`/ `info`/ `debug`/ `trace`, `fatal`, `off`).
 
 **Default:** `error`
 
@@ -233,7 +233,7 @@ Logging level for the HAPI FHIR library.
 
 #### `SPRING_PROFILES_ACTIVE` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
-Active Spring profile used to configure the application context.
+Active Spring profile used to configure the application context (only needed for development).
 
 **Default:** `active`
 

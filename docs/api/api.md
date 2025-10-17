@@ -24,7 +24,7 @@ Torch implements the FHIR [Asynchronous Bulk Data Request Pattern][1].
 The $extract-data endpoint implements the kick-off request in the Async Bulk Pattern. It receives a FHIR parameters
 resource with a **_crtdl_** parameter containing a
 valueBase64Binary [CRTDL](https://github.com/medizininformatik-initiative/clinical-resource-transfer-definition-language).
-All examples are with a torch configured with **`http://localhost:8080`**.
+In all examples torch is configured with the base url **`http://localhost:8080`**.
 
 ```sh
 scripts/create-parameters.sh src/test/resources/CRTDL/CRTDL_observation.json | curl -s 'http://localhost:8080/fhir/$extract-data' -H "Content-Type: application/fhir+json" -d @- -v
@@ -75,12 +75,10 @@ Optionally patient ids can be submitted for a known cohort, bypassing the cohort
 * HTTP Status Code of 202 Accepted
 * Content-Location header with the absolute URL of an endpoint for subsequent status requests (polling location)
 
-That location header can be used in the following status query:
-E.g. location:"/fhir/__status/1234"
 
 ### Status Request
 
-Torch provides a Status Request Endpoint which can be called using the location from the extract Data Endpoint.
+Torch provides a Status Request Endpoint which can be called using the Content-Location returned from the extract Data Endpoint.
 
 ```sh
 curl -s http://localhost:8080/fhir/__status/{location} 
@@ -106,7 +104,7 @@ curl -s http://localhost:8080/fhir/__status/{location}
 curl -s 'http://localhost:8080/fhir/$extract-data' -H "Content-Type: application/fhir+json" -d '<query>'
 ```
 
-the result is a looks something like this:
+The result looks something like this:
 
 ```json
 {

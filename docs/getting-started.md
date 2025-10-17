@@ -2,7 +2,7 @@
 
 ### Quickstart
 
-Torch can be started with a single command using docker and by providing a configuration file e.g. .env.
+Torch can be started with a single command using docker and by providing a configuration file (e.g. .env).
 See [Configuration](configuration.md) for details on the configuration options.
 ```sh
 docker run -d --name torch -p 8080:8080 ghcr.io/medizininformatik-initiative/torch:1.0.0-alpha.7 --env-file [/path/to/.env]
@@ -13,7 +13,7 @@ docker run -d --name torch -p 8080:8080 ghcr.io/medizininformatik-initiative/tor
 TORCH interacts with the following components:
 
 - a CQL ready FHIR Server like [Blaze](https://github.com/samply/blaze)
-  or [FLARE](https://github.com/medizininformatik-initiative/flare) for Cohort
+  or [FLARE](https://github.com/medizininformatik-initiative/flare) for cohort retrieval
 - A FHIR Server / FHIR Search API
 - Reverse Proxy (NGINX) (set by configuration)
 
@@ -34,7 +34,7 @@ request, polling the status, and transferring the resulting files to a target FH
 The transfer script will:
 
 1. Take the **CRTDL** and generate a FHIR parameters resource to send to TORCH.
-2. Execute $extract-data operation on the TORCH server using parameters resource as input.
+2. Execute the $extract-data operation on the TORCH server using the parameters resource as input.
 3. Poll the TORCH status endpoint until the export is complete.
 4. Download the resulting patient-oriented FHIR bundles into a temp dir.
 5. Upload these files to a configured target FHIR server using the `blazectl` tool.

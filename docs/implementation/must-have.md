@@ -20,17 +20,17 @@ If any required attribute is missing, the extraction for that resource is stoppe
 
 ## 2. **Reference Resolve**
 
-The first Must Have Check is done on the resources that are loaded directly from the FHIR server.
-References are only checked for existence, not for correctness.
+The first must have check is done on the resources that are loaded directly from the FHIR server.
+In this step, references are only checked for existence, not for correctness.
 
 A reference attribute in the CRTDL can be marked as must have and has a link to other attribute groups,
 that define the requirements for the referenced resource.
 
-During **Reference Resolve**, TORCH will does the basic must have check on the resolved reference with the linked
+During [Reference Resolve](reference-resolve.md), TORCH does the basic must have check on the resolved reference with the linked
 attribute
 groups.
 So not only does the reference need to be resolved, but the referenced resource also needs to pass the must have check
 for the linked attribute groups.
-If any must have condition is violated, the referencing resource is marked for deletion and then cleaned up during
-the [cascading delete](cascading-delete.md) step.
+If any must have condition is violated, the original referencing resource is considered to not fulfill its must have criteria 
+and is marked for deletion and then cleaned up during the [cascading delete](cascading-delete.md) step.
 

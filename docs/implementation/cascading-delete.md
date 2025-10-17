@@ -20,13 +20,12 @@ deleted resource.
 
 ## Parent Child Relationships
 
-a parent-child relationship in Torch is defined by the extraction process.
+A parent-child relationship in Torch is defined by the extraction process.
 A parent resource is one that is extracted first and may have child resources that depend on it (i.e. a referential
 chain).
 
 - **Parent**: A resource that is referencing another reference.
-- **Child
-  **: A resource that is referenced by a parent resource, such as a Patient or Encounter resource (child) being referenced by an Observation (parent).
+- **Child**: A resource that is referenced by a parent resource, such as a Patient or Encounter resource (child) being referenced by an Observation (parent).
 
 ## Goal of Cascading Delete
 

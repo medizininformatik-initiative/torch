@@ -15,7 +15,7 @@ It allows users to specify who to extract data for, what data to extract, and ho
 
 A CRTDL definition is structured as a JSON object with the following key components:
 
-- **`inclusion criteria`**: Defines the population of interest.
+- **`cohort definition`**: Defines the population of interest.
 - **`data extraction`**: Specifies the FHIR resources and fields to extract.
 
 ---
@@ -23,7 +23,7 @@ A CRTDL definition is structured as a JSON object with the following key compone
 
 The cohort selection uses
 the [CCDL](https://github.com/medizininformatik-initiative/clinical-cohort-definition-language/tree/main) (Clinical Cohort
-Definition Definition Language) to define the population of interest.
+Definition Language) to define the population of interest.
 
 TORCH supports CQL or FHIR Search for the cohort selection execution.
 
@@ -41,9 +41,8 @@ process.
 
 The data extraction object contains an array defining **attributeGroups**, which bundle attributes together.
 
-Each group has an identifier for the group called **groupReference**, a list of attributes to be extracted
-**attributes
-** and a filter object containing exactly one time filter and many code filter. The code filter contains an array of codes to be filtered (see [filters](filter.md)).
+Each group has an identifier for the group called **groupReference**, a list of attributes to be extracted, called
+**attributes**, and a filter object containing exactly one time filter and many code filter. The code filter contains an array of codes to be filtered (see [filters](filter.md)).
 
 **Every data extraction must have exactly one attribute group that describes patient attributes**.
 
@@ -61,7 +60,8 @@ required **must-have** e.g.
 
 If a **must have** condition is **violated**, it will result in a complete stop of the extraction for a **patient**.
 
-Filters definition have a list of **FHIR search parameter operations** containing the type supported, name and corresponding parameters. Currrently **token** and **date** are supported.
+Filter definitions have a list of **FHIR search parameter operations** containing the type, name (corresponds the code field in FHIR Search Parameters) 
+and corresponding parameters. Currently **token** and **date** are supported types.
 
 
 

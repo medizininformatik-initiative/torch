@@ -13,9 +13,9 @@ during structured extraction.
 ### Example CRTDL with Consent Key
 
 The following example shows how to use the consent key in a CRTDL definition.
-The consent key is defined in the `inclusionCriteria` section, which specifies the conditions under which a patient is
+The consent key is defined in the `cohortDefinition` section, which specifies the conditions under which a patient is
 included in the cohort.
-Consent keys are indentified by the `context.code` field, which is set to **Einwilligung** (German for consent).
+Consent keys are identified by the `context.code` field, which is set to **Einwilligung** (German for consent).
 The key value is located as a termCode in this case with the code **yes-yes-no-yes**.
 
 ```json
