@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.config.Context;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -28,6 +29,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class CrtdlProcessingService {
@@ -125,7 +127,7 @@ public class CrtdlProcessingService {
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
-                        .flatMap(batch -> crtdl.consentKey()
+                        .flatMap(batch -> crtdl.consentKey(Set.of(new Context("Einwilligung", "fdpg.mii.cds")))
                                         .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
                                         .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
                                         .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())

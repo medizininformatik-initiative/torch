@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import de.medizininformatikinitiative.torch.config.Context;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 
 import java.util.Objects;
@@ -19,7 +20,7 @@ public record AnnotatedCrtdl(JsonNode cohortDefinition, AnnotatedDataExtraction 
         requireNonNull(dataExtraction);
     }
 
-    public Optional<Set<ConsentCode>> consentKey() {
+    public Optional<Set<ConsentCode>> consentKey(Set<Context> knownContexts) {
         JsonNode inclusionCriteria = cohortDefinition.get("inclusionCriteria");
         if (inclusionCriteria == null || !inclusionCriteria.isArray()) {
             return Optional.empty();
@@ -27,7 +28,12 @@ public record AnnotatedCrtdl(JsonNode cohortDefinition, AnnotatedDataExtraction 
         Set<ConsentCode> codes = StreamSupport.stream(inclusionCriteria.spliterator(), false)
                 .filter(JsonNode::isArray)
                 .flatMap(group -> StreamSupport.stream(group.spliterator(), false))
-                .filter(criteria -> "Einwilligung".equals(criteria.path("context").path("code").asText(null)))
+                .filter(criteria -> {
+                    JsonNode contextNode = criteria.path("context");
+                    String code = contextNode.path("code").asText(null);
+                    String system = contextNode.path("system").asText(null);
+                    return code != null && system != null && knownContexts.contains(new Context(code, system));
+                })
                 .flatMap(criteria -> {
                     JsonNode termCodes = criteria.path("termCodes");
                     if (termCodes.isArray()) {
