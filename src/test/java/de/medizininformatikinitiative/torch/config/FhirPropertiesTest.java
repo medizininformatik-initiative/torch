@@ -1,0 +1,101 @@
+package de.medizininformatikinitiative.torch.config;
+
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+class FhirPropertiesTest {
+
+
+    @Nested
+    class OauthNullSetToEmptyString {
+        @Test
+        void defaultsWhenUserPasswordAndOauthNull() {
+            FhirProperties fhir = new FhirProperties(
+                    "http://fhir-url",
+                    new FhirProperties.Max(5),
+                    new FhirProperties.Page(10),
+                    null, // oauth is null
+                    new FhirProperties.Disable(true),
+                    null, // user is null
+                    null  // password is null
+            );
+
+            assertThat(fhir.user()).isEmpty();
+            assertThat(fhir.password()).isEmpty();
+            assertThat(fhir.oauth()).isNotNull();
+            assertThat(fhir.oauth().issuer().uri()).isEmpty();
+            assertThat(fhir.oauth().client().id()).isEmpty();
+            assertThat(fhir.oauth().client().secret()).isEmpty();
+        }
+
+        @Test
+        void issuerAndClientNull() {
+            FhirProperties.Oauth oauth = new FhirProperties.Oauth(null, null);
+            assertThat(oauth.issuer().uri()).isEmpty();
+            assertThat(oauth.client().id()).isEmpty();
+            assertThat(oauth.client().secret()).isEmpty();
+        }
+
+        @Test
+        void issuerDefaultsWhenUriNull() {
+            FhirProperties.Oauth.Issuer issuer = new FhirProperties.Oauth.Issuer(null);
+            assertThat(issuer.uri()).isEmpty();
+        }
+
+        @Test
+        void clientDefaultsWhenIdAndSecretNull() {
+            FhirProperties.Oauth.Client client = new FhirProperties.Oauth.Client(null, null);
+            assertThat(client.id()).isEmpty();
+            assertThat(client.secret()).isEmpty();
+        }
+
+        @Test
+        void defaultOauthAndCredentials() {
+            var fhir = new FhirProperties(
+                    "http://fhir-url",
+                    new FhirProperties.Max(3),
+                    new FhirProperties.Page(5),
+                    null,
+                    new FhirProperties.Disable(false),
+                    null,
+                    null
+            );
+
+            assertThat(fhir.user()).isEmpty();
+            assertThat(fhir.password()).isEmpty();
+
+            var oauth = fhir.oauth();
+            assertThat(oauth).isNotNull();
+
+            assertThat(oauth.issuer()).isNotNull();
+            assertThat(oauth.issuer().uri()).isEmpty();
+
+            assertThat(oauth.client()).isNotNull();
+            assertThat(oauth.client().id()).isEmpty();
+            assertThat(oauth.client().secret()).isEmpty();
+        }
+
+        @Test
+        void oauthDefaultsWhenIssuerAndClientNullOrWithNullFields() {
+            // Case 1 & 2: Oauth constructed with null issuer and null client
+            FhirProperties.Oauth oauthWithNulls = new FhirProperties.Oauth(null, null);
+            assertThat(oauthWithNulls.issuer()).isNotNull();
+            assertThat(oauthWithNulls.issuer().uri()).isEmpty();
+            assertThat(oauthWithNulls.client()).isNotNull();
+            assertThat(oauthWithNulls.client().id()).isEmpty();
+            assertThat(oauthWithNulls.client().secret()).isEmpty();
+
+            // Case 3: Issuer with null URI
+            FhirProperties.Oauth.Issuer issuerWithNull = new FhirProperties.Oauth.Issuer(null);
+            assertThat(issuerWithNull.uri()).isEmpty();
+
+            // Case 4 & 5: Client with null id and secret
+            FhirProperties.Oauth.Client clientWithNulls = new FhirProperties.Oauth.Client(null, null);
+            assertThat(clientWithNulls.id()).isEmpty();
+            assertThat(clientWithNulls.secret()).isEmpty();
+        }
+    }
+
+}

@@ -55,20 +55,18 @@ import static java.util.Map.entry;
 @Profile("test")
 public class TestConfig {
     private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
-
+    private final FhirProperties fhirProperties;
+    private final TorchProperties torchProperties;
 
     @Bean
     public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
         return searchParametersFile;
     }
 
-
-    private final TorchProperties torchProperties;
-
-    public TestConfig(TorchProperties torchProperties) {
+    public TestConfig(TorchProperties torchProperties, FhirProperties fhirProperties) {
         this.torchProperties = torchProperties;
+        this.fhirProperties = fhirProperties;
     }
-
 
     @Bean
     public CascadingDelete cascadingDelete() {
@@ -108,7 +106,7 @@ public class TestConfig {
     @Bean
     public ReferenceBundleLoader referenceBundleLoader(CompartmentManager compartmentManager,
                                                        DataStore dataStore, ConsentValidator consentValidator) {
-        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, torchProperties.fhir().page().count());
+        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, fhirProperties.page().count());
 
     }
 
@@ -137,7 +135,7 @@ public class TestConfig {
         logger.info("Initializing FHIR WebClient with URL: {}", baseUrl);
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(torchProperties.fhir().max().connections())
+                .maxConnections(fhirProperties.max().connections())
                 .pendingAcquireMaxCount(500)
                 .build();
 
