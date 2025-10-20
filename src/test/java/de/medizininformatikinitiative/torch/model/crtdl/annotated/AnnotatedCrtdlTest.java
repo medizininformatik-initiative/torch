@@ -22,36 +22,33 @@ class AnnotatedCrtdlTest {
     @Test
     void collectsAllTopLevelCodes() throws Exception {
         String json = """
-                 {
-                   "inclusionCriteria": [
-                     [
-                       {
-                         "context": { "code": "Einwilligung" },
-                         "termCodes": [
-                           {
-                           "system": "s1",
-                           "code": "A1"
-                           },
-                           {
-                           "system": "s1",
-                           "code": "A2"
-                           }
-                         ]
-                       }
-                     ],
-                     [
-                       {
-                         "context": { "code": "Einwilligung" },
-                         "termCodes": [
-                           {
-                           "system": "s1",
-                           "code": "B1" }
-                         ]
-                       }
-                     ]
-                   ]
-                 }
-                \s""";
+                {
+                  "inclusionCriteria": [
+                    [
+                      {
+                        "context": {
+                          "code": "Einwilligung",
+                          "system": "fdpg.mii.cds"
+                        },
+                        "termCodes": [
+                          { "system": "s1", "code": "A1" },
+                          { "system": "s1", "code": "A2" }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "context": {
+                          "code": "Einwilligung",
+                          "system": "fdpg.mii.cds"
+                        },
+                        "termCodes": [
+                          { "system": "s1", "code": "B1" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
 
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
@@ -68,7 +65,7 @@ class AnnotatedCrtdlTest {
     @Test
     void returnsEmptyIfInclusionCriteriaIsNotArray() throws Exception {
         String json = """
-                { "inclusionCriteria": { "context": { "code": "Einwilligung" } } }
+                { "inclusionCriteria": { "context": { "code": "Einwilligung"} } }
                 """;
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
@@ -81,8 +78,8 @@ class AnnotatedCrtdlTest {
         String json = """
                 {
                   "inclusionCriteria": [
-                    { "context": { "code": "Einwilligung" }, "termCodes": [ { "system": "s1", "code": "X1" } ] },
-                    [ { "context": { "code": "Einwilligung" }, "termCodes": [ { "system": "s1", "code": "X2" } ] } ]
+                    { "context": { "code": "Einwilligung","system":"fdpg.mii.cds"  }, "termCodes": [ { "system": "s1", "code": "X1" } ] },
+                    [ { "context": { "code": "Einwilligung","system":"fdpg.mii.cds" }, "termCodes": [ { "system": "s1", "code": "X2" } ] } ]
                   ]
                 }
                 """;
@@ -135,7 +132,7 @@ class AnnotatedCrtdlTest {
                   "inclusionCriteria": [
                     [
                       {
-                        "context": { "code": "Einwilligung" },
+                        "context": { "code": "Einwilligung", "system":"fdpg.mii.cds" },
                         "termCodes": [ {
                         "system": "s1",
                         "code": "TOP1" } ],

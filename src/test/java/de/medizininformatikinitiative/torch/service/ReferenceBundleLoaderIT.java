@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 
 import de.medizininformatikinitiative.torch.Torch;
-import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.config.FhirProperties;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
@@ -26,11 +26,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -51,7 +47,7 @@ class ReferenceBundleLoaderIT {
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
     @Autowired
-    private TorchProperties torchProperties;
+    private FhirProperties fhirProperties;
 
     @BeforeAll
     void init() throws IOException {
@@ -89,7 +85,7 @@ class ReferenceBundleLoaderIT {
     void fetchesUnknownReferencesWithMultiplePages() {
 
         List<String> refs = new ArrayList<>();
-        for (int i = 1; i <= torchProperties.fhir().page().count(); i++) {
+        for (int i = 1; i <= fhirProperties.page().count(); i++) {
             refs.add("Observation/" + UUID.randomUUID());
         }
 
@@ -107,7 +103,7 @@ class ReferenceBundleLoaderIT {
         long countEmpty = cache.values().stream()
                 .filter(opt -> opt.equals(Optional.empty()))
                 .count();
-        assertThat(countEmpty).isEqualTo(torchProperties.fhir().page().count());
+        assertThat(countEmpty).isEqualTo(fhirProperties.page().count());
 
 
     }

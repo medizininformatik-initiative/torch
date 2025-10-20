@@ -39,42 +39,19 @@ class AppConfigTest {
                 .containsAnyOf("fhirContext");
     }
 
-    private TorchProperties minimalTorchPropertiesWithBasicAuth(String url) {
-        var base = new TorchProperties.Base("http://base-url");
-        var output = new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://output-server")));
-        var profile = new TorchProperties.Profile("profile-dir");
-        var mapping = new TorchProperties.Mapping("consent-mapping.json", "type-to-consent.json");
-        var page = new TorchProperties.Fhir.Page(10);
-        var oauthIssuer = new TorchProperties.Fhir.Oauth.Issuer(""); // empty disables OAuth
-        var oauthClient = new TorchProperties.Fhir.Oauth.Client("", "");
-        var oauth = new TorchProperties.Fhir.Oauth(oauthIssuer, oauthClient);
-        var fhir = new TorchProperties.Fhir(
+    private FhirProperties minimalfhirPropertiesWithBasicAuth(String url) {
+        var page = new FhirProperties.Page(10);
+        var oauthIssuer = new FhirProperties.Oauth.Issuer(""); // empty disables OAuth
+        var oauthClient = new FhirProperties.Oauth.Client("", "");
+        var oauth = new FhirProperties.Oauth(oauthIssuer, oauthClient);
+        return new FhirProperties(
                 url,
-                new TorchProperties.Max(5),
+                new FhirProperties.Max(5),
                 page,
                 oauth,
-                new TorchProperties.Fhir.Disable(false),
+                new FhirProperties.Disable(false),
                 "user",
                 "password"
-        );
-        var flare = new TorchProperties.Flare("http://flare-url");
-        var results = new TorchProperties.Results("results-dir", "persistence");
-
-        return new TorchProperties(
-                base,
-                output,
-                profile,
-                mapping,
-                fhir,
-                flare,
-                results,
-                1, // batchsize
-                1, // maxConcurrency
-                10, // bufferSize
-                "mappingsFile.json",
-                "conceptTree.json",
-                "dseMappingTree.json",
-                false // useCql
         );
     }
 
@@ -94,26 +71,13 @@ class AppConfigTest {
         assertThat(AppConfig.oAuthEnabled("issuer", "id", "")).isFalse();
     }
 
-
-    private TorchProperties minimalTorchPropertiesWithOAuth(String url) {
+    private TorchProperties torchProperties() {
         var base = new TorchProperties.Base("http://base-url");
         var output = new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://output-server")));
         var profile = new TorchProperties.Profile("profile-dir");
         var mapping = new TorchProperties.Mapping("consent-mapping.json", "type-to-consent.json");
 
-        var page = new TorchProperties.Fhir.Page(10);
-        var oauthIssuer = new TorchProperties.Fhir.Oauth.Issuer(url);
-        var oauthClient = new TorchProperties.Fhir.Oauth.Client("clientId", "clientSecret");
-        var oauth = new TorchProperties.Fhir.Oauth(oauthIssuer, oauthClient);
-        var fhir = new TorchProperties.Fhir(
-                "http://localhost/fhir",
-                new TorchProperties.Max(5),
-                page,
-                oauth,
-                new TorchProperties.Fhir.Disable(false),
-                "", // user empty disables basic auth
-                ""
-        );
+
         var flare = new TorchProperties.Flare("http://flare-url");
         var results = new TorchProperties.Results("results-dir", "persistence");
 
@@ -122,7 +86,6 @@ class AppConfigTest {
                 output,
                 profile,
                 mapping,
-                fhir,
                 flare,
                 results,
                 1, // batchsize
@@ -135,15 +98,32 @@ class AppConfigTest {
         );
     }
 
+    private FhirProperties minimalOauth(String url) {
+        var page = new FhirProperties.Page(10);
+        var oauthIssuer = new FhirProperties.Oauth.Issuer(url);
+        var oauthClient = new FhirProperties.Oauth.Client("clientId", "clientSecret");
+        var oauth = new FhirProperties.Oauth(oauthIssuer, oauthClient);
+        return new FhirProperties(
+                "http://localhost/fhir",
+                new FhirProperties.Max(5),
+                page,
+                oauth,
+                new FhirProperties.Disable(false),
+                "", // user empty disables basic auth
+                ""
+        );
+    }
+
     @Test
     void testOauthExchangeFilterFunction_BasicAuth() throws IOException, InterruptedException {
         try (MockWebServer mockWebServer = new MockWebServer()) {
             mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody("OK"));
             mockWebServer.start();
-            var torchProperties = minimalTorchPropertiesWithBasicAuth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties);
-            ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(torchProperties);
-            WebClient client = appConfig.fhirWebClient(torchProperties, filter);
+
+            var fhirProperties = minimalfhirPropertiesWithBasicAuth(mockWebServer.url("/").toString());
+            var appConfig = new AppConfig(torchProperties(), fhirProperties);
+            ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
+            WebClient client = appConfig.fhirWebClient(torchProperties(), filter, fhirProperties);
             // Perform a request
             client.get()
                     .uri("/fhir/Patient")
@@ -183,11 +163,12 @@ class AppConfigTest {
                             "  \"id_token_signing_alg_values_supported\": [\"RS256\"]\n" +
                             "}\n")
                     .setHeader("Content-Type", "application/json"));
-            var torchProperties = minimalTorchPropertiesWithOAuth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties);
+            var torchProperties = torchProperties();
+            var fhirProperties = minimalOauth(mockWebServer.url("/").toString());
+            var appConfig = new AppConfig(torchProperties, fhirProperties);
 
 
-            ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(torchProperties);
+            ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
 
             assertThat(filter).isInstanceOf(org.springframework.security.oauth2.client.web.reactive.function.client.ServerOAuth2AuthorizedClientExchangeFilterFunction.class);
 
@@ -197,13 +178,13 @@ class AppConfigTest {
 
     @Test
     void testFhirWebClient_baseUrl() {
-        var torchProperties = minimalTorchPropertiesWithBasicAuth("test-url");
-        var appConfig = new AppConfig(torchProperties);
-        ExchangeFilterFunction oauthFilter = appConfig.oauthExchangeFilterFunction(torchProperties);
+        var fhirProperties = minimalfhirPropertiesWithBasicAuth("test-url");
+        var appConfig = new AppConfig(torchProperties(), fhirProperties);
+        ExchangeFilterFunction oauthFilter = appConfig.oauthExchangeFilterFunction(fhirProperties);
 
-        WebClient client = appConfig.fhirWebClient(torchProperties, oauthFilter);
+        WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties);
         assertThat(client).isNotNull();
-        assertThat(torchProperties.fhir().url()).isEqualTo("test-url");
+        assertThat(fhirProperties.url()).isEqualTo("test-url");
     }
 
 }
