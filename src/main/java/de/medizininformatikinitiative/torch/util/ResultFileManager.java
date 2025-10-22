@@ -157,7 +157,7 @@ public class ResultFileManager {
         var ndJsonFile = createNdJsonFile(jobId, batch);
 
         try (BufferedWriter out = Files.newBufferedWriter(ndJsonFile)) {
-            batch.writeFhirBundlesTo(fhirContext, out);
+            batch.writeFhirBundlesTo(fhirContext, out, jobId);
         }
     }
 

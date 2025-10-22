@@ -5,7 +5,6 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
 
 import java.io.IOException;
@@ -82,8 +81,8 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
         return new PatientBatchWithConsent(filtered, applyConsent);
     }
 
-    public void writeFhirBundlesTo(FhirContext fhirContext, Writer out) throws IOException {
-        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(ResourceBundle::toFhirBundle).toList()) {
+    public void writeFhirBundlesTo(FhirContext fhirContext, Writer out, String extractionId) throws IOException {
+        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(bundle -> bundle.toFhirBundle(extractionId)).toList()) {
             fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
             out.append("\n");
         }

@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch;
 
+import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -65,7 +66,8 @@ class CdsPerformanceBlackBoxIT {
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
 
-        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).containsNEntries(25000);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).extractResourcesByType(ResourceType.Medication).hasSize(25000);
+        assertThat(coreBundles).singleElement().asInstanceOf(BUNDLE_ASSERT).extractResourcesByType(ResourceType.Provenance).hasSize(1);
         assertThat(patientBundles).hasSize(25000);
     }
 }
