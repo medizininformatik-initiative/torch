@@ -2,13 +2,11 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Resource;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -50,13 +48,20 @@ class ResourceBundleTest {
     void toFhirBundleTest() {
         ResourceBundle cache = new ResourceBundle();
         cache.put(wrapper1);
+        cache.put(wrapper2);
 
-        var fhirBundle = cache.toFhirBundle();
-        assertThat(fhirBundle.getEntry().getFirst().getRequest().getUrl()).isEqualTo("Patient/patient1");
+        var fhirBundle = cache.toFhirBundle("testExtraction");
+        assertThat(fhirBundle.getEntry())
+                .extracting(entry -> entry.getRequest().getUrl())
+                .containsExactlyInAnyOrder("Patient/patient1", "Patient/patient2", "Provenance/torch-group1", "Provenance/torch-group2");
         assertThat(fhirBundle)
-                .containsNEntries(1)
+                .containsNEntries(4)
                 .extractResources()
-                .satisfiesExactly(resource -> assertThat(resource).extractElementsAt("id").containsExactly(new TextNode("patient1")));
+                .extracting(Resource::getId)
+                .containsExactlyInAnyOrder("patient2", "http://blaze.com/fhir/Patient/patient1", "Provenance/torch-group1", "Provenance/torch-group2");
+        assertThat(fhirBundle)
+                .extractResourcesByType(ResourceType.Provenance)
+                .allSatisfy(resource -> assertThat(resource).extractElementsAt("target.reference").containsExactlyInAnyOrder(new TextNode("Patient/patient1"), new TextNode("Patient/patient2")));
     }
 
     @Nested
