@@ -14,7 +14,6 @@ public record TorchProperties(
         @Valid Output output,
         @Valid Profile profile,
         @Valid Mapping mapping,
-        @Valid @NotNull(message = "FHIR configuration is required") Fhir fhir,
         @Valid Flare flare,
         @Valid Results results,
         @Min(value = 1, message = "Batch size must be at least 1") int batchsize,
@@ -40,13 +39,6 @@ public record TorchProperties(
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
         }
-
-        if (fhir == null) {
-            throw new IllegalArgumentException("FHIR URL must not be null or empty");
-        }
-        if (isNotSet(fhir.url())) {
-            throw new IllegalArgumentException("FHIR URL must not be null or empty");
-        }
     }
 
     public record Base(@NotBlank(message = "Base URL is required") String url) {
@@ -70,50 +62,6 @@ public record TorchProperties(
             @NotBlank(message = "Type to consent mapping is required") String typeToConsent) {
     }
 
-    public record Fhir(
-            @NotBlank(message = "FHIR URL is required") String url,
-            @Valid Max max,
-            @Valid Page page,
-            @Valid Oauth oauth,
-            @Valid Disable disable,
-            String user,
-            String password) {
-
-        public Fhir {
-            if (isNotSet(user)) user = "";
-            if (isNotSet(password)) password = "";
-            if (oauth == null) {
-                oauth = new Oauth(new Oauth.Issuer(""), new Oauth.Client("", ""));
-            }
-        }
-
-
-        public record Page(@Min(value = 1, message = "Page count must be at least 1") int count) {
-        }
-
-        public record Disable(boolean async) {
-        }
-
-        public record Oauth(@Valid Issuer issuer, @Valid Client client) {
-            public Oauth {
-                if (issuer == null) issuer = new Issuer("");
-                if (client == null) client = new Client("", "");
-            }
-
-            public record Issuer(String uri) {
-                public Issuer {
-                    if (isNotSet(uri)) uri = "";
-                }
-            }
-
-            public record Client(String id, String secret) {
-                public Client {
-                    if (isNotSet(id)) id = "";
-                    if (isNotSet(secret)) secret = "";
-                }
-            }
-        }
-    }
 
     public record Flare(String url) {
     }

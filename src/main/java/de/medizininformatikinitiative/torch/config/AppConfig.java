@@ -65,9 +65,11 @@ public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 
     private final TorchProperties torchProperties;
+    private final FhirProperties fhirProperties;
 
-    public AppConfig(TorchProperties torchProperties) {
+    public AppConfig(TorchProperties torchProperties, FhirProperties fhirProperties) {
         this.torchProperties = torchProperties;
+        this.fhirProperties = fhirProperties;
     }
 
 
@@ -132,7 +134,7 @@ public class AppConfig {
     @Bean
     public ReferenceBundleLoader referenceBundleLoader(CompartmentManager compartmentManager,
                                                        DataStore dataStore, ConsentValidator consentValidator) {
-        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, torchProperties.fhir().page().count());
+        return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, fhirProperties.page().count());
 
     }
 
@@ -341,12 +343,12 @@ public class AppConfig {
 
     @Bean("fhirClient")
     public WebClient fhirWebClient(TorchProperties torchProperties,
-                                   ExchangeFilterFunction oauthExchangeFilterFunction
-    ) {
-        String user = torchProperties.fhir().user();
-        String password = torchProperties.fhir().password();
-        int maxConnections = torchProperties.fhir().max().connections();
-        String baseUrl = torchProperties.fhir().url();
+                                   ExchangeFilterFunction oauthExchangeFilterFunction,
+                                   FhirProperties fhirProperties) {
+        String user = fhirProperties.user();
+        String password = fhirProperties.password();
+        int maxConnections = fhirProperties.max().connections();
+        String baseUrl = fhirProperties.url();
         logger.info("Initializing FHIR WebClient with URL {} and a maximum number of {} concurrent connections", baseUrl, maxConnections);
 
         // Configure buffer size to 10MB
@@ -357,7 +359,7 @@ public class AppConfig {
                 .build();
 
         ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(torchProperties.fhir().max().connections())
+                .maxConnections(fhirProperties.max().connections())
                 .build();
         HttpClient httpClient = HttpClient.create(provider);
         WebClient.Builder builder = WebClient.builder()
@@ -376,10 +378,10 @@ public class AppConfig {
     }
 
     @Bean
-    ExchangeFilterFunction oauthExchangeFilterFunction(TorchProperties torchProperties) {
-        String issuerUri = torchProperties.fhir().oauth().issuer().uri();
-        String clientId = torchProperties.fhir().oauth().client().id();
-        String clientSecret = torchProperties.fhir().oauth().client().secret();
+    ExchangeFilterFunction oauthExchangeFilterFunction(FhirProperties fhirProperties) {
+        String issuerUri = fhirProperties.oauth().issuer().uri();
+        String clientId = fhirProperties.oauth().client().id();
+        String clientSecret = fhirProperties.oauth().client().secret();
 
         if (oAuthEnabled(issuerUri, clientId, clientSecret)) {
             logger.info("Enabling OAuth2 authentication (issuer uri: '{}', client id: '{}').",
