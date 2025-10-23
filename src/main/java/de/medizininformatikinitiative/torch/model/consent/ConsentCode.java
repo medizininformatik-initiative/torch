@@ -1,11 +1,13 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.util.ConfigUtils;
+
 public record ConsentCode(String system, String code) {
     public ConsentCode {
-        if (system == null || system.isBlank()) {
+        if (ConfigUtils.isNotSet(system)) {
             throw new IllegalArgumentException("system must not be null or blank");
         }
-        if (code == null || code.isBlank()) {
+        if (ConfigUtils.isNotSet(code)) {
             throw new IllegalArgumentException("code must not be null or blank");
         }
     }

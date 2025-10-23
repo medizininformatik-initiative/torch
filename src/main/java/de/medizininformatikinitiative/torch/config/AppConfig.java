@@ -27,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -60,16 +61,23 @@ import static org.springframework.security.oauth2.core.AuthorizationGrantType.CL
 import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
 
 @Configuration
+@EnableConfigurationProperties({
+        TorchProperties.class,
+        FhirProperties.class,
+        ConsentContextProperties.class
+})
 @Profile("active")
 public class AppConfig {
     private static final Logger logger = LoggerFactory.getLogger(AppConfig.class);
 
     private final TorchProperties torchProperties;
     private final FhirProperties fhirProperties;
+    private final ConsentContextProperties consentContextProperties;
 
-    public AppConfig(TorchProperties torchProperties, FhirProperties fhirProperties) {
+    public AppConfig(TorchProperties torchProperties, FhirProperties fhirProperties, ConsentContextProperties consentContextProperties) {
         this.torchProperties = torchProperties;
         this.fhirProperties = fhirProperties;
+        this.consentContextProperties = consentContextProperties;
     }
 
 
@@ -193,7 +201,7 @@ public class AppConfig {
 
         return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager,
                 processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader,
-                referenceResolver, batchCopierRedacter, torchProperties.maxConcurrency(), cascadingDelete, writer, consentHandler);
+                referenceResolver, batchCopierRedacter, torchProperties.maxConcurrency(), cascadingDelete, writer, consentHandler, consentContextProperties);
     }
 
     @Bean
