@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.model.consent.*;
+import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
+import de.medizininformatikinitiative.torch.model.consent.Period;
+import de.medizininformatikinitiative.torch.model.consent.Provision;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -20,9 +24,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 @ExtendWith(MockitoExtension.class)
 class ConsentCalculatorTest {
 
-    public static final ConsentCode someCode = new ConsentCode("s1", "someConsentKey");
-    public static final ConsentCode CODE_1 = new ConsentCode("s1", "code1");
-    public static final ConsentCode CODE_2 = new ConsentCode("s1", "code2");
+    public static final TermCode someCode = new TermCode("s1", "someConsentKey");
+    public static final TermCode CODE_1 = new TermCode("s1", "code1");
+    public static final TermCode CODE_2 = new TermCode("s1", "code2");
     private ConsentCalculator calculator;
 
     private static Period p(String start, String end) {
@@ -41,10 +45,10 @@ class ConsentCalculatorTest {
             calculator = new ConsentCalculator();
 
             // Provision has an irrelevant code "otherCode"
-            Provision irrelevant = new Provision(new ConsentCode("s1", "otherCode"), p("2024-01-01", "2024-01-31"), true);
+            Provision irrelevant = new Provision(new TermCode("s1", "otherCode"), p("2024-01-01", "2024-01-31"), true);
             ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(irrelevant));
 
-            Map<ConsentCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
                     Set.of(someCode)
             );
@@ -67,7 +71,7 @@ class ConsentCalculatorTest {
                     List.of(permit, deny)
             );
 
-            Map<ConsentCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
                     Set.of(someCode)
             );
@@ -109,7 +113,7 @@ class ConsentCalculatorTest {
                     List.of(permitCode2)
             );
 
-            Map<ConsentCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(old, newer, cp2),
                     Set.of(CODE_1, CODE_2)
             );
@@ -133,7 +137,7 @@ class ConsentCalculatorTest {
             Provision deny = new Provision(CODE_1, p("2024-03-01", "2024-03-10"), false);
             ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(deny));
 
-            Map<ConsentCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
                     Set.of(CODE_1)
             );
@@ -154,7 +158,7 @@ class ConsentCalculatorTest {
 
         @Test
         void intersectConsent_multipleCodes_overlap() throws ConsentViolatedException {
-            Map<ConsentCode, NonContinuousPeriod> consentsByCode = Map.of(
+            Map<TermCode, NonContinuousPeriod> consentsByCode = Map.of(
                     CODE_1, new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10"))),
                     CODE_2, new NonContinuousPeriod(List.of(p("2024-01-05", "2024-01-15")))
             );
@@ -167,7 +171,7 @@ class ConsentCalculatorTest {
 
         @Test
         void intersectConsent_multipleCodes_noOverlap_throws() {
-            Map<ConsentCode, NonContinuousPeriod> consentsByCode = Map.of(
+            Map<TermCode, NonContinuousPeriod> consentsByCode = Map.of(
                     CODE_1, new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10"))),
                     CODE_2, new NonContinuousPeriod(List.of(p("2024-01-11", "2024-01-20")))
             );

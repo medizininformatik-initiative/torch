@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.hl7.fhir.r4.model.Encounter;
 import org.junit.jupiter.api.Test;
 
@@ -12,7 +13,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class ConsentProvisionsTest {
 
-    public static final ConsentCode CODE = new ConsentCode("sys1", "code1");
+    public static final TermCode CODE = new TermCode("sys1", "code1");
 
     // Helper to create an Encounter with a specific period
     private Encounter createEncounter(LocalDate start, LocalDate end) {

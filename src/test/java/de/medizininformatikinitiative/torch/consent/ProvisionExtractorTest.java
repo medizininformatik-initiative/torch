@@ -2,10 +2,10 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,9 +19,9 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ProvisionExtractorTest {
 
-    public static final ConsentCode CODE_1 = new ConsentCode("sys", "code1");
-    public static final ConsentCode CODE_2 = new ConsentCode("sys", "code2");
-    public static final ConsentCode CODE_3 = new ConsentCode("sys", "code3");
+    public static final TermCode CODE_1 = new TermCode("sys", "code1");
+    public static final TermCode CODE_2 = new TermCode("sys", "code2");
+    public static final TermCode CODE_3 = new TermCode("sys", "code3");
     private ProvisionExtractor extractor;
 
     @BeforeEach
@@ -248,7 +248,7 @@ class ProvisionExtractorTest {
 
         consent.setProvision(parentProvision);
 
-        Set<ConsentCode> requiredCodes = Set.of(CODE_1, CODE_2, CODE_3);
+        Set<TermCode> requiredCodes = Set.of(CODE_1, CODE_2, CODE_3);
 
         ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, requiredCodes);
 
@@ -304,7 +304,7 @@ class ProvisionExtractorTest {
         consent.setProvision(new Consent.ProvisionComponent());
 
         assertThatThrownBy(() ->
-                extractor.extractProvisionsPeriodByCode(consent, Set.of(new ConsentCode("sys", "anyCode")))
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(new TermCode("sys", "anyCode")))
         ).isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-null-date has no valid consent date");
     }

@@ -2,10 +2,10 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
@@ -66,7 +66,7 @@ public class ConsentFetcher {
      * @param batch A list of patient IDs to process in this batch.
      * @return A {@link Flux} emitting maps containing consent information structured by patient ID and consent codes.
      */
-    public Mono<Map<String, List<ConsentProvisions>>> fetchConsentInfo(Set<ConsentCode> codes, PatientBatch batch) {
+    public Mono<Map<String, List<ConsentProvisions>>> fetchConsentInfo(Set<TermCode> codes, PatientBatch batch) {
         logger.debug("Starting to build consent info for codes {} and {} patients", codes, batch.ids().size());
 
         return dataStore.search(getConsentQuery(batch), Consent.class)

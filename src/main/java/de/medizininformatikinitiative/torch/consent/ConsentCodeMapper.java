@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 
 import java.io.File;
 import java.io.IOException;
@@ -16,7 +16,7 @@ import java.util.stream.Stream;
  */
 public class ConsentCodeMapper {
 
-    private final Map<ConsentCode, List<ConsentCode>> consentMap;
+    private final Map<TermCode, List<TermCode>> consentMap;
     private final ObjectMapper objectMapper;
 
 
@@ -36,7 +36,7 @@ public class ConsentCodeMapper {
             JsonNode context = consent.get("context");
             String system = context.get("system").asText();
             String keyCode = consent.get("key").get("code").asText();
-            List<ConsentCode> relevantCodes = new ArrayList<>();
+            List<TermCode> relevantCodes = new ArrayList<>();
             JsonNode fixedCriteria = consent.get("fixedCriteria");
             if (fixedCriteria != null) {
                 for (JsonNode criterion : fixedCriteria) {
@@ -44,16 +44,16 @@ public class ConsentCodeMapper {
 
                     while (values.hasNext()) {
                         JsonNode value = values.next();
-                        relevantCodes.add(new ConsentCode(value.get("system").asText(), value.get("code").asText()));
+                        relevantCodes.add(new TermCode(value.get("system").asText(), value.get("code").asText()));
                     }
                 }
             }
 
-            consentMap.put(new ConsentCode(system, keyCode), relevantCodes);
+            consentMap.put(new TermCode(system, keyCode), relevantCodes);
         }
     }
 
-    public Set<ConsentCode> getCombinedCodes(ConsentCode key) {
+    public Set<TermCode> getCombinedCodes(TermCode key) {
         return new HashSet<>(consentMap.getOrDefault(key, Collections.emptyList()));
     }
 
@@ -64,10 +64,10 @@ public class ConsentCodeMapper {
      * @param keys codes that could be expandable
      * @return a set of combined codes and non expandable codes
      */
-    public Set<ConsentCode> addCombinedCodes(Set<ConsentCode> keys) {
+    public Set<TermCode> addCombinedCodes(Set<TermCode> keys) {
         return keys.stream()
                 .flatMap(key -> {
-                    Set<ConsentCode> combined = getCombinedCodes(key);
+                    Set<TermCode> combined = getCombinedCodes(key);
                     // if there are no combined codes, include the original key
                     return combined.isEmpty() ? Stream.of(key) : combined.stream();
                 })

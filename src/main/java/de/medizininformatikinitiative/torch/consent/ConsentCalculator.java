@@ -1,10 +1,10 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -36,9 +36,9 @@ public class ConsentCalculator {
      * @param consentCodes      the consentcodes relevant to type of consent to calculate
      * @return a map from consent code to {@link NonContinuousPeriod} representing allowed periods for that code
      */
-    Map<ConsentCode, NonContinuousPeriod> subtractAndMergeByCode(
+    Map<TermCode, NonContinuousPeriod> subtractAndMergeByCode(
             List<ConsentProvisions> consentProvisions,
-            Set<ConsentCode> consentCodes
+            Set<TermCode> consentCodes
     ) {
         // Flatten all provisions, filter relevant codes
         List<Provision> relevantProvisions = consentProvisions.stream()
@@ -55,7 +55,7 @@ public class ConsentCalculator {
                 .filter(p -> !p.permit())
                 .toList();
 
-        Map<ConsentCode, NonContinuousPeriod> result = new HashMap<>();
+        Map<TermCode, NonContinuousPeriod> result = new HashMap<>();
 
         // Apply permits first
         for (Provision p : permits) {
@@ -69,7 +69,7 @@ public class ConsentCalculator {
             result.put(p.code(), existing.substract(p.period()));
         }
 
-        Map<ConsentCode, NonContinuousPeriod> filtered = result.entrySet().stream()
+        Map<TermCode, NonContinuousPeriod> filtered = result.entrySet().stream()
                 .filter(e -> !e.getValue().isEmpty())
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
@@ -89,7 +89,7 @@ public class ConsentCalculator {
      * @return a {@link NonContinuousPeriod} representing the intersection of all provided periods
      * @throws ConsentViolatedException if there are no consent periods or if the intersection is empty
      */
-    public NonContinuousPeriod intersectConsent(Map<ConsentCode, NonContinuousPeriod> consentsByCode) throws ConsentViolatedException {
+    public NonContinuousPeriod intersectConsent(Map<TermCode, NonContinuousPeriod> consentsByCode) throws ConsentViolatedException {
         if (consentsByCode.isEmpty()) {
             throw new ConsentViolatedException("No consent periods found");
         }
@@ -120,7 +120,7 @@ public class ConsentCalculator {
      * @return a map from patient ID to {@link NonContinuousPeriod} representing their effective consent periods
      */
     public Map<String, NonContinuousPeriod> calculateConsent(
-            Set<ConsentCode> consentCodes,
+            Set<TermCode> consentCodes,
             Map<String, List<ConsentProvisions>> consentsByPatient
     ) {
         return consentsByPatient.entrySet().stream()

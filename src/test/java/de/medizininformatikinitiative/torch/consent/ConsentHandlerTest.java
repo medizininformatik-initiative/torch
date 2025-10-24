@@ -1,8 +1,8 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -23,7 +23,7 @@ public class ConsentHandlerTest {
     public static final String UNKNOWN_PATIENT_ID = "Unknown";
     public static final PatientBatch BATCH = PatientBatch.of(PATIENT_ID);
     public static final PatientBatch BATCH_UNKNOWN = PatientBatch.of(UNKNOWN_PATIENT_ID);
-    public static final Set<ConsentCode> CODES = Set.of(new ConsentCode("sys", "code1"));
+    public static final Set<TermCode> CODES = Set.of(new TermCode("sys", "code1"));
 
     @Mock
     ConsentFetcher consentFetcher;

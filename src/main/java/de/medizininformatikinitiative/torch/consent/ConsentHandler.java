@@ -1,8 +1,8 @@
 package de.medizininformatikinitiative.torch.consent;
 
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
@@ -61,8 +61,8 @@ public class ConsentHandler {
      * @param batch        the batch of patient IDs to process
      * @return a {@link Mono} emitting a {@link PatientBatchWithConsent} containing patients with valid consent periods
      */
-    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(Set<ConsentCode> consentCodes, PatientBatch batch) {
-        Set<ConsentCode> expandedConsentCodes = consentCodeMapper.addCombinedCodes(consentCodes);
+    public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(Set<TermCode> consentCodes, PatientBatch batch) {
+        Set<TermCode> expandedConsentCodes = consentCodeMapper.addCombinedCodes(consentCodes);
         return consentFetcher.fetchConsentInfo(expandedConsentCodes, batch)
                 .flatMap(consentProvisions ->
                         consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions)

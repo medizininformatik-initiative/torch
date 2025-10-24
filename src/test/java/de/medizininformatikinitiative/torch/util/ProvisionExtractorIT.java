@@ -5,10 +5,10 @@ import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.consent.ProvisionExtractor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.Test;
@@ -42,7 +42,7 @@ class ProvisionExtractorIT {
     @Test
     void irrelevantCodesSkipped() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> expectedCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -63,7 +63,7 @@ class ProvisionExtractorIT {
     @Test
     void deniesExtracted() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> expectedCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -90,7 +90,7 @@ class ProvisionExtractorIT {
     @ValueSource(strings = {"VHF006_Consent.json"})
     void extractsPermits(String resource) throws IOException, ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> consentCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> consentCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         Consent consent = (Consent) integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
 
         ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, consentCodes);
@@ -98,7 +98,7 @@ class ProvisionExtractorIT {
 
         assertThat(provisions.isEmpty()).isFalse();
 
-        Set<ConsentCode> actualCodes = provisions.stream()
+        Set<TermCode> actualCodes = provisions.stream()
                 .map(Provision::code)
                 .collect(Collectors.toSet());
         assertThat(actualCodes).isEqualTo(consentCodes);
@@ -113,7 +113,7 @@ class ProvisionExtractorIT {
     @Test
     void throwsConsentViolatedException_whenConsentHasNoDateTime() {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> expectedCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setId("consent-no-date");
@@ -129,7 +129,7 @@ class ProvisionExtractorIT {
     @Test
     void throwsConsentViolatedException_whenConsentDateTimeIsEmpty() {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> expectedCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setId("consent-empty-date");
@@ -145,7 +145,7 @@ class ProvisionExtractorIT {
     @Test
     void skipsProvisionsWithoutStartOrEnd() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<ConsentCode> expectedCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));

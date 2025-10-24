@@ -2,8 +2,8 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
@@ -27,7 +27,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class ConsentFetcherTest {
 
-    public static final Set<ConsentCode> CODES = Set.of(new ConsentCode("s1", "c1"));
+    public static final Set<TermCode> CODES = Set.of(new TermCode("s1", "c1"));
     @Mock
     private DataStore dataStore;
 

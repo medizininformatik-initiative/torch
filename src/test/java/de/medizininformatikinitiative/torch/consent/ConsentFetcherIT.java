@@ -2,8 +2,8 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -53,7 +53,7 @@ class ConsentFetcherIT {
 
     @Test
     void failsOnUnknownPatientBuildingConsent() {
-        var codes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        var codes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         var result = consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN);
 
         StepVerifier.create(result)
@@ -66,7 +66,7 @@ class ConsentFetcherIT {
     @Test
     void successBuildingConsent() {
 
-        var codes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        var codes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         var result = consentFetcher.fetchConsentInfo(codes, BATCH);
 
         StepVerifier.create(result)
