@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.config.ConsentContextProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
@@ -33,7 +34,8 @@ public class CrtdlProcessingServiceTest {
                 5,
                 mock(CascadingDelete.class),
                 mock(PatientBatchToCoreBundleWriter.class),
-                mock(ConsentHandler.class)
+                mock(ConsentHandler.class),
+                mock(ConsentContextProperties.class)
         );
 
         List<String> patientIds = List.of("a", "b", "c", "d", "e", "f", "g");

@@ -11,6 +11,10 @@ torch:
     consent: mappings/consent-mappings_fhir.json
     type_to_consent: mappings/type_to_consent.json
   search_parameters_file: search-parameters.json
+  consent:
+    context:
+      - system: "fdpg.mii.cds"
+        code: "Einwilligung"
   fhir:
     url: dummy.fhir.server
     page:

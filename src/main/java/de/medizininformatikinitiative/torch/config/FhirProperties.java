@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-import static de.medizininformatikinitiative.torch.config.TorchProperties.isNotSet;
+import static de.medizininformatikinitiative.torch.util.ConfigUtils.isNotSet;
 
 @ConfigurationProperties(prefix = "torch.fhir")
 @Validated

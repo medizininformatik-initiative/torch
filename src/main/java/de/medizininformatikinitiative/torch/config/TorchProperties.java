@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.config;
 
+import de.medizininformatikinitiative.torch.util.ConfigUtils;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -24,18 +25,14 @@ public record TorchProperties(
         @NotBlank(message = "DSE mapping tree file path is required") String dseMappingTreeFile,
         boolean useCql
 ) {
-    private static final String EMPTY_QUOTES = "\"\"";
 
-    public static boolean isNotSet(String variable) {
-        return variable == null || variable.isBlank() || EMPTY_QUOTES.equals(variable);
-    }
 
     public TorchProperties {
         if (!useCql) {
             if (flare == null) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
-            if (isNotSet(flare.url())) {
+            if (ConfigUtils.isNotSet(flare.url())) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
         }

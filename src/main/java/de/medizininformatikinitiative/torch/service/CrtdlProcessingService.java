@@ -3,10 +3,12 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.config.ConsentContextProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.management.*;
@@ -28,6 +30,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 public class CrtdlProcessingService {
@@ -49,6 +52,7 @@ public class CrtdlProcessingService {
     private final CascadingDelete cascadingDelete;
     private final PatientBatchToCoreBundleWriter batchToCoreWriter;
     private final ConsentHandler consentHandler;
+    private final Set<ConsentCode> consentContexts;
 
     public CrtdlProcessingService(@Qualifier("flareClient") WebClient webClient,
                                   Translator cqlQueryTranslator,
@@ -63,7 +67,7 @@ public class CrtdlProcessingService {
                                   @Value("5") int maxConcurrency,
                                   CascadingDelete cascadingDelete,
                                   PatientBatchToCoreBundleWriter writer,
-                                  ConsentHandler consentHandler) {
+                                  ConsentHandler consentHandler, ConsentContextProperties consentContext) {
         this.webClient = webClient;
         this.objectMapper = new ObjectMapper();
         this.resultFileManager = resultFileManager;
@@ -79,6 +83,7 @@ public class CrtdlProcessingService {
         this.cascadingDelete = cascadingDelete;
         this.batchToCoreWriter = writer;
         this.consentHandler = consentHandler;
+        this.consentContexts = consentContext.context();
     }
 
 
@@ -111,6 +116,7 @@ public class CrtdlProcessingService {
 
     private Mono<Void> processIntern(AnnotatedCrtdl crtdl, String jobID, Flux<PatientBatch> batches) {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
+        Set<ConsentCode> consentCodes = crtdl.consentKey(consentContexts);
         ResourceBundle coreBundle = new ResourceBundle();
 
         // Step 1: Preprocess Core Bundle (but don't write it out yet)
@@ -125,11 +131,10 @@ public class CrtdlProcessingService {
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
-                        .flatMap(batch -> crtdl.consentKey()
-                                        .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
-                                        .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
-                                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())
-                                , maxConcurrency) //skip batches without consenting patient
+                        .flatMap(batch ->
+                                        getPatientBatchWithConsentMono(batch, consentCodes),
+                                maxConcurrency
+                        )
                         .doOnNext(patientBatch -> patientBatch.addStaticInfo(coreSnapshot))
                         .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
         ).then(
@@ -140,6 +145,13 @@ public class CrtdlProcessingService {
                     return writeBatch(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
                 })
         );
+    }
+
+    private Mono<PatientBatchWithConsent> getPatientBatchWithConsentMono(PatientBatch batch, Set<ConsentCode> consentCodes) {
+        return consentCodes.isEmpty()
+                ? Mono.just(PatientBatchWithConsent.fromBatch(batch))
+                : consentHandler.fetchAndBuildConsentInfo(consentCodes, batch)
+                .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty());
     }
 
     private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {

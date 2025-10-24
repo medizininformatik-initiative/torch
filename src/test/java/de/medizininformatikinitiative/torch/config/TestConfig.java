@@ -28,6 +28,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -53,19 +54,26 @@ import static java.util.Map.entry;
 
 @Configuration
 @Profile("test")
+@EnableConfigurationProperties({
+        TorchProperties.class,
+        FhirProperties.class,
+        ConsentContextProperties.class
+})
 public class TestConfig {
     private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
     private final FhirProperties fhirProperties;
     private final TorchProperties torchProperties;
+    private final ConsentContextProperties consentContextProperties;
 
     @Bean
     public String searchParametersFile(@Value("${torch.search_parameters_file}") String searchParametersFile) {
         return searchParametersFile;
     }
 
-    public TestConfig(TorchProperties torchProperties, FhirProperties fhirProperties) {
+    public TestConfig(TorchProperties torchProperties, FhirProperties fhirProperties, ConsentContextProperties consentContextProperties) {
         this.torchProperties = torchProperties;
         this.fhirProperties = fhirProperties;
+        this.consentContextProperties = consentContextProperties;
     }
 
     @Bean
@@ -119,7 +127,7 @@ public class TestConfig {
     @Bean
     public CrtdlProcessingService crtdlProcessingService(@Qualifier("flareClient") WebClient webClient, Translator cqlQueryTranslator, CqlClient cqlClient, ResultFileManager resultFileManager, ProcessedGroupFactory processedGroupFactory, DirectResourceLoader directResourceLoader, ReferenceResolver referenceResolver, BatchCopierRedacter batchCopierRedacter, CascadingDelete cascadingDelete, PatientBatchToCoreBundleWriter writer, ConsentHandler consentHandler) {
 
-        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader, referenceResolver, batchCopierRedacter, torchProperties.maxConcurrency(), cascadingDelete, writer, consentHandler);
+        return new CrtdlProcessingService(webClient, cqlQueryTranslator, cqlClient, resultFileManager, processedGroupFactory, torchProperties.batchsize(), torchProperties.useCql(), directResourceLoader, referenceResolver, batchCopierRedacter, torchProperties.maxConcurrency(), cascadingDelete, writer, consentHandler, consentContextProperties);
     }
 
     @Bean

@@ -121,7 +121,7 @@ class AppConfigTest {
             mockWebServer.start();
 
             var fhirProperties = minimalfhirPropertiesWithBasicAuth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties(), fhirProperties);
+            var appConfig = new AppConfig(torchProperties(), fhirProperties, ConsentContextProperties.of());
             ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
             WebClient client = appConfig.fhirWebClient(torchProperties(), filter, fhirProperties);
             // Perform a request
@@ -165,7 +165,7 @@ class AppConfigTest {
                     .setHeader("Content-Type", "application/json"));
             var torchProperties = torchProperties();
             var fhirProperties = minimalOauth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties, fhirProperties);
+            var appConfig = new AppConfig(torchProperties, fhirProperties, ConsentContextProperties.of());
 
 
             ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
@@ -179,7 +179,7 @@ class AppConfigTest {
     @Test
     void testFhirWebClient_baseUrl() {
         var fhirProperties = minimalfhirPropertiesWithBasicAuth("test-url");
-        var appConfig = new AppConfig(torchProperties(), fhirProperties);
+        var appConfig = new AppConfig(torchProperties(), fhirProperties, ConsentContextProperties.of());
         ExchangeFilterFunction oauthFilter = appConfig.oauthExchangeFilterFunction(fhirProperties);
 
         WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties);

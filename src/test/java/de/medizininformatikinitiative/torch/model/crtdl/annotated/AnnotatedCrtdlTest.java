@@ -6,13 +6,13 @@ import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class AnnotatedCrtdlTest {
 
+    public static final Set<ConsentCode> CONSENT_CONTEXT = Set.of(new ConsentCode("fdpg.mii.cds", "Einwilligung"));
     private final ObjectMapper mapper = new ObjectMapper();
 
     private AnnotatedDataExtraction emptyDataExtraction() {
@@ -53,10 +53,10 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
-        assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactlyInAnyOrder(
+
+        assertThat(codes).containsExactlyInAnyOrder(
                 new ConsentCode("s1", "A1")
                 , new ConsentCode("s1", "A2")
                 , new ConsentCode("s1", "B1"));
@@ -70,7 +70,7 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        assertThat(crtdl.consentKey()).isEmpty();
+        assertThat(crtdl.consentKey(CONSENT_CONTEXT)).isEmpty();
     }
 
     @Test
@@ -86,11 +86,32 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
         // Only the array element contributes (X2)
-        assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "X2"));
+        assertThat(codes).containsExactly(new ConsentCode("s1", "X2"));
+    }
+
+    @Test
+    void ignoresCodeNotSetInContext() throws Exception {
+        String json = """
+                {
+                  "inclusionCriteria": [
+                    [
+                      {
+                        "context": { "system":"fdpg.mii.cds"  }
+                      }
+                    ]
+                  ]
+                }
+                """;
+        JsonNode cohortDefinition = mapper.readTree(json);
+        AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
+
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
+
+        // Only the last one should remain
+        assertThat(codes).isEmpty();
     }
 
     @Test
@@ -100,11 +121,11 @@ class AnnotatedCrtdlTest {
                   "inclusionCriteria": [
                     [
                       {
-                        "context": { "code": "Einwilligung" },
+                        "context": { "code": "Einwilligung", "system":"fdpg.mii.cds"  },
                         "termCodes": { "system": "s1", "code": "INVALID" }
                       },
                       {
-                        "context": { "code": "Einwilligung" },
+                        "context": { "code": "Einwilligung", "system":"fdpg.mii.cds"  },
                         "termCodes": [
                           { "system": "s1" },
                           { "code": "C2" },
@@ -118,11 +139,10 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
         // Only the last one should remain
-        assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "VALID"));
+        assertThat(codes).containsExactly(new ConsentCode("s1", "VALID"));
     }
 
     @Test
@@ -153,10 +173,9 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
-        assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "TOP1"));
+        assertThat(codes).containsExactly(new ConsentCode("s1", "TOP1"));
     }
 
     @Test
@@ -165,13 +184,13 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
         assertThat(codes).isEmpty();
     }
 
     @Test
-    void returnsEmptyIfNoEinwilligung() throws Exception {
+    void returnsEmptyIfNoContext() throws Exception {
         String json = """
                 {
                   "inclusionCriteria": [
@@ -188,7 +207,7 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Set<ConsentCode> codes = crtdl.consentKey(CONSENT_CONTEXT);
 
         assertThat(codes).isEmpty();
     }
