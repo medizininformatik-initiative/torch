@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class ConsentCodeMapperTest {
+class TermCodeMapperTest {
 
     private ObjectMapper objectMapperMock;
     private ConsentCodeMapper consentCodeMapper;
@@ -64,8 +64,8 @@ class ConsentCodeMapperTest {
     @Test
     @DisplayName("Test getRelevantCodes returns expected codes for valid key")
     void testGetRelevantCodes() {
-        Set<ConsentCode> relevantCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "CONSENT_KEY_1"));
-        Set<ConsentCode> expectedCodes = Set.of(new ConsentCode("testSystem", "CODE_1"), new ConsentCode("testSystem", "CODE_2"));
+        Set<TermCode> relevantCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "CONSENT_KEY_1"));
+        Set<TermCode> expectedCodes = Set.of(new TermCode("testSystem", "CODE_1"), new TermCode("testSystem", "CODE_2"));
 
         assertEquals(expectedCodes, relevantCodes);
     }
@@ -74,7 +74,7 @@ class ConsentCodeMapperTest {
     @Test
     @DisplayName("Test getRelevantCodes returns isEmpty set for non-existent key")
     void testGetRelevantCodesForNonExistentKey() {
-        Set<ConsentCode> relevantCodes = consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "NON_EXISTENT_KEY"));
+        Set<TermCode> relevantCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "NON_EXISTENT_KEY"));
 
         assertTrue(relevantCodes.isEmpty(), "Expected an isEmpty set for a non-existent key");
     }
@@ -101,6 +101,6 @@ class ConsentCodeMapperTest {
         // Reinitialize with the mocked ObjectMapper
         consentCodeMapper = new ConsentCodeMapper("/dummy/path", objectMapperMock);
 
-        assertTrue(consentCodeMapper.getCombinedCodes(new ConsentCode("fdpg.mii.cds", "ANY_KEY")).isEmpty(), "Expected isEmpty set for invalid JSON structure");
+        assertTrue(consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "ANY_KEY")).isEmpty(), "Expected isEmpty set for invalid JSON structure");
     }
 }

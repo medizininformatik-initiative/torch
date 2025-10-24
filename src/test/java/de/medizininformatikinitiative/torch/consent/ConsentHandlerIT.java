@@ -1,9 +1,9 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.Torch;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
@@ -66,7 +66,7 @@ class ConsentHandlerIT {
 
     @Test
     void successAfterEncounterUpdatesProvisions() {
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo(Set.of(new ConsentCode("fdpg.mii.cds", "yes-yes-yes-yes")), BATCH);
+        var resultBatch = consentHandler.fetchAndBuildConsentInfo(Set.of(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes")), BATCH);
 
         StepVerifier.create(resultBatch)
                 .assertNext(batch -> {

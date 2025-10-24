@@ -2,9 +2,9 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.*;
 import org.slf4j.Logger;
@@ -37,7 +37,7 @@ public class ProvisionExtractor {
      * @return a {@code Map} where each key is a valid code and the value is a list of {@link Period} objects
      * associated with that code
      */
-    public ConsentProvisions extractProvisionsPeriodByCode(Consent consent, Set<ConsentCode> requiredCodes) throws ConsentViolatedException, PatientIdNotFoundException {
+    public ConsentProvisions extractProvisionsPeriodByCode(Consent consent, Set<TermCode> requiredCodes) throws ConsentViolatedException, PatientIdNotFoundException {
         List<Provision> provisions = new ArrayList<>();
         if (consent.getDateTimeElement().isEmpty()) {
             throw new ConsentViolatedException("Consent resource " + consent.getId() + " has no valid consent date");
@@ -49,7 +49,7 @@ public class ProvisionExtractor {
             for (CodeableConcept cc : provision.getCode()) {
                 // Iterate over all codings
                 for (Coding coding : cc.getCoding()) {
-                    ConsentCode code = new ConsentCode(coding.getSystem(), coding.getCode());
+                    TermCode code = new TermCode(coding.getSystem(), coding.getCode());
                     if (!requiredCodes.contains(code)) continue;
 
                     Period period = provision.getPeriod();

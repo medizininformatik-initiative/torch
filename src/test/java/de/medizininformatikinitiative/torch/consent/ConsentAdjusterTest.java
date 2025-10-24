@@ -1,11 +1,11 @@
 package de.medizininformatikinitiative.torch.consent;
 
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Encounter;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,7 +55,7 @@ class ConsentAdjusterUnitTest {
 
     @Test
     void testAdjustProvisions_noEncounters_returnsSame() {
-        Provision p1 = new Provision(new ConsentCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
@@ -71,7 +71,7 @@ class ConsentAdjusterUnitTest {
     void testFetchAndAdjust_skipsEncounterWithoutPatientId() {
         PatientBatch batch = new PatientBatch(List.of("patient1"));
 
-        Provision p1 = new Provision(new ConsentCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         // Encounter that will throw PatientIdNotFoundException
@@ -95,7 +95,7 @@ class ConsentAdjusterUnitTest {
 
     @Test
     void testAdjustProvisions_singleOverlap_shiftsStart() {
-        Provision p1 = new Provision(new ConsentCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
@@ -112,7 +112,7 @@ class ConsentAdjusterUnitTest {
 
     @Test
     void testAdjustProvisions_multipleOverlaps_shiftsToEarliest() {
-        Provision p1 = new Provision(new ConsentCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 8), LocalDate.of(2025, 9, 12));
@@ -132,8 +132,8 @@ class ConsentAdjusterUnitTest {
     void testFetchAndAdjust_withMockedDataStore() {
         PatientBatch batch = new PatientBatch(List.of("patient1", "patient2"));
 
-        Provision p1 = new Provision(new ConsentCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        Provision p2 = new Provision(new ConsentCode("s1", "code2"), Period.of(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 31)), true);
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        Provision p2 = new Provision(new TermCode("s1", "code2"), Period.of(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 31)), true);
         ConsentProvisions consent1 = new ConsentProvisions("patient1", null, List.of(p1));
         ConsentProvisions consent2 = new ConsentProvisions("patient2", null, List.of(p2));
 

@@ -1,7 +1,7 @@
-package de.medizininformatikinitiative.torch.model.consent;
+package de.medizininformatikinitiative.torch.model.management;
 
-public record ConsentCode(String system, String code) {
-    public ConsentCode {
+public record TermCode(String system, String code) {
+    public TermCode {
         if (system == null || system.isBlank()) {
             throw new IllegalArgumentException("system must not be null or blank");
         }

@@ -2,7 +2,7 @@ package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCode;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -53,13 +53,13 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         assertThat(codes).isPresent();
         assertThat(codes.get()).containsExactlyInAnyOrder(
-                new ConsentCode("s1", "A1")
-                , new ConsentCode("s1", "A2")
-                , new ConsentCode("s1", "B1"));
+                new TermCode("s1", "A1")
+                , new TermCode("s1", "A2")
+                , new TermCode("s1", "B1"));
     }
 
     @Test
@@ -86,11 +86,11 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         // Only the array element contributes (X2)
         assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "X2"));
+        assertThat(codes.get()).containsExactly(new TermCode("s1", "X2"));
     }
 
     @Test
@@ -118,11 +118,11 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         // Only the last one should remain
         assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "VALID"));
+        assertThat(codes.get()).containsExactly(new TermCode("s1", "VALID"));
     }
 
     @Test
@@ -153,10 +153,10 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         assertThat(codes).isPresent();
-        assertThat(codes.get()).containsExactly(new ConsentCode("s1", "TOP1"));
+        assertThat(codes.get()).containsExactly(new TermCode("s1", "TOP1"));
     }
 
     @Test
@@ -165,7 +165,7 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         assertThat(codes).isEmpty();
     }
@@ -188,7 +188,7 @@ class AnnotatedCrtdlTest {
         JsonNode cohortDefinition = mapper.readTree(json);
         AnnotatedCrtdl crtdl = new AnnotatedCrtdl(cohortDefinition, emptyDataExtraction());
 
-        Optional<Set<ConsentCode>> codes = crtdl.consentKey();
+        Optional<Set<TermCode>> codes = crtdl.consentKey();
 
         assertThat(codes).isEmpty();
     }
