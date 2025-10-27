@@ -67,13 +67,13 @@ jobs:
         uses: github/codeql-action/analyze@4e94bd11f71e507f7f87df81788dff88d1dacbfb # v4
 
       - name: Upload Torch Jar
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: torch-jar
           path: target/torch.jar
 
       - name: Upload Torch Image
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
           name: torch-image
           path: /tmp/torch.tar
@@ -85,7 +85,7 @@ jobs:
       security-events: write  # Upload Trivy SARIF results
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-image
           path: /tmp
@@ -154,7 +154,7 @@ jobs:
 
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-image
           path: /tmp
@@ -192,7 +192,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-image
           path: /tmp
@@ -244,7 +244,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-image
           path: /tmp
@@ -299,13 +299,13 @@ jobs:
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Download Torch Jar
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-jar
           path: target
 
       - name: Download Torch Image
-        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
         with:
           name: torch-image
           path: /tmp
