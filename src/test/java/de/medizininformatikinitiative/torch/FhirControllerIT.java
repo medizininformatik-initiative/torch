@@ -186,7 +186,7 @@ class FhirControllerIT {
                 assertThat(durationSecondsSince(start)).isLessThan(1);
                 List<String> locations = response.getHeaders().get("Content-Location");
                 assertThat(locations).hasSize(1);
-                pollStatusEndpoint(restTemplate, headers, locations.getFirst(), 200);
+                pollStatusEndpoint(restTemplate, headers, locations.getFirst());
                 clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
             } catch (HttpStatusCodeException e) {
                 logger.error("HTTP Status code error: {}", e.getStatusCode(), e);
@@ -198,7 +198,7 @@ class FhirControllerIT {
         }
     }
 
-    private void pollStatusEndpoint(TestRestTemplate restTemplate, HttpHeaders headers, String statusUrl, int expectedCode) {
+    private void pollStatusEndpoint(TestRestTemplate restTemplate, HttpHeaders headers, String statusUrl) {
         boolean completed = false;
         int i = 0;
 
@@ -210,10 +210,10 @@ class FhirControllerIT {
 
                 logger.trace("Poll {}: status={}, body={}", i, response.getStatusCode(), response.getBody());
 
-                if (response.getStatusCode().value() == expectedCode) {
+                if (response.getStatusCode().value() == 200) {
                     completed = true;
-                    logger.info("Final status code {} received after {} polls", expectedCode, i);
-                    assertThat(expectedCode).isEqualTo(response.getStatusCode().value());
+                    logger.info("Final status code {} received after {} polls", 200, i);
+                    assertThat(200).isEqualTo(response.getStatusCode().value());
                     logger.debug(response.getBody());
                     if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
                         assertThat(context.newJsonParser().parseResource(response.getBody())).isInstanceOf(OperationOutcome.class);
@@ -270,7 +270,7 @@ class FhirControllerIT {
     class Endpoint {
 
         @ParameterizedTest
-        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json"})
+        @ValueSource(strings = {"src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json", "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs_patients.json", "src/test/resources/CRTDL_Parameters/Parameters_diagnosis_basic_consent_fulfilled.json", "src/test/resources/CRTDL_Parameters/Parameters_diagnosis_basic_consent_not_fulfilled.json"})
         void validObservation(String parametersFile) {
             HttpHeaders headers = new HttpHeaders();
             headers.add("content-type", "application/fhir+json");
