@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
@@ -9,6 +10,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -26,7 +28,7 @@ public class CrtdlValidatorService {
 
     private final StandardAttributeGenerator attributeGenerator;
     private final FilterService filterService;
-
+    private final ConsentValidator consentValidator = new ConsentValidator();
 
     public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) {
         this.profileHandler = profileHandler;
@@ -40,7 +42,8 @@ public class CrtdlValidatorService {
      * @param crtdl the Crtdl to be validated.
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
      */
-    public AnnotatedCrtdl validateAndAnnotate(Crtdl crtdl) throws ValidationException {
+    public AnnotatedCrtdl validateAndAnnotate(Crtdl crtdl) throws ValidationException, ConsentFormatException {
+        Optional<Set<TermCode>> consentCodes = consentValidator.extractConsentCodes(crtdl);
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
@@ -80,9 +83,7 @@ public class CrtdlValidatorService {
         if (!linkedGroups.isEmpty()) {
             throw new ValidationException("Missing defintion for linked groups: " + linkedGroups);
         }
-
-
-        return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups));
+        return new AnnotatedCrtdl(crtdl.cohortDefinition(), new AnnotatedDataExtraction(annotatedAttributeGroups), consentCodes);
     }
 
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, CompiledStructureDefinition
@@ -122,7 +123,5 @@ public class CrtdlValidatorService {
 
         return group;
     }
-
-
 }
 

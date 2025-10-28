@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
@@ -96,7 +97,7 @@ public class FhirController {
                     try {
                         jobMono = extractDataService
                                 .startJob(validator.validateAndAnnotate(parameters.crtdl()), parameters.patientIds(), jobId);
-                    } catch (ValidationException e) {
+                    } catch (ValidationException | ConsentFormatException e) {
                         return Mono.error(new IllegalArgumentException(e.getMessage()));
                     }
                     jobMono.subscribe();
