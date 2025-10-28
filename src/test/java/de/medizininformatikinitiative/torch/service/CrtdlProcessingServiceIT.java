@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -60,7 +61,7 @@ class CrtdlProcessingServiceIT {
     private AnnotatedCrtdl crtdlObservationMedicationLinked;
 
     @BeforeAll
-    void init() throws IOException, ValidationException {
+    void init() throws IOException, ValidationException, ConsentFormatException {
         // Create an instance of BaseTestSetup
         IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
         FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");

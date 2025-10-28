@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
@@ -187,7 +188,7 @@ class FhirControllerTest {
     @Nested
     class Validator {
         @Test
-        void invalidCrtdlTriggersBadRequest() throws ValidationException {
+        void invalidCrtdlTriggersBadRequest() throws ValidationException, ConsentFormatException {
             ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), Collections.emptyList());
             when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
             when(validator.validateAndAnnotate(any())).thenThrow(new ValidationException("Invalid CRTDL"));

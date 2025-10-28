@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -61,7 +62,7 @@ class DirectResourceLoaderIT {
 
 
     @Test
-    void collectPatientsByResource() throws IOException, ValidationException {
+    void collectPatientsByResource() throws IOException, ValidationException, ConsentFormatException {
         AnnotatedCrtdl crtdl = readCrdtl("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
 
         Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
@@ -101,7 +102,7 @@ class DirectResourceLoaderIT {
     }
 
     @Test
-    void testExecuteQueryWithBatch_Success() throws IOException, ValidationException {
+    void testExecuteQueryWithBatch_Success() throws IOException, ValidationException, ConsentFormatException {
         AnnotatedCrtdl crtdl = readCrdtl("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
 
         PatientBatch batch = PatientBatch.of("1", "2");
@@ -114,7 +115,7 @@ class DirectResourceLoaderIT {
                 .verifyComplete();
     }
 
-    private AnnotatedCrtdl readCrdtl(String name) throws IOException, ValidationException {
+    private AnnotatedCrtdl readCrdtl(String name) throws IOException, ValidationException, ConsentFormatException {
         try (FileInputStream fis = new FileInputStream(name)) {
             return validator.validateAndAnnotate(objectMapper.readValue(fis, Crtdl.class));
         }
