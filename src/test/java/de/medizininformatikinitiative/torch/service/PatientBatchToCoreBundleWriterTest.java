@@ -3,11 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -24,8 +20,8 @@ class PatientBatchToCoreBundleWriterTest {
 
     private PatientBatchToCoreBundleWriter writer;
     private CompartmentManager compartmentManager;
-    private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
-    private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
+    private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", false);
+    private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", false);
     private final ResourceGroup patientGroup = new ResourceGroup("Patient/123", "Group1");
     private final ResourceAttribute attribute = new ResourceAttribute("attribute1", annotatedAttribute1);
     private final ResourceAttribute attribute2 = new ResourceAttribute("attribute2", annotatedAttribute1);

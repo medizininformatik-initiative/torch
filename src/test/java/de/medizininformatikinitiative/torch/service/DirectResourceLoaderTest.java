@@ -47,7 +47,7 @@ class DirectResourceLoaderTest {
         @Test
         void testIgnoresEmptyFlux() {
 
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -72,7 +72,7 @@ class DirectResourceLoaderTest {
         @Test
         void testIgnoresEmptyResource() {
 
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -98,7 +98,7 @@ class DirectResourceLoaderTest {
         @Test
         void testIgnoresObservationOfUnknownPatient() {
 
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
 
             var patientBundle = new PatientResourceBundle("1");
@@ -128,7 +128,7 @@ class DirectResourceLoaderTest {
         @Test
         void testIgnoresResourceWithoutPatientReference() {
             // Arrange
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -157,7 +157,7 @@ class DirectResourceLoaderTest {
         @Test
         void testStoresObservationWithInvalidMustHave() {
             // Arrange
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -194,7 +194,7 @@ class DirectResourceLoaderTest {
         @Test
         void testStoresObservationWithKnownPatient() {
             // Arrange
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", "Observation.name", false);
+            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
             var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));

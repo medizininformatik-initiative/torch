@@ -3,11 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.CanonicalType;
-import org.hl7.fhir.r4.model.Meta;
-import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.*;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
@@ -33,7 +29,7 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void groupNoMustHave() {
-        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.effective", "Observation.effective", "Observation.effective", false);
+        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.effective", "Observation.effective", false);
         AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of(), null);
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
@@ -42,7 +38,7 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void groupMustHave() {
-        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true);
+        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", true);
         AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of(), null);
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
@@ -53,8 +49,8 @@ class ProfileMustHaveCheckerTest {
     void groupMustHaveFail() {
         Observation observation = new Observation();
         observation.setSubject(new Reference("Patient/123"));
-        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", true);
-        AnnotatedAttribute effective2 = new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", true);
+        AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", true);
+        AnnotatedAttribute effective2 = new AnnotatedAttribute("Observation.subject", "Observation.subject", true);
         AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective, effective2), List.of(), null);
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 

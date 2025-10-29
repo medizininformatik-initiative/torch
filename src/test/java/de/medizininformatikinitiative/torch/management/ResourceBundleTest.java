@@ -104,7 +104,7 @@ class ResourceBundleTest {
 
     @Nested
     class BidirectionalRelationMapping {
-        private static final AnnotatedAttribute ATTRIBUTE = new AnnotatedAttribute("test", "test", "test", false);
+        private static final AnnotatedAttribute ATTRIBUTE = new AnnotatedAttribute("test", "test", false);
 
         private static final ResourceAttribute ATTRIBUTE_1 = new ResourceAttribute("attribute1", ATTRIBUTE);
         private static final ResourceAttribute ATTRIBUTE_2 = new ResourceAttribute("attribute2", ATTRIBUTE);
@@ -259,8 +259,8 @@ class ResourceBundleTest {
         private final ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
         private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
         private final ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
-        private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", "test", false);
-        private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", "med", false);
+        private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", false);
+        private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", false);
         private final ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain
         private final ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Should be added
         private final ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Should be added

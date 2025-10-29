@@ -105,7 +105,7 @@ public class CrtdlValidatorService {
             }
 
             String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition);
-            annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], fhirTerser[1], attribute.mustHave(), attribute.linkedGroups()));
+            annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], attribute.mustHave(), attribute.linkedGroups()));
         }
 
         AnnotatedAttributeGroup group = attributeGenerator

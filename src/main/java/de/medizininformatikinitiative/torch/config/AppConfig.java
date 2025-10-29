@@ -27,7 +27,6 @@ import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWrit
 import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
 import de.medizininformatikinitiative.torch.service.ReferenceResolver;
 import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
@@ -138,6 +137,11 @@ public class AppConfig {
     }
 
     @Bean
+    ReferenceExtractor referenceExtractor(FhirContext ctx) {
+        return new ReferenceExtractor(ctx);
+    }
+
+    @Bean
     ReferenceResolver referenceResolver(CompartmentManager compartmentManager, ReferenceHandler referenceHandler, ReferenceExtractor referenceExtractor, ReferenceBundleLoader referenceBundleLoader) {
         return new ReferenceResolver(compartmentManager, referenceHandler, referenceExtractor, referenceBundleLoader);
     }
@@ -147,11 +151,6 @@ public class AppConfig {
                                                        DataStore dataStore, ConsentValidator consentValidator) {
         return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, fhirProperties.page().count());
 
-    }
-
-    @Bean
-    BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {
-        return new BatchCopierRedacter(copier, redaction);
     }
 
     static boolean oAuthEnabled(String issuerUri, String clientId, String clientSecret) {
@@ -293,12 +292,6 @@ public class AppConfig {
             DataStore dataStore) {
 
         return new CqlClient(fhirHelper, dataStore);
-    }
-
-
-    @Bean
-    public ElementCopier elementCopier(FhirContext ctx) {
-        return new ElementCopier(ctx);
     }
 
     @Bean

@@ -238,19 +238,19 @@ class ReferenceResolverIT {
     void setUp() {
 
 
-        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
+        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
 
         var filter = new Filter("date", "birthdate", LocalDate.of(2000, 1, 1), LocalDate.of(2005, 1, 1));
         var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
         patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(patiendID, patiendGender), List.of(), compiledFilter);
 
-        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Patient1"));
 
         conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
 
-        encounterDiagnosis = new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", "Encounter.diagnosis", true, List.of("Condition1"));
+        encounterDiagnosis = new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", true, List.of("Condition1"));
 
         encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterDiagnosis), List.of(), null);
 
@@ -304,8 +304,8 @@ class ReferenceResolverIT {
 
     @Test
     void resolvePatientBundle_failure_unsatisfiedFilter() {
-        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
+        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
         var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
         var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
         AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
@@ -550,8 +550,8 @@ class ReferenceResolverIT {
 
         @Test
         void resolvePatientBundle_failure_unsatisfiedFilter() {
-            AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-            AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+            AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
+            AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
             var filter = new Filter("date", "birthdate", LocalDate.of(2004, 1, 1), LocalDate.of(2005, 1, 1));
             var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
             AnnotatedAttributeGroup patientGroupWithUnsatisfiedFilter = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);

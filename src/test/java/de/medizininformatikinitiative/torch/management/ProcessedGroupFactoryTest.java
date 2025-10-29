@@ -21,9 +21,9 @@ class ProcessedGroupFactoryTest {
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     ProcessedGroupFactory processor = new ProcessedGroupFactory(new CompartmentManager("compartmentdefinition-patient.json"));
-    AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "12345", "Patient", "patient", List.of(new AnnotatedAttribute("Patient.test", "", "", false)), List.of(), null, false);
-    AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("Test2", "1234567", "Medication", "medication", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, false);
-    AnnotatedAttributeGroup group3 = new AnnotatedAttributeGroup("Test3", "1235678", "Medication", "medication2", List.of(new AnnotatedAttribute("Medication.test", "", "", false)), List.of(), null, true);
+    AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "12345", "Patient", "patient", List.of(new AnnotatedAttribute("Patient.test", "", false)), List.of(), null, false);
+    AnnotatedAttributeGroup group2 = new AnnotatedAttributeGroup("Test2", "1234567", "Medication", "medication", List.of(new AnnotatedAttribute("Medication.test", "", false)), List.of(), null, false);
+    AnnotatedAttributeGroup group3 = new AnnotatedAttributeGroup("Test3", "1235678", "Medication", "medication2", List.of(new AnnotatedAttribute("Medication.test", "", false)), List.of(), null, true);
     Map<String, AnnotatedAttributeGroup> resultMap = new HashMap<>();
 
 
