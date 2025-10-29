@@ -8,14 +8,12 @@ import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record AnnotatedAttribute(String attributeRef, String fhirPath,
-                                 String terserPath,
                                  boolean mustHave,
                                  List<String> linkedGroups) {
 
     public AnnotatedAttribute {
         requireNonNull(attributeRef);
         requireNonNull(fhirPath);
-        requireNonNull(terserPath);
         linkedGroups = linkedGroups == null ? List.of() : List.copyOf(linkedGroups);
     }
 
@@ -24,9 +22,10 @@ public record AnnotatedAttribute(String attributeRef, String fhirPath,
      */
     public AnnotatedAttribute(String attributeRef,
                               String fhirPath,
-                              String terserPath,
                               boolean mustHave
     ) {
-        this(attributeRef, fhirPath, terserPath, mustHave, List.of()); // Default value for includeReferenceOnly
+        this(attributeRef, fhirPath, mustHave, List.of()); // Default value for includeReferenceOnly
     }
 }
+
+

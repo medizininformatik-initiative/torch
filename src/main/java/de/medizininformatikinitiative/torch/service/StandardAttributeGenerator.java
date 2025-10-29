@@ -42,16 +42,16 @@ public class StandardAttributeGenerator {
 
         String resourceType = definition.type();
         String id = resourceType + ".id";
-        tempAttributes.add(new AnnotatedAttribute(id, id, id, false));
+        tempAttributes.add(new AnnotatedAttribute(id, id, false));
         String profile = resourceType + ".meta.profile";
-        tempAttributes.add(new AnnotatedAttribute(profile, profile, profile, false));
+        tempAttributes.add(new AnnotatedAttribute(profile, profile, false));
 
 
         if (compartmentManager.isInCompartment(resourceType)) {
             for (String field : patientRefFields) {
                 String fieldString = resourceType + "." + field;
                 if (definition.elementDefinitionById(fieldString).isPresent()) {
-                    tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, fieldString, false, List.of(patientGroupId)));
+                    tempAttributes.add(new AnnotatedAttribute(fieldString, fieldString, false, List.of(patientGroupId)));
                 }
             }
         }
