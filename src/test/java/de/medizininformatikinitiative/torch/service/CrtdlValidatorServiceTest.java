@@ -106,10 +106,10 @@ class CrtdlValidatorServiceTest {
         assertThat(validatedCrtdl).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
                 List.of(
-                        new AnnotatedAttribute("Encounter.id", "Encounter.id", "Encounter.id", false),
-                        new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", "Encounter.meta.profile", false),
-                        new AnnotatedAttribute("Encounter.subject", "Encounter.subject", "Encounter.subject", false, List.of("patientGroupId")),
-                        new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", "Encounter.diagnosis", false, List.of("patientGroupId"))
+                        new AnnotatedAttribute("Encounter.id", "Encounter.id", false),
+                        new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", false),
+                        new AnnotatedAttribute("Encounter.subject", "Encounter.subject", false, List.of("patientGroupId")),
+                        new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", false, List.of("patientGroupId"))
                 ));
 
     }
@@ -124,8 +124,8 @@ class CrtdlValidatorServiceTest {
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().compiledFilter()).isNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()).isEqualTo(
                 List.of(
-                        new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", false),
-                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", false)
+                        new AnnotatedAttribute("Patient.id", "Patient.id", false),
+                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
                 ));
     }
 
@@ -141,9 +141,9 @@ class CrtdlValidatorServiceTest {
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).compiledFilter()).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
                 List.of(
-                        new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
-                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
-                        new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("patientGroupId"))
+                        new AnnotatedAttribute("Observation.id", "Observation.id", false),
+                        new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", false),
+                        new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("patientGroupId"))
                 ));
     }
 

@@ -1,9 +1,14 @@
 package de.medizininformatikinitiative.torch.util;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.hl7.fhir.exceptions.FHIRException;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.PrimitiveType;
 
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Util class for copying and redacting.
@@ -12,47 +17,110 @@ import java.lang.reflect.Method;
 public class CopyUtils {
 
 
-    private static final Logger logger = LoggerFactory.getLogger(CopyUtils.class);
+    private static final Map<String, String> RESERVED_WORDS = Map.of(
+            "class", "Class_",
+            "enum", "Enum_",
+            "abstract", "Abstract_",
+            "default", "Default_"
+    );
+
+    private static final Map<CacheKey, SetterEntry> setterCache = new ConcurrentHashMap<>();
 
     /**
-     * Get the name of the element from the path by getting the last non-isEmpty element after a separator (.)
-     */
-    public static String getElementName(String path) {
-        String[] parts = path.split("\\.");
-        return parts[parts.length - 1];
-    }
-
-    /**
-     * Reflects a setMethod for a given class and field name.
-     * Quite relevant for e.g. Lists, since they cannot be set directly through constructors or makeproperty in Hapi.
+     * Sets a field on a FHIR resource. Falls back to reflection + cached setter if Base.setProperty fails.
      *
-     * @return reflected Setter Method
+     * @param tgt       the resource to modify
+     * @param fieldName field name to set
+     * @param values    list of values to set
      */
-    public static Method reflectListSetter(Class<?> clazz, String fieldName) {
+    public static void setFieldReflectively(Base tgt, String fieldName, List<? extends Base> values) throws ReflectiveOperationException {
+        if (values == null || values.isEmpty()) return;
+
+        String mappedField = RESERVED_WORDS.getOrDefault(fieldName, fieldName);
         try {
-            return clazz.getMethod("set" + capitalizeFirstLetter(fieldName), java.util.List.class);
-        } catch (NoSuchMethodException e) {
-            logger.warn(" Class {} does not have the method set{}", clazz.getName(), capitalizeFirstLetter(fieldName));
-            return null;
+            for (Base value : values) {
+
+                tgt.setProperty(mappedField, value);
+            }
+        } catch (IllegalArgumentException | FHIRException e) {
+            // fast path failed, fallback to reflection
+            if (values.size() == 1) {
+                invokeSetterWithCache(tgt, mappedField, values.getFirst());
+            } else {
+                throw new ReflectiveOperationException("Set Property not sufficient for list in " + fieldName + " for Class" + tgt.getClass());
+            }
+
         }
     }
 
+    private static void invokeSetterWithCache(Base tgt, String fieldName, Base value) throws ReflectiveOperationException {
+        CacheKey key = new CacheKey(tgt.getClass(), fieldName, value.getClass());
+        SetterEntry entry = setterCache.computeIfAbsent(key, k -> {
+            Method method = findSetter(k.clazz, k.fieldName, value);
+            boolean unwrap = method != null && value instanceof PrimitiveType<?> &&
+                    !method.getParameterTypes()[0].isAssignableFrom(value.getClass());
+            return method != null ? new SetterEntry(method, unwrap) : null;
+        });
+
+        if (entry == null) {
+            throw new ReflectiveOperationException("No setter found for field " + fieldName + " with value type " + value.getClass());
+        }
+
+        try {
+            Object arg = entry.useUnwrapped && value instanceof PrimitiveType<?> p ? p.getValue() : value;
+            entry.method.invoke(tgt, arg);
+        } catch (Exception e) {
+            throw new ReflectiveOperationException("Failed to invoke setter for field " + fieldName, e);
+        }
+    }
 
     /**
-     * Relevant for setter methods that are in Camel case, but the field name is in lower case.
+     * Finds setter for the value as a fallback.
+     * For primitive Values it also checks for the unwrapped primitive due to HAPI not always having a setter for the
+     * primitive Value, but only for the internal value.
+     * <p>
+     * Unwrapped example identifier.system takes string and not Stringtype
+     * deceased is not a fieldname for a property in patient
      *
-     * @return capitalized String
+     * @param clazz     class of the resource to modify
+     * @param fieldName field name to set
+     * @param value     value to bes set
+     * @return setter found for the value
      */
-    public static String capitalizeFirstLetter(String str) {
-        if (str == null || str.isEmpty()) {
-            return str;
+    private static Method findSetter(Class<?> clazz, String fieldName, Base value) {
+        String cap = fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
+        Class<?> valueClazz = value.getClass();
+
+        Object unwrapped = null;
+        if (value instanceof PrimitiveType<?> primitiveType) {
+            unwrapped = primitiveType.getValue();
         }
-        // Get the first character and convert it to uppercase
-        char firstChar = Character.toUpperCase(str.charAt(0));
-        // Get the rest of the string
-        String restOfString = str.substring(1);
-        // Concatenate the uppercase first character with the rest of the string
-        return firstChar + restOfString;
+
+        // --- exact match on wrapped type
+        Method setter = Arrays.stream(clazz.getMethods())
+                .filter(m -> m.getName().equals("set" + cap))
+                .filter(m -> m.getParameterCount() == 1)
+                .filter(m -> m.getParameterTypes()[0].isAssignableFrom(valueClazz))
+                .findFirst()
+                .orElse(null);
+
+        // --- fallback on unwrapped primitive
+        if (setter == null && unwrapped != null) {
+            Class<?> unwrappedClass = unwrapped.getClass();
+            setter = Arrays.stream(clazz.getMethods())
+                    .filter(m -> m.getName().equals("set" + cap))
+                    .filter(m -> m.getParameterCount() == 1)
+                    .filter(m -> m.getParameterTypes()[0].isAssignableFrom(unwrappedClass))
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        return setter;
     }
 
+    private record CacheKey(Class<?> clazz, String fieldName, Class<?> valueClass) {
+    }
+
+    private record SetterEntry(Method method, boolean useUnwrapped) {
+    }
 }

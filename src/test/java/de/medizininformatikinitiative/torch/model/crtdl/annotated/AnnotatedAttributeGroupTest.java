@@ -1,9 +1,11 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
+import de.medizininformatikinitiative.torch.model.crtdl.FieldCondition;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -15,9 +17,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,7 +25,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class AnnotatedAttributeGroupTest {
-    
+
     static final LocalDate DATE_START = LocalDate.parse("2023-01-01");
     static final LocalDate DATE_END = LocalDate.parse("2023-12-31");
     static final Code CODE1 = new Code("system1", "code1");
@@ -87,6 +87,24 @@ class AnnotatedAttributeGroupTest {
             assertThat(result).containsExactly(
                     Query.ofType("Patient")
             );
+        }
+
+        @Test
+        void buildTree() {
+            List<AnnotatedAttribute> attrs = List.of(
+                    // unconditional FHIRPath
+                    new AnnotatedAttribute("", "Patient.identifier.system", false),
+                    // conditional FHIRPath with where clause
+                    new AnnotatedAttribute("", "Patient.identifier.where(type='official').value", true)
+            );
+
+
+            CopyTreeNode root = new AnnotatedAttributeGroup("", "Patient", "", attrs, null, null).buildTree();
+
+
+            assertThat(root.fhirPath()).isEqualTo("Patient");
+            assertThat(root.getChild(new FieldCondition("identifier", "")).get().children()).isEqualTo(List.of(new CopyTreeNode("system")));
+            assertThat(root.getChild(new FieldCondition("identifier", ".where(type='official')")).get().children()).isEqualTo(List.of(new CopyTreeNode("value")));
         }
     }
 

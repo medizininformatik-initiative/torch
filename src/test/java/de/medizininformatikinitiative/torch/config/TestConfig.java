@@ -28,7 +28,6 @@ import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
 import de.medizininformatikinitiative.torch.service.ReferenceResolver;
 import de.medizininformatikinitiative.torch.service.StandardAttributeGenerator;
 import de.medizininformatikinitiative.torch.setup.ContainerManager;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
@@ -119,12 +118,6 @@ public class TestConfig {
                                                        DataStore dataStore, ConsentValidator consentValidator) {
         return new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, fhirProperties.page().count());
 
-    }
-
-
-    @Bean
-    BatchCopierRedacter batchCopierRedacter(ElementCopier copier, Redaction redaction) {
-        return new BatchCopierRedacter(copier, redaction);
     }
 
     @Bean
@@ -245,11 +238,6 @@ public class TestConfig {
     CqlClient createCqlQueryClient(FhirHelper fhirHelper, DataStore dataStore) {
 
         return new CqlClient(fhirHelper, dataStore);
-    }
-
-    @Bean
-    public ElementCopier elementCopier(FhirContext ctx) {
-        return new ElementCopier(ctx);
     }
 
     @Bean

@@ -1,168 +1,277 @@
 package de.medizininformatikinitiative.torch.util;
 
-import org.junit.jupiter.api.DisplayName;
+import ca.uhn.fhir.model.api.TemporalPrecisionEnum;
+import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.ContactPoint;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.HumanName;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Quantity;
+import org.hl7.fhir.r4.model.StringType;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Method;
+import java.math.BigDecimal;
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
-public class CopyUtilsTest {
+class CopyUtilsTest {
 
-    // Sample class to test reflectListSetter
-    public static class SampleClass {
-        private List<String> items;
+    @org.junit.jupiter.api.Nested
+    class SetFieldReflectively {
 
-        public void setItems(List<String> items) {
-            this.items = items;
+        @Test
+        void setsSingleElementFieldReflectively() throws ReflectiveOperationException {
+            // Given a Patient and a single name
+            Patient patient = new Patient();
+            HumanName name = new HumanName().setFamily("Smith");
+
+            // When setting it reflectively
+            CopyUtils.setFieldReflectively(patient, "name", List.of(name));
+
+            // Then it should appear in the patient
+            assertThat(patient.getName()).hasSize(1);
+            assertThat(patient.getNameFirstRep().getFamily()).isEqualTo("Smith");
         }
 
-        // Additional setter to test absence
-        public void setNames(List<String> names) {
-            this.items = names;
+        @Test
+        void testChoiceSlicingField() throws ReflectiveOperationException {
+            // Given a Patient and a single name
+            Patient patient = new Patient();
+            BooleanType deceased = new BooleanType(true);
+            // When setting it reflectively
+            CopyUtils.setFieldReflectively(patient, "deceased", List.of(deceased));
+            assertThat(patient.getDeceased().getClass()).isEqualTo(BooleanType.class);
         }
-    }
 
-    // Tests for getElementName method
 
-    @Test
-    @DisplayName("Should return last element of a dotted path")
-    void testGetElementName_ValidPath() {
-        String path = "com.example.project.module.ClassName";
-        String expected = "ClassName";
-        String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "The last element should be 'ClassName'");
-    }
+        @Test
+        void setReservedKeywordsFallback() throws ReflectiveOperationException {
+            Encounter encounter = new Encounter();
 
-    @Test
-    @DisplayName("Should return the element itself if no dots are present")
-    void testGetElementName_SingleElement() {
-        String path = "ElementName";
-        String expected = "ElementName";
-        String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return the element itself when no dots are present");
-    }
+            // --- 1️⃣ Reserved word field 'class' (Coding) ---
+            Coding encounterClass = new Coding().setSystem("http://terminology.hl7.org/CodeSystem/v3-ActCode").setCode("inpatient");
+            CopyUtils.setFieldReflectively(encounter, "class", List.of(encounterClass));
+            assertNotNull(encounter.getClass_());
+            assertEquals("inpatient", encounter.getClass_().getCode());
+        }
 
-    @Test
-    @DisplayName("Should handle isEmpty string")
-    void testGetElementName_EmptyString() {
-        String path = "";
-        String expected = "";
-        String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return isEmpty string when input is isEmpty");
-    }
+        @Test
+        void setMeta() throws ReflectiveOperationException {
+            // Given a Patient and a single name
+            Patient patient = new Patient();
+            Meta meta = new Meta().setProfile(List.of(new CanonicalType("Test")));
 
-    @Test
-    @DisplayName("Should handle trailing dots")
-    void testGetElementName_TrailingDots() {
-        String path = "com.example.";
-        String expected = "example";
-        String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return isEmpty string when path ends with a dot");
-    }
+            // When setting it reflectively
+            CopyUtils.setFieldReflectively(patient, "meta", List.of(meta));
 
-    @Test
-    @DisplayName("Should handle multiple consecutive dots")
-    void testGetElementName_MultipleDots() {
-        String path = "com..example...module.ClassName";
-        String expected = "ClassName";
-        String actual = CopyUtils.getElementName(path);
-        assertEquals(expected, actual, "Should return the last valid element despite multiple dots");
-    }
+            assertThat(patient.getMeta().getProfile())
+                    .usingElementComparator((CanonicalType a, CanonicalType b) -> a.equalsDeep(b) ? 0 : 1)
+                    .containsExactly(new CanonicalType("Test"));
+        }
 
-    // Tests for reflectListSetter method
+        @Test
+        void setsMultipleElementsFieldReflectively() throws ReflectiveOperationException {
+            // Given a Patient and multiple identifiers
+            Patient patient = new Patient();
+            Identifier id1 = new Identifier().setValue("A1");
+            Identifier id2 = new Identifier().setValue("B2");
 
-    @Test
-    @DisplayName("Should return the correct setter method when it exists")
-    void testReflectListSetter_MethodExists() {
-        Method method = CopyUtils.reflectListSetter(SampleClass.class, "items");
-        assertNotNull(method, "Setter method for 'items' should not be null");
-        assertEquals("setItems", method.getName(), "Method name should be 'setItems'");
-        assertEquals(List.class, method.getParameterTypes()[0], "Parameter type should be List");
-    }
+            // When setting reflectively with multiple elements
+            CopyUtils.setFieldReflectively(patient, "identifier", List.of(id1, id2));
 
-    @Test
-    @DisplayName("Should return null when setter method does not exist")
-    void testReflectListSetter_MethodDoesNotExist() {
-        Method method = CopyUtils.reflectListSetter(SampleClass.class, "nonExistentField");
-        assertNull(method, "Setter method for 'nonExistentField' should be null");
-    }
+            // Then the list setter should have been used
+            assertThat(patient.getIdentifier()).hasSize(2);
+            assertThat(patient.getIdentifier().get(0).getValue()).isEqualTo("A1");
+            assertThat(patient.getIdentifier().get(1).getValue()).isEqualTo("B2");
+        }
 
-    @Test
-    @DisplayName("Should return null when setter exists but parameter type is incorrect")
-    void testReflectListSetter_WrongParameterType() {
-        Method method = CopyUtils.reflectListSetter(SampleClass.class, "count");
-        assertNull(method, "Setter method for 'count' with List parameter should not exist");
-    }
+        @Test
+        void setsBackboneElementReflectively() throws ReflectiveOperationException {
+            // Given an Observation and a single component (BackboneElement)
+            Observation observation = new Observation();
+            Observation.ObservationComponentComponent component =
+                    new Observation.ObservationComponentComponent()
+                            .setCode(new CodeableConcept().addCoding(new Coding().setCode("heart-rate")));
 
-    @Test
-    @DisplayName("Should handle null field name gracefully")
-    void testReflectListSetter_NullFieldName() {
-        Method method = CopyUtils.reflectListSetter(SampleClass.class, null);
-        assertNull(method, "Setter method should be null when field name is null");
-    }
+            // When setting reflectively
+            CopyUtils.setFieldReflectively(observation, "component", List.of(component));
 
-    @Test
-    @DisplayName("Should handle isEmpty field name gracefully")
-    void testReflectListSetter_EmptyFieldName() {
-        Method method = CopyUtils.reflectListSetter(SampleClass.class, "");
-        assertNull(method, "Setter method should be null when field name is isEmpty");
-    }
+            // Then it should correctly assign the component list
+            assertThat(observation.getComponent()).hasSize(1);
+            assertThat(observation.getComponentFirstRep().getCode().getCodingFirstRep().getCode())
+                    .isEqualTo("heart-rate");
+        }
 
-    // Tests for capitalizeFirstLetter method
+        @Test
+        void doesNothingForEmptyList() throws ReflectiveOperationException {
+            Patient patient = new Patient();
+            CopyUtils.setFieldReflectively(patient, "name", List.of());
+            assertThat(patient.getName()).isEmpty();
+        }
 
-    @Test
-    @DisplayName("Should capitalize the first letter of a lowercase string")
-    void testCapitalizeFirstLetter_Lowercase() {
-        String input = "hello";
-        String expected = "Hello";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "First letter should be capitalized");
-    }
+        @Test
+        void failsOnUnknownField() {
+            Patient patient = new Patient();
+            HumanName name = new HumanName().setFamily("Test");
 
-    @Test
-    @DisplayName("Should leave the string unchanged if first letter is already uppercase")
-    void testCapitalizeFirstLetter_AlreadyCapitalized() {
-        String input = "Hello";
-        String expected = "Hello";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "String should remain unchanged if first letter is uppercase");
-    }
+            assertThatThrownBy(() -> CopyUtils.setFieldReflectively(patient, "nonExistingField", List.of(name)))
+                    .isInstanceOf(ReflectiveOperationException.class)
+                    .hasMessageContaining("No setter found for field nonExistingField with value type class org.hl7.fhir.r4.model.HumanName");
+        }
 
-    @Test
-    @DisplayName("Should handle single character strings")
-    void testCapitalizeFirstLetter_SingleCharacter() {
-        String input = "h";
-        String expected = "H";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "Single character should be capitalized");
-    }
+        @Test
+        void setFieldReflectively_dateTimeType() throws ReflectiveOperationException {
+            // --- Given ---
+            Patient target = new Patient();
+            DateTimeType dt = new DateTimeType("1980-12-25T00:00:00Z");
 
-    @Test
-    @DisplayName("Should handle isEmpty string")
-    void testCapitalizeFirstLetter_EmptyString() {
-        String input = "";
-        String expected = "";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "Empty string should remain unchanged");
-    }
+            // --- When ---
+            // Wrap in a list, like your method expects
+            CopyUtils.setFieldReflectively(target, "birthDate", List.of(dt));
 
-    @Test
-    @DisplayName("Should capitalize first letter and leave the rest unchanged")
-    void testCapitalizeFirstLetter_MixedCase() {
-        String input = "hELLO";
-        String expected = "HELLO";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "Only the first letter should be capitalized");
-    }
+            // --- Then ---
+            DateType copied = target.getBirthDateElement();
+            assertThat(copied).isNotNull();
+            assertThat(copied.getValueAsString()).isEqualTo("1980-12-25");
+        }
 
-    @Test
-    @DisplayName("Should handle strings starting with non-letter characters")
-    void testCapitalizeFirstLetter_NonLetterStart() {
-        String input = "1hello";
-        String expected = "1hello";
-        String actual = CopyUtils.capitalizeFirstLetter(input);
-        assertEquals(expected, actual, "Non-letter first character should remain unchanged");
+        @Test
+        void testSetFieldReflectively_Primitive() throws ReflectiveOperationException {
+            Identifier identifier = new Identifier();
+
+            // Set a primitive field via reflection
+            StringType system = new StringType("urn:example");
+            CopyUtils.setFieldReflectively(identifier, "system", List.of(system));
+
+            assertEquals("urn:example", identifier.getSystem());
+        }
+
+        @Test
+        void testSetFieldReflectively_ListOfBackbone() throws ReflectiveOperationException {
+            Patient patient = new Patient();
+
+            // Set HumanName list reflectively
+            HumanName name1 = new HumanName().setFamily("Smith");
+            HumanName name2 = new HumanName().setFamily("Jones");
+
+            CopyUtils.setFieldReflectively(patient, "name", List.of(name1, name2));
+
+            List<HumanName> names = patient.getName();
+            assertEquals(2, names.size());
+            assertEquals("Smith", names.get(0).getFamily());
+            assertEquals("Jones", names.get(1).getFamily());
+        }
+
+        @Test
+        void testSetFieldReflectively_ListOfBackboneElement_Contact() throws ReflectiveOperationException {
+            Patient patient = new Patient();
+
+            // Patient.ContactComponent is another BackboneElement example
+            Patient.ContactComponent contact1 = new Patient.ContactComponent()
+                    .addTelecom(new ContactPoint().setValue("555-1234"));
+            Patient.ContactComponent contact2 = new Patient.ContactComponent()
+                    .addTelecom(new ContactPoint().setValue("555-5678"));
+
+            CopyUtils.setFieldReflectively(patient, "contact", List.of(contact1, contact2));
+
+            List<Patient.ContactComponent> contacts = patient.getContact();
+            assertEquals(2, contacts.size());
+            assertEquals("555-1234", contacts.get(0).getTelecom().getFirst().getValue());
+            assertEquals("555-5678", contacts.get(1).getTelecom().getFirst().getValue());
+        }
+
+        @Test
+        void testSetFieldReflectively_BackbonePrimitive() throws ReflectiveOperationException {
+            HumanName name = new HumanName();
+
+            // Add a given element (primitive) via reflection
+            StringType given = new StringType("John");
+            CopyUtils.setFieldReflectively(name, "given", List.of(given));
+
+            assertEquals("John", name.getGiven().getFirst().getValue());
+        }
+
+        @Test
+        void setFieldReflectively_shouldSetPrimitiveListAndObjects() throws ReflectiveOperationException {
+            Patient patient = new Patient();
+
+            // --- Multiple primitive elements (list) ---
+            Identifier id1 = new Identifier();
+            Identifier id2 = new Identifier();
+            id2.setValue("John");
+            id1.setValue("Bob");
+            List<Identifier> identifiers = List.of(id1, id2);
+
+            CopyUtils.setFieldReflectively(patient, "identifier", identifiers);
+
+            assertThat(patient.getIdentifier()).hasSize(2);
+            assertThat(patient.getIdentifier()).containsExactly(id1, id2);
+
+            // --- Setting an empty list should do nothing ---
+            CopyUtils.setFieldReflectively(patient, "identifier", List.of());
+            assertThat(patient.getIdentifier()).hasSize(2); // still 2
+        }
+
+        @Nested
+        class typeSlicing {
+            @Test
+            void setFieldReflectively_valueDateTimeType() throws ReflectiveOperationException {
+                Observation obs = new Observation();
+                DateTimeType dt = new DateTimeType("2025-11-01T12:00:00");
+                dt.setPrecision(TemporalPrecisionEnum.MINUTE);
+
+                CopyUtils.setFieldReflectively(obs, "value", List.of(dt));
+
+                assertThat(obs.getValueDateTimeType().getValueAsString())
+                        .isEqualTo("2025-11-01T12:00");
+                assertThat(obs.getValueDateTimeType().getPrecision())
+                        .isEqualTo(TemporalPrecisionEnum.MINUTE);
+            }
+
+            @Test
+            void skipsEmpty() throws ReflectiveOperationException {
+                Observation obs = new Observation();
+                Observation obsBackUp = obs.copy();
+                CopyUtils.setFieldReflectively(obs, "value", List.of());
+
+                assertThat(obs.equalsDeep(obsBackUp)).isTrue();
+            }
+
+            @Test
+            void valueQuantity() throws ReflectiveOperationException {
+                Observation obs = new Observation();
+                Quantity quantity = new Quantity().setValue(5.4).setUnit("mmol/L");
+
+                CopyUtils.setFieldReflectively(obs, "value", List.of(quantity));
+
+                assertThat(obs.getValueQuantity().getValue()).isEqualTo(BigDecimal.valueOf(5.4));
+                assertThat(obs.getValueQuantity().getUnit()).isEqualTo("mmol/L");
+            }
+
+            @Test
+            void valueCodeableConcept() throws ReflectiveOperationException {
+                Observation obs = new Observation();
+                CodeableConcept cc = new CodeableConcept()
+                        .addCoding(new Coding("http://loinc.org", "1234-5", "Example"));
+
+                CopyUtils.setFieldReflectively(obs, "value", List.of(cc));
+
+                assertThat(obs.getValueCodeableConcept().getCodingFirstRep().getCode())
+                        .isEqualTo("1234-5");
+            }
+        }
     }
 }

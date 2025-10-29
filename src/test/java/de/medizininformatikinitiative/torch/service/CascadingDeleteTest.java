@@ -35,9 +35,9 @@ class CascadingDeleteTest {
     void setUp() {
         coreResourceBundle = new ResourceBundle();
 
-        resourceAttribute = new ResourceAttribute("test", new AnnotatedAttribute("test", "test", "test", false));
-        resourceAttribute2 = new ResourceAttribute("test2", new AnnotatedAttribute("test", "test", "test", false));
-        resourceAttribute3 = new ResourceAttribute("test3", new AnnotatedAttribute("test", "test", "test", false));
+        resourceAttribute = new ResourceAttribute("test", new AnnotatedAttribute("test", "test", false));
+        resourceAttribute2 = new ResourceAttribute("test2", new AnnotatedAttribute("test", "test", false));
+        resourceAttribute3 = new ResourceAttribute("test3", new AnnotatedAttribute("test", "test", false));
 
         resourceGroup = new ResourceGroup("resource1", "group1");
         parentResourceGroup1 = new ResourceGroup("resourceP1", "group3");
@@ -196,9 +196,9 @@ class CascadingDeleteTest {
 
             @Test
             void branchingGraphFullDeletion() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", "test", false));
-                ResourceAttribute attr3 = new ResourceAttribute("attr3", new AnnotatedAttribute("attr3", "test", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
+                ResourceAttribute attr3 = new ResourceAttribute("attr3", new AnnotatedAttribute("attr3", "test", false));
 
                 ResourceGroup root = new ResourceGroup("root", "groupRoot");
                 ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
@@ -253,8 +253,8 @@ class CascadingDeleteTest {
 
             @Test
             void branchingGraphWithProtectedGroup() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
 
                 ResourceGroup root = new ResourceGroup("root", "groupRoot");
                 ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
@@ -292,8 +292,8 @@ class CascadingDeleteTest {
 
             @Test
             void asymmetricBranchingWithPartialDeletion() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
 
                 ResourceGroup root = new ResourceGroup("root", "groupRoot");
                 ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
@@ -358,7 +358,7 @@ class CascadingDeleteTest {
 
         @Test
         void mustHaveAttributesTriggerInvalidation() {
-            ResourceAttribute mustHaveAttribute = new ResourceAttribute("mustHave", new AnnotatedAttribute("mustHave", "test", "test", true));
+            ResourceAttribute mustHaveAttribute = new ResourceAttribute("mustHave", new AnnotatedAttribute("mustHave", "test", true));
             coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup1);
             coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup2);
 

@@ -1,9 +1,11 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 
+import de.medizininformatikinitiative.torch.model.crtdl.FieldCondition;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
+import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -103,6 +105,19 @@ public record AnnotatedAttributeGroup(
 
     public List<AnnotatedAttribute> refAttributes() {
         return attributes.stream().filter(annotatedAttribute -> !annotatedAttribute.linkedGroups().isEmpty()).toList();
+    }
+
+    public CopyTreeNode buildTree() {
+        CopyTreeNode root = new CopyTreeNode(resourceType());
+
+        for (AnnotatedAttribute attr : attributes) {
+            List<FieldCondition> parts = FieldCondition.splitFhirPath(attr);
+            CopyTreeNode current = root;
+            for (int i = 1; i < parts.size(); i++) {
+                current = current.getOrCreateChild(parts.get(i));
+            }
+        }
+        return root;
     }
 
 }

@@ -1,14 +1,12 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
-import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
@@ -18,16 +16,19 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
+@Component
 public class BatchCopierRedacter {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchCopierRedacter.class);
@@ -49,47 +50,63 @@ public class BatchCopierRedacter {
      */
     public PatientBatchWithConsent transformBatch(PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         batch.bundles().values().parallelStream().forEach(
-                bundle -> transform(bundle, groupMap)
+                bundle -> transformBundle(bundle, groupMap)
         );
         return batch;
     }
 
     /**
-     * Transforms a PatientResourceBundle using the given attribute group map.
+     * Loads a {@link Resource} from the {@link ResourceBundle} cache in a null-safe way.
+     * <p>
+     * <p>
+     * This wrapper ensures that a ConcurrentHashMap#get.(Object) returning null
+     * is converted into an {@link Optional}, avoiding direct null handling.
      *
-     * @param patientResourceBundle PatientResourceBundle to transform
-     * @param groupMap              Immutable AttributeGroup Map shared between all Batches
-     * @return Mono of Transformed PatientResourceBundle
+     * @param bundle     the {@link ResourceBundle} containing cached resources
+     * @param resourceId the ID of the resource to load
+     * @return an {@link Optional} containing the {@link Resource} if present,
+     * or {@link Optional#empty()} if the resource is missing or the cache
+     * contains an empty optional for this ID
      */
-    public PatientResourceBundle transform(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        ResourceBundle bundle = patientResourceBundle.bundle();
+    static Optional<Resource> getResource(ResourceBundle bundle, String resourceId) {
+        return Optional.ofNullable(bundle.get(resourceId)).flatMap(Function.identity());
+    }
 
-        // Step 1: Group valid resource groups by resourceId
-        HashMap<String, Set<String>> groupedResources = new HashMap<>();
+    /**
+     * Creates an {@link ExtractionRedactionWrapper} for a resource, merging
+     * all relevant attribute groups and building the copy tree.
+     *
+     * @param groups                                    map of attribute groups
+     * @param resource                                  the resource to transform
+     * @param attributeStringGroupedWithReferenceString map of attribute references to resource references
+     * @param resourceId                                the resource ID
+     * @return a fully configured {@link ExtractionRedactionWrapper}
+     */
+    ExtractionRedactionWrapper createExtractionWrapper(Set<AnnotatedAttributeGroup> groups, Resource resource, Map<String, Map<String, Set<String>>> attributeStringGroupedWithReferenceString, String resourceId) {
+        CopyTreeNode copyTreeNode = new CopyTreeNode(resource.getClass().getSimpleName());
+        Set<String> groupProfiles = new HashSet<>();
+        for (AnnotatedAttributeGroup group : groups.stream().toList()) {
+            groupProfiles.add(group.groupReference());
+            copyTreeNode = copyTreeNode.merged(group.buildTree());
+        }
 
-        logger.trace("ResourceGroups validity: {}", bundle.resourceGroupValidity().entrySet());
+        return new ExtractionRedactionWrapper(
+                (DomainResource) resource,
+                groupProfiles,
+                attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of()),
+                copyTreeNode
+        );
+    }
 
-        bundle.resourceGroupValidity().entrySet().stream()
-                .filter(Map.Entry::getValue)
-                .forEach(entry -> {
-                    ResourceGroup group = entry.getKey();
-                    groupedResources.computeIfAbsent(group.resourceId(), k -> new HashSet<>()).add(group.groupId());
-                });
-
-        logger.trace("validResourceIds: {}", groupedResources.keySet());
-        logger.trace("validResourceGroups: {}", groupedResources);
-        logger.trace("validAttributes: {}", bundle.resourceAttributeValidity().entrySet());
-
+    private Map<String, Map<String, Set<String>>> groupReferenceStringByAttributeGroup(ResourceBundle bundle) {
         Map<String, Map<String, Set<String>>> attributeStringGroupedWithReferenceString = new HashMap<>();
 
         bundle.resourceAttributeValidity().entrySet().stream()
-                .filter(Map.Entry::getValue) // Only valid attributes
-                .map(Map.Entry::getKey) // Extract ResourceAttribute
+                .filter(Map.Entry::getValue)
+                .map(Map.Entry::getKey)
                 .forEach(resourceAttribute -> {
                     String resourceId = resourceAttribute.resourceId();
                     String attributeRef = resourceAttribute.annotatedAttribute().attributeRef();
-
-                    // Get the linked groups from attribute validity
                     Set<ResourceGroup> validResourceGroups = bundle.resourceAttributeToChildResourceGroup().getOrDefault(resourceAttribute, Set.of());
                     logger.trace("Valid RG {} found for {} -> {}", validResourceGroups, resourceId, attributeRef);
                     // Filter valid resource groups
@@ -107,34 +124,59 @@ public class BatchCopierRedacter {
                 });
 
         logger.trace("attributeStringGroupedWithReferenceString: {}", attributeStringGroupedWithReferenceString);
+        return attributeStringGroupedWithReferenceString;
+    }
 
-        // Step 2: Process each resource asynchronously
+    private HashMap<String, Set<String>> groupAttributeGroupsByResourceId(ResourceBundle bundle) {
+        HashMap<String, Set<String>> groupedResources = new HashMap<>();
+
+        logger.trace("ResourceGroups validity: {}", bundle.resourceGroupValidity().entrySet());
+
+        bundle.resourceGroupValidity().entrySet().stream()
+                .filter(Map.Entry::getValue)
+                .forEach(entry -> {
+                    ResourceGroup group = entry.getKey();
+                    groupedResources.computeIfAbsent(group.resourceId(), k -> new HashSet<>()).add(group.groupId());
+                });
+        return groupedResources;
+    }
+
+    /**
+     * Transforms a PatientResourceBundle using the given attribute group map by redacting and copying from the extracted resources.
+     * <p>
+     * Groups Attribute Group by Resource to which they should be applied, builds all information needed for extraction and
+     * redaction and then applies it to the resources.
+     *
+     * @param patientResourceBundle PatientResourceBundle to transform
+     * @param groupMap              Immutable AttributeGroup Map shared between all Batches
+     * @return Mono of Transformed PatientResourceBundle
+     */
+    public PatientResourceBundle transformBundle(PatientResourceBundle patientResourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        ResourceBundle bundle = patientResourceBundle.bundle();
+
+        HashMap<String, Set<String>> groupedResources = groupAttributeGroupsByResourceId(bundle);
+
+        Map<String, Map<String, Set<String>>> attributeStringGroupedWithReferenceString = groupReferenceStringByAttributeGroup(bundle);
         groupedResources.entrySet().parallelStream()
                 .forEach(entry -> {
                     String resourceId = entry.getKey();
-                    Optional<Resource> resource = bundle.get(resourceId); // synchronous get
-                    if (resource == null || resource.isEmpty()) {
-                        return; // skip
+                    Optional<Resource> optionalResource = getResource(bundle, resourceId);
+                    if (optionalResource.isEmpty()) {
+                        return;
                     }
+                    Resource resource = optionalResource.get();
 
                     try {
-                        ProfileAttributeCollection profileAttributeCollection = collectHighestLevelAttributes(groupMap, entry.getValue());
+                        Set<AnnotatedAttributeGroup> groups = entry.getValue().stream().map(groupMap::get).collect(Collectors.toSet());
+                        ExtractionRedactionWrapper wrapper = createExtractionWrapper(groups, resource, attributeStringGroupedWithReferenceString, resourceId);
 
-                        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(
-                                (DomainResource) resource.get(),
-                                profileAttributeCollection.profiles(),
-                                attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of()),
-                                profileAttributeCollection.attributes()
-                        );
-
-                        Resource transformed = transform(wrapper);
-
-                        bundle.remove(ResourceUtils.getRelativeURL(transformed));
+                        Resource transformed = transformResource(wrapper);
+                        bundle.remove(resourceId);
                         bundle.put(transformed);
 
+                    } catch (TargetClassCreationException | ReflectiveOperationException | RedactionException e) {
+                        logger.warn("Error transforming resource {}", resourceId, e);
 
-                    } catch (MustHaveViolatedException | TargetClassCreationException | RedactionException e) {
-                        logger.warn("Error transforming resource {} resulting in dropped resource", resourceId);
                         bundle.remove(resourceId);
 
                     }
@@ -144,83 +186,20 @@ public class BatchCopierRedacter {
     }
 
     /**
-     * Transforms a ResourceGroupWrapper by copying attributes and applying redaction.
+     * Transforms a ResourceGroupWrapper by copying attributes and applying redaction rules.
      *
      * @param extractionRedactionWrapper wrapper containing all the extraction relevant information
      * @return Transformed Resource
-     * @throws MustHaveViolatedException    If required attributes are missing
-     * @throws TargetClassCreationException If target class creation fails
+     * @throws TargetClassCreationException if target resource instantiation fails
+     * @throws ReflectiveOperationException if reflective copying fails
      */
-    public Resource transform(ExtractionRedactionWrapper extractionRedactionWrapper) throws MustHaveViolatedException, TargetClassCreationException, RedactionException {
+    public Resource transformResource(ExtractionRedactionWrapper extractionRedactionWrapper) throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
         DomainResource tgt = ResourceUtils.createTargetResource(extractionRedactionWrapper.resource().getClass());
 
-        // Step 4: Copy only the highest-level attributes
-        for (AnnotatedAttribute attribute : extractionRedactionWrapper.attributes()) {
-            copier.copy(extractionRedactionWrapper.resource(), tgt, attribute);
-        }
-
+        copier.copy(extractionRedactionWrapper.resource(), tgt, extractionRedactionWrapper.copyTree());
         redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
         logger.trace("Transformed resource: {}", tgt);
         return tgt;
     }
 
-    public ProfileAttributeCollection collectHighestLevelAttributes(Map<String, AnnotatedAttributeGroup> groupMap, Set<String> groups) {
-        Map<String, AnnotatedAttribute> highestLevelAttributes = new HashMap<>();
-        Set<String> groupProfiles = new HashSet<>();
-        for (String groupID : groups) {
-            AnnotatedAttributeGroup group = groupMap.get(groupID);
-            groupProfiles.add(group.groupReference());
-            for (AnnotatedAttribute attribute : group.attributes()) {
-                String attrPath = attribute.attributeRef();
-
-                if (isSubPath(attrPath, highestLevelAttributes.keySet())) {
-                    continue;
-                }
-                Set<String> children = findChildren(attrPath, highestLevelAttributes.keySet());
-                for (String child : children) {
-                    highestLevelAttributes.remove(child);
-                }
-
-                // Step 3: Add the current highest-level attribute
-                highestLevelAttributes.put(attrPath, attribute);
-            }
-        }
-        return new ProfileAttributeCollection(groupProfiles, new HashSet<>(highestLevelAttributes.values()));
-    }
-
-    /**
-     * @param parentCandidate potential parent Element Id string
-     * @param path            Element Id string to be tested against.
-     * @return true if parent is a substring of path and either the end is defined by a separating dot . or colon :
-     * or a camelcase like e.g. value vs. valueQuantity
-     * choice operators at the end are ignored.
-     */
-    public boolean isParentPath(String parentCandidate, String path) {
-        if (!path.startsWith(parentCandidate)) {
-            return false;
-        }
-
-        String remainder = path.substring(parentCandidate.length());
-
-        return remainder.startsWith(".") || remainder.startsWith(":");
-    }
-
-    public Set<String> findChildren(String parent, Set<String> existingPaths) {
-        Set<String> children = new HashSet<>();
-        for (String existing : existingPaths) {
-            if (isParentPath(parent, existing)) {
-                children.add(existing);
-            }
-        }
-        return children;
-    }
-
-    private boolean isSubPath(String path, Set<String> existingPaths) {
-        for (String existing : existingPaths) {
-            if (isParentPath(existing, path)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

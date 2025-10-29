@@ -24,11 +24,11 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReferenceExtractorTest {
 
-    public static final AnnotatedAttribute ATTRIBUTE_OPTIONAL = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", false, List.of("SubjectGroup"));
-    public static final AnnotatedAttribute ATTRIBUTE_MUST_HAVE = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("SubjectGroup"));
-    public static final AnnotatedAttribute ATTRIBUTE_RESOURCE = new AnnotatedAttribute("Condition", "Condition", "Condition", true, List.of("SubjectGroup"));
-    public static final AnnotatedAttribute ATTRIBUTE_DIAGNOSIS = new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", "Encounter.diagnosis", true, List.of("SubjectGroup"));
-    public static final AnnotatedAttribute ATTRIBUTE_2 = new AnnotatedAttribute("Condition.asserter", "Condition.asserter", "Condition.asserter", true, List.of("AssertionGroup"));
+    public static final AnnotatedAttribute ATTRIBUTE_OPTIONAL = new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("SubjectGroup"));
+    public static final AnnotatedAttribute ATTRIBUTE_MUST_HAVE = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("SubjectGroup"));
+    public static final AnnotatedAttribute ATTRIBUTE_RESOURCE = new AnnotatedAttribute("Condition", "Condition", true, List.of("SubjectGroup"));
+    public static final AnnotatedAttribute ATTRIBUTE_DIAGNOSIS = new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", true, List.of("SubjectGroup"));
+    public static final AnnotatedAttribute ATTRIBUTE_2 = new AnnotatedAttribute("Condition.asserter", "Condition.asserter", true, List.of("AssertionGroup"));
     public static final String DIAG_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
     public static ReferenceExtractor referenceExtractor;
     static AnnotatedAttributeGroup GROUP_TEST = new AnnotatedAttributeGroup("Test", "Condition", DIAG_URL, List.of(ATTRIBUTE_MUST_HAVE, ATTRIBUTE_2), List.of(), null);

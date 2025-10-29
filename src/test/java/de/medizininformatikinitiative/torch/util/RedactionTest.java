@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -58,7 +59,7 @@ public class RedactionTest {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(OBSERVATION_LAB), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(OBSERVATION_LAB), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -69,7 +70,7 @@ public class RedactionTest {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json");
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -80,7 +81,7 @@ public class RedactionTest {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json");
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(VITALSTATUS), Map.of("Observation.subject", Set.of("Patient/VHF-MIXED-TEST-CASE-0001-a"), "Observation.encounter", Set.of("Encounter/VHF-MIXED-TEST-CASE-0001-a-E-1")), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -99,7 +100,7 @@ public class RedactionTest {
         DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + "DiagnosisWithUndefinedElement.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "DiagnosisWithUndefinedElement.json");
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -117,7 +118,7 @@ public class RedactionTest {
         concept.setCoding(List.of(code));
         src.setCode(concept);
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of(), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of(), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -129,7 +130,7 @@ public class RedactionTest {
         DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -152,7 +153,7 @@ public class RedactionTest {
         expectedMedication.setIngredient(List.of(ingredient));
 
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(medication, Set.of(MEDICATION), Map.of(), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(medication, Set.of(MEDICATION), Map.of(), new CopyTreeNode("Medication"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedMedication));
@@ -175,7 +176,7 @@ public class RedactionTest {
         identifier.addExtension(createAbsentReasonExtension("masked"));
         expectedPatient.setIdentifier(List.of(identifier));
 
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(patient, Set.of(PATIENT), Map.of(), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(patient, Set.of(PATIENT), Map.of(), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expectedPatient));
@@ -196,7 +197,7 @@ public class RedactionTest {
         StructureDefinitionHandler definitionHandler = new StructureDefinitionHandler(new File("src/test/resources/StructureDefinitions/"), new ResourceReader(integrationTestSetup.fhirContext()));
         definitionHandler.processDirectory();
         Redaction redaction = new Redaction(definitionHandler);
-        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of("http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing", "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing-modified", "http://example.org/fhir/StructureDefinition/observation-without-slicing"), Map.of(), Set.of());
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of("http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing", "http://example.org/fhir/StructureDefinition/observation-with-pattern-slicing-modified", "http://example.org/fhir/StructureDefinition/observation-without-slicing"), Map.of(), new CopyTreeNode("dummy"));
         DomainResource tgt = redaction.redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -212,7 +213,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/mii-exa-test-data-patient-1", "Patient/mii-exa-test-data-patient-3"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/mii-exa-test-data-patient-1", "Patient/mii-exa-test-data-patient-3"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -224,7 +225,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of(), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of(), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -236,7 +237,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -248,7 +249,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -269,7 +270,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -279,7 +280,7 @@ public class RedactionTest {
         @ValueSource(strings = {"Diagnosis1.json"})
         void failsWhenRequiredProfileMissing(String resource) throws IOException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
@@ -288,7 +289,7 @@ public class RedactionTest {
         @Test
         void failsWhenMetaMissing() {
             Condition condition = new Condition();
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
@@ -300,7 +301,7 @@ public class RedactionTest {
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType("InvalidProfile")));
             condition.setMeta(meta);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of("InvalidProfile"), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of("InvalidProfile"), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
@@ -314,7 +315,7 @@ public class RedactionTest {
             src.setMeta(meta);
             src.setSubject(new Reference("Patient/12345"));
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
             Condition tgt = (Condition) redaction.redact(wrapper);
 
@@ -331,7 +332,7 @@ public class RedactionTest {
             src.setSubject(new Reference("Patient/12345"));
             src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345"))));
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnoses", Set.of("Condition/12345")), Set.of());
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnoses", Set.of("Condition/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
             Encounter tgt = (Encounter) redaction.redact(wrapper);
 
