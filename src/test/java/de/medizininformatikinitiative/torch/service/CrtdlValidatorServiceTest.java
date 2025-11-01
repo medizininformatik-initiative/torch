@@ -1,8 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.*;
@@ -36,6 +39,32 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    void consentViolated() throws JsonProcessingException {
+        String json = """
+                {
+                  "exclusionCriteria": [
+                    [
+                      {
+                        "context": {
+                          "code": "Einwilligung",
+                          "system": "fdpg.mii.cds"
+                        },
+                        "termCodes": [
+                          { "system": "s1", "code": "A2" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
+        ObjectMapper mapper = new ObjectMapper();
+        JsonNode cohortDefinition = mapper.readTree(json);
+        Crtdl crtdl = new Crtdl(cohortDefinition, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ConsentFormatException.class)
+                .hasMessageContaining("Exclusion criteria must not contain Einwilligung consent codes.");
+    }
+
+    @Test
     void unknownProfile() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
 
@@ -64,7 +93,7 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
-    void validInput_withoutFilter() throws ValidationException {
+    void validInput_withoutFilter() throws ValidationException, ConsentFormatException {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup)));
 
         var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
@@ -79,7 +108,7 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
-    void validInput_withFilter() throws ValidationException {
+    void validInput_withFilter() throws ValidationException, ConsentFormatException {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
                 new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
                         List.of(), List.of(new Filter("token", "code", List.of(new Code("some-system", "some-code"))))))));

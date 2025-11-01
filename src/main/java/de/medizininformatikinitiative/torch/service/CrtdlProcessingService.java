@@ -126,7 +126,7 @@ public class CrtdlProcessingService {
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
         return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
                 batches
-                        .flatMap(batch -> crtdl.consentKey()
+                        .flatMap(batch -> crtdl.consentCodes()
                                         .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
                                         .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
                                         .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())

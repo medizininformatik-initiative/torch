@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -144,7 +145,7 @@ class FhirControllerIT {
     }
 
     @Test
-    void testMustHave() throws IOException, ValidationException {
+    void testMustHave() throws IOException, ValidationException, ConsentFormatException {
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_observation_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
         PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
@@ -158,7 +159,7 @@ class FhirControllerIT {
     }
 
     @Test
-    void testCoreMustHave() throws IOException, ValidationException {
+    void testCoreMustHave() throws IOException, ValidationException, ConsentFormatException {
 
         FileInputStream fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CRTDL/CRTDL_medication_must_have.json");
         Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
