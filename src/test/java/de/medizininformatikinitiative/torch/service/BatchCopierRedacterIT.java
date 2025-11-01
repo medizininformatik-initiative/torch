@@ -28,7 +28,6 @@ import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -176,13 +175,13 @@ class BatchCopierRedacterIT {
     void setUp() {
 
 
-        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
+        AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
         patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), null);
 
-        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
-        conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", "Condition.meta", true, List.of("Patient1"));
-        conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", true, List.of("Patient1"));
+        conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", true, List.of("Patient1"));
+        conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", true, List.of("Patient1"));
         conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null);
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
@@ -206,7 +205,7 @@ class BatchCopierRedacterIT {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 
-            Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), new HashSet<>(conditionGroup.attributes())));
+            Resource result = batchCopierRedacter.transform(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), conditionGroup.buildTree()));
 
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }

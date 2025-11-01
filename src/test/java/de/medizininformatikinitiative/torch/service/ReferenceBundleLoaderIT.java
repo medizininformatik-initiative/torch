@@ -58,7 +58,7 @@ class ReferenceBundleLoaderIT {
     @Test
     void fetchesUnknownReferences() {
 
-        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
+        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", false);
         ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of("Condition/UnknownResource"), "group1", "test");
         ReferenceWrapper reference2 = new ReferenceWrapper(attribute1, List.of("Medication/UnknownResource"), "group1", "test");
         ReferenceWrapper reference3 = new ReferenceWrapper(attribute1, List.of("Patient/1"), "group1", "test");
@@ -89,7 +89,7 @@ class ReferenceBundleLoaderIT {
             refs.add("Observation/" + UUID.randomUUID());
         }
 
-        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
+        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", false);
         ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, refs, "group1", "test");
         ReferenceWrapper reference2 = new ReferenceWrapper(attribute1, List.of("Patient/1"), "group1", "test");
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
@@ -112,7 +112,7 @@ class ReferenceBundleLoaderIT {
     @Test
     void doesNotDoubleFetchUnknownResources() {
 
-        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", "Condition.onset[x]", false);
+        AnnotatedAttribute attribute1 = new AnnotatedAttribute("Condition.onset[x]", "Condition.onset", false);
         ReferenceWrapper reference1 = new ReferenceWrapper(attribute1, List.of("Condition/UnknownResource"), "group1", "test");
         ReferenceWrapper reference2 = new ReferenceWrapper(attribute1, List.of("Medication/UnknownResource"), "group1", "test");
         ReferenceWrapper reference3 = new ReferenceWrapper(attribute1, List.of("Patient/1"), "group1", "test");

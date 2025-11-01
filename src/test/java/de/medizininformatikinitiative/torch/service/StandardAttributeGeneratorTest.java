@@ -33,8 +33,8 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", false),
-                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", "Patient.meta.profile", false)
+                new AnnotatedAttribute("Patient.id", "Patient.id", false),
+                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
         );
     }
 
@@ -46,9 +46,9 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Consent.id", "Consent.id", "Consent.id", false),
-                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", "Consent.meta.profile", false),
-                new AnnotatedAttribute("Consent.patient", "Consent.patient", "Consent.patient", false, List.of("patientGroup"))
+                new AnnotatedAttribute("Consent.id", "Consent.id", false),
+                new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", false),
+                new AnnotatedAttribute("Consent.patient", "Consent.patient", false, List.of("patientGroup"))
         );
     }
 
@@ -60,9 +60,9 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
-                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
-                new AnnotatedAttribute("Observation.subject", "Observation.subject", "Observation.subject", false, List.of("group1"))
+                new AnnotatedAttribute("Observation.id", "Observation.id", false),
+                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", false),
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("group1"))
         );
     }
 
@@ -74,8 +74,8 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", false),
-                new AnnotatedAttribute("Medication.meta.profile", "Medication.meta.profile", "Medication.meta.profile", false)
+                new AnnotatedAttribute("Medication.id", "Medication.id", false),
+                new AnnotatedAttribute("Medication.meta.profile", "Medication.meta.profile", false)
         );
 
     }
@@ -88,9 +88,9 @@ class StandardAttributeGeneratorTest {
 
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
-                new AnnotatedAttribute("Condition.id", "Condition.id", "Condition.id", false),
-                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", "Condition.meta.profile", false),
-                new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", false, List.of("patientGroup"))
+                new AnnotatedAttribute("Condition.id", "Condition.id", false),
+                new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", false),
+                new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("patientGroup"))
         );
     }
 }

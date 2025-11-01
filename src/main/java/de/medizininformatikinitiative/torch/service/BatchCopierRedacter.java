@@ -3,13 +3,9 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ProfileAttributeCollection;
+import de.medizininformatikinitiative.torch.model.management.*;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -18,11 +14,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
-import java.util.Optional;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
@@ -111,24 +103,32 @@ public class BatchCopierRedacter {
         groupedResources.entrySet().parallelStream()
                 .forEach(entry -> {
                     String resourceId = entry.getKey();
-                    Optional<Resource> resource = bundle.get(resourceId); // synchronous get
-                    if (resource == null || resource.isEmpty()) {
+                    Optional<Resource> optionalResource = bundle.get(resourceId); // synchronous get
+                    if (optionalResource == null || optionalResource.isEmpty()) {
                         return; // skip
                     }
+                    Resource resource = optionalResource.get();
 
                     try {
-                        ProfileAttributeCollection profileAttributeCollection = collectHighestLevelAttributes(groupMap, entry.getValue());
+
+                        CopyTreeNode copyTreeNode = new CopyTreeNode(resource.getClass().getSimpleName());
+                        Set<String> groupProfiles = new HashSet<>();
+                        for (String groupID : entry.getValue()) {
+                            AnnotatedAttributeGroup group = groupMap.get(groupID);
+                            groupProfiles.add(group.groupReference());
+                            copyTreeNode = copyTreeNode.merged(group.buildTree());
+                        }
 
                         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(
-                                (DomainResource) resource.get(),
-                                profileAttributeCollection.profiles(),
+                                (DomainResource) resource,
+                                groupProfiles,
                                 attributeStringGroupedWithReferenceString.getOrDefault(resourceId, Map.of()),
-                                profileAttributeCollection.attributes()
+                                copyTreeNode
                         );
 
                         Resource transformed = transform(wrapper);
 
-                        bundle.remove(ResourceUtils.getRelativeURL(transformed));
+                        bundle.remove(resourceId);
                         bundle.put(transformed);
 
 
@@ -154,73 +154,10 @@ public class BatchCopierRedacter {
     public Resource transform(ExtractionRedactionWrapper extractionRedactionWrapper) throws MustHaveViolatedException, TargetClassCreationException {
         DomainResource tgt = ResourceUtils.createTargetResource(extractionRedactionWrapper.resource().getClass());
 
-        // Step 4: Copy only the highest-level attributes
-        for (AnnotatedAttribute attribute : extractionRedactionWrapper.attributes()) {
-            copier.copy(extractionRedactionWrapper.resource(), tgt, attribute);
-        }
-
+        copier.copy(extractionRedactionWrapper.resource(), tgt, extractionRedactionWrapper.copyTree());
         redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
         logger.trace("Transformed resource: {}", tgt);
         return tgt;
     }
 
-    public ProfileAttributeCollection collectHighestLevelAttributes(Map<String, AnnotatedAttributeGroup> groupMap, Set<String> groups) {
-        Map<String, AnnotatedAttribute> highestLevelAttributes = new HashMap<>();
-        Set<String> groupProfiles = new HashSet<>();
-        for (String groupID : groups) {
-            AnnotatedAttributeGroup group = groupMap.get(groupID);
-            groupProfiles.add(group.groupReference());
-            for (AnnotatedAttribute attribute : group.attributes()) {
-                String attrPath = attribute.attributeRef();
-
-                if (isSubPath(attrPath, highestLevelAttributes.keySet())) {
-                    continue;
-                }
-                Set<String> children = findChildren(attrPath, highestLevelAttributes.keySet());
-                for (String child : children) {
-                    highestLevelAttributes.remove(child);
-                }
-
-                // Step 3: Add the current highest-level attribute
-                highestLevelAttributes.put(attrPath, attribute);
-            }
-        }
-        return new ProfileAttributeCollection(groupProfiles, new HashSet<>(highestLevelAttributes.values()));
-    }
-
-    /**
-     * @param parentCandidate potential parent Element Id string
-     * @param path            Element Id string to be tested against.
-     * @return true if parent is a substring of path and either the end is defined by a separating dot . or colon :
-     * or a camelcase like e.g. value vs. valueQuantity
-     * choice operators at the end are ignored.
-     */
-    public boolean isParentPath(String parentCandidate, String path) {
-        if (!path.startsWith(parentCandidate)) {
-            return false;
-        }
-
-        String remainder = path.substring(parentCandidate.length());
-
-        return remainder.startsWith(".") || remainder.startsWith(":");
-    }
-
-    public Set<String> findChildren(String parent, Set<String> existingPaths) {
-        Set<String> children = new HashSet<>();
-        for (String existing : existingPaths) {
-            if (isParentPath(parent, existing)) {
-                children.add(existing);
-            }
-        }
-        return children;
-    }
-
-    private boolean isSubPath(String path, Set<String> existingPaths) {
-        for (String existing : existingPaths) {
-            if (isParentPath(existing, path)) {
-                return true;
-            }
-        }
-        return false;
-    }
 }

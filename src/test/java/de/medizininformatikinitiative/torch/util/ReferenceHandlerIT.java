@@ -5,11 +5,7 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
+import de.medizininformatikinitiative.torch.model.management.*;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
@@ -112,15 +108,15 @@ class ReferenceHandlerIT {
     @BeforeAll
     void setUp() {
 
-        AnnotatedAttribute patientID = new AnnotatedAttribute("Patient.id", "Patient.id", "Patient.id", true);
-        AnnotatedAttribute patientGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", "Patient.gender", true);
+        AnnotatedAttribute patientID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
+        AnnotatedAttribute patientGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
         patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patientID, patientGender), List.of(), null);
 
-        AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
+        AnnotatedAttribute conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Patient1"));
         AnnotatedAttributeGroup conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
 
-        AnnotatedAttribute medicationID = new AnnotatedAttribute("Medication.id", "Medication.id", "Medication.id", true, List.of());
-        AnnotatedAttribute medicationAdherence = new AnnotatedAttribute("Medication.adherence", "Medication.adherence", "Medication.adherence", true, List.of());
+        AnnotatedAttribute medicationID = new AnnotatedAttribute("Medication.id", "Medication.id", true, List.of());
+        AnnotatedAttribute medicationAdherence = new AnnotatedAttribute("Medication.adherence", "Medication.adherence", true, List.of());
         AnnotatedAttributeGroup medicationGroup = new AnnotatedAttributeGroup("Medication1", "Medication", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID), List.of(), null);
         AnnotatedAttributeGroup medicationGroup2 = new AnnotatedAttributeGroup("Medication2", "Medication", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(medicationID, medicationAdherence), List.of(), null);
 
@@ -142,7 +138,7 @@ class ReferenceHandlerIT {
 
         @Test
         void resolveCoreBundle_success() {
-            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
+            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
@@ -159,7 +155,7 @@ class ReferenceHandlerIT {
 
         @Test
         void resolveCoreBundleFail() {
-            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", true, List.of("Medication2"));
+            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication2"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
@@ -176,7 +172,7 @@ class ReferenceHandlerIT {
 
         @Test
         void resolveCoreBundleResource_success() {
-            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
+            referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
@@ -198,7 +194,7 @@ class ReferenceHandlerIT {
 
         @Test
         void resolveCoreBundleFail() {
-            referenceAttribute = new AnnotatedAttribute("Encounter.subject", "Encounter.subject", "Encounter.subject", true, List.of("Patient1"));
+            referenceAttribute = new AnnotatedAttribute("Encounter.subject", "Encounter.subject", true, List.of("Patient1"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
