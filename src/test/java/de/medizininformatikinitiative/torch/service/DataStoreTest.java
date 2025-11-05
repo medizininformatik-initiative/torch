@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
+import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -91,6 +92,31 @@ class DataStoreTest {
                            }
             """;
 
+
+    private static final String OPERATION_OUTCOME = """
+            {
+                           "resourceType": "OperationOutcome",
+                           "issue": [
+                             {
+                               "severity": "error",
+                               "code": "not-found",
+                               "diagnostics": "The search-param with code `test` and type `Observation` was not found."
+                             }
+                           ]
+                         }
+            """;
+
+    private static final String UNSUPPORTED_RESOURCE_TYPE = """
+            {
+              "resourceType" : "Condition",
+              "id" : "example",
+              "text" : {
+                "status" : "generated",
+                "div" : "<div xmlns=\\"http://www.w3.org/1999/xhtml\\">Severe burn of left ear (Date: 24-May 2012)</div>"
+              }
+            }
+            """;
+
     private MockWebServer mockStore;
     private String baseUrl;
     private WebClient client;
@@ -173,6 +199,37 @@ class DataStoreTest {
 
             StepVerifier.create(result).expectNextMatches(resource -> resource.getResourceType() == Patient).verifyComplete();
         }
+
+        @Test
+        void operationOutcomeReturnsError() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(OPERATION_OUTCOME));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("OperationOutcome")).verify();
+        }
+
+        @Test
+        void unsupportedResourceType() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(UNSUPPORTED_RESOURCE_TYPE));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("Unexpected resource type")).verify();
+        }
+
     }
 
     @Nested

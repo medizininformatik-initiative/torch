@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
+import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.r4.model.Bundle;
@@ -161,11 +162,26 @@ public class DataStore {
         var counter = new AtomicInteger();
         return client.post()
                 .uri("/" + query.type() + "/_search")
+                .header("Prefer", "handling=strict")
                 .contentType(APPLICATION_FORM_URLENCODED)
                 .bodyValue(query.params().appendParam("_count", stringValue(Integer.toString(pageCount))).toString())
                 .retrieve()
                 .bodyToMono(String.class)
-                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
+                .map(body -> fhirContext.newJsonParser().parseResource(body))
+                .flatMap(resource -> {
+                    switch (resource) {
+                        case Bundle bundle -> {
+                            return Mono.just(bundle);
+                        }
+                        case OperationOutcome outcome -> {
+                            logger.error("FHIR server returned OperationOutcome: {}", fhirContext.newJsonParser().encodeResourceToString(outcome));
+                            return Mono.error(new DataStoreException("OperationOutcome returned by FHIR server With " + outcome.getIssue().toString()));
+                        }
+                        default -> {
+                            return Mono.error(new DataStoreException("Unexpected resource type: " + resource.getClass()));
+                        }
+                    }
+                })
                 .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
                         .map(link -> fetchPage(link.getUrl()))
                         .orElse(Mono.empty()))
