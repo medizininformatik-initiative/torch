@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.4.0</Hapi.version>
-        <ontology-tag>v3.8.0</ontology-tag>
+        <ontology-tag>v3.9.1</ontology-tag>
     </properties>
 
     <dependencies>
@@ -263,6 +263,7 @@
                                     <executable>mkdir</executable>
                                     <arguments>
                                         <argument>ontology</argument>
+                                        <argument>ontology/structureDefinitions</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
@@ -303,6 +304,42 @@
                             </execution>
 
                             <execution>
+                                <id>download-ontology-structureDefinitions</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>curl</executable>
+                                    <arguments>
+                                        <argument>-L</argument>
+                                        <argument>
+                                            https://github.com/medizininformatik-initiative/fhir-ontology-generator/releases/download/${ontology-tag}/dse_structures.zip
+                                        </argument>
+                                        <argument>-o</argument>
+                                        <argument>ontology/structureDefinitions/dse_structures.zip</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+
+                            <execution>
+                                <id>unpack-ontology-structureDefinitions</id>
+                                <phase>generate-resources</phase>
+                                <goals>
+                                    <goal>exec</goal>
+                                </goals>
+                                <configuration>
+                                    <executable>unzip</executable>
+                                    <arguments>
+                                        <argument>-jod</argument>
+                                        <argument>ontology/structureDefinitions/</argument>
+                                        <argument>ontology/structureDefinitions/dse_structures.zip</argument>
+                                    </arguments>
+                                </configuration>
+                            </execution>
+
+
+                            <execution>
                                 <id>delete-zip-files</id>
                                 <phase>generate-resources</phase>
                                 <goals>
@@ -312,9 +349,11 @@
                                     <executable>rm</executable>
                                     <arguments>
                                         <argument>ontology/mapping.zip</argument>
+                                        <argument>ontology/structureDefinitions/dse_structures.zip</argument>
                                     </arguments>
                                 </configuration>
                             </execution>
+
                         </executions>
                     </plugin>
                 </plugins>
