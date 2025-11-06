@@ -750,47 +750,6 @@
         ]
       },
       {
-        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
-        "attributes": [
-          {
-            "attributeRef": "Patient.identifier",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.name",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.gender",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.birthDate",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.deceased[x]",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.address",
-            "mustHave": false
-          },
-          {
-            "attributeRef": "Patient.link",
-            "mustHave": false
-          }
-        ],
-        "filter": [
-          {
-            "type": "date",
-            "name": "date",
-            "start": "2020-01-01",
-            "end": "2025-01-01"
-          }
-        ]
-      },
-      {
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Todesursache",
         "attributes": [
           {

@@ -101,7 +101,7 @@
       },
       {
         "id": "Patient",
-        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
         "attributes": [
         ],
         "filter": [
