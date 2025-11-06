@@ -31,7 +31,7 @@ public class IntegrationTestSetup {
     public IntegrationTestSetup() throws IOException {
         this.ctx = FhirContext.forR4();
         this.resourceReader = new ResourceReader(ctx);
-        this.structHandler = new StructureDefinitionHandler(new File("structureDefinitions/"), resourceReader);
+        this.structHandler = new StructureDefinitionHandler(new File("ontology/structureDefinitions/"), resourceReader);
         this.objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
         structHandler.processDirectory();
