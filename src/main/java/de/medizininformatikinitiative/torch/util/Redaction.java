@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
@@ -90,34 +91,31 @@ public class Redaction {
      * @return the redacted resource with required fields fulfilled
      * @throws RuntimeException if required profiles are missing or unknown, or if meta is absent
      */
-    public DomainResource redact(ExtractionRedactionWrapper wrapper) {
+    public DomainResource redact(ExtractionRedactionWrapper wrapper) throws RedactionException {
         DomainResource resource = wrapper.resource();
-        if (resource.hasMeta()) {
-            Meta meta = resource.getMeta();
-            List<CanonicalType> resourceProfiles;
-            if (!resource.getResourceType().toString().equals("Patient")) {
-                // Convert resource profiles to a list of strings
-                resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
-                List<CanonicalType> finalResourceProfiles = resourceProfiles;
-                Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
+        Meta meta = resource.getMeta();
+        List<CanonicalType> resourceProfiles;
+        if (!resource.getResourceType().toString().equals("Patient")) {
+            // Convert resource profiles to a list of strings
+            resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
+            List<CanonicalType> finalResourceProfiles = resourceProfiles;
+            Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
 
-                if (!validProfiles.equals(wrapper.profiles())) {
-                    logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
-                    throw new RuntimeException("Resource is missing required profiles: " + resourceProfiles);
-                }
-            } else {
-                resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
+            if (!validProfiles.equals(wrapper.profiles())) {
+                logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
+                throw new RedactionException("Resource" + resource.getResourceType() + " " + resource.getId() + " is missing required profiles: " + resourceProfiles);
             }
-            List<CompiledStructureDefinition> definitions = structureDefinitionHandler.getDefinitions(wrapper.profiles());
-            if (definitions.isEmpty()) {
-                logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
-                throw new RuntimeException("Trying to handle unknown profiles: " + wrapper.profiles());
-            }
-            meta.setProfile(resourceProfiles);
-            this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions, wrapper.references()));
-            return resource;
+        } else {
+            resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
         }
-        throw new RuntimeException("Trying to redact Resource without Meta");
+        List<CompiledStructureDefinition> definitions = structureDefinitionHandler.getDefinitions(wrapper.profiles());
+        if (definitions.isEmpty()) {
+            logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
+            throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
+        }
+        meta.setProfile(resourceProfiles);
+        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions, wrapper.references()));
+        return resource;
     }
 
     /**
@@ -143,9 +141,7 @@ public class Redaction {
      * @param context the context containing allowed extensions for validation
      */
     private void removeUnknownExtensions(Base base, MultiElementContext context) {
-        getExtensions(base).stream()
-                .filter(context::shouldRedactExtension)
-                .forEach(extension -> base.removeChild(EXTENSION, extension));
+        getExtensions(base).stream().filter(context::shouldRedactExtension).forEach(extension -> base.removeChild(EXTENSION, extension));
     }
 
     /**
@@ -210,9 +206,7 @@ public class Redaction {
     }
 
     private void removeAllChildren(Base base) {
-        base.children().stream()
-                .flatMap(child -> child.getValues().stream().map(value -> Map.entry(child.getName(), value)))
-                .forEach(entry -> base.removeChild(entry.getKey(), entry.getValue()));
+        base.children().stream().flatMap(child -> child.getValues().stream().map(value -> Map.entry(child.getName(), value))).forEach(entry -> base.removeChild(entry.getKey(), entry.getValue()));
     }
 
     /**

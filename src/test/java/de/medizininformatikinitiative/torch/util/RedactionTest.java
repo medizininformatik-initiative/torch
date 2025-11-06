@@ -1,19 +1,21 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Patient;
-import org.junit.Test;
 import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -49,7 +51,7 @@ public class RedactionTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"Observation_lab_Missing_Elements_Unknown_Slices.json"})
-    void testObservationLab(String resource) throws IOException {
+    void testObservationLab(String resource) throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -60,7 +62,7 @@ public class RedactionTest {
     }
 
     @Test
-    public void testValueSetBindingPassingThroughAsDiscriminator() throws IOException {
+    void testValueSetBindingPassingThroughAsDiscriminator() throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1.json");
 
@@ -71,7 +73,7 @@ public class RedactionTest {
     }
 
     @Test
-    public void referenceComplexType() throws IOException {
+    void referenceComplexType() throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "Observation-mii-exa-test-data-patient-1-vitalstatus-1-identifier.json");
 
@@ -90,7 +92,7 @@ public class RedactionTest {
      * @throws IOException e.g. when file not found
      */
     @Test
-    public void fallbackForUndefinedElement() throws IOException {
+    void fallbackForUndefinedElement() throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + "DiagnosisWithUndefinedElement.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "DiagnosisWithUndefinedElement.json");
 
@@ -101,7 +103,7 @@ public class RedactionTest {
     }
 
     @Test
-    public void unknownSlice() throws IOException {
+    void unknownSlice() throws IOException, RedactionException {
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "unknownSlice.json");
         org.hl7.fhir.r4.model.Condition src = new org.hl7.fhir.r4.model.Condition();
         Meta meta = new Meta();
@@ -120,7 +122,7 @@ public class RedactionTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"DiagnosisUnknownPrimitiveExtension.json", "DiagnosisWithExtensionAtCode.json", "DiagnosisUnknownComplexExtension.json", "DiagnosisWithExtensionAtExtensionsValue.json"})
-    void removeUnknownPrimitiveAndComplexExtension(String resource) throws IOException {
+    void removeUnknownPrimitiveAndComplexExtension(String resource) throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -132,7 +134,7 @@ public class RedactionTest {
 
 
     @Test
-    public void backboneElementHandling() {
+    void backboneElementHandling() throws RedactionException {
         Meta meta = new Meta();
         meta.addProfile(MEDICATION);
         Medication medication = new Medication();
@@ -154,7 +156,7 @@ public class RedactionTest {
     }
 
     @Test
-    public void patient() {
+    void patient() throws RedactionException {
         Meta meta = new Meta();
         meta.addProfile("anyprofile");
         Patient patient = new Patient();
@@ -185,7 +187,7 @@ public class RedactionTest {
      * @throws IOException when test file not found
      */
     @Test
-    public void testMultiProfilesWithCustomStructureDefinition() throws IOException {
+    void testMultiProfilesWithCustomStructureDefinition() throws IOException, RedactionException {
         DomainResource src = integrationTestSetup.readResource(INPUT_OBSERVATION_DIR + "MultiProfileObservationWithPatternSlicing.json");
         DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + "MultiProfileObservationWithPatternSlicing.json");
         StructureDefinitionHandler definitionHandler = new StructureDefinitionHandler(new File("src/test/resources/StructureDefinitions/"), new ResourceReader(integrationTestSetup.fhirContext()));
@@ -199,11 +201,11 @@ public class RedactionTest {
     }
 
     @Nested
-    class Condition {
+    class ConditionTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json", "Condition-mii-exa-diagnose-multiple-kodierungen.json", "Condition-mii-exa-test-data-patient-1-diagnose-1.json", "Condition-mii-exa-test-data-patient-1-diagnose-2.json", "Condition-mii-exa-test-data-patient-3-diagnose-1.json", "Condition-mii-exa-test-data-patient-4-diagnose-1.json"})
-        void diagnosisAllValid(String resource) throws IOException {
+        void diagnosisAllValid(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
 
@@ -215,7 +217,7 @@ public class RedactionTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"Condition-mii-exa-diagnose-condition-minimal.json", "Condition-mii-exa-diagnose-mehrfachkodierung-primaercode.json"})
-        void invalidReferences(String resource) throws IOException {
+        void invalidReferences(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -227,7 +229,7 @@ public class RedactionTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"DiagnosisWithInvalidSliceCode.json"})
-        void diagnosisInvalidElements(String resource) throws IOException {
+        void diagnosisInvalidElements(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -239,7 +241,7 @@ public class RedactionTest {
 
         @ParameterizedTest
         @ValueSource(strings = {"Diagnosis1.json", "Diagnosis2.json"})
-        void diagnosisMissingElements(String resource) throws IOException {
+        void diagnosisMissingElements(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -260,7 +262,7 @@ public class RedactionTest {
          */
         @ParameterizedTest
         @ValueSource(strings = {"Todesursache1.json", "Todesursache2.json", "Todesursache3.json"})
-        void testMultipleProfiles(String resource) throws IOException {
+        void testMultipleProfiles(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
@@ -277,7 +279,30 @@ public class RedactionTest {
             ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
             var redaction = integrationTestSetup.redaction();
 
-            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RuntimeException.class);
+            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
         }
+
+        @Test
+        void failsWhenMetaMissing() {
+            Condition condition = new Condition();
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            var redaction = integrationTestSetup.redaction();
+
+            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
+        }
+
+        @Test
+        void failsWhenProvidedInvalidProfiles() {
+            Condition condition = new Condition();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType("InvalidProfile")));
+            condition.setMeta(meta);
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of("InvalidProfile"), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            var redaction = integrationTestSetup.redaction();
+
+            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
+        }
+
+
     }
 }
