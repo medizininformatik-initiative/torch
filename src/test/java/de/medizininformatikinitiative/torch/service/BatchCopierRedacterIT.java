@@ -5,6 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -202,7 +203,7 @@ class BatchCopierRedacterIT {
     class transformResource {
 
         @Test
-        void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException {
+        void testResourceWithKnownGroups() throws TargetClassCreationException, MustHaveViolatedException, RedactionException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
 

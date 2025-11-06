@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -132,9 +133,8 @@ public class BatchCopierRedacter {
                         bundle.put(transformed);
 
 
-                    } catch (MustHaveViolatedException | TargetClassCreationException e) {
-                        logger.warn("Error transforming resource {}", resourceId, e);
-
+                    } catch (MustHaveViolatedException | TargetClassCreationException | RedactionException e) {
+                        logger.warn("Error transforming resource {} resulting in dropped resource", resourceId);
                         bundle.remove(resourceId);
 
                     }
@@ -151,7 +151,7 @@ public class BatchCopierRedacter {
      * @throws MustHaveViolatedException    If required attributes are missing
      * @throws TargetClassCreationException If target class creation fails
      */
-    public Resource transform(ExtractionRedactionWrapper extractionRedactionWrapper) throws MustHaveViolatedException, TargetClassCreationException {
+    public Resource transform(ExtractionRedactionWrapper extractionRedactionWrapper) throws MustHaveViolatedException, TargetClassCreationException, RedactionException {
         DomainResource tgt = ResourceUtils.createTargetResource(extractionRedactionWrapper.resource().getClass());
 
         // Step 4: Copy only the highest-level attributes
