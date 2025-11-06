@@ -7,7 +7,7 @@ torch:
     url:
 
   profile:
-    dir: structureDefinitions
+    dir: ontology/structureDefinitions
   mapping:
     consent: mappings/consent-mappings_fhir.json
     type_to_consent: mappings/type_to_consent.json
