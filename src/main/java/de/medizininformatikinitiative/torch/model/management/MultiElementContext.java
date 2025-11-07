@@ -13,15 +13,14 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-public record MultiElementContext(List<ElementContext> contexts, Map<String, Set<String>> references) {
+public record MultiElementContext(List<ElementContext> contexts) {
 
     public MultiElementContext {
         contexts = List.copyOf(contexts);
-        references = Map.copyOf(references);
     }
 
-    public MultiElementContext(String elementId, List<CompiledStructureDefinition> definitions, Map<String, Set<String>> references) {
-        this(definitions.stream().map(compiledStructureDefinition -> new ElementContext(elementId, compiledStructureDefinition)).toList(), references);
+    public MultiElementContext(String elementId, List<CompiledStructureDefinition> definitions) {
+        this(definitions.stream().map(compiledStructureDefinition -> new ElementContext(elementId, compiledStructureDefinition)).toList());
     }
 
     /**
@@ -60,11 +59,13 @@ public record MultiElementContext(List<ElementContext> contexts, Map<String, Set
                 .isPresent();
     }
 
-    public Set<String> allowedReferences() {
+    public Set<String> allowedReferences(Map<String, Set<String>> references) {
         return contexts.stream()
                 .map(ElementContext::elementId)
-                .map(id -> references().getOrDefault(id, Set.of()))
-                .flatMap(Set::stream)
+                .flatMap(id -> references.entrySet().stream()
+                        .filter(entry -> id.startsWith(entry.getKey()))
+                        .flatMap(entry -> entry.getValue().stream())
+                )
                 .collect(Collectors.toSet());
     }
 
@@ -77,7 +78,7 @@ public record MultiElementContext(List<ElementContext> contexts, Map<String, Set
                 slices.stream(),
                 contexts.stream().filter(ctx -> !ctx.hasSlicing())
         ).toList();
-        return new MultiElementContext(all, references());
+        return new MultiElementContext(all);
     }
 
     /**
@@ -91,7 +92,7 @@ public record MultiElementContext(List<ElementContext> contexts, Map<String, Set
      * @return a new {@code MultiElementContext} with updated {@code ElementContext}s
      */
     public MultiElementContext descend(String childName) {
-        return new MultiElementContext(contexts.stream().map(ctx -> ctx.descend(childName)).toList(), references);
+        return new MultiElementContext(contexts.stream().map(ctx -> ctx.descend(childName)).toList());
     }
 
     /**

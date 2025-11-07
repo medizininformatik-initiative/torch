@@ -12,6 +12,8 @@ To resolve references, Torch uses the following steps for each Patient or the Co
 
 1. **Get all valid ResourceGroups**: Torch retrieves all ResourceGroups that are valid for the current extraction.
 2. **Extract References**: For each ResourceGroup, Torch extracts the references (as string) from the resources.
+    - If the specified field for which referenced groups are defined is a reference, extract directly.
+    - Otherwise, a recursive reference extract is done.
 3. **Load References**: Torch checks if it already loaded the referenced resources in its cache.
     - If the resource is not loaded, Torch bundles all references and loads them in a single FHIR search request.
 4. **Assign References**: Torch assigns the loaded resources to the ResourceGroup.

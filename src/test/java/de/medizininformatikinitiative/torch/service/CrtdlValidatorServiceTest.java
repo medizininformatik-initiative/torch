@@ -8,7 +8,12 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.model.crtdl.*;
+import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
+import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
+import de.medizininformatikinitiative.torch.model.crtdl.Code;
+import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
+import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.junit.jupiter.api.BeforeAll;
@@ -93,6 +98,23 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    void BackBoneElementWithReference() throws ValidationException, ConsentFormatException {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(new Attribute("Encounter.diagnosis", false, List.of("patientGroupId"))), List.of()))));
+
+        var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
+
+        assertThat(validatedCrtdl).isNotNull();
+        assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
+                List.of(
+                        new AnnotatedAttribute("Encounter.id", "Encounter.id", "Encounter.id", false),
+                        new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", "Encounter.meta.profile", false),
+                        new AnnotatedAttribute("Encounter.subject", "Encounter.subject", "Encounter.subject", false, List.of("patientGroupId")),
+                        new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", "Encounter.diagnosis", false, List.of("patientGroupId"))
+                ));
+
+    }
+
+    @Test
     void validInput_withoutFilter() throws ValidationException, ConsentFormatException {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup)));
 
@@ -117,7 +139,7 @@ class CrtdlValidatorServiceTest {
 
         assertThat(validatedCrtdl).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).compiledFilter()).isNotNull();
-        assertThat(validatorService.validateAndAnnotate(crtdl).dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
+        assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Observation.id", "Observation.id", "Observation.id", false),
                         new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", "Observation.meta.profile", false),
