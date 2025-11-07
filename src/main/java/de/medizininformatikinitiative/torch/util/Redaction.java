@@ -114,7 +114,7 @@ public class Redaction {
             throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
         }
         meta.setProfile(resourceProfiles);
-        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions, wrapper.references()));
+        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references());
         return resource;
     }
 
@@ -124,14 +124,15 @@ public class Redaction {
      *   <li>Removes extensions not allowed by slicing rules</li>
      *   <li>Recursively redacts known extensions according to structure definitions</li>
      * </ul>
+     *  @param base    the FHIR element whose extensions are to be validated and redacted
      *
-     * @param base    the FHIR element whose extensions are to be validated and redacted
-     * @param context the element context used to evaluate and process extensions
+     * @param context    the element context used to evaluate and process extensions
+     * @param references Map of allowed references
      */
-    private void redactExtensions(Base base, MultiElementContext context) {
+    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<String>> references) {
         MultiElementContext extensionsContext = context.descend(EXTENSION);
         removeUnknownExtensions(base, extensionsContext);
-        redactKnownExtensions(base, extensionsContext);
+        redactKnownExtensions(base, extensionsContext, references);
     }
 
     /**
@@ -147,11 +148,12 @@ public class Redaction {
     /**
      * Redacts known extensions of the given FHIR element using the provided structure definitions.
      *
-     * @param base    the FHIR element whose remaining extensions should be processed
-     * @param context the context for redacting extensions
+     * @param base       the FHIR element whose remaining extensions should be processed
+     * @param context    the context for redacting extensions
+     * @param references Map of allowed references
      */
-    private void redactKnownExtensions(Base base, MultiElementContext context) {
-        getExtensions(base).forEach(extension -> redactChildren(extension, context));
+    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<String>> references) {
+        getExtensions(base).forEach(extension -> redactChildren(extension, context, references));
     }
 
     private List<Extension> getExtensions(Base base) {
@@ -172,12 +174,13 @@ public class Redaction {
      *
      * @param dataElement the FHIR {@link Base} element to redact
      * @param context     element ID and associated structure definitions
+     * @param references  Map of allowed references
      */
-    private void redact(Base dataElement, MultiElementContext context) {
+    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<String>> references) {
         handleSlicing(dataElement, context).ifPresent(updatedContext -> {
-            redactExtensions(dataElement, updatedContext);
+            redactExtensions(dataElement, updatedContext, references);
             if (!dataElement.isPrimitive()) {
-                redactChildren(dataElement, updatedContext);
+                redactChildren(dataElement, updatedContext, references);
             }
         });
     }
@@ -219,8 +222,9 @@ public class Redaction {
      *
      * @param baseElement element whose children should be redacted
      * @param contexts    element ID and associated structure definitions
+     * @param references  Map of allowed references
      */
-    private void redactChildren(Base baseElement, MultiElementContext contexts) {
+    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<String>> references) {
 
         baseElement.children().forEach(child -> {
             MultiElementContext childContexts = contexts.descend(child.getName());
@@ -228,10 +232,11 @@ public class Redaction {
 
             if (child.hasValues()) {
                 if (types.stream().anyMatch(type -> type.contains("Reference"))) {
-                    handleReference(child, childContexts.allowedReferences());
+
+                    handleReference(child, childContexts.allowedReferences(references));
                 }
                 for (Base value : child.getValues()) {
-                    redact(value, childContexts);
+                    redact(value, childContexts, references);
                 }
             } else if (child.getMinCardinality() > 0 || childContexts.required()) {
                 addDataAbsentReason(baseElement, child, types.getFirst());

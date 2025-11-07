@@ -9,19 +9,24 @@ import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+@Component
 public class ReferenceExtractor {
+    private static final Logger logger = LoggerFactory.getLogger(ReferenceExtractor.class);
+
 
     private final IFhirPath fhirPathEngine;
 
 
     public ReferenceExtractor(FhirContext ctx) {
         this.fhirPathEngine = ctx.newFhirPath();
-
     }
 
     /**
@@ -35,7 +40,9 @@ public class ReferenceExtractor {
      */
     public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
         try {
-            return groupMap.get(groupId).refAttributes().stream()
+            AnnotatedAttributeGroup group = groupMap.get(groupId);
+            logger.debug("Group Reference: '{}'", group.groupReference());
+            return group.refAttributes().stream()
                     .map(refAttribute -> {
                         try {
                             return new ReferenceWrapper(refAttribute, getReferences(resource, refAttribute), groupId, ResourceUtils.getRelativeURL(resource));
@@ -54,19 +61,39 @@ public class ReferenceExtractor {
     }
 
 
-    List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+    List<String> getReferences(Resource resource,
+                               AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
 
-        List<String> elements;
-        elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class).stream()
-                .filter(Reference.class::isInstance) // Ensure it's a Reference
-                .map(Reference.class::cast)
-                .map(Reference::getReference)
-                .collect(Collectors.toList());
+        List<Base> elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
 
-        if (elements.isEmpty() && annotatedAttribute.mustHave()) {
-            throw new MustHaveViolatedException("No Reference in " + annotatedAttribute.attributeRef() + " in " + resource.getId());
+        // Collect all references recursively
+        List<String> references = elements.stream()
+                .flatMap(element -> collectReferences(element).stream())
+                .toList();
+
+        // Enforce must-have after collection
+        if (annotatedAttribute.mustHave() && references.isEmpty()) {
+            throw new MustHaveViolatedException(
+                    "No Reference found in required field " + annotatedAttribute.attributeRef() +
+                            " in resource " + resource.getId()
+            );
         }
-        return elements;
+
+        return references;
     }
 
+    /**
+     * Recursively collect all references from any Base element
+     */
+    public List<String> collectReferences(Base element) {
+        if (element instanceof Reference ref && ref.hasReference()) {
+            return List.of(ref.getReference());
+        } else if (!element.isPrimitive()) {
+            return element.children().stream()
+                    .flatMap(child -> child.getValues().stream())
+                    .flatMap(childElement -> collectReferences(childElement).stream())
+                    .toList();
+        }
+        return List.of();
+    }
 }

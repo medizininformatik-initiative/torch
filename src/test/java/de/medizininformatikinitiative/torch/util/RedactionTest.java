@@ -10,10 +10,12 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -40,6 +42,7 @@ public class RedactionTest {
     public static final String MEDICATION = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication";
     public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
+    public static final String ENCOUNTER = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
 
     private final IntegrationTestSetup integrationTestSetup;
 
@@ -301,6 +304,39 @@ public class RedactionTest {
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
+        }
+
+        @Test
+        void doesSupportNestedReferences() throws RedactionException {
+            Condition src = new Condition();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(DIAGNOSIS)));
+            src.setMeta(meta);
+            src.setSubject(new Reference("Patient/12345"));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), Set.of());
+            var redaction = integrationTestSetup.redaction();
+            Condition tgt = (Condition) redaction.redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+        }
+
+        @Test
+        void supportNestedReferences() throws RedactionException {
+            Encounter src = new Encounter();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
+            src.setMeta(meta);
+            src.setId("Encounter/12345");
+            src.setSubject(new Reference("Patient/12345"));
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345"))));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnoses", Set.of("Condition/12345")), Set.of());
+            var redaction = integrationTestSetup.redaction();
+            Encounter tgt = (Encounter) redaction.redact(wrapper);
+
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
         }
 
 

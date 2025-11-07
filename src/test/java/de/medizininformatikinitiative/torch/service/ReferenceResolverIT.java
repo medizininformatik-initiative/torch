@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeAll;
@@ -135,7 +136,87 @@ class ReferenceResolverIT {
                            "onsetDateTime": "2023-06-01T00:00:00Z"
                          }""";
 
+    public static final String DIAG_REFERENCE = "Condition/2";
+
     public static final String PAT_REFERENCE = "Patient/VHF00006";
+    private static final String ENCOUNTER = """
+            
+              {
+                  "resourceType": "Encounter",
+                  "id": "VHF00006-E-1",
+                  "meta": {
+                    "profile": [
+                      "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+                    ]
+                  },
+                  "identifier": [
+                    {
+                      "type": {
+                        "coding": [
+                          {
+                            "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                            "code": "VN"
+                          }
+                        ]
+                      },
+                      "_system": {
+                        "extension": [
+                          {
+                            "url": "http://terminology.hl7.org/CodeSystem/data-absent-reason",
+                            "valueCode": "unknown"
+                          }
+                        ]
+                      },
+                      "value": "VHF00006-E-1",
+                      "assigner": {
+                        "identifier": {
+                          "system": "https://www.medizininformatik-initiative.de/fhir/core/NamingSystem/org-identifier",
+                          "value": "VHF"
+                        }
+                      }
+                    }
+                  ],
+                  "status": "finished",
+                  "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "IMP",
+                    "display": "inpatient encounter"
+                  },
+                  "type": [
+                    {
+                      "coding": [
+                        {
+                          "code": "einrichtungskontakt",
+                          "display": "Einrichtungskontakt"
+                        }
+                      ]
+                    }
+                  ],
+                  "subject": {
+                    "reference": "Patient/VHF00006"
+                  },
+                  "period": {
+                    "start": "2019-01-01T00:00:00+01:00",
+                    "end": "2021-01-02T00:00:00+01:00"
+                  },
+                  "diagnosis": [
+                    {
+                      "condition": {
+                        "reference": "Condition/2"
+                      },
+                      "use": {
+                        "coding": [
+                          {
+                            "system": "http://terminology.hl7.org/CodeSystem/diagnosis-role",
+                            "code": "CC",
+                            "display": "Chief complaint"
+                          }
+                        ]
+                      }
+                    }
+                  ]
+                }
+            """;
 
     @Autowired
     ReferenceResolver referenceResolver;
@@ -144,9 +225,11 @@ class ReferenceResolverIT {
 
     AnnotatedAttributeGroup patientGroup;
     AnnotatedAttributeGroup conditionGroup;
+    AnnotatedAttributeGroup encounterGroup;
 
     AnnotatedAttribute conditionSubject;
     ResourceAttribute expectedAttribute;
+    AnnotatedAttribute encounterDiagnosis;
 
     @Autowired
     private FilterService filterService;
@@ -160,11 +243,17 @@ class ReferenceResolverIT {
 
         var filter = new Filter("date", "birthdate", LocalDate.of(2000, 1, 1), LocalDate.of(2005, 1, 1));
         var compiledFilter = filterService.compileFilter(List.of(filter), "Patient");
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), compiledFilter);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(patiendID, patiendGender), List.of(), compiledFilter);
 
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", "Condition.subject", true, List.of("Patient1"));
 
         conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(conditionSubject), List.of(), null);
+
+
+        encounterDiagnosis = new AnnotatedAttribute("Encounter.diagnosis", "Encounter.diagnosis", "Encounter.diagnosis", true, List.of("Condition1"));
+
+        encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterDiagnosis), List.of(), null);
+
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
 
@@ -177,6 +266,7 @@ class ReferenceResolverIT {
         Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
             put("Patient1", patientGroup);
             put("Condition1", conditionGroup);
+            put("Encounter1", encounterGroup);
         }};
 
 
@@ -344,6 +434,37 @@ class ReferenceResolverIT {
 
             assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
         }
+
+
+        @Test
+        void loadReferencesRecursive_success() {
+            Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>() {{
+                put("Patient1", patientGroup);
+                put("Condition1", conditionGroup);
+                put("Encounter1", encounterGroup);
+            }};
+
+            PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
+            Patient patient = parser.parseResource(Patient.class, PATIENT);
+            ResourceBundle coreBundle = new ResourceBundle();
+            Condition condition = parser.parseResource(Condition.class, CONDITION);
+            Encounter encounter = parser.parseResource(Encounter.class, ENCOUNTER);
+
+
+            patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
+            patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
+            patientBundle.put(new ResourceGroupWrapper(encounter, Set.of("Encounter1")));
+
+            var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
+
+
+            assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"),
+                            List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))),
+                    Map.entry(new ResourceGroup("Encounter/VHF00006-E-1", "Encounter1"),
+                            List.of(new ReferenceWrapper(encounterDiagnosis, List.of(DIAG_REFERENCE), "Encounter1", "Encounter/VHF00006-E-1")))
+            );
+        }
+
 
         @Test
         void resolvePatientBundle_success() {
