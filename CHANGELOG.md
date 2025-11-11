@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.11] - 2025-11-12
+
+### Added
+
+- Support nested Lists [#589](https://github.com/medizininformatik-initiative/torch/pull/589)
+- Handle single consents [#478](https://github.com/medizininformatik-initiative/torch/pull/478)
+- Add information about attributeGroup to resources [#525](https://github.com/medizininformatik-initiative/torch/pull/525)
+- Support backbone reference resolve [#511](https://github.com/medizininformatik-initiative/torch/pull/511)
+
 ## [v1.0.0-alpha.11] - 2025-10-06
 
 ### Added
