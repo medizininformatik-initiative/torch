@@ -24,17 +24,29 @@ public record AnnotatedAttributeGroup(
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
         Predicate<Resource> compiledFilter,
-        boolean includeReferenceOnly) {
+        boolean includeReferenceOnly, CopyTreeNode copyTree) {
 
 
     public static final String PATIENT = "Patient";
 
-    public AnnotatedAttributeGroup(String id, String resourceType,
+
+    public AnnotatedAttributeGroup(String id,
+                                   String resourceType,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
                                    List<Filter> filter,
                                    Predicate<Resource> compiledFilter) {
-        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false); // Default value for includeReferenceOnly
+        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false, buildTree(attributes, resourceType));
+    }
+
+    public AnnotatedAttributeGroup(String name, String id,
+                                   String resourceType,
+                                   String groupReference,
+                                   List<AnnotatedAttribute> attributes,
+                                   List<Filter> filter,
+                                   Predicate<Resource> compiledFilter,
+                                   boolean includeReferenceOnly) {
+        this(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, buildTree(attributes, resourceType));
     }
 
 
@@ -86,16 +98,24 @@ public record AnnotatedAttributeGroup(
         }
     }
 
+    public static CopyTreeNode buildTree(List<AnnotatedAttribute> attributes, String resourceType) {
+        CopyTreeNode root = new CopyTreeNode(resourceType);
+
+        for (AnnotatedAttribute attr : attributes) {
+            List<FieldCondition> parts = FieldCondition.splitFhirPath(attr);
+            CopyTreeNode current = root;
+            for (int i = 1; i < parts.size(); i++) {
+                current = current.getOrCreateChild(parts.get(i));
+            }
+        }
+        return root;
+    }
 
     public AnnotatedAttributeGroup addAttributes(List<AnnotatedAttribute> newAttributes) {
 
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
         return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, tempAttributes, filter, compiledFilter, includeReferenceOnly);
-    }
-
-    public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
-        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
     public boolean hasMustHave() {
@@ -107,17 +127,8 @@ public record AnnotatedAttributeGroup(
         return attributes.stream().filter(annotatedAttribute -> !annotatedAttribute.linkedGroups().isEmpty()).toList();
     }
 
-    public CopyTreeNode buildTree() {
-        CopyTreeNode root = new CopyTreeNode(resourceType());
-
-        for (AnnotatedAttribute attr : attributes) {
-            List<FieldCondition> parts = FieldCondition.splitFhirPath(attr);
-            CopyTreeNode current = root;
-            for (int i = 1; i < parts.size(); i++) {
-                current = current.getOrCreateChild(parts.get(i));
-            }
-        }
-        return root;
+    public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
+        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
 }

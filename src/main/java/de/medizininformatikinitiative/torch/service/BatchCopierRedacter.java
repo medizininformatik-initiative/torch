@@ -87,7 +87,7 @@ public class BatchCopierRedacter {
         Set<String> groupProfiles = new HashSet<>();
         for (AnnotatedAttributeGroup group : groups.stream().toList()) {
             groupProfiles.add(group.groupReference());
-            copyTreeNode = copyTreeNode.merged(group.buildTree());
+            copyTreeNode = copyTreeNode.merged(group.copyTree());
         }
 
         return new ExtractionRedactionWrapper(
