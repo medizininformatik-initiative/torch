@@ -52,6 +52,21 @@ class FhirPropertiesTest {
         }
 
         @Test
+        void stripsTrailingSlashes() {
+            var fhir = new FhirProperties(
+                    "http://fhir-url/////",
+                    new FhirProperties.Max(3),
+                    new FhirProperties.Page(5),
+                    null,
+                    new FhirProperties.Disable(false),
+                    null,
+                    null
+            );
+
+            assertThat(fhir.url()).isEqualTo("http://fhir-url");
+        }
+
+        @Test
         void defaultOauthAndCredentials() {
             var fhir = new FhirProperties(
                     "http://fhir-url",

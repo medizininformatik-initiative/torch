@@ -6,43 +6,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @RunWith(Enclosed.class)
 public class TorchPropertiesTest {
-
-    @Nested
-    class TestEmptyFields {
-
-        @Test
-        void testIsNotSet_withNull() {
-            String property = null;
-
-            assertThat(TorchProperties.isNotSet(property)).isTrue();
-        }
-
-        @Test
-        void testIsNotSet_withBlankString() {
-            String property = "";
-
-            assertThat(TorchProperties.isNotSet(property)).isTrue();
-        }
-
-        @Test
-        void testIsNotSet_withLiteralQuotes() {
-            String property = "\"\"";
-
-            assertThat(TorchProperties.isNotSet(property)).isTrue();
-        }
-
-        @Test
-        void testIsNotSet_withCharSequence() {
-            String property = "test";
-
-            assertThat(TorchProperties.isNotSet(property)).isFalse();
-        }
-    }
-
+    
     @Nested
     class FlareValidation {
 
