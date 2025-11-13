@@ -17,7 +17,9 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.*;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.dateValue;
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.GREATER_EQUAL;
 import static de.medizininformatikinitiative.torch.model.sq.Comparator.LESS_EQUAL;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,9 +99,7 @@ class AnnotatedAttributeGroupTest {
                     // conditional FHIRPath with where clause
                     new AnnotatedAttribute("", "Patient.identifier.where(type='official').value", true)
             );
-
-
-            CopyTreeNode root = new AnnotatedAttributeGroup("", "Patient", "", attrs, null, null).buildTree();
+            CopyTreeNode root = AnnotatedAttributeGroup.buildTree(attrs, "Patient");
 
 
             assertThat(root.fhirPath()).isEqualTo("Patient");
