@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Property;
+import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -86,7 +90,8 @@ public class DiscriminatorResolver {
         if (elementContainingInfo.hasBinding()) {
 
             ElementDefinition.ElementDefinitionBindingComponent binding = elementContainingInfo.getBinding();
-            logger.warn("Valueset binding to {} passed through without check ", binding.getValueSet());
+            logger.warn("[FHIR-BINDING] ValueSet binding not implemented for {} in {}; passed through without validation.",
+                    binding.getValueSet(), elementContainingInfo.getSliceName());
             return true;
         }
 
