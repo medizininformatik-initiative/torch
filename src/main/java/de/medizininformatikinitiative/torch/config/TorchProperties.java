@@ -24,24 +24,22 @@ public record TorchProperties(
         @NotBlank(message = "DSE mapping tree file path is required") String dseMappingTreeFile,
         boolean useCql
 ) {
-    private static final String EMPTY_QUOTES = "\"\"";
-
-    public static boolean isNotSet(String variable) {
-        return variable == null || variable.isBlank() || EMPTY_QUOTES.equals(variable);
-    }
 
     public TorchProperties {
         if (!useCql) {
             if (flare == null) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
-            if (isNotSet(flare.url())) {
+            if (ConfigUtils.isNotSet(flare.url())) {
                 throw new IllegalArgumentException("When useCql is false, flare.url must be a non-empty string");
             }
         }
     }
 
     public record Base(@NotBlank(message = "Base URL is required") String url) {
+        public Base {
+            url = ConfigUtils.removeTrailingSlashes(url);
+        }
     }
 
     public record Max(@Min(value = 1, message = "Max connections must be at least 1") int connections) {
@@ -50,6 +48,9 @@ public record TorchProperties(
     public record Output(@Valid @NotNull(message = "File configuration is required") File file) {
         public record File(@Valid @NotNull(message = "Server configuration is required") Server server) {
             public record Server(@NotBlank(message = "Output server URL is required") String url) {
+                public Server {
+                    url = ConfigUtils.removeTrailingSlashes(url);
+                }
             }
         }
     }
@@ -64,6 +65,11 @@ public record TorchProperties(
 
 
     public record Flare(String url) {
+        public Flare {
+            if (!ConfigUtils.isNotSet(url)) {
+                url = ConfigUtils.removeTrailingSlashes(url);
+            }
+        }
     }
 
     public record Results(

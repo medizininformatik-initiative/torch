@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
-import static de.medizininformatikinitiative.torch.config.TorchProperties.isNotSet;
+import static de.medizininformatikinitiative.torch.config.ConfigUtils.isNotSet;
 
 @ConfigurationProperties(prefix = "torch.fhir")
 @Validated
@@ -20,13 +20,13 @@ public record FhirProperties(
         String password) {
 
     public FhirProperties {
+        url = ConfigUtils.removeTrailingSlashes(url);
         if (isNotSet(user)) user = "";
         if (isNotSet(password)) password = "";
         if (oauth == null) {
             oauth = new Oauth(new Oauth.Issuer(""), new Oauth.Client("", ""));
         }
     }
-
 
     public record Page(@Min(value = 1, message = "Page count must be at least 1") int count) {
     }
