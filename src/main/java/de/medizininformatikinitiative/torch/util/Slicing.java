@@ -141,11 +141,12 @@ public class Slicing {
         if (!path.equals("$this")) {
             elementId += "." + path;
         }
-        logger.trace("Getting Conditions {}", elementId);
+        logger.trace("Collecting pattern-based conditions for elementId='{}' in definition='{}'",
+                elementId, definition.structureDefinition().getUrl());
         Optional<ElementDefinition> elementDefinition = definition.elementDefinitionById(elementId);
         if (elementDefinition.isEmpty()) {
-
-            logger.debug("Unsupported Element potentially contains Profile reference {}", elementId);
+            logger.debug("Element '{}' not found in definition '{}'; may reference an external profile.",
+                    elementId, definition.structureDefinition().getUrl());
             return conditions;
         }
         if (elementDefinition.get().hasFixedOrPattern()) {
