@@ -8,9 +8,11 @@ import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
+@Component
 public class ProfileMustHaveChecker {
 
     private final IFhirPath fhirPathEngine;

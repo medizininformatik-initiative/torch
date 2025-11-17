@@ -15,10 +15,10 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class ConsentValidatorTest {
+class CrtdlConsentValidatorTest {
 
     private final ObjectMapper mapper = new ObjectMapper();
-    private final ConsentValidator consentValidator = new ConsentValidator();
+    private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
 
     private DataExtraction emptyDataExtraction() {
         return new DataExtraction(List.of());
@@ -48,7 +48,7 @@ class ConsentValidatorTest {
     }
 
     @Test
-    void failsConsentAsExclusionCriteria() throws Exception {
+    void failsConsentAsExclusionCriteria() {
         String json = """
                 {
                   "exclusionCriteria": [
@@ -290,7 +290,7 @@ class ConsentValidatorTest {
     }
 
     private Optional<Set<TermCode>> getTermCodes(String json) throws JsonProcessingException, ConsentFormatException {
-        return consentValidator.extractConsentCodes(new Crtdl(mapper.readTree(json), emptyDataExtraction()));
+        return crtdlConsentValidator.extractConsentCodes(new Crtdl(mapper.readTree(json), emptyDataExtraction()));
     }
 
 

@@ -12,7 +12,7 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
-public class ConsentValidator {
+public class CrtdlConsentValidator {
 
     /**
      * Extracts all consent codes from the inclusion criteria of a CRDTL,

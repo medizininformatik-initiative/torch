@@ -17,10 +17,17 @@ import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 import java.util.function.Predicate;
 
+@Component
 public class CrtdlValidatorService {
     private static final Logger logger = LoggerFactory.getLogger(CrtdlValidatorService.class);
 
@@ -28,7 +35,7 @@ public class CrtdlValidatorService {
 
     private final StandardAttributeGenerator attributeGenerator;
     private final FilterService filterService;
-    private final ConsentValidator consentValidator = new ConsentValidator();
+    private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
 
     public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) {
         this.profileHandler = profileHandler;
@@ -43,7 +50,7 @@ public class CrtdlValidatorService {
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
      */
     public AnnotatedCrtdl validateAndAnnotate(Crtdl crtdl) throws ValidationException, ConsentFormatException {
-        Optional<Set<TermCode>> consentCodes = consentValidator.extractConsentCodes(crtdl);
+        Optional<Set<TermCode>> consentCodes = crtdlConsentValidator.extractConsentCodes(crtdl);
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
