@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
@@ -12,6 +13,7 @@ import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
 
+@Component
 public class CascadingDelete {
 
     PatientBatchWithConsent handlePatientBatch(PatientBatchWithConsent patientBatch, Map<String, AnnotatedAttributeGroup> groupMap) {

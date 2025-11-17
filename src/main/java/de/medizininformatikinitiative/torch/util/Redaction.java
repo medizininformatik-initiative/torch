@@ -16,6 +16,7 @@ import org.hl7.fhir.r4.model.Property;
 import org.hl7.fhir.r4.model.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Redaction operations on copied Resources based on the StructureDefinition
  */
+@Component
 public class Redaction {
 
     private static final Logger logger = LoggerFactory.getLogger(Redaction.class);

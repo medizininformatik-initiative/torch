@@ -13,6 +13,7 @@ import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
@@ -28,6 +29,7 @@ import java.util.stream.Collectors;
 /**
  * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
  */
+@Component
 public class ReferenceResolver {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceResolver.class);
 

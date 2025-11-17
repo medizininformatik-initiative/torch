@@ -3,13 +3,14 @@ package de.medizininformatikinitiative.torch.management;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
+import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-
+@Component
 public class ProcessedGroupFactory {
 
     private final CompartmentManager compartment;

@@ -6,7 +6,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.runner.RunWith;
 
-import static org.assertj.core.api.Assertions.*;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @RunWith(Enclosed.class)
 public class TorchPropertiesTest {
@@ -61,6 +63,7 @@ public class TorchPropertiesTest {
                     "mappingsFile",
                     "conceptTreeFile",
                     "dseMappingTreeFile",
+                    "search-parameters.json",
                     false // useCql=false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
@@ -83,6 +86,7 @@ public class TorchPropertiesTest {
                     "mappingsFile",
                     "conceptTreeFile",
                     "dseMappingTreeFile",
+                    "search-parameters.json",
                     false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
@@ -105,6 +109,7 @@ public class TorchPropertiesTest {
                     "mappingsFile",
                     "conceptTreeFile",
                     "dseMappingTreeFile",
+                    "search-parameters.json",
                     false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
@@ -127,6 +132,7 @@ public class TorchPropertiesTest {
                     "mappingsFile",
                     "conceptTreeFile",
                     "dseMappingTreeFile",
+                    "search-parameters.json",
                     false
             )).doesNotThrowAnyException();
         }
@@ -148,6 +154,7 @@ public class TorchPropertiesTest {
                     "mappingsFile",
                     "conceptTreeFile",
                     "dseMappingTreeFile",
+                    "search-parameters.json",
                     true
             )).doesNotThrowAnyException();
         }

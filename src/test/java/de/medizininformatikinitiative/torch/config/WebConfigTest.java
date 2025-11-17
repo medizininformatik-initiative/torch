@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(classes = Torch.class)
 @ActiveProfiles("active")
-class AppConfigTest {
+class WebConfigTest {
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {
@@ -58,17 +58,17 @@ class AppConfigTest {
 
     @Test
     void isBasicAuthConfigured() {
-        assertThat(AppConfig.isBasicAuthConfigured("user", "pass")).isTrue();
-        assertThat(AppConfig.isBasicAuthConfigured("", "pass")).isFalse();
-        assertThat(AppConfig.isBasicAuthConfigured("user", "")).isFalse();
+        assertThat(WebConfig.isBasicAuthConfigured("user", "pass")).isTrue();
+        assertThat(WebConfig.isBasicAuthConfigured("", "pass")).isFalse();
+        assertThat(WebConfig.isBasicAuthConfigured("user", "")).isFalse();
     }
 
     @Test
     void oAuthEnabled() {
-        assertThat(AppConfig.oAuthEnabled("issuer", "id", "secret")).isTrue();
-        assertThat(AppConfig.oAuthEnabled("", "id", "secret")).isFalse();
-        assertThat(AppConfig.oAuthEnabled("issuer", "", "secret")).isFalse();
-        assertThat(AppConfig.oAuthEnabled("issuer", "id", "")).isFalse();
+        assertThat(WebConfig.oAuthEnabled("issuer", "id", "secret")).isTrue();
+        assertThat(WebConfig.oAuthEnabled("", "id", "secret")).isFalse();
+        assertThat(WebConfig.oAuthEnabled("issuer", "", "secret")).isFalse();
+        assertThat(WebConfig.oAuthEnabled("issuer", "id", "")).isFalse();
     }
 
     private TorchProperties torchProperties() {
@@ -94,6 +94,7 @@ class AppConfigTest {
                 "mappingsFile.json",
                 "conceptTree.json",
                 "dseMappingTree.json",
+                "search-parameters.json",
                 false // useCql
         );
     }
@@ -121,7 +122,7 @@ class AppConfigTest {
             mockWebServer.start();
 
             var fhirProperties = minimalfhirPropertiesWithBasicAuth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties(), fhirProperties);
+            var appConfig = new WebConfig();
             ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
             WebClient client = appConfig.fhirWebClient(torchProperties(), filter, fhirProperties);
             // Perform a request
@@ -163,9 +164,8 @@ class AppConfigTest {
                             "  \"id_token_signing_alg_values_supported\": [\"RS256\"]\n" +
                             "}\n")
                     .setHeader("Content-Type", "application/json"));
-            var torchProperties = torchProperties();
             var fhirProperties = minimalOauth(mockWebServer.url("/").toString());
-            var appConfig = new AppConfig(torchProperties, fhirProperties);
+            var appConfig = new WebConfig();
 
 
             ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
@@ -179,7 +179,7 @@ class AppConfigTest {
     @Test
     void testFhirWebClient_baseUrl() {
         var fhirProperties = minimalfhirPropertiesWithBasicAuth("test-url");
-        var appConfig = new AppConfig(torchProperties(), fhirProperties);
+        var appConfig = new WebConfig();
         ExchangeFilterFunction oauthFilter = appConfig.oauthExchangeFilterFunction(fhirProperties);
 
         WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties);

@@ -22,6 +22,7 @@ public record TorchProperties(
         @NotBlank(message = "Mappings file path is required") String mappingsFile,
         @NotBlank(message = "Concept tree file path is required") String conceptTreeFile,
         @NotBlank(message = "DSE mapping tree file path is required") String dseMappingTreeFile,
+        @NotBlank(message = "Search Parameters file is required") String searchParametersFile,
         boolean useCql
 ) {
     private static final String EMPTY_QUOTES = "\"\"";

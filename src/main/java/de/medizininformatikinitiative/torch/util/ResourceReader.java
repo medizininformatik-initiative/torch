@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.r4.model.Resource;
+import org.springframework.stereotype.Component;
 
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -11,6 +12,7 @@ import java.io.IOException;
 /**
  * Util class for reading FHIR resources from File
  */
+@Component
 public class ResourceReader {
 
 
@@ -21,9 +23,9 @@ public class ResourceReader {
     private final FhirContext ctx;
 
     public Resource readResource(String path) throws IOException {
-        ResourceReader.class.getResourceAsStream(path);
         FileInputStream fis;
         try {
+            ResourceReader.class.getResourceAsStream(path);
             fis = new FileInputStream(path);
         } catch (FileNotFoundException e) {
             throw new IOException(e);

@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
 
 import javax.annotation.Nullable;
@@ -20,6 +21,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
+@Component
 public class ReferenceHandler {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceHandler.class);
     private final ProfileMustHaveChecker profileMustHaveChecker;
