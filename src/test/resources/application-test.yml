@@ -43,4 +43,19 @@ logging:
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:debug}
     ca.uhn.fhir: WARN
     org.hl7.fhir: WARN
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus,health,info,metrics
+      base-path: /actuator
+  endpoint:
+    prometheus:
+      access: read_only
+    health:
+      show-details: always
+  prometheus:
+    metrics:
+      export:
+        enabled: true
 
