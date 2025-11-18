@@ -245,6 +245,16 @@ Maximum allowed in-memory size for Spring codecs when processing data.
 
 **Default:** `100MB`
 
----
+## Monitoring <Badge type="warning" text="Since 1.0.0-alpha.13"/>
+
+Torch allows monitoring using the Spring boot default actuator endpoints.
+
+See [Spring documentation](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html)
+
+Custom metrics might be added with time.
+
+For an example setup see [application-test.yml](https://github.com/medizininformatik-initiative/torch/blob/main/src/test/resources/application-test.yml)
+**Note**: Be Careful with exposing these endpoints outside
+
 
 [5]: https://www.hl7.org/fhir/http.html#async "FHIR Asynchronous Interaction Request Pattern"
