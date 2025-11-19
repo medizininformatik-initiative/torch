@@ -1,5 +1,10 @@
 ﻿# TORCH - Transfer Of Resources in Clinical Healthcare
 
+[![Build](https://github.com/medizininformatik-initiative/feasibility-backend/actions/workflows/ci.yml/badge.svg)](https://github.com/medizininformatik-initiative/torch/actions/workflows/ci.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/medizininformatik-initiative/torch/badge)](https://scorecard.dev/viewer/?uri=github.com/medizininformatik-initiative/torch)
+[![codecov](https://codecov.io/gh/medizininformatik-initiative/torch/graph/badge.svg?token=0E6UPL7I5K)](https://codecov.io/gh/medizininformatik-initiative/torch)
+[![GitHub[+] Release](https://img.shields.io/github/v/release/medizininformatik-initiative/torch?sort=date&display_name=tag&style=flat&logo=github&label=current)]()
+
 ## Goal
 
 **T**ransfer **O**f **R**esources in **C**linical **H**ealthcare or **Torch** is a project that aims to provide
