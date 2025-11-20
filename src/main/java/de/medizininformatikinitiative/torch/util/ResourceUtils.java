@@ -187,9 +187,9 @@ public class ResourceUtils {
 
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                  InstantiationException e) {
-            logger.error("Could not set field: {} in class {} due to: {}", fieldName, base.getClass().getSimpleName(), e.getMessage());
+            logger.error("RESOURCE_REFLECTION_01 Could not set field: {} in class {} due to: {}", fieldName, base.getClass().getSimpleName(), e.getMessage());
         } catch (ClassNotFoundException e) {
-            logger.error("Class not Found for {} {}", fieldName, base.getClass().getSimpleName());
+            logger.error("RESOURCE_REFLECTION_02 Class not Found for {} {}", fieldName, base.getClass().getSimpleName());
             throw new RuntimeException(e);
         }
     }

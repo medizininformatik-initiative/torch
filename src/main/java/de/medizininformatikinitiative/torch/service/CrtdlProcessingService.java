@@ -225,12 +225,12 @@ public class CrtdlProcessingService {
                         logger.debug("Got  {} patient IDs", list.size());
                         return Flux.fromIterable(PatientBatch.of(list).split(batchSize));
                     } catch (JsonProcessingException e) {
-                        logger.error("Error parsing response: {}", e.getMessage());
+                        logger.error("PROCESSING_01: Error parsing response: {}", e.getMessage());
                         return Flux.error(new RuntimeException("Error parsing response", e));
                     }
                 })
                 .doOnSubscribe(subscription -> logger.debug("Fetching patient list from Flare"))
-                .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
+                .doOnError(e -> logger.error("PROCESSING_02: Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
     public Flux<PatientBatch> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) throws JsonProcessingException {
