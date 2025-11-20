@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Base;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Property;
+import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.Type;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -180,7 +184,7 @@ public class DiscriminatorResolver {
                 currentElement = nextElements.getFirst();
             }
         } catch (FHIRException e) {
-            logger.error("In Slicing Base  {} contains no valid children", currentElement.getIdBase());
+            logger.trace("In Slicing Base  {} contains no valid children", currentElement.getIdBase());
             return null;
         }
 

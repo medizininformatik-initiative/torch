@@ -104,7 +104,7 @@ public class Redaction {
             Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
 
             if (!validProfiles.equals(wrapper.profiles())) {
-                logger.error("Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
+                logger.error("REDACTION_01 Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
                 throw new RedactionException("Resource" + resource.getResourceType() + " " + resource.getId() + " is missing required profiles: " + resourceProfiles);
             }
         } else {
@@ -112,7 +112,7 @@ public class Redaction {
         }
         List<CompiledStructureDefinition> definitions = structureDefinitionHandler.getDefinitions(wrapper.profiles());
         if (definitions.isEmpty()) {
-            logger.error("Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
+            logger.error("REDACTION_02 Unknown Profile in Resource {} {}", resource.getResourceType(), resource.getId());
             throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
         }
         meta.setProfile(resourceProfiles);

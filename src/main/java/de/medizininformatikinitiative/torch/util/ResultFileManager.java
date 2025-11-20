@@ -128,11 +128,11 @@ public class ResultFileManager {
                             }
 
                         } catch (IOException e) {
-                            logger.error("Error reading job directory {}: {}", jobDir, e.getMessage());
+                            logger.error("RESULT_0003 Error reading job directory {}: {}", jobDir, e.getMessage());
                         }
                     });
         } catch (IOException e) {
-            logger.error("Error loading existing results from {}: {}", resultsDirPath, e.getMessage());
+            logger.error("RESULT_0004 Error loading existing results from {}: {}", resultsDirPath, e.getMessage());
         }
     }
 
@@ -201,7 +201,7 @@ public class ResultFileManager {
                         throw new RuntimeException("Failed to save error file", e);
                     }
                 })
-                .doOnError(e -> logger.error("Async write failed for job {}: {}", jobId, e.getMessage(), e))
+                .doOnError(e -> logger.error("RESULT_0005 Async write failed for job {}: {}", jobId, e.getMessage(), e))
                 .subscribeOn(Schedulers.boundedElastic()).then();
     }
 
@@ -256,7 +256,7 @@ public class ResultFileManager {
                     }
                 });
             } catch (IOException e) {
-                logger.error("Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
+                logger.error("RESULT_0006 Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
             }
 
             logger.debug("OutputFiles size {}", outputFiles.size());

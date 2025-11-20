@@ -127,7 +127,7 @@ public class DirectResourceLoader {
             if (atLeastOneResource.get()) {
                 return Mono.empty();
             } else {
-                logger.error("MustHave violated for group: {}", group.groupReference());
+                logger.trace("MustHave violated for group: {}", group.groupReference());
                 return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
             }
         }));

@@ -48,7 +48,7 @@ public class ConsentValidator {
         try {
             patientID = ResourceUtils.patientId(resource);
         } catch (PatientIdNotFoundException e) {
-            logger.error("Patient ID not found in resource: {}", e.getMessage());
+            logger.trace("Patient ID not found in resource: {}", e.getMessage());
             return false;
         }
 
@@ -56,7 +56,7 @@ public class ConsentValidator {
         PatientResourceBundle patientResourceBundle = patientBatchWithConsent.bundles().get(patientID);
 
         if (patientResourceBundle == null) {
-            logger.warn("No PatientResourceBundle found for patient ID: {}", patientID);
+            logger.warn("CONSENT_VALIDATOR_01 No PatientResourceBundle found for patient ID: {} in resource {}", patientID, resource.getId());
             return false;
         }
 
@@ -72,7 +72,7 @@ public class ConsentValidator {
         }
 
         if (fieldValue == null) {
-            logger.warn("No matching ResourceType found for resource of type: {}", resource.getResourceType());
+            logger.warn("CONSENT_VALIDATOR_02 No supported ResourceType found for resource of type: {}", resource.getResourceType());
             return false;
         }
         if (fieldValue.asText().isEmpty()) {

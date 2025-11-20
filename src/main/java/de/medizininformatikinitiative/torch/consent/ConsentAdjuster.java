@@ -88,7 +88,7 @@ public class ConsentAdjuster {
                         String patientId = ResourceUtils.patientId(encounter);
                         return Mono.just(Tuples.of(patientId, encounter));
                     } catch (PatientIdNotFoundException e) {
-                        logger.warn("Skipping encounter without patient ID: {}", encounter.getId(), e);
+                        logger.warn("Skipping encounter without patient ID: {}", encounter.getId());
                         return Mono.empty();
                     }
                 }).collectMultimap(Tuple2::getT1, Tuple2::getT2);

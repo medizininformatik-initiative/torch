@@ -82,7 +82,7 @@ public class BatchCopierRedacter {
                 extractionBundle.put(resourceId, Optional.of(transformed));
 
             } catch (Exception e) {
-                logger.warn("Error transforming resource {}", resourceId, e);
+                logger.warn("BatchCopierRedacter001: Error transforming resource {}: {}", resourceId, e.getMessage());
                 extractionBundle.put(resourceId, Optional.empty());
             }
         });

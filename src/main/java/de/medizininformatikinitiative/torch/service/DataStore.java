@@ -31,9 +31,7 @@ import reactor.util.retry.RetryBackoffSpec;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -153,7 +151,8 @@ public class DataStore {
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .map(this::extractResourcesFromBundle)
                 .flatMap(resources -> resources.isEmpty() ? Mono.empty() : Mono.just(resources))
-                .doOnError(e -> logger.error("Error while executing batch bundle query: {}", e.getMessage()));
+                .doOnError(e -> logger.error(
+                        "DATASTORE_05 Error while executing batch bundle query: {}", e.getMessage()));
     }
 
 
@@ -205,6 +204,7 @@ public class DataStore {
                         return Mono.just(bundle);
                     }
                     if (resource instanceof OperationOutcome outcome) {
+                        logger.error("DATASTORE_01 FHIR server returned OperationOutcome: {}", fhirContext.newJsonParser().encodeResourceToString(outcome));
                         return Mono.error(new DataStoreException(
                                 "OperationOutcome returned: " + outcome.getIssue()));
                     }
@@ -237,7 +237,7 @@ public class DataStore {
                                 "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
                                 counter.get()
                         )
-                );
+                ).doOnError(e -> logger.error("DATASTORE_02 Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 
     private Mono<Bundle> fetchPage(String url) {
@@ -263,7 +263,7 @@ public class DataStore {
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC)
                 .doOnSuccess(response -> logger.debug("Successfully executed a transaction."))
-                .doOnError(error -> logger.error("Error occurred executing a transaction: {}", error.getMessage()))
+                .doOnError(error -> logger.error("DATASTORE_03 Error occurred executing a transaction: {}", error.getMessage()))
                 .then();
     }
 
@@ -292,7 +292,7 @@ public class DataStore {
                 .onErrorResume(AsyncException.class, e -> pollStatus(e.getStatusUrl(), measureUrn, start))
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {} in {} seconds.",
                         measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
-                .doOnError(error -> logger.error("Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
+                .doOnError(error -> logger.error("DATASTORE_04 Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
     }
 
     private <T extends Resource> Mono<T> parseResource(Class<T> resourceType, String body) {
