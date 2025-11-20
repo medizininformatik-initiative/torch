@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DateTimeType;
 
 import java.time.LocalDate;
@@ -23,16 +24,39 @@ public record Period(
         return new Period(LocalDate.parse(start), LocalDate.parse(end));
     }
 
+    /**
+     * Converts to a Period from a HAPI Time type
+     *
+     * @param value base value to be converted to a period
+     * @return Period or throws IllegalArgumentException for unsupported values.
+     */
+    public static Period fromHapi(Base value) {
+        if (value instanceof org.hl7.fhir.r4.model.Period p) {
+            return Period.fromHapiPeriod(p);
+        }
+        if (value instanceof DateTimeType dt) {
+            return Period.fromHapiDateTime(dt);
+        }
+        if (value instanceof org.hl7.fhir.r4.model.Timing t) {
+            throw new IllegalArgumentException("Unsupported FHIR time type: " + t.getClass().getSimpleName());
+        }
+        if (value instanceof org.hl7.fhir.r4.model.TimeType t) {
+            throw new IllegalArgumentException("Unsupported FHIR time type: " + t.getClass().getSimpleName());
+        }
+        throw new IllegalArgumentException("Unsupported FHIR type: " + value.getClass().getSimpleName());
+    }
+
+
     public static Period of(LocalDate start, LocalDate end) {
         return new Period(start, end);
     }
 
-    public static Period fromHapi(org.hl7.fhir.r4.model.Period hapiPeriod) {
+    public static Period fromHapiPeriod(org.hl7.fhir.r4.model.Period hapiPeriod) {
 
         return new Period(toLocalDate(hapiPeriod.getStartElement()), toLocalDate(hapiPeriod.getEndElement()));
     }
 
-    public static Period fromHapi(org.hl7.fhir.r4.model.DateTimeType hapiValue) {
+    public static Period fromHapiDateTime(org.hl7.fhir.r4.model.DateTimeType hapiValue) {
         return new Period(toLocalDate(hapiValue), toLocalDate(hapiValue));
     }
 
