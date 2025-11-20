@@ -10,7 +10,6 @@ import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Base;
-import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -83,11 +82,7 @@ public class ConsentValidator {
         List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
 
         for (Base value : values) {
-            Period period = switch (value.getClass().getSimpleName()) {
-                case "Period" -> Period.fromHapi((org.hl7.fhir.r4.model.Period) value);
-                case "DateTimeType" -> Period.fromHapi((DateTimeType) value);
-                default -> throw new IllegalArgumentException("No valid Date Time Value found");
-            };
+            Period period = Period.fromHapi(value);
             boolean hasValidConsent = patientResourceBundle.consentPeriods().within(period);
             if (hasValidConsent) {
                 return true;
