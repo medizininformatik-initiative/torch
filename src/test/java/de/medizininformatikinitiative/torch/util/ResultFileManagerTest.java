@@ -26,6 +26,9 @@ class ResultFileManagerTest {
 
     ResultFileManager resultFileManager = new ResultFileManager(RESULTS_DIR, "PT20S", FhirContext.forR4(), "hostname", "fileServerName");
 
+    ResultFileManagerTest() throws IOException {
+    }
+
     @BeforeEach
     void setUp() throws IOException {
         var dirFile = new File(RESULTS_DIR);

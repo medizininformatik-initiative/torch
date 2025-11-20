@@ -20,7 +20,13 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.time.Duration;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -41,7 +47,7 @@ public class ResultFileManager {
     private final String fileServerName;
     private final ConcurrentHashMap<String, HttpStatus> jobStatusMap = new ConcurrentHashMap<>();
 
-    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) {
+    public ResultFileManager(String resultsDir, String duration, FhirContext fhirContext, String hostname, String fileServerName) throws IOException {
         this.resultsDirPath = Paths.get(resultsDir).toAbsolutePath();
         this.fhirContext = fhirContext;
 
@@ -57,8 +63,13 @@ public class ResultFileManager {
             try {
                 Files.createDirectories(resultsDirPath);
             } catch (IOException e) {
-                logger.error("Could not create results directory: {}", e.getMessage());
+                logger.error("RESULT_0001 Could not create results directory: {}", e.getMessage());
+                throw new IOException(" Could not create results directory");
             }
+        }
+        if (!Files.isWritable(resultsDirPath)) {
+            logger.error("RESULT_0002 Results directory is not writable: {}", resultsDirPath);
+            throw new IOException("Results directory is not writable: " + resultsDirPath);
         }
         loadExistingResults();
     }
