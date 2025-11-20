@@ -185,7 +185,7 @@ public class BaseConfig {
 
     @Bean
     public ResultFileManager resultFileManager(FhirContext fhirContext,
-                                               TorchProperties torchProperties) {
+                                               TorchProperties torchProperties) throws IOException {
         return new ResultFileManager(
                 torchProperties.results().dir(),
                 torchProperties.results().persistence(),
