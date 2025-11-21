@@ -68,10 +68,7 @@ public class ReferenceResolver {
                         .filter(resourceGroup -> !compartmentManager.isInCompartment(resourceGroup)) // your custom filter logic
                         .collect(Collectors.toSet()))
                 .expand(currentGroupSet ->
-                        processResourceGroups(currentGroupSet, null, coreBundle, false, groupMap)
-                                .onErrorResume(e -> {
-                                    return Mono.empty(); // Skip this resource group on error
-                                }))
+                        processResourceGroups(currentGroupSet, null, coreBundle, false, groupMap))
                 .then(Mono.just(coreBundle));
     }
 
@@ -115,12 +112,7 @@ public class ReferenceResolver {
                         .filter(compartmentManager::isInCompartment) // your custom filter logic
                         .collect(Collectors.toSet()))
                 .expand(currentGroupSet ->
-                        processResourceGroups(currentGroupSet, patientBundle, coreBundle, applyConsent, groupMap)
-                                .onErrorResume(e -> {
-                                    logger.warn("Error processing resource group set {} in PatientBundle: {}", currentGroupSet, e.getMessage());
-                                    return Mono.empty(); // Skip this group on error
-                                })
-                )
+                        processResourceGroups(currentGroupSet, patientBundle, coreBundle, applyConsent, groupMap))
                 .then(Mono.just(patientBundle));
     }
 
