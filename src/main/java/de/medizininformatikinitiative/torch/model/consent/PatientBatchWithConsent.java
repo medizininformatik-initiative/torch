@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.model.consent;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
-import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
@@ -55,10 +54,6 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
 
         return new PatientBatchWithConsent(filtered, true);
 
-    }
-
-    public void addStaticInfo(CachelessResourceBundle staticInfo) {
-        bundles.values().forEach(bundle -> bundle.addStaticInfo(staticInfo));
     }
 
     public PatientBatch patientBatch() {

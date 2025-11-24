@@ -77,10 +77,6 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
         bundle.put(resourceReference);
     }
 
-    public void addStaticInfo(CachelessResourceBundle staticInfo) {
-        bundle.merge(staticInfo);
-    }
-
     public Set<ResourceGroup> getValidResourceGroups() {
         return bundle.getValidResourceGroups();
     }

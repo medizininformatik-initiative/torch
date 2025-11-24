@@ -9,7 +9,6 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
-import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -118,34 +117,49 @@ public class CrtdlProcessingService {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
         ResourceBundle coreBundle = new ResourceBundle();
 
-        // Step 1: Preprocess Core Bundle (but don't write it out yet)
-        Mono<CachelessResourceBundle> preProcessedCoreBundle = directResourceLoader
-                .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
-                .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
-                .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
-                        .thenReturn(updatedCoreBundle)) // Ensure sequential execution
-                .map(CachelessResourceBundle::new); // Create immutable snapshot after processing
-
-        // Step 2: Process Patient Batches Using Preprocessed Core Bundle
-        logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
-        return preProcessedCoreBundle.flatMapMany(coreSnapshot ->
+        // --- 1) Process all patient batches normally ---
+        Mono<Void> patientPhase =
                 batches
                         .flatMap(batch -> crtdl.consentCodes()
-                                        .map(s -> consentHandler.fetchAndBuildConsentInfo(s, batch))
+                                        .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
                                         .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
-                                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty())
-                                , maxConcurrency) //skip batches without consenting patient
-                        .doOnNext(patientBatch -> patientBatch.addStaticInfo(coreSnapshot))
+                                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty()),
+                                maxConcurrency)
                         .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
-        ).then(
-                // Step 3: Write the Final Core Resource Bundle to File
-                Mono.defer(() -> {
-                    logger.debug("Handling Final Core Bundle");
-                    PatientResourceBundle corePatientBundle = new PatientResourceBundle("CORE", coreBundle);
-                    PatientBatchWithConsent coreBundleBatch = new PatientBatchWithConsent(Map.of("CORE", corePatientBundle), false);
-                    return writeBatch(jobID, batchCopierRedacter.transformBatch(coreBundleBatch, groupsToProcess.allGroups()));
-                })
-        );
+                        .then();
+
+        // --- 2) ONE SINGLE POST-PROCESSING PHASE ---
+        return patientPhase.then(Mono.defer(() -> {
+
+            logger.debug("Starting unified post-processing phase");
+
+            // Load direct/CORE attribute groups
+            return directResourceLoader
+                    .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
+
+                    // Resolve references once all data is in the bundle
+                    .flatMap(cb -> referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups()))
+
+                    // Cascading delete ONCE on the final graph
+                    .doOnNext(cb -> {
+                        logger.debug("Running final cascading delete on core bundle");
+                        cascadingDelete.handleBundle(cb, groupsToProcess.allGroups());
+                    })
+
+                    // Redaction and writing final core
+                    .flatMap(cb -> {
+                        PatientResourceBundle corePRB = new PatientResourceBundle("CORE", cb);
+                        PatientBatchWithConsent finalCoreBatch =
+                                new PatientBatchWithConsent(Map.of("CORE", corePRB), false);
+
+                        return writeBatch(
+                                jobID,
+                                batchCopierRedacter.transformBatch(finalCoreBatch, groupsToProcess.allGroups())
+                        );
+                    })
+
+                    .then();
+        }));
     }
 
     private static void logMemory(UUID id) {
