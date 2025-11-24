@@ -74,20 +74,19 @@ public class ReferenceResolver {
 
     /**
      * Extracts all known valid ResourceGroups from direct loading and then resolves references
-     * until no new ResourceGroups could be found.
+     * until no new ResourceGroups could be found.x
      *
-     * @param batch      patientBatch containing Patientbundles with patient resources and ResourceGroups to be processed
-     * @param coreBundle bundle containing core resources
-     * @param groupMap   map of known attribute groups
+     * @param batch    patientBatch containing Patientbundles with patient resources and ResourceGroups to be processed
+     * @param groupMap map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
     Mono<PatientBatchWithConsent> processSinglePatientBatch(
-            PatientBatchWithConsent batch, ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+            PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Flux.fromIterable(batch.bundles().entrySet())
-                .concatMap(entry -> resolvePatient(entry.getValue(), coreBundle, batch.applyConsent(), groupMap)
+                .concatMap(entry -> resolvePatient(entry.getValue(), batch.coreBundle(), batch.applyConsent(), groupMap)
                         .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent()));
+                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent(), batch.coreBundle()));
     }
 
     /**

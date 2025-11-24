@@ -31,6 +31,7 @@ public class PatientBatchToCoreBundleWriter {
      */
     public void updateCore(PatientBatchWithConsent batch, ResourceBundle coreBundle) {
         coreBundle.merge(processPatientBatch(batch));
+        coreBundle.mergeCache(batch.coreBundle());
     }
 
     /**

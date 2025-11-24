@@ -9,6 +9,7 @@ import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Medication;
@@ -97,9 +98,7 @@ class CrtdlConsentValidatorTest {
         observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
 
         // PatientBatchWithConsent with NO entry for "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(
-                Map.of(PATIENT_ID, patientResourceBundle), true
-        );
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
 
         boolean result = consentValidator.checkConsent(observation, batch);
 
@@ -113,9 +112,7 @@ class CrtdlConsentValidatorTest {
         noPatientObs.setEffective(new DateTimeType("2022-04-20"));
         // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
 
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(
-                Map.of(PATIENT_ID, patientResourceBundle), true
-        );
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
 
         boolean result = consentValidator.checkConsent(noPatientObs, batch);
 
@@ -130,9 +127,7 @@ class CrtdlConsentValidatorTest {
         observation.setEffective(new DateTimeType("2022-04-20"));
 
         // Batch contains only "123", not "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(
-                Map.of(PATIENT_ID, patientResourceBundle), true
-        );
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
 
         boolean result = consentValidator.checkConsent(observation, batch);
 
