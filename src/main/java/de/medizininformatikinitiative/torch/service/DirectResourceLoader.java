@@ -189,6 +189,6 @@ public class DirectResourceLoader {
                     }
                 })
                 .doOnTerminate(() -> safeSet.retainAll(safeGroup))
-                .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent()))); // Convert back to immutable
+                .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent(), batch.coreBundle()))); // Convert back to immutable
     }
 }

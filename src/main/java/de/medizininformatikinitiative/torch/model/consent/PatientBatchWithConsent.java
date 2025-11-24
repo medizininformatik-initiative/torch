@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
 
 import java.io.IOException;
@@ -11,17 +12,25 @@ import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * @param bundles      Map of bundles keyed with Patient ID
  * @param applyConsent
+ * @param coreBundle
  */
-public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, boolean applyConsent) {
+public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, boolean applyConsent,
+                                      ResourceBundle coreBundle) {
 
     public PatientBatchWithConsent {
         bundles = Map.copyOf(bundles);
+        Objects.requireNonNull(coreBundle);
+    }
+
+    public PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles) {
+        this(bundles, false, new ResourceBundle());
     }
 
     public Boolean isEmpty() {
@@ -30,12 +39,12 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
 
     public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
         return new PatientBatchWithConsent(batch.ids().stream().collect(
-                Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false);
+                Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false, new ResourceBundle());
     }
 
     public static PatientBatchWithConsent fromList(List<PatientResourceBundle> batch) {
         return new PatientBatchWithConsent(batch.stream()
-                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false);
+                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false, new ResourceBundle());
     }
 
     public static PatientBatchWithConsent fromBatchAndConsent(PatientBatch batch, Map<String, NonContinuousPeriod> consentPeriodsMap) throws ConsentViolatedException {
@@ -52,7 +61,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
             throw new ConsentViolatedException("No patients with valid consent periods found in batch");
         }
 
-        return new PatientBatchWithConsent(filtered, true);
+        return new PatientBatchWithConsent(filtered, true, new ResourceBundle());
 
     }
 
@@ -73,7 +82,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
                 .filter(entry -> safeSet.contains(entry.getKey()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        return new PatientBatchWithConsent(filtered, applyConsent);
+        return new PatientBatchWithConsent(filtered, applyConsent, coreBundle);
     }
 
     public void writeFhirBundlesTo(FhirContext fhirContext, Writer out, String extractionId) throws IOException {

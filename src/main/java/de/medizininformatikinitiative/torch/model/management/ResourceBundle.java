@@ -1,9 +1,21 @@
 package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.Provenance;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 
-import java.util.*;
+import java.util.Date;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -368,5 +380,13 @@ public record ResourceBundle(
                 .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
+    }
+
+    public void mergeCache(ResourceBundle other) {
+        other.cache().forEach((key, value) -> {
+            if (value.isPresent()) {
+                this.cache.put(key, value);
+            }
+        });
     }
 }

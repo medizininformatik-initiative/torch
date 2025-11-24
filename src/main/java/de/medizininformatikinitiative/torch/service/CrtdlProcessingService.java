@@ -141,17 +141,13 @@ public class CrtdlProcessingService {
                     .flatMap(cb -> referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups()))
 
                     // Cascading delete ONCE on the final graph
-                    .doOnNext(cb -> {
-                        logger.debug("Running final cascading delete on core bundle");
-                        cascadingDelete.handleBundle(cb, groupsToProcess.allGroups());
-                    })
-
-                    // Redaction and writing final core
+                    .doOnNext(cb -> logger.debug("Running final cascading delete on core bundle"))
                     .flatMap(cb -> {
+                        cascadingDelete.handleBundle(cb, groupsToProcess.allGroups());
                         PatientResourceBundle corePRB = new PatientResourceBundle("CORE", cb);
+                        batchCopierRedacter.transformBundle(corePRB, groupsToProcess.allGroups());
                         PatientBatchWithConsent finalCoreBatch =
-                                new PatientBatchWithConsent(Map.of("CORE", corePRB), false);
-
+                                new PatientBatchWithConsent(Map.of("CORE", corePRB));
                         return writeBatch(
                                 jobID,
                                 batchCopierRedacter.transformBatch(finalCoreBatch, groupsToProcess.allGroups())
@@ -183,7 +179,7 @@ public class CrtdlProcessingService {
         logMemory(id);
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
                 .doOnNext(loadedBatch -> logger.debug("Directly loaded patient compartment for batch {} with {} patients", id, loadedBatch.patientIds().size()))
-                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
+                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .doOnNext(loadedBatch -> logger.debug("Batch resolved references {} with {} patients", id, loadedBatch.patientIds().size()))
                 .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
