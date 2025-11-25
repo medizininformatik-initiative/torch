@@ -265,6 +265,7 @@ public record ResourceBundle(
     private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroup> groupResources) {
         Provenance provenance = new Provenance();
         provenance.setId(PROVENANCE_PREFIX + groupId);
+        provenance.setRecorded(new Date());
 
         // Add all resources under the same group as targets
         groupResources.forEach(rg ->
