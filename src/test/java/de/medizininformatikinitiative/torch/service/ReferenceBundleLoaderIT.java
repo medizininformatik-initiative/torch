@@ -26,7 +26,11 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +47,7 @@ class ReferenceBundleLoaderIT {
     @Autowired
     @Qualifier("fhirClient")
     WebClient webClient;
-    @Autowired
+
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
     @Autowired

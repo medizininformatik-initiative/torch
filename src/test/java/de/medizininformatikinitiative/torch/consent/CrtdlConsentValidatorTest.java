@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -98,7 +99,7 @@ class CrtdlConsentValidatorTest {
         observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
 
         // PatientBatchWithConsent with NO entry for "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
 
         boolean result = consentValidator.checkConsent(observation, batch);
 
@@ -112,7 +113,7 @@ class CrtdlConsentValidatorTest {
         noPatientObs.setEffective(new DateTimeType("2022-04-20"));
         // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
 
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
 
         boolean result = consentValidator.checkConsent(noPatientObs, batch);
 
@@ -127,7 +128,7 @@ class CrtdlConsentValidatorTest {
         observation.setEffective(new DateTimeType("2022-04-20"));
 
         // Batch contains only "123", not "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
 
         boolean result = consentValidator.checkConsent(observation, batch);
 

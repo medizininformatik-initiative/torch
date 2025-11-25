@@ -1,16 +1,19 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import de.medizininformatikinitiative.torch.model.crtdl.FieldCondition;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import de.medizininformatikinitiative.torch.service.FilterService;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Predicate;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
@@ -23,8 +26,11 @@ public record AnnotatedAttributeGroup(
         String resourceType, String groupReference,
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
+        @JsonIgnore
         Predicate<Resource> compiledFilter,
-        boolean includeReferenceOnly, CopyTreeNode copyTree) {
+        boolean includeReferenceOnly,
+        @JsonIgnore
+        Optional<CopyTreeNode> copyTree) {
 
 
     public static final String PATIENT = "Patient";
@@ -36,7 +42,7 @@ public record AnnotatedAttributeGroup(
                                    List<AnnotatedAttribute> attributes,
                                    List<Filter> filter,
                                    Predicate<Resource> compiledFilter) {
-        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false, buildTree(attributes, resourceType));
+        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false, Optional.empty());
     }
 
     public AnnotatedAttributeGroup(String name, String id,
@@ -46,7 +52,16 @@ public record AnnotatedAttributeGroup(
                                    List<Filter> filter,
                                    Predicate<Resource> compiledFilter,
                                    boolean includeReferenceOnly) {
-        this(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, buildTree(attributes, resourceType));
+        this(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, Optional.empty());
+    }
+
+    public AnnotatedAttributeGroup(String name, String id,
+                                   String resourceType,
+                                   String groupReference,
+                                   List<AnnotatedAttribute> attributes,
+                                   List<Filter> filter,
+                                   boolean includeReferenceOnly) {
+        this(name, id, resourceType, groupReference, attributes, filter, null, includeReferenceOnly, Optional.empty());
     }
 
 
@@ -61,6 +76,18 @@ public record AnnotatedAttributeGroup(
         if (containsDuplicateDateFilters(filter)) {
             throw new IllegalArgumentException("Duplicate date type filter found");
         }
+    }
+
+    @Override
+    @JsonIgnore
+    public Predicate<Resource> compiledFilter() {
+        return compiledFilter;
+    }
+
+    @Override
+    @JsonIgnore
+    public Optional<CopyTreeNode> copyTree() {
+        return copyTree;
     }
 
     private static boolean containsDuplicateDateFilters(List<Filter> filters) {
@@ -128,7 +155,21 @@ public record AnnotatedAttributeGroup(
     }
 
     public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
-        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(
+                name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, copyTree
+        );
+    }
+
+    public AnnotatedAttributeGroup withTree() {
+        return new AnnotatedAttributeGroup(
+                name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, Optional.of(buildTree(attributes, resourceType)));
+    }
+
+    public AnnotatedAttributeGroup rebuild(FilterService filterService) {
+
+        return filter.isEmpty()
+                ? withTree()
+                : withTree().setCompiledFilter(filterService.compileFilter(filter, resourceType));
     }
 
 }

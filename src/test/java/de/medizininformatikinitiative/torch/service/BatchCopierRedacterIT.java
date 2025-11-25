@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
-import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
@@ -14,21 +13,14 @@ import de.medizininformatikinitiative.torch.model.management.ExtractionRedaction
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
-import de.medizininformatikinitiative.torch.util.ElementCopier;
-import de.medizininformatikinitiative.torch.util.Redaction;
+import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Resource;
-import org.junit.experimental.runners.Enclosed;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestInstance;
-import org.junit.runner.RunWith;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.annotation.DirtiesContext;
-import org.springframework.test.context.ActiveProfiles;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -36,13 +28,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-@RunWith(Enclosed.class)
-@ActiveProfiles("test")
-@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@TestInstance(TestInstance.Lifecycle.PER_CLASS)
-@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class BatchCopierRedacterIT {
-
 
     private static final String CONDITION = """
             {
@@ -151,13 +137,6 @@ class BatchCopierRedacterIT {
 
     String CONDITION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
 
-    @Autowired
-    ElementCopier copier;
-
-
-    @Autowired
-    Redaction redacter;
-
     private BatchCopierRedacter batchCopierRedacter;
 
     private IParser parser;
@@ -174,17 +153,17 @@ class BatchCopierRedacterIT {
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
 
 
         AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), null);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), null).withTree();
 
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Patient1"));
         conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", true, List.of("Patient1"));
         conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", true, List.of("Patient1"));
-        conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null);
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null).withTree();
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
         validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
@@ -193,8 +172,8 @@ class BatchCopierRedacterIT {
         attributeGroupMap.put("Patient1", patientGroup);
         attributeGroupMap.put("Condition1", conditionGroup);
 
-
-        this.batchCopierRedacter = new BatchCopierRedacter(copier, redacter);
+        IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
+        this.batchCopierRedacter = new BatchCopierRedacter(integrationTestSetup.copier(), integrationTestSetup.redaction());
         this.parser = FhirContext.forR4().newJsonParser();
     }
 
@@ -206,7 +185,7 @@ class BatchCopierRedacterIT {
         void testResourceWithKnownGroups() throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
-            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), conditionGroup.copyTree()));
+            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), conditionGroup.copyTree().get()));
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
     }

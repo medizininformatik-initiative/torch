@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.management;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
+import de.medizininformatikinitiative.torch.service.FilterService;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -14,9 +15,11 @@ import java.util.Map;
 public class ProcessedGroupFactory {
 
     private final CompartmentManager compartment;
+    private final FilterService filterService;
 
-    public ProcessedGroupFactory(CompartmentManager compartment) {
+    public ProcessedGroupFactory(CompartmentManager compartment, FilterService filterService) {
         this.compartment = compartment;
+        this.filterService = filterService;
     }
 
     /**
@@ -29,16 +32,17 @@ public class ProcessedGroupFactory {
         List<AnnotatedAttributeGroup> directLoadNotPatientCompartment = new ArrayList<>();
         Map<String, AnnotatedAttributeGroup> allGroups = new HashMap<>();
 
-        crtdl.dataExtraction().attributeGroups().forEach(group -> {
-            if (!group.includeReferenceOnly()) {
-                if (compartment.isInCompartment(group.resourceType())) {
-                    directLoadPatientCompartment.add(group);
-                } else {
-                    directLoadNotPatientCompartment.add(group);
-                }
-            }
-            allGroups.put(group.id(), group);
-        });
+        crtdl.dataExtraction().attributeGroups().stream()
+                .map(group -> group.rebuild(filterService)).forEach(group -> {
+                    if (!group.includeReferenceOnly()) {
+                        if (compartment.isInCompartment(group.resourceType())) {
+                            directLoadPatientCompartment.add(group);
+                        } else {
+                            directLoadNotPatientCompartment.add(group);
+                        }
+                    }
+                    allGroups.put(group.id(), group);
+                });
 
         return new GroupsToProcess(directLoadPatientCompartment, directLoadNotPatientCompartment, allGroups);
     }

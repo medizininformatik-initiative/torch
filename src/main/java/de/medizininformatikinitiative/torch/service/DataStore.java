@@ -28,6 +28,9 @@ import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +74,10 @@ public class DataStore {
         this.pageCount = pageCount;
         preferHeaderSetter = disableAsync ? headers -> {
         } : headers -> headers.add("Prefer", "respond-async,return=representation");
+    }
+
+    public DataStore pageCount(int pageCount) {
+        return new DataStore(this.client, this.fhirContext, pageCount, pageCount == 1);
     }
 
     private static boolean shouldRetry(HttpStatusCode code) {
@@ -297,6 +304,61 @@ public class DataStore {
                         return Mono.error(new RuntimeException("missing response"));
                     }
                 });
+    }
+
+    /**
+     * Groups references into chunks limited by pagecount size of the fhir server webclient.
+     *
+     * @param references reference strings to be chunked
+     * @return list of chunks containing the References grouped by Type.
+     */
+    public List<Map<String, Set<String>>> groupReferencesByTypeInChunks(Set<String> references) {
+        List<String> absoluteRefs = new ArrayList<>();
+        List<String> malformedRefs = new ArrayList<>();
+
+        List<Map<String, Set<String>>> chunks = new ArrayList<>();
+        Map<String, Set<String>> currentChunk = new LinkedHashMap<>();
+
+
+        int currentCount = 0;
+
+        for (String ref : references.stream().sorted().toList()) {
+            if (ref.startsWith("http")) {
+                absoluteRefs.add(ref);
+                continue;
+            }
+            String[] parts = ref.split("/");
+            if (parts.length != 2) {
+                malformedRefs.add(ref);
+                continue;
+            }
+
+            String resourceType = parts[0];
+            String id = parts[1];
+
+            currentChunk.computeIfAbsent(resourceType, k -> new LinkedHashSet<>()).add(id);
+            currentCount++;
+
+            if (currentCount == pageCount) {
+                chunks.add(currentChunk);
+                currentChunk = new LinkedHashMap<>();
+                currentCount = 0;
+            }
+        }
+
+        if (!currentChunk.isEmpty()) {
+            chunks.add(currentChunk);
+        }
+
+        if (!absoluteRefs.isEmpty()) {
+            logger.warn("Ignoring absolute references (not supported): {}", absoluteRefs);
+        }
+
+        if (!malformedRefs.isEmpty()) {
+            logger.warn("Ignoring malformed references: {}", malformedRefs);
+        }
+
+        return chunks;
     }
 
     private static class AsyncException extends Exception {

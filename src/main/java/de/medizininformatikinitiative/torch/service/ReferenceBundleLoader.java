@@ -19,8 +19,6 @@ import reactor.core.publisher.Mono;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,14 +31,12 @@ public class ReferenceBundleLoader {
     private final CompartmentManager compartmentManager;
     private final DataStore datastore;
     private final ConsentValidator consentValidator;
-    private final int pageCount;
 
     public ReferenceBundleLoader(CompartmentManager compartmentManager,
-                                 DataStore datastore, ConsentValidator consentValidator, int pageCount) {
+                                 DataStore datastore, ConsentValidator consentValidator) {
         this.compartmentManager = compartmentManager;
         this.datastore = datastore;
         this.consentValidator = consentValidator;
-        this.pageCount = pageCount;
     }
 
 
@@ -50,12 +46,11 @@ public class ReferenceBundleLoader {
             ResourceBundle coreBundle, boolean applyConsent) {
 
         Set<String> unknownReferences = findUnloadedReferences(extractedReferences, patientBundle, coreBundle);
-        List<Map<String, Set<String>>> groupedReferencesBySearchString = groupReferencesByTypeInChunks(unknownReferences);
+        List<Map<String, Set<String>>> groupedReferencesBySearchString = datastore.groupReferencesByTypeInChunks(unknownReferences);
 
         if (groupedReferencesBySearchString.isEmpty()) {
             return Mono.empty();
         }
-
         return
                 Flux.fromIterable(groupedReferencesBySearchString)
                         .concatMap(datastore::executeSearchBatch)
@@ -138,62 +133,6 @@ public class ReferenceBundleLoader {
                                     return resourceOpt == null;
                                 })))
                 .collect(Collectors.toSet());
-    }
-
-
-    /**
-     * Groups references into chunks limited by pagecount size of the fhir server webclient.
-     *
-     * @param references reference strings to be chunked
-     * @return list of chunks containing the References grouped by Type.
-     */
-    public List<Map<String, Set<String>>> groupReferencesByTypeInChunks(Set<String> references) {
-        List<String> absoluteRefs = new ArrayList<>();
-        List<String> malformedRefs = new ArrayList<>();
-
-        List<Map<String, Set<String>>> chunks = new ArrayList<>();
-        Map<String, Set<String>> currentChunk = new LinkedHashMap<>();
-
-
-        int currentCount = 0;
-
-        for (String ref : references.stream().sorted().toList()) {
-            if (ref.startsWith("http")) {
-                absoluteRefs.add(ref);
-                continue;
-            }
-            String[] parts = ref.split("/");
-            if (parts.length != 2) {
-                malformedRefs.add(ref);
-                continue;
-            }
-
-            String resourceType = parts[0];
-            String id = parts[1];
-
-            currentChunk.computeIfAbsent(resourceType, k -> new LinkedHashSet<>()).add(id);
-            currentCount++;
-
-            if (currentCount == pageCount) {
-                chunks.add(currentChunk);
-                currentChunk = new LinkedHashMap<>();
-                currentCount = 1;
-            }
-        }
-
-        if (!currentChunk.isEmpty()) {
-            chunks.add(currentChunk);
-        }
-
-        if (!absoluteRefs.isEmpty()) {
-            logger.warn("Ignoring absolute references (not supported): {}", absoluteRefs);
-        }
-
-        if (!malformedRefs.isEmpty()) {
-            logger.warn("Ignoring malformed references: {}", malformedRefs);
-        }
-
-        return chunks;
     }
 
 

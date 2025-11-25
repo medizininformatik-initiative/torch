@@ -18,7 +18,7 @@ public class CrtdlConsentValidator {
      * Extracts all consent codes from the inclusion criteria of a CRDTL,
      * while validating both inclusion and exclusion rules.
      *
-     * @param crtdl the CRDTL containing the cohort definition
+     * @param crtdl the CRDTL containing the cohortQueryService definition
      * @return an Optional containing all TermCodes if found, otherwise empty
      * @throws ConsentFormatException if inclusion/exclusion rules are violated
      */
@@ -37,7 +37,7 @@ public class CrtdlConsentValidator {
      * Collects all TermCodes from inclusion criteria.
      * Streams are used to flatten nested arrays of criteria.
      *
-     * @param cohortDefinition the JSON definition of the cohort
+     * @param cohortDefinition the JSON definition of the cohortQueryService
      * @return a Set of all valid TermCodes found
      */
     private Set<TermCode> collectInclusionTermCodes(JsonNode cohortDefinition) throws ConsentFormatException {
@@ -86,7 +86,7 @@ public class CrtdlConsentValidator {
     /**
      * Validates that exclusion criteria do NOT contain any Einwilligung consent codes.
      *
-     * @param cohortDefinition the JSON definition of the cohort
+     * @param cohortDefinition the JSON definition of the cohortQueryService
      * @throws ConsentFormatException if any Einwilligung consent codes are found in exclusions
      */
     private void validateExclusionCriteria(JsonNode cohortDefinition) throws ConsentFormatException {

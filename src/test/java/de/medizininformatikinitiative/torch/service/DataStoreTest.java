@@ -232,6 +232,7 @@ class DataStoreTest {
 
     }
 
+
     @Nested
     class FetchReferencesByBatch {
 

@@ -104,6 +104,17 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
                 newCache);
     }
 
+    /**
+     * Returns all resource IDs that exist in the extraction metadata
+     * but have no resolved entry in the cache or contain Optional.empty().
+     *
+     * @return set of missing resourceIds
+     */
+    public Set<String> missingCacheEntries() {
+        return extractionInfoMap.keySet().stream()
+                .filter(id -> !cache.containsKey(id) || cache.get(id).isEmpty())
+                .collect(Collectors.toSet());
+    }
 
     public Bundle toFhirBundle(String extractionId) {
         Bundle bundle = new Bundle();

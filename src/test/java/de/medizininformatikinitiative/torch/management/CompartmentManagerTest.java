@@ -47,7 +47,7 @@ public class CompartmentManagerTest {
 
 
     @Nested
-    class ResourceGroupTest {
+    class ResourceGroupRelationTest {
         @Test
         public void contained() {
             assertThat(manager.isInCompartment(new ResourceGroup("Observation/123", "Test"))).isTrue();

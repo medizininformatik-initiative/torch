@@ -31,7 +31,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ReferenceBundleLoaderTest {
     public static final String OBSERVATION_REF = "Observation/12";
-    int pageCount = 4;
+
     @Mock
     private CompartmentManager compartmentManager;
     @Mock
@@ -46,7 +46,7 @@ class ReferenceBundleLoaderTest {
 
     @BeforeEach
     void setup() {
-        referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, pageCount);
+        referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator);
         referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), "Encounter1", "Encounter/123");
     }
 
@@ -56,7 +56,9 @@ class ReferenceBundleLoaderTest {
         when(dataStore.executeSearchBatch(any()))
                 .thenReturn(Mono.error(new RuntimeException("Something went wrong")));
 
-        // Prepare input
+        when(dataStore.groupReferencesByTypeInChunks(any()))
+                .thenReturn(List.of(Map.of("Observation", Set.of("123"))));
+
         Map<ResourceGroup, List<ReferenceWrapper>> extractedReferences = Map.of(
                 new ResourceGroup("Patient", "Group1"), List.of(referenceWrapper)
         );
@@ -77,39 +79,6 @@ class ReferenceBundleLoaderTest {
                 .verify();
     }
 
-
-    @Nested
-    class GroupReferencesByTypeInChunks {
-
-        @Test
-        void withoutChunking() {
-            var chunks = referenceBundleLoader.groupReferencesByTypeInChunks(Set.of(
-                    "Observation/123", "Patient/2", "Patient/1", "Medication/123"));
-
-            assertThat(chunks).containsExactly(Map.of(
-                    "Observation", Set.of("123"),
-                    "Patient", Set.of("2", "1"),
-                    "Medication", Set.of("123")));
-        }
-
-        @Test
-        void withChunking() {
-            var chunks = referenceBundleLoader.groupReferencesByTypeInChunks(Set.of(
-                    "Observation/123", "Patient/2", "Patient/1", "Medication/123", "MedicationAdministration/4"));
-
-            assertThat(chunks).containsExactly(Map.of(
-                            "Observation", Set.of("123"),
-                            "MedicationAdministration", Set.of("4"),
-                            "Medication", Set.of("123"),
-                            "Patient", Set.of("1")),
-                    Map.of(
-                            "Patient", Set.of("2")
-                    ));
-
-        }
-
-
-    }
 
     @Nested
     class GetUnloadedRefs {

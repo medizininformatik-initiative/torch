@@ -25,6 +25,7 @@ import java.util.Set;
 import static java.util.Objects.requireNonNull;
 
 @Component
+
 public class BatchCopierRedacter {
 
     private static final Logger logger = LoggerFactory.getLogger(BatchCopierRedacter.class);
@@ -102,7 +103,7 @@ public class BatchCopierRedacter {
             AnnotatedAttributeGroup group = groupMap.get(groupId);
             if (group != null) {
                 groupProfiles.add(group.groupReference());
-                copyTree = copyTree.merged(group.copyTree());
+                copyTree = copyTree.merged(group.copyTree().get());
             }
         }
 
