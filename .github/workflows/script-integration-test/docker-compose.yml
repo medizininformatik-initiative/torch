@@ -1,7 +1,7 @@
 services:
   source-fhir-server:
     container_name: source-fhir-server
-    image: samply/blaze:1.2@sha256:7928414bf68d0610587b96a67d2318b789c8531329dead4cec7e295adb4cd86f
+    image: samply/blaze:1.4.2@sha256:c5388a0ab18c6cb6686444f97273a2ab75b1908471bd9259c5463312c65aed3b
     environment:
       BASE_URL: http://source-fhir-server:8080
       LOG_LEVEL: debug
@@ -17,7 +17,7 @@ services:
 
   target-fhir-server:
     container_name: target-fhir-server
-    image: samply/blaze:1.2@sha256:7928414bf68d0610587b96a67d2318b789c8531329dead4cec7e295adb4cd86f
+    image: samply/blaze:1.4.2@sha256:c5388a0ab18c6cb6686444f97273a2ab75b1908471bd9259c5463312c65aed3b
     environment:
       BASE_URL: http://target-fhir-server:8080
       LOG_LEVEL: debug
@@ -34,8 +34,6 @@ services:
     container_name: torch
     restart: unless-stopped
     image: torch:latest
-    ports:
-      - "8080"
     environment:
       TORCH_PROFILE_DIR: /app/ontology/structureDefinitions
       TORCH_MAPPING_CONSENT: /app/mappings/consent-mappings_fhir.json
@@ -55,6 +53,8 @@ services:
       - torch-data-store:/app/output
 
   nginx:
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:8080/fhir/metadata" ]
     container_name: nginx
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.29.2-alpine@sha256:031d8c8ab79d2d171a2a383aa50a06f527791c05ba1aeae9ca05d7b9779caf8e

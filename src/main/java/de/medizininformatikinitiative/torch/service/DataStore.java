@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
+import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.hl7.fhir.r4.model.Bundle;
@@ -17,21 +18,22 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
-import reactor.netty.http.client.PrematureCloseException;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
-import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
@@ -62,12 +64,12 @@ public class DataStore {
      */
     private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(20, Duration.ofSeconds(1))
             .maxBackoff(Duration.ofMinutes(5))
-            .filter(DataStore::isRetryable)
+            .filter(RetryabilityUtil::isRetryable)
             .doBeforeRetry(rs -> logger.warn(
                     "Retrying DataStore call (attempt {} of {}) due to: {}",
                     rs.totalRetries() + 1,
                     5,
-                    rootCauseMessage(rs.failure())
+                    RetryabilityUtil.rootCauseMessage(rs.failure())
             ));
     public static final String APPLICATION_FHIR_JSON = "application/fhir+json";
     public static final String CONTENT_TYPE = "Content-Type";
@@ -88,56 +90,6 @@ public class DataStore {
         this.pageCount = pageCount;
         preferHeaderSetter = disableAsync ? headers -> {
         } : headers -> headers.add("Prefer", "respond-async,return=representation");
-    }
-
-    private static boolean shouldRetry(HttpStatusCode code) {
-        return code.is5xxServerError() || code.value() == 404 || code.value() == 429;
-    }
-
-    private static boolean isRetryable(Throwable e) {
-        Throwable cause = rootCause(e);
-
-        // Transport / connection problems (can surface as WebClientResponseException *or* WebClientRequestException)
-        if (isRetryableTransportCause(cause)) {
-            return true;
-        }
-
-        // HTTP response errors (status-based)
-        if (e instanceof WebClientResponseException wcre) {
-            return shouldRetry(wcre.getStatusCode());
-        }
-
-        return false;
-    }
-
-    private static boolean isRetryableTransportCause(Throwable cause) {
-        if (cause instanceof PrematureCloseException) {
-            return true;
-        }
-        if (cause instanceof IOException) {
-            return true;
-        }
-
-        String msg = (cause.getMessage() == null ? "" : cause.getMessage()).toLowerCase();
-        return msg.contains("premature")
-                || msg.contains("connection reset")
-                || msg.contains("broken pipe")
-                || msg.contains("closed channel");
-    }
-
-    private static String rootCauseMessage(Throwable t) {
-        Throwable rc = rootCause(t);
-        String name = rc.getClass().getSimpleName();
-        String msg = rc.getMessage();
-        return msg == null ? name : (name + ": " + msg);
-    }
-
-    private static Throwable rootCause(Throwable t) {
-        Throwable cur = t;
-        while (cur.getCause() != null && cur.getCause() != cur) {
-            cur = cur.getCause();
-        }
-        return cur;
     }
 
     private static Exception handleAcceptedResponse(ClientResponse response) {
@@ -167,6 +119,7 @@ public class DataStore {
     }
 
     public Mono<List<Resource>> executeBundle(Bundle bundle) {
+        var start = System.nanoTime();
         var queries = bundle.getEntry().stream().map(e -> removeIDsFromQuery(e.getRequest().getUrl())).toList();
         logger.debug("Executing queries for referenced resources: {}", queries);
         return client.post()
@@ -178,6 +131,13 @@ public class DataStore {
                 .retryWhen(RETRY_SPEC)
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .map(this::extractResourcesFromBundle)
+                .defaultIfEmpty(List.of())
+                .doOnNext(resources ->
+                        logger.trace(
+                                "Finished reference batch bundle in {} seconds fetching {} resources successfully.",
+                                "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
+                                resources.size()
+                        ))
                 .flatMap(resources -> resources.isEmpty() ? Mono.empty() : Mono.just(resources))
                 .doOnError(e -> logger.error(
                         "DATASTORE_05 Error while executing batch bundle query: {}", e.getMessage()));
@@ -334,7 +294,7 @@ public class DataStore {
     private Mono<MeasureReport> pollStatus(String statusUrl, String measureUrn, long start) {
         return client.get().uri(statusUrl)
                 .retrieve()
-                .onStatus(status -> status.isSameCodeAs(ACCEPTED) || shouldRetry(status), response -> {
+                .onStatus(status -> status.isSameCodeAs(ACCEPTED) || RetryabilityUtil.shouldRetry(status), response -> {
                     logger.trace("Evaluation of measure with URN {} is still in progress for {} seconds.",
                             measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start)));
                     return Mono.error(new AsyncRetryException());
@@ -367,6 +327,61 @@ public class DataStore {
                         return Mono.error(new RuntimeException("missing response"));
                     }
                 });
+    }
+
+    /**
+     * Groups references into chunks limited by pagecount size of the fhir server webclient.
+     *
+     * @param references reference strings to be chunked
+     * @return list of chunks containing the References grouped by Type.
+     */
+    public List<Map<String, Set<String>>> groupReferencesByTypeInChunks(Set<String> references) {
+        List<String> absoluteRefs = new ArrayList<>();
+        List<String> malformedRefs = new ArrayList<>();
+
+        List<Map<String, Set<String>>> chunks = new ArrayList<>();
+        Map<String, Set<String>> currentChunk = new LinkedHashMap<>();
+
+
+        int currentCount = 0;
+
+        for (String ref : references.stream().sorted().toList()) {
+            if (ref.startsWith("http")) {
+                absoluteRefs.add(ref);
+                continue;
+            }
+            String[] parts = ref.split("/");
+            if (parts.length != 2) {
+                malformedRefs.add(ref);
+                continue;
+            }
+
+            String resourceType = parts[0];
+            String id = parts[1];
+
+            currentChunk.computeIfAbsent(resourceType, k -> new LinkedHashSet<>()).add(id);
+            currentCount++;
+
+            if (currentCount == pageCount) {
+                chunks.add(currentChunk);
+                currentChunk = new LinkedHashMap<>();
+                currentCount = 0;
+            }
+        }
+
+        if (!currentChunk.isEmpty()) {
+            chunks.add(currentChunk);
+        }
+
+        if (!absoluteRefs.isEmpty()) {
+            logger.warn("Ignoring absolute references (not supported): {}", absoluteRefs);
+        }
+
+        if (!malformedRefs.isEmpty()) {
+            logger.warn("Ignoring malformed references: {}", malformedRefs);
+        }
+
+        return chunks;
     }
 
     private static class AsyncException extends Exception {

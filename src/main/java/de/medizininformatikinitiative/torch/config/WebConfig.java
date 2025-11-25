@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -28,19 +29,29 @@ import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterN
 public class WebConfig {
     private static final Logger logger = LoggerFactory.getLogger(WebConfig.class);
 
+    @Bean
+    public ConnectionProvider flareConnectionProvider() {
+        return ConnectionProvider.builder("flare-pool")
+                .maxConnections(4)
+                .pendingAcquireMaxCount(500)
+                .build();
+    }
+
+    @Bean
+    public ConnectionProvider fhirConnectionProvider(FhirProperties fhirProperties) {
+        return ConnectionProvider.builder("fhir-pool")
+                .maxConnections(fhirProperties.max().connections())
+                .build();
+    }
+
     static boolean oAuthEnabled(String issuerUri, String clientId, String clientSecret) {
         return !issuerUri.isBlank() && !clientId.isBlank() && !clientSecret.isBlank();
     }
 
     @Bean("flareClient")
-    public WebClient flareWebClient(TorchProperties torchProperties) {
+    public WebClient flareWebClient(TorchProperties torchProperties, @Qualifier("flareConnectionProvider") ConnectionProvider flareConnectionProvider) {
         logger.info("Initializing Flare WebClient with URL: {}", torchProperties.flare().url());
-
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(4)
-                .pendingAcquireMaxCount(500)
-                .build();
-        HttpClient httpClient = HttpClient.create(provider);
+        HttpClient httpClient = HttpClient.create(flareConnectionProvider);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(torchProperties.flare().url())
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
@@ -61,7 +72,7 @@ public class WebConfig {
     @Bean("fhirClient")
     public WebClient fhirWebClient(TorchProperties torchProperties,
                                    ExchangeFilterFunction oauthExchangeFilterFunction,
-                                   FhirProperties fhirProperties) {
+                                   FhirProperties fhirProperties, @Qualifier("fhirConnectionProvider") ConnectionProvider fhirConnectionProvider) {
         String user = fhirProperties.user();
         String password = fhirProperties.password();
         int maxConnections = fhirProperties.max().connections();
@@ -74,11 +85,7 @@ public class WebConfig {
                         .defaultCodecs()
                         .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
                 .build();
-
-        ConnectionProvider provider = ConnectionProvider.builder("data-store")
-                .maxConnections(fhirProperties.max().connections())
-                .build();
-        HttpClient httpClient = HttpClient.create(provider);
+        HttpClient httpClient = HttpClient.create(fhirConnectionProvider);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(baseUrl)
                 .exchangeStrategies(strategies)

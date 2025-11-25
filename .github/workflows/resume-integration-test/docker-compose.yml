@@ -1,0 +1,59 @@
+services:
+  target-fhir-server:
+    container_name: target-fhir-server
+    image: samply/blaze:1.4.2@sha256:c5388a0ab18c6cb6686444f97273a2ab75b1908471bd9259c5463312c65aed3b
+    environment:
+      BASE_URL: http://target-fhir-server:8080
+      LOG_LEVEL: debug
+      JAVA_TOOL_OPTIONS: -Xmx2g
+    ports:
+      - "8084:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+  torch:
+    container_name: torch
+    restart: unless-stopped
+    image: torch:latest
+    environment:
+      TORCH_PROFILE_DIR: /app/ontology/structureDefinitions
+      TORCH_MAPPING_CONSENT: /app/mappings/consent-mappings_fhir.json
+      TORCH_MAPPING_TYPE_TO_CONSENT: /app/mappings/type_to_consent.json
+      TORCH_FHIR_URL: https://fhir.test.forschen-fuer-gesundheit.de/fhir
+      TORCH_FHIR_MAX_CONNECTIONS: 4
+      TORCH_RESULTS_DIR: /app/output
+      LOG_LEVEL: debug
+      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8080
+      TORCH_BATCHSIZE: 100
+      TORCH_MAXCONCURRENCY: 4
+      TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
+      TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
+      TORCH_USECQL: true
+      JAVA_TOOL_OPTIONS: -Xmx4g
+    volumes:
+      - torch-data-store:/app/output
+
+  nginx:
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:8080/fhir/metadata" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    container_name: nginx
+    depends_on:
+      - torch
+
+    restart: unless-stopped
+    image: nginxinc/nginx-unprivileged:1.29.2-alpine@sha256:031d8c8ab79d2d171a2a383aa50a06f527791c05ba1aeae9ca05d7b9779caf8e
+    ports:
+      - "8080:8080"
+    volumes:
+      - torch-data-store:/app/output
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+volumes:
+  torch-data-store:

@@ -1,9 +1,12 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -16,13 +19,11 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 class ElementCopierTest {
 
     private ElementCopier copyService;
-    private IParser jsonParser;
 
     @BeforeEach
     void setup() {
         FhirContext context = FhirContext.forR4();
         copyService = new ElementCopier(context);
-        jsonParser = context.newJsonParser();
     }
 
     @Test
@@ -157,8 +158,6 @@ class ElementCopierTest {
         // --- When ---
         copyService.copy(src, tgt, copyTree);
 
-        System.out.println(jsonParser.setPrettyPrint(true).encodeToString(tgt));
-
         // --- Then ---
         assertThat(tgt.getIdentifier()).hasSize(2);
 
@@ -200,7 +199,6 @@ class ElementCopierTest {
 
         // --- When ---
         copyService.copy(src, tgt, copyTree);
-        System.out.println(jsonParser.setPrettyPrint(true).encodeToString(tgt));
 
         // --- Then ---
         assertThat(tgt.getIdentifier()).hasSize(2);

@@ -4,7 +4,9 @@ import de.medizininformatikinitiative.torch.setup.ContainerManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
@@ -14,6 +16,8 @@ import reactor.netty.resources.ConnectionProvider;
 
 @Configuration
 @Profile("test")
+@Import(BaseConfig.class)
+@ComponentScan("de.medizininformatikinitiative.torch")
 public class TestConfig {
     private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
 

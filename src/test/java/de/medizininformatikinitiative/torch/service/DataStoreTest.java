@@ -28,6 +28,8 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static de.medizininformatikinitiative.torch.service.DataStoreIT.createBundleFromQuery;
@@ -495,6 +497,65 @@ class DataStoreTest {
         }
 
         @Nested
+        @DisplayName("GroupReferencesByTypeInChunks")
+        class GroupReferencesByTypeInChunks {
+
+            private DataStore dataStore;
+
+            @BeforeEach
+            void setUp() {
+                // fresh instance, owned by THIS nested class
+                dataStore = new DataStore(
+                        client,             // same MockWebServer client
+                        ctx,                // same FhirContext
+                        4,                  // pageCount under test
+                        true                // disableAsync → stable, no Prefer header
+                );
+            }
+
+            @Test
+            void withoutChunking() {
+                var chunks = dataStore.groupReferencesByTypeInChunks(Set.of(
+                        "Observation/123",
+                        "Patient/2",
+                        "Patient/1",
+                        "Medication/123"
+                ));
+
+                assertThat(chunks).containsExactly(
+                        Map.of(
+                                "Observation", Set.of("123"),
+                                "Patient", Set.of("2", "1"),
+                                "Medication", Set.of("123")
+                        )
+                );
+            }
+
+            @Test
+            void withChunking() {
+                var chunks = dataStore.groupReferencesByTypeInChunks(Set.of(
+                        "Observation/123",
+                        "Patient/2",
+                        "Patient/1",
+                        "Medication/123",
+                        "MedicationAdministration/4"
+                ));
+
+                assertThat(chunks).containsExactly(
+                        Map.of(
+                                "Observation", Set.of("123"),
+                                "MedicationAdministration", Set.of("4"),
+                                "Medication", Set.of("123"),
+                                "Patient", Set.of("1")
+                        ),
+                        Map.of(
+                                "Patient", Set.of("2")
+                        )
+                );
+            }
+        }
+
+        @Nested
         @DisplayName("with default enabled asynchronous requests")
         class Async {
 
@@ -608,126 +669,6 @@ class DataStoreTest {
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
                         .verifyComplete();
             }
-        }
-    }
-
-    @Nested
-    class Retry {
-
-        private static Throwable invokeRootCause(Throwable t) {
-            try {
-                var m = DataStore.class.getDeclaredMethod("rootCause", Throwable.class);
-                m.setAccessible(true);
-                return (Throwable) m.invoke(null, t);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private static String invokeRootCauseMessage(Throwable t) {
-            try {
-                var m = DataStore.class.getDeclaredMethod("rootCauseMessage", Throwable.class);
-                m.setAccessible(true);
-                return (String) m.invoke(null, t);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        private static boolean invokeIsRetryableTransportCause(Throwable t) {
-            try {
-                var m = DataStore.class.getDeclaredMethod("isRetryableTransportCause", Throwable.class);
-                m.setAccessible(true);
-                return (boolean) m.invoke(null, t);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
-
-        /**
-         * Tries to create a reactor.netty.http.client.PrematureCloseException instance without
-         * referencing the (package-private) type at compile time.
-         * <p>
-         * Returns null if the class isn't present or can't be instantiated reflectively.
-         */
-        private static Object newPrematureCloseExceptionOrNull() {
-            try {
-                Class<?> c = Class.forName("reactor.netty.http.client.PrematureCloseException");
-
-                // Try no-arg constructor first
-                try {
-                    var ctor = c.getDeclaredConstructor();
-                    ctor.setAccessible(true);
-                    return ctor.newInstance();
-                } catch (NoSuchMethodException ignored) {
-                    // Try String constructor
-                }
-
-                try {
-                    var ctor = c.getDeclaredConstructor(String.class);
-                    ctor.setAccessible(true);
-                    return ctor.newInstance("premature close");
-                } catch (NoSuchMethodException ignored) {
-                    // give up
-                }
-
-                return null;
-            } catch (Throwable ignored) {
-                return null;
-            }
-        }
-
-        @Test
-        void rootCause_walksToDeepest() {
-            var root = new IllegalStateException("root");
-            var mid = new RuntimeException("mid", root);
-            var top = new RuntimeException("top", mid);
-
-            assertThat(invokeRootCause(top)).isSameAs(root);
-        }
-
-        @Test
-        void rootCauseMessage_formatsWithAndWithoutMessage() {
-            var withMsg = new IllegalArgumentException("nope");
-            assertThat(invokeRootCauseMessage(withMsg))
-                    .isEqualTo("IllegalArgumentException: nope");
-
-            var noMsg = new IllegalArgumentException((String) null);
-            assertThat(invokeRootCauseMessage(noMsg))
-                    .isEqualTo("IllegalArgumentException");
-        }
-
-        // ---- reflection helpers into DataStore ----
-
-        @Test
-        void isRetryableTransportCause_trueForIOException() {
-            assertThat(invokeIsRetryableTransportCause(new IOException("anything"))).isTrue();
-        }
-
-        @Test
-        void isRetryableTransportCause_trueForMessageMatches_whenNotIOException() {
-            // custom non-IOException throwable to force message-branch evaluation
-            assertThat(invokeIsRetryableTransportCause(new Throwable("premature"))).isTrue();
-            assertThat(invokeIsRetryableTransportCause(new Throwable("connection reset by peer"))).isTrue();
-            assertThat(invokeIsRetryableTransportCause(new Throwable("broken pipe"))).isTrue();
-            assertThat(invokeIsRetryableTransportCause(new Throwable("closed channel"))).isTrue();
-        }
-
-        @Test
-        void isRetryableTransportCause_falseWhenNoMatchAndNoIOException() {
-            assertThat(invokeIsRetryableTransportCause(new Throwable("something else"))).isFalse();
-            assertThat(invokeIsRetryableTransportCause(new Throwable((String) null))).isFalse(); // covers null-message path
-        }
-
-        @Test
-        void isRetryableTransportCause_trueForPrematureCloseException_ifAvailable() {
-            Object maybe = newPrematureCloseExceptionOrNull();
-            if (maybe == null) {
-                // Reactor Netty class not accessible/constructible in this environment.
-                // All other branches are still covered; this test intentionally becomes a no-op.
-                return;
-            }
-            assertThat(invokeIsRetryableTransportCause((Throwable) maybe)).isTrue();
         }
     }
 }

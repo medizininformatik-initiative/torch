@@ -1,5 +1,5 @@
 #!/bin/sh
-
+umask 0022
 TRUSTSTORE_FILE="/app/truststore/self-signed-truststore.jks"
 TRUSTSTORE_PASS=${TRUSTSTORE_PASS:-changeit}
 KEY_PASS=${KEY_PASS:-changeit}

@@ -19,6 +19,7 @@ import org.mockito.Mockito;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +45,7 @@ class PatientBatchToCoreBundleWriterTest {
                 extractionBundles.put(patientId, ExtractionResourceBundle.of(bundle))
         );
         // For these tests we don't pre-populate the batch-level coreBundle
-        return new ExtractionPatientBatch(extractionBundles, new ExtractionResourceBundle());
+        return new ExtractionPatientBatch(extractionBundles, new ExtractionResourceBundle(), UUID.randomUUID());
     }
 
     @Nested
@@ -211,7 +212,8 @@ class PatientBatchToCoreBundleWriterTest {
 
             ExtractionPatientBatch batch = new ExtractionPatientBatch(
                     Map.of(), // no patient bundles in this scenario
-                    batchCore
+                    batchCore,
+                    UUID.randomUUID()
             );
 
             // No patient bundles, but updateCore should still merge the batch.coreBundle()
@@ -240,7 +242,8 @@ class PatientBatchToCoreBundleWriterTest {
 
             ExtractionPatientBatch batch = new ExtractionPatientBatch(
                     Map.of(),
-                    batchCore
+                    batchCore,
+                    UUID.randomUUID()
             );
 
             writer.updateCore(globalCore, batch);

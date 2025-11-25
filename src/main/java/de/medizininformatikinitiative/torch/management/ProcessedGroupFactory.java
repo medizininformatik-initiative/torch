@@ -29,16 +29,17 @@ public class ProcessedGroupFactory {
         List<AnnotatedAttributeGroup> directLoadNotPatientCompartment = new ArrayList<>();
         Map<String, AnnotatedAttributeGroup> allGroups = new HashMap<>();
 
-        crtdl.dataExtraction().attributeGroups().forEach(group -> {
-            if (!group.includeReferenceOnly()) {
-                if (compartment.isInCompartment(group.resourceType())) {
-                    directLoadPatientCompartment.add(group);
-                } else {
-                    directLoadNotPatientCompartment.add(group);
-                }
-            }
-            allGroups.put(group.id(), group);
-        });
+        crtdl.dataExtraction().attributeGroups().stream()
+                .map(AnnotatedAttributeGroup::withTree).forEach(group -> {
+                    if (!group.includeReferenceOnly()) {
+                        if (compartment.isInCompartment(group.resourceType())) {
+                            directLoadPatientCompartment.add(group);
+                        } else {
+                            directLoadNotPatientCompartment.add(group);
+                        }
+                    }
+                    allGroups.put(group.id(), group);
+                });
 
         return new GroupsToProcess(directLoadPatientCompartment, directLoadNotPatientCompartment, allGroups);
     }

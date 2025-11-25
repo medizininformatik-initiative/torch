@@ -101,12 +101,9 @@ class CdsBlackBoxIT {
                         .containsExactlyInAnyOrder(nodeFromValueString("B05.3"), nodeFromValueString("I29578"), nodeFromValueString("13420004")));
 
         assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
-        {
-            System.out.println("Bundle under test: " + bundle);
-            assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-3-diagnose-1").isNotNull()
-                    .extractElementsAt("code.coding.code")
-                    .containsExactlyInAnyOrder(nodeFromValueString("C21.8"), nodeFromValueString("447886005"), nodeFromValueString("I29975"));
-        });
+                assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-3-diagnose-1").isNotNull()
+                        .extractElementsAt("code.coding.code")
+                        .containsExactlyInAnyOrder(nodeFromValueString("C21.8"), nodeFromValueString("447886005"), nodeFromValueString("I29975")));
 
         assertThat(patientBundles).satisfiesOnlyOnce(bundle ->
                 assertThat(bundle).extractResourceById("Condition", "mii-exa-test-data-patient-4-diagnose-1").isNotNull()

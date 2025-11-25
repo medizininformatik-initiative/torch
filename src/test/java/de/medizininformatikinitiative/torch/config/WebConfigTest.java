@@ -13,6 +13,7 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.resources.ConnectionProvider;
 
 import java.io.IOException;
 
@@ -124,7 +125,7 @@ class WebConfigTest {
             var fhirProperties = minimalfhirPropertiesWithBasicAuth(mockWebServer.url("/").toString());
             var appConfig = new WebConfig();
             ExchangeFilterFunction filter = appConfig.oauthExchangeFilterFunction(fhirProperties);
-            WebClient client = appConfig.fhirWebClient(torchProperties(), filter, fhirProperties);
+            WebClient client = appConfig.fhirWebClient(torchProperties(), filter, fhirProperties, ConnectionProvider.newConnection());
             // Perform a request
             client.get()
                     .uri("/fhir/Patient")
@@ -182,7 +183,7 @@ class WebConfigTest {
         var appConfig = new WebConfig();
         ExchangeFilterFunction oauthFilter = appConfig.oauthExchangeFilterFunction(fhirProperties);
 
-        WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties);
+        WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties, ConnectionProvider.newConnection());
         assertThat(client).isNotNull();
         assertThat(fhirProperties.url()).isEqualTo("test-url");
     }

@@ -7,13 +7,14 @@ import org.hl7.fhir.r4.model.Bundle;
 import java.io.IOException;
 import java.io.Writer;
 import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 public record ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundles,
-                                     ExtractionResourceBundle coreBundle) {
+                                     ExtractionResourceBundle coreBundle, java.util.UUID id) {
 
-    public ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundles) {
-        this(bundles, new ExtractionResourceBundle());
+    public ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundles, UUID id) {
+        this(bundles, new ExtractionResourceBundle(), id);
     }
 
     public static ExtractionPatientBatch of(PatientBatchWithConsent patientBatch) {
@@ -24,7 +25,7 @@ public record ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundl
                                 e -> ExtractionResourceBundle.of(e.getValue())   // <-- CORRECT call
                         ));
         ExtractionResourceBundle core = ExtractionResourceBundle.of(patientBatch.coreBundle());
-        return new ExtractionPatientBatch(converted, core);
+        return new ExtractionPatientBatch(converted, core, patientBatch.id());
     }
 
     public Boolean isEmpty() {
