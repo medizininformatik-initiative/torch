@@ -4,13 +4,20 @@ import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.multiStringValue;
+import static java.util.Objects.requireNonNull;
 
-public record PatientBatch(List<String> ids) {
+public record PatientBatch(List<String> ids, UUID batchId) {
 
     public PatientBatch {
         ids = List.copyOf(ids);
+        requireNonNull(batchId);
+    }
+
+    public PatientBatch(List<String> ids) {
+        this(ids, UUID.randomUUID());
     }
 
     public static PatientBatch of(String... ids) {

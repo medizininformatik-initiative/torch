@@ -29,7 +29,7 @@ public class CascadingDelete {
             processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
-
+        
     }
 
     /**

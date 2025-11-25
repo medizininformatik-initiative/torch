@@ -185,7 +185,40 @@ jobs:
 
       - name: Run Blackbox Integration Tests
         run: mvn -P blackbox-integration-tests -B verify
-  
+
+  performance-integration-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Install Blazectl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-release-attachments
+          BLAZECTL_VERSION: v1.3.0
+          BLAZECTL_CHECKSUM: 2e75ddfb9b35d0e78b5dda4d7ae4d08c45037729f5a45affd59ddb7252b75aba
+
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/samply/blaze/main/.github/scripts/install-blazectl.sh -o install-blazectl.sh
+          chmod +x install-blazectl.sh
+          ./install-blazectl.sh
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6
+
+      - name: Start Docker Compose
+        working-directory: .github/workflows/performance-script-integration-with-references
+        run: docker compose up --wait -d
+      - name: Run integration script
+        run: bash .github/workflows/performance-script-integration-with-references/integration-test.sh
   
   script-integration-test:
     needs: build
@@ -197,6 +230,18 @@ jobs:
           name: torch-image
           path: /tmp
 
+      - name: Install Blazectl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-release-attachments
+          BLAZECTL_VERSION: v1.3.0
+          BLAZECTL_CHECKSUM: 2e75ddfb9b35d0e78b5dda4d7ae4d08c45037729f5a45affd59ddb7252b75aba
+
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/samply/blaze/main/.github/scripts/install-blazectl.sh -o install-blazectl.sh
+          chmod +x install-blazectl.sh
+          ./install-blazectl.sh
+
       - name: Load Torch Image
         run: docker load --input /tmp/torch.tar
 
@@ -205,39 +250,53 @@ jobs:
 
       - name: Start Docker Compose
         working-directory: .github/workflows/script-integration-test
-        run: docker compose up -d
-
-      - name: Wait for source-fhir-server to become healthy
-        run: |
-          set -e
-
-          echo "⏳ Waiting for source-fhir-server container to become healthy..."
-
-          # Get the container name (adjust if you're not using default naming)
-          CONTAINER=$(docker ps --filter "name=source-fhir-server" --format "{{.Names}}" | head -n1)
-
-          if [ -z "$CONTAINER" ]; then
-            echo "❌ No container found matching source-fhir-server"
-            docker ps -a
-            exit 1
-          fi
-
-          for i in {1..30}; do
-            STATUS=$(docker inspect --format='{{.State.Health.Status}}' "$CONTAINER" || echo "unavailable")
-            echo "Attempt $i - Status: $STATUS"
-            if [ "$STATUS" == "healthy" ]; then
-              echo "✅ $CONTAINER is healthy"
-              exit 0
-            fi
-            sleep 10
-          done
-
-          echo "❌ $CONTAINER did not become healthy in time"
-          docker logs "$CONTAINER"
-          exit 1
+        run: docker compose up --wait -d
 
       - name: Run integration script
-        run: .github/workflows/script-integration-test/integration-test.sh
+        run: bash .github/workflows/script-integration-test/integration-test.sh
+
+  script-resumeability-test:
+    needs: build
+    runs-on: ubuntu-24.04
+
+    strategy:
+      fail-fast: false
+      matrix:
+        restart_after_seconds: [ 5,30, 60, 90 ]
+
+    name: resumability (restart after ${{ matrix.restart_after_seconds }}s)
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Install Blazectl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-release-attachments
+          BLAZECTL_VERSION: v1.3.0
+          BLAZECTL_CHECKSUM: 2e75ddfb9b35d0e78b5dda4d7ae4d08c45037729f5a45affd59ddb7252b75aba
+
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/samply/blaze/main/.github/scripts/install-blazectl.sh -o install-blazectl.sh
+          chmod +x install-blazectl.sh
+          ./install-blazectl.sh
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@1af3b93b6815bc44a9784bd300feb67ff0d1eeb3 # v6
+
+      - name: Start Docker Compose
+        working-directory: .github/workflows/resume-integration-test
+        run: docker compose up --wait -d
+      - name: Run resumability script
+        run: bash .github/workflows/resume-integration-test/resumable-test.sh
+        env:
+          RESTART_AFTER_SECONDS: ${{ matrix.restart_after_seconds }}
   
   env-var-check:
     needs: build
@@ -270,7 +329,9 @@ jobs:
       - image-scan
       - blackbox-integration-tests
       - script-integration-test
+      - script-resumeability-test
       - env-var-check
+      - performance-integration-test
     runs-on: ubuntu-24.04
     permissions:
       packages: write  # Push to GitHub Container Registry

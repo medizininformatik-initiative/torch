@@ -24,6 +24,7 @@ public class ContainerManager {
 
     public ContainerManager() {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
+                .withPull(false)
                 .withScaledService("blaze", 1).withScaledService("flare", 1)
                 .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))

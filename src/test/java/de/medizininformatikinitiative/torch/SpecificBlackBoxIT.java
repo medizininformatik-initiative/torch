@@ -93,12 +93,11 @@ class SpecificBlackBoxIT {
 
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_" + testName + ".json")).block();
         assertThat(statusUrl).isNotNull();
-
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
-
         var coreBundles = statusResponse.coreBundleUrl().stream().flatMap(fileServerClient::fetchBundles).toList();
         var patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
+
 
         assertThat(coreBundles).isEmpty();
         assertThat(patientBundles).hasSize(1);
@@ -142,7 +141,6 @@ class SpecificBlackBoxIT {
         uploadTestData(testName);
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_" + testName + ".json")).block();
         assertThat(statusUrl).isNotNull();
-
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
 
@@ -157,6 +155,7 @@ class SpecificBlackBoxIT {
 
     @AfterEach
     void cleanup() {
-        blazeClient.deleteResources(Set.of("List", "Condition", "Encounter", "Patient"));
+        blazeClient.deleteResources(Set.of("List", "Condition", "Encounter", "Patient", "Observation", "Measure",
+                "MeasureReport"));
     }
 }

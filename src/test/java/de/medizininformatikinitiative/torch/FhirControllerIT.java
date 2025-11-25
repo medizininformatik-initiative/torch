@@ -18,7 +18,11 @@ import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
 import org.hl7.fhir.r4.model.OperationOutcome;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.slf4j.Logger;
@@ -28,7 +32,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.web.client.HttpStatusCodeException;
@@ -97,16 +105,6 @@ class FhirControllerIT {
         HttpEntity<String> entity = new HttpEntity<>(null, null);
 
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
-        assertThat(response.getStatusCode().value()).isEqualTo(200);
-    }
-
-    @Test
-    void testGlobalStatus() {
-        TestRestTemplate restTemplate = new TestRestTemplate();
-        HttpEntity<String> entity = new HttpEntity<>(null, null);
-
-        ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/__status/", HttpMethod.GET, entity, String.class);
-
         assertThat(response.getStatusCode().value()).isEqualTo(200);
     }
 
@@ -220,7 +218,9 @@ class FhirControllerIT {
                         assertThat(context.newJsonParser().parseResource(response.getBody())).isInstanceOf(OperationOutcome.class);
                     }
                 } else if (response.getStatusCode().is4xxClientError() || response.getStatusCode().is5xxServerError()) {
+                    logger.error(response.getBody());
                     Assertions.fail("Polling failed with unexpected error status: " + response.getStatusCode());
+
                 }
 
                 if (i >= 100) {

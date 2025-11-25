@@ -1,7 +1,7 @@
 services:
   # many of the settings are set to get Blaze as slow as possible
   blaze:
-    image: samply/blaze:main
+    image: samply/blaze:1.4.2@sha256:c5388a0ab18c6cb6686444f97273a2ab75b1908471bd9259c5463312c65aed3b
     environment:
       BASE_URL: http://blaze:8080
       LOG_LEVEL: debug
@@ -63,6 +63,7 @@ services:
       TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
       TORCH_USECQL: true
       JAVA_TOOL_OPTIONS: -Xmx4g
+      UMASK: "0022"
     volumes:
       - torch-data-store:/app/output
 

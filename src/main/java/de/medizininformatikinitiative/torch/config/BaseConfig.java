@@ -3,25 +3,26 @@ package de.medizininformatikinitiative.torch.config;
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
-import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
+import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
+import de.medizininformatikinitiative.torch.jobhandling.FileIo;
+import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
-import de.medizininformatikinitiative.torch.service.BatchCopierRedacter;
-import de.medizininformatikinitiative.torch.service.CascadingDelete;
-import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
+import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.service.DirectResourceLoader;
+import de.medizininformatikinitiative.torch.service.ExtractDataService;
+import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWriter;
 import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
-import de.medizininformatikinitiative.torch.service.ReferenceResolver;
 import de.medizininformatikinitiative.torch.util.ResourceReader;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
@@ -37,7 +38,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.File;
 import java.io.IOException;
-import java.time.Clock;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -60,10 +60,20 @@ public class BaseConfig {
         return FhirContext.forR4();
     }
 
+
+    @Bean
+    public JobExecutionContext jobExecutionContext(JobPersistenceService persistence,
+                                                   ExtractDataService extractDataService,
+                                                   CohortQueryService cohortQueryService, TorchProperties properties) {
+        return new JobExecutionContext(persistence, extractDataService, cohortQueryService, properties.batchsize(), 5, 2);
+    }
+
     @Bean
     public ObjectMapper objectMapper() {
         ObjectMapper mapper = new ObjectMapper();
-        mapper.registerModule(new JavaTimeModule());
+        mapper.registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module())
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
         return mapper;
     }
 
@@ -78,6 +88,10 @@ public class BaseConfig {
         return new CompartmentManager("compartmentdefinition-patient.json");
     }
 
+    @Bean
+    FileIo fileIO() {
+        return new DefaultFileIO();
+    }
     // ----------------------------------------------------------------------
     // CONSENT
     // ----------------------------------------------------------------------
@@ -179,13 +193,11 @@ public class BaseConfig {
 
     @Bean
     public ResultFileManager resultFileManager(FhirContext fhirContext,
-                                               TorchProperties torchProperties) throws IOException {
+                                               TorchProperties torchProperties, FileIo fileIo) {
         return new ResultFileManager(
                 torchProperties.results().dir(),
-                torchProperties.results().persistence(),
                 fhirContext,
-                torchProperties.base().url(),
-                torchProperties.output().file().server().url()
+                fileIo
         );
     }
 
@@ -221,38 +233,11 @@ public class BaseConfig {
     // ----------------------------------------------------------------------
 
     @Bean
-    public CrtdlProcessingService crtdlProcessingService(
-            @Qualifier("flareClient") WebClient flareClient,
-            Translator cqlQueryTranslator,
-            CqlClient cqlClient,
-            ResultFileManager resultFileManager,
-            ProcessedGroupFactory processedGroupFactory,
-            DirectResourceLoader directResourceLoader,
-            ReferenceResolver referenceResolver,
-            BatchCopierRedacter batchCopierRedacter,
-            CascadingDelete cascadingDelete,
-            PatientBatchToCoreBundleWriter writer,
-            ConsentHandler consentHandler,
-            TorchProperties torchProperties
-    ) {
-        return new CrtdlProcessingService(
-                flareClient,
-                cqlQueryTranslator,
-                cqlClient,
-                resultFileManager,
-                processedGroupFactory,
-                torchProperties.batchsize(),
-                torchProperties.useCql(),
-                directResourceLoader,
-                referenceResolver,
-                batchCopierRedacter,
-                torchProperties.maxConcurrency(),
-                cascadingDelete,
-                writer,
-                consentHandler
-        );
+    CohortQueryService queryService(@Qualifier("flareClient") WebClient webClient,
+                                    Translator cqlQueryTranslator,
+                                    CqlClient cqlClient, TorchProperties properties) {
+        return new CohortQueryService(webClient, cqlQueryTranslator, cqlClient, properties.useCql());
     }
-
     // ----------------------------------------------------------------------
     // UTIL
     // ----------------------------------------------------------------------
@@ -260,10 +245,5 @@ public class BaseConfig {
     @Bean
     public ExecutorService executorService() {
         return Executors.newCachedThreadPool();
-    }
-
-    @Bean
-    public Clock systemClock() {
-        return Clock.systemDefaultZone();
     }
 }

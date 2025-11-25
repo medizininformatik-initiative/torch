@@ -86,7 +86,7 @@ public class CrtdlConsentValidator {
     /**
      * Validates that exclusion criteria do NOT contain any Einwilligung consent codes.
      *
-     * @param cohortDefinition the JSON definition of the cohort
+     * @param cohortDefinition the JSON definition of the cohortQueryService
      * @throws ConsentFormatException if any Einwilligung consent codes are found in exclusions
      */
     private void validateExclusionCriteria(JsonNode cohortDefinition) throws ConsentFormatException {

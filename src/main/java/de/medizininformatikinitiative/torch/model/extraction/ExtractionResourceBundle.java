@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.extraction;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -11,6 +12,8 @@ import org.hl7.fhir.r4.model.Provenance;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
+import java.io.IOException;
+import java.io.Writer;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -87,7 +90,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
     }
 
     public boolean isEmpty() {
-        return extractionInfoMap.isEmpty();
+        return extractionInfoMap.isEmpty() || cache.isEmpty();
     }
 
     public ExtractionResourceBundle merge(ExtractionResourceBundle other) {
@@ -104,6 +107,22 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
                 newCache);
     }
 
+    /**
+     * Returns all resource IDs that exist in the extraction metadata
+     * but have no resolved entry in the cache or contain Optional.empty().
+     *
+     * @return set of missing resourceIds
+     */
+    public Set<String> missingCacheEntries() {
+        Set<String> keys = Set.copyOf(extractionInfoMap.keySet());
+
+        return keys.stream()
+                .filter(id -> {
+                    var value = cache.get(id);
+                    return value == null || value.isEmpty();
+                })
+                .collect(Collectors.toSet());
+    }
 
     public Bundle toFhirBundle(String extractionId) {
         Bundle bundle = new Bundle();
@@ -210,5 +229,10 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
         );
 
         return p;
+    }
+
+    public void writeToFhirBundle(FhirContext fhirContext, Writer out, String extractionId) throws IOException {
+        fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(this.toFhirBundle(extractionId), out);
+        out.append("\n");
     }
 }

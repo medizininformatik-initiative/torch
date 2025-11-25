@@ -102,7 +102,7 @@ public class BatchCopierRedacter {
             AnnotatedAttributeGroup group = groupMap.get(groupId);
             if (group != null) {
                 groupProfiles.add(group.groupReference());
-                copyTree = copyTree.merged(group.copyTree());
+                copyTree = copyTree.merged(group.copyTree().get());
             }
         }
 

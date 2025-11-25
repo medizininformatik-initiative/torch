@@ -20,7 +20,6 @@ import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.experimental.runners.Enclosed;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -37,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,18 +97,18 @@ public class ReferenceResolverIT {
         private Organization createOrganization(String orgId, String partOfId) {
             var org = (Organization) new Organization()
                     .setId(orgId)
-                    .setMeta(new Meta().setProfile(List.of((CanonicalType)new CanonicalType().setValue(ORGANIZATION_PROFILE))));
+                    .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(ORGANIZATION_PROFILE))));
             if (partOfId != null) {
                 org.setPartOf(new Reference(partOfId));
             }
             return org;
         }
 
-        private Medication createMedication(String medId, String orgId) {
+        private Medication createMedication() {
             var med = new Medication()
-                    .setManufacturer(new Reference(orgId))
-                    .setId(medId)
-                    .setMeta(new Meta().setProfile(List.of((CanonicalType)new CanonicalType().setValue(MEDICATION_PROFILE))));
+                    .setManufacturer(new Reference(ResolveCoreBundle.ORG_ID_1))
+                    .setId(ResolveCoreBundle.MED_ID_1)
+                    .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(MEDICATION_PROFILE))));
 
             return (Medication) med;
         }
@@ -117,7 +117,7 @@ public class ReferenceResolverIT {
         void testNestedResolve() {
             var org_1 = createOrganization(ORG_ID_1, ORG_ID_2);
             var org_2 = createOrganization(ORG_ID_2, null).setName("name-83849");
-            var med = createMedication(MED_ID_1, ORG_ID_1);
+            var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 return Mono.just(returnResourcesByQuery(queryBundle, org_1, org_2, med));
@@ -158,7 +158,7 @@ public class ReferenceResolverIT {
         @Test
         void testSameLinkedGroupTwice() {
             var org_1 = createOrganization(ORG_ID_1, null);
-            var med = createMedication(MED_ID_1, ORG_ID_1);
+            var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 return Mono.just(returnResourcesByQuery(queryBundle, org_1, med));
@@ -196,7 +196,7 @@ public class ReferenceResolverIT {
         void testNestedInvalid() {
             var org_1 = createOrganization(ORG_ID_1, ORG_ID_2);
             var org_2 = createOrganization(ORG_ID_2, null); // has no name but name is set to must-have=true -> invalid
-            var med = createMedication(MED_ID_1, ORG_ID_1);
+            var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 return Mono.just(returnResourcesByQuery(queryBundle, org_1, org_2, med));
@@ -266,23 +266,23 @@ public class ReferenceResolverIT {
         public static final CodeableConcept COND_CODE = new CodeableConcept().addCoding(new Coding("sys-725", "code-450", "some display"));
 
 
-        private Encounter createEncounter(String encId, String subjectId, String partOfId) {
+        private Encounter createEncounter(String encId, String partOfId) {
             var enc = (Encounter) new Encounter()
-                    .setSubject(new Reference(subjectId))
+                    .setSubject(new Reference(ResolvePatientBundle.PAT_ID_1))
                     .setId(encId)
-                    .setMeta(new Meta().setProfile(List.of((CanonicalType)new CanonicalType().setValue(ENCOUNTER_PROFILE))));
+                    .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(ENCOUNTER_PROFILE))));
             if (partOfId != null) {
                 enc.setPartOf(new Reference(partOfId));
             }
             return enc;
         }
 
-        private Condition createCondition(String condId, String subjectId, String encId) {
+        private Condition createCondition(String condId) {
             var cond = new Condition()
-                    .setSubject(new Reference(subjectId))
-                    .setEncounter(new Reference(encId))
+                    .setSubject(new Reference(ResolvePatientBundle.PAT_ID_1))
+                    .setEncounter(new Reference(ResolvePatientBundle.ENC_ID_1))
                     .setId(condId)
-                    .setMeta(new Meta().setProfile(List.of((CanonicalType)new CanonicalType().setValue(CONDITION_PROFILE))));
+                    .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(CONDITION_PROFILE))));
 
             return (Condition) cond;
         }
@@ -290,7 +290,7 @@ public class ReferenceResolverIT {
         private Patient createPatient(String patId) {
             var pat = new Patient()
                     .setId(patId)
-                    .setMeta(new Meta().setProfile(List.of((CanonicalType)new CanonicalType().setValue(PATIENT_PROFILE))));
+                    .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(PATIENT_PROFILE))));
 
             return (Patient) pat;
         }
@@ -302,9 +302,9 @@ public class ReferenceResolverIT {
         @Test
         void testNested() {
             var pat = createPatient(PAT_ID_1);
-            var enc_1 = createEncounter(ENC_ID_1, PAT_ID_1, ENC_ID_2);
-            var enc_2 = createEncounter(ENC_ID_2, PAT_ID_1, null).setStatus(Encounter.EncounterStatus.ARRIVED);
-            var cond = createCondition(COND_ID_1, PAT_ID_1, ENC_ID_1);
+            var enc_1 = createEncounter(ENC_ID_1, ENC_ID_2);
+            var enc_2 = createEncounter(ENC_ID_2, null).setStatus(Encounter.EncounterStatus.ARRIVED);
+            var cond = createCondition(COND_ID_1);
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 var list = returnResourcesByQuery(queryBundle, enc_1, enc_2, cond, pat);
@@ -317,7 +317,7 @@ public class ReferenceResolverIT {
             patBundles.get(stripType(PAT_ID_1)).bundle().put(cond);
             patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
             patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(cond, COND_GROUP), true);
-            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle);
+            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
             AnnotatedAttribute cond_encounter = new AnnotatedAttribute(ENCOUNTER_PATH, ENCOUNTER_PATH, false, List.of(LINKED_GROUP_1));
@@ -359,9 +359,9 @@ public class ReferenceResolverIT {
         @Test
         void testTwoRefsSameLevel() {
             var pat = createPatient(PAT_ID_1);
-            var enc = createEncounter(ENC_ID_1, PAT_ID_1, null);
-            var cond_1 = createCondition(COND_ID_1, PAT_ID_1, ENC_ID_1).setCode(COND_CODE);
-            var cond_2 = createCondition(COND_ID_2, PAT_ID_1, ENC_ID_1).setCode(COND_CODE);
+            var enc = createEncounter(ENC_ID_1, null);
+            var cond_1 = createCondition(COND_ID_1).setCode(COND_CODE);
+            var cond_2 = createCondition(COND_ID_2).setCode(COND_CODE);
             enc.setReasonReference(List.of(new Reference(COND_ID_1), new Reference(COND_ID_2)));
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
@@ -375,15 +375,15 @@ public class ReferenceResolverIT {
             patBundles.get(stripType(PAT_ID_1)).bundle().put(enc);
             patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
             patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(enc, ENC_GROUP), true);
-            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle);
+            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
-            AnnotatedAttribute enc_reason = new AnnotatedAttribute(REASON_PATH, REASON_PATH, false, List.of(LINKED_GROUP_1));
-            AnnotatedAttribute cond_code = new AnnotatedAttribute(CODE_PATH, CODE_PATH, false, List.of());
+            AnnotatedAttribute encReason = new AnnotatedAttribute(REASON_PATH, REASON_PATH, false, List.of(LINKED_GROUP_1));
+            AnnotatedAttribute condCode = new AnnotatedAttribute(CODE_PATH, CODE_PATH, false, List.of());
             AnnotatedAttributeGroup linkedCondAG = new AnnotatedAttributeGroup(AG_1, CONDITION_TYPE,
-                    CONDITION_PROFILE, List.of(cond_code), List.of());
+                    CONDITION_PROFILE, List.of(condCode), List.of());
             AnnotatedAttributeGroup encAG = new AnnotatedAttributeGroup(AG_2, ENCOUNTER_TYPE,
-                    ENCOUNTER_PROFILE, List.of(enc_reason), List.of());
+                    ENCOUNTER_PROFILE, List.of(encReason), List.of());
             AnnotatedAttributeGroup patAG = new AnnotatedAttributeGroup(AG_3, PATIENT_TYPE,
                     PATIENT_PROFILE, List.of(), List.of());
             groupMap.put(ENC_GROUP, encAG);

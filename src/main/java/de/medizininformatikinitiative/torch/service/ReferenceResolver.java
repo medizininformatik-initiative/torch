@@ -30,7 +30,10 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
- * Service class responsible for resolving references within a PatientResourceBundle and the CoreBundle.
+ * Resolves inter-resource references for patient and core bundles.
+ * <p>
+ * References are extracted, fetched if missing, cached into bundles,
+ * and validated according to attribute-group and compartment rules.
  */
 @Component
 public class ReferenceResolver {
@@ -57,6 +60,13 @@ public class ReferenceResolver {
         this.bundleLoader = bundleLoader;
     }
 
+    /**
+     * Resolves references for the core bundle.
+     *
+     * @param coreBundle core resource bundle to resolve
+     * @param groupMap   attribute-group definitions
+     * @return the resolved core bundle
+     */
     Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         return Mono.just(coreBundle.getValidResourceGroups())
                 .map(groups -> groups.stream()
@@ -69,6 +79,13 @@ public class ReferenceResolver {
 
     }
 
+    /**
+     * Resolves references for all patient bundles in a batch.
+     *
+     * @param batch    patient batch including bundles and consent state
+     * @param groupMap attribute-group definitions
+     * @return resolved patient batch
+     */
     Mono<PatientBatchWithConsent> resolvePatientBatch(
             PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         var RGsPerPat = batch.bundles().entrySet().stream().map(entry ->
@@ -80,9 +97,17 @@ public class ReferenceResolver {
 
         // use expand only to recursively resolve in place (mutating the bundles) -> ignoring the return value
         return Mono.just(RGsPerPat).expand(f -> resolveUnknownPatientBatchRefs(f, batch, groupMap))
-                .then(Mono.just(new PatientBatchWithConsent(batch.bundles(), batch.applyConsent(), batch.coreBundle())));
+                .then(Mono.just(new PatientBatchWithConsent(batch.bundles(), batch.applyConsent(), batch.coreBundle(), batch.id())));
     }
 
+    /**
+     * Resolves unknown references for core resource groups.
+     *
+     * @param coreRGs    core resource groups to resolve
+     * @param coreBundle core bundle
+     * @param groupMap   attribute-group definitions
+     * @return newly discovered resource groups to resolve next
+     */
     public Flux<Set<ResourceGroup>> resolveUnknownCoreRefs(
             Set<ResourceGroup> coreRGs,
             ResourceBundle coreBundle,
@@ -125,17 +150,35 @@ public class ReferenceResolver {
      * @param batch          the batch containing the patient bundles and core bundle to put cache the resources in
      * @return the unchanged resources for further processing
      */
-    private List<Resource> cacheNewResourcesFromPatient(List<Resource> resources,
-                                                        Map<ReferenceWrapper, String> refToPatHelper,
-                                                        PatientBatchWithConsent batch) {
-        return resources.stream().peek(resource -> {
-            refToPatHelper.forEach((wrapper, patID) -> wrapper.references().forEach(unknownRef -> {
-                if (unknownRef.equals(resource.getResourceType() + "/" + resource.getIdPart())) {
-                    bundleLoader.cacheSearchResults(batch.bundles().get(patID), batch.coreBundle(), batch.applyConsent(), resource);
-                }
+    private List<Resource> cacheNewResourcesFromPatient(
+            List<Resource> resources,
+            Map<ReferenceWrapper, String> refToPatHelper,
+            PatientBatchWithConsent batch
+    ) {
+        // Build ref -> patientId map once (if ref belongs to exactly one patient)
+        Map<String, String> refToPatient = refToPatHelper.entrySet().stream()
+                .flatMap(e -> e.getKey().references().stream()
+                        .map(ref -> Map.entry(ref, e.getValue())))
+                .collect(java.util.stream.Collectors.toMap(
+                        Map.Entry::getKey,
+                        Map.Entry::getValue,
+                        (a, b) -> a // if duplicates exist, keep first (or handle differently)
+                ));
 
-            }));
-        }).toList();
+        resources.stream().forEach(resource -> {
+            String ref = resource.getResourceType() + "/" + resource.getIdPart();
+            String patID = refToPatient.get(ref);
+            if (patID != null) {
+                bundleLoader.cacheSearchResults(
+                        batch.bundles().get(patID),
+                        batch.coreBundle(),
+                        batch.applyConsent(),
+                        resource
+                );
+            }
+        });
+
+        return resources;
     }
 
     /**
@@ -207,7 +250,8 @@ public class ReferenceResolver {
     }
 
     private List<Resource> cacheNewCoreResources(List<Resource> fetchedResources, ResourceBundle coreBundle) {
-        return fetchedResources.stream().peek(resource -> bundleLoader.cacheSearchResults(null, coreBundle, false, resource)).toList();
+        fetchedResources.forEach(r -> bundleLoader.cacheSearchResults(null, coreBundle, false, r));
+        return fetchedResources;
     }
 
     private void logMissingRefs(Set<String> missingRefs) {
@@ -344,7 +388,7 @@ public class ReferenceResolver {
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        return resourceGroups.stream()
+        return resourceGroups.parallelStream()
                 .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap))
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(Collectors.toMap(

@@ -9,7 +9,7 @@ import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-class ResourceGroupWrapperTest {
+class ResourceGroupRelationWrapperTest {
 
     Patient patient1 = new Patient();
     Patient patient2 = new Patient();

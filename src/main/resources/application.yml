@@ -54,3 +54,5 @@ logging:
 spring:
   profiles:
     active: active
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
