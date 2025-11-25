@@ -109,7 +109,7 @@ class ReferenceResolveBlackBoxIT {
                 .allSatisfy(
 
                         r -> assertThat(r).extractTopElementNames()
-                                .containsExactlyInAnyOrder("resourceType", "id", "target", "occurredPeriod", "agent", "entity")));
+                                .containsExactlyInAnyOrder("resourceType", "id", "target", "recorded", "occurredPeriod", "agent", "entity")));
 
         // all Encounter in all patient bundles must have the given top fields and have at least one reference in diagnosis.condition
         assertThat(patientBundles).allSatisfy(b -> assertThat(b).extractResourcesByType(ResourceType.Encounter)
