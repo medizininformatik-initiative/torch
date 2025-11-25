@@ -8,7 +8,7 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -45,7 +45,7 @@ public class ReferenceBundleLoader {
 
 
     public Mono<Void> fetchUnknownResources(
-            Map<ResourceGroup, List<ReferenceWrapper>> extractedReferences,
+            Map<ResourceGroupRelation, List<ReferenceWrapper>> extractedReferences,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle, boolean applyConsent) {
 
@@ -114,7 +114,7 @@ public class ReferenceBundleLoader {
 
 
     public Set<String> findUnloadedReferences(
-            Map<ResourceGroup, List<ReferenceWrapper>> referencesWrappers,
+            Map<ResourceGroupRelation, List<ReferenceWrapper>> referencesWrappers,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle) {
 

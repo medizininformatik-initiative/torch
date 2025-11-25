@@ -77,7 +77,7 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
         bundle.put(resourceReference);
     }
 
-    public Set<ResourceGroup> getValidResourceGroups() {
+    public Set<ResourceGroupRelation> getValidResourceGroups() {
         return bundle.getValidResourceGroups();
     }
 }

@@ -3,7 +3,11 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,11 +26,11 @@ class PatientBatchToCoreBundleWriterTest {
     private CompartmentManager compartmentManager;
     private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", false);
     private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", false);
-    private final ResourceGroup patientGroup = new ResourceGroup("Patient/123", "Group1");
+    private final ResourceGroupRelation patientGroup = new ResourceGroupRelation("Patient/123", "Group1");
     private final ResourceAttribute attribute = new ResourceAttribute("attribute1", annotatedAttribute1);
     private final ResourceAttribute attribute2 = new ResourceAttribute("attribute2", annotatedAttribute1);
-    private final ResourceGroup medicationGroup = new ResourceGroup("Medication/123", "Group1");
-    private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/321", "Group1");
+    private final ResourceGroupRelation medicationGroup = new ResourceGroupRelation("Medication/123", "Group1");
+    private final ResourceGroupRelation medicationGroup2 = new ResourceGroupRelation("Medication/321", "Group1");
     private ResourceBundle patientBundle;
 
     @BeforeEach
@@ -41,7 +45,7 @@ class PatientBatchToCoreBundleWriterTest {
 
         @Test
         void OnlyPatientAttribute() {
-            ResourceGroup group = new ResourceGroup("Patient/123", "Group1");
+            ResourceGroupRelation group = new ResourceGroupRelation("Patient/123", "Group1");
 
             patientBundle.addResourceGroupValidity(group, true);
             patientBundle.addAttributeToParent(attribute, patientGroup);
@@ -93,17 +97,17 @@ class PatientBatchToCoreBundleWriterTest {
         void PatientResourceReferencesMedicationGroupThatReferencesAnotherMedicationGroup() {
             ResourceBundle patientBundle = new ResourceBundle();
 
-            ResourceGroup patientGroup1 = new ResourceGroup("Patient/101", "GroupA");
-            ResourceGroup patientGroup2 = new ResourceGroup("Patient/102", "GroupA");
+            ResourceGroupRelation patientGroup1 = new ResourceGroupRelation("Patient/101", "GroupA");
+            ResourceGroupRelation patientGroup2 = new ResourceGroupRelation("Patient/102", "GroupA");
 
             ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Will be removed
             ResourceAttribute attribute2 = new ResourceAttribute("attr2", annotatedAttribute1); // Will survive
             ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2);
             ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2);// Will survive
 
-            ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-            ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-            ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
+            ResourceGroupRelation medicationGroup1 = new ResourceGroupRelation("Medication/201", "GroupA");
+            ResourceGroupRelation medicationGroup2 = new ResourceGroupRelation("Medication/202", "GroupA");
+            ResourceGroupRelation organizationGroup = new ResourceGroupRelation("Organization/501", "GroupX");
 
             // Patient 1 references Medication 201 (should be removed)
             patientBundle.addAttributeToParent(attribute1, patientGroup1);
@@ -168,17 +172,17 @@ class PatientBatchToCoreBundleWriterTest {
             ResourceBundle patientBundle1 = new ResourceBundle();
             ResourceBundle patientBundle2 = new ResourceBundle();
 
-            ResourceGroup patientGroup1 = new ResourceGroup("Patient/101", "GroupA");
-            ResourceGroup patientGroup2 = new ResourceGroup("Patient/102", "GroupA");
+            ResourceGroupRelation patientGroup1 = new ResourceGroupRelation("Patient/101", "GroupA");
+            ResourceGroupRelation patientGroup2 = new ResourceGroupRelation("Patient/102", "GroupA");
 
             ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Will be removed
             ResourceAttribute attribute2 = new ResourceAttribute("attr2", annotatedAttribute1); // Will survive
             ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Will survive
             ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Will survive
 
-            ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-            ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-            ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
+            ResourceGroupRelation medicationGroup1 = new ResourceGroupRelation("Medication/201", "GroupA");
+            ResourceGroupRelation medicationGroup2 = new ResourceGroupRelation("Medication/202", "GroupA");
+            ResourceGroupRelation organizationGroup = new ResourceGroupRelation("Organization/501", "GroupX");
 
             // Patient 1 references Medication 201 (should be removed)
             patientBundle1.addAttributeToParent(attribute1, patientGroup1);
@@ -257,17 +261,17 @@ class PatientBatchToCoreBundleWriterTest {
             ResourceBundle patientBundle2 = new ResourceBundle();
             ResourceBundle patientBundle3 = new ResourceBundle();
 
-            ResourceGroup patientGroup1 = new ResourceGroup("Patient/101", "GroupA");
-            ResourceGroup patientGroup2 = new ResourceGroup("Patient/102", "GroupA");
-            ResourceGroup patientGroup3 = new ResourceGroup("Patient/103", "GroupB");
+            ResourceGroupRelation patientGroup1 = new ResourceGroupRelation("Patient/101", "GroupA");
+            ResourceGroupRelation patientGroup2 = new ResourceGroupRelation("Patient/102", "GroupA");
+            ResourceGroupRelation patientGroup3 = new ResourceGroupRelation("Patient/103", "GroupB");
 
             ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1);
             ResourceAttribute attribute2 = new ResourceAttribute("attr2", annotatedAttribute1);
             ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2);
 
-            ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-            ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-            ResourceGroup medicationGroup3 = new ResourceGroup("Medication/203", "GroupB");
+            ResourceGroupRelation medicationGroup1 = new ResourceGroupRelation("Medication/201", "GroupA");
+            ResourceGroupRelation medicationGroup2 = new ResourceGroupRelation("Medication/202", "GroupA");
+            ResourceGroupRelation medicationGroup3 = new ResourceGroupRelation("Medication/203", "GroupB");
 
             patientBundle1.addAttributeToParent(attribute1, patientGroup1);
             patientBundle1.addAttributeToChild(attribute1, medicationGroup1);

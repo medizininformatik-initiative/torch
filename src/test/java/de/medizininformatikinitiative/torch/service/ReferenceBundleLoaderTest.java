@@ -7,7 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -57,8 +57,8 @@ class ReferenceBundleLoaderTest {
                 .thenReturn(Mono.error(new RuntimeException("Something went wrong")));
 
         // Prepare input
-        Map<ResourceGroup, List<ReferenceWrapper>> extractedReferences = Map.of(
-                new ResourceGroup("Patient", "Group1"), List.of(referenceWrapper)
+        Map<ResourceGroupRelation, List<ReferenceWrapper>> extractedReferences = Map.of(
+                new ResourceGroupRelation("Patient", "Group1"), List.of(referenceWrapper)
         );
 
         PatientResourceBundle patientBundle = new PatientResourceBundle("Patient1");
@@ -113,14 +113,14 @@ class ReferenceBundleLoaderTest {
 
     @Nested
     class GetUnloadedRefs {
-        Map<ResourceGroup, List<ReferenceWrapper>> groupReferenceMap;
+        Map<ResourceGroupRelation, List<ReferenceWrapper>> groupReferenceMap;
 
         @BeforeEach
         void setUp() {
             groupReferenceMap = new HashMap<>();
 
 
-            groupReferenceMap.put(new ResourceGroup("Encounter/123", "Encounter1"), List.of(referenceWrapper));
+            groupReferenceMap.put(new ResourceGroupRelation("Encounter/123", "Encounter1"), List.of(referenceWrapper));
         }
 
         @Test

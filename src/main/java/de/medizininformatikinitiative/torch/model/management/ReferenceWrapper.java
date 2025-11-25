@@ -17,8 +17,8 @@ public record ReferenceWrapper(AnnotatedAttribute refAttribute,
     /**
      * @return the ResourceGroup fron which the reference was extracted
      */
-    public ResourceGroup toResourceGroup() {
-        return new ResourceGroup(resourceId, groupId);
+    public ResourceGroupRelation toResourceGroup() {
+        return new ResourceGroupRelation(resourceId, groupId);
     }
 
 

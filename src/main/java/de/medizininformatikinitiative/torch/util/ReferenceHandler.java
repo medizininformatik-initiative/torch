@@ -6,7 +6,7 @@ import de.medizininformatikinitiative.torch.model.management.PatientResourceBund
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,7 +32,7 @@ public class ReferenceHandler {
 
     }
 
-    private static Flux<List<ResourceGroup>> checkReferenceViolatesMustHave(ReferenceWrapper referenceWrapper, List<ResourceGroup> list, ResourceBundle processingBundle) {
+    private static Flux<List<ResourceGroupRelation>> checkReferenceViolatesMustHave(ReferenceWrapper referenceWrapper, List<ResourceGroupRelation> list, ResourceBundle processingBundle) {
         ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
         if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
             processingBundle.setResourceAttributeInValid(referenceAttribute);
@@ -51,13 +51,13 @@ public class ReferenceHandler {
      * @param groupMap      cache containing all known attributeGroups
      * @return newly added ResourceGroups to be processed
      */
-    public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
-                                                @Nullable PatientResourceBundle patientBundle,
-                                                ResourceBundle coreBundle,
-                                                Map<String, AnnotatedAttributeGroup> groupMap,
-                                                Set<ResourceGroup> knownGroups) throws MustHaveViolatedException {
+    public Flux<ResourceGroupRelation> handleReferences(List<ReferenceWrapper> references,
+                                                        @Nullable PatientResourceBundle patientBundle,
+                                                        ResourceBundle coreBundle,
+                                                        Map<String, AnnotatedAttributeGroup> groupMap,
+                                                        Set<ResourceGroupRelation> knownGroups) throws MustHaveViolatedException {
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
-        ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
+        ResourceGroupRelation parentGroup = new ResourceGroupRelation(references.getFirst().resourceId(), references.getFirst().groupId());
 
         List<ReferenceWrapper> unprocessedReferences = filterUnprocessedReferences(references, processingBundle);
         return Flux.fromIterable(unprocessedReferences)
@@ -88,14 +88,14 @@ public class ReferenceHandler {
      * @param groupMap         Map of attribute groups for validation.
      * @return A Flux emitting a list of ResourceGroups corresponding to the resolved references.
      */
-    public Flux<List<ResourceGroup>> handleReference(ReferenceWrapper referenceWrapper,
-                                                     @Nullable PatientResourceBundle patientBundle,
-                                                     ResourceBundle coreBundle,
-                                                     Map<String, AnnotatedAttributeGroup> groupMap) {
+    public Flux<List<ResourceGroupRelation>> handleReference(ReferenceWrapper referenceWrapper,
+                                                             @Nullable PatientResourceBundle patientBundle,
+                                                             ResourceBundle coreBundle,
+                                                             Map<String, AnnotatedAttributeGroup> groupMap) {
 
         ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
 
-        List<ResourceGroup> allValidGroups = referenceWrapper.references()
+        List<ResourceGroupRelation> allValidGroups = referenceWrapper.references()
                 .stream()
                 .map(reference -> {
                     if (patientBundle != null && patientBundle.contains(reference)) {
@@ -124,10 +124,10 @@ public class ReferenceHandler {
      * @param processingBundle bundle that is currently processed
      * @return ResourceGroup if previously unknown and assignable to the group.
      */
-    private List<ResourceGroup> collectValidGroups(ReferenceWrapper referenceWrapper, Map<String, AnnotatedAttributeGroup> groupMap, Resource resource, ResourceBundle processingBundle) {
+    private List<ResourceGroupRelation> collectValidGroups(ReferenceWrapper referenceWrapper, Map<String, AnnotatedAttributeGroup> groupMap, Resource resource, ResourceBundle processingBundle) {
         return referenceWrapper.refAttribute().linkedGroups().stream()
                 .map(groupId -> {
-                    ResourceGroup resourceGroup = new ResourceGroup(ResourceUtils.getRelativeURL(resource), groupId);
+                    ResourceGroupRelation resourceGroup = new ResourceGroupRelation(ResourceUtils.getRelativeURL(resource), groupId);
                     Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
                     if (isValid == null) {
                         AnnotatedAttributeGroup group = groupMap.get(groupId);
@@ -161,7 +161,7 @@ public class ReferenceHandler {
 
         for (ReferenceWrapper reference : references) {
             ResourceAttribute resourceAttribute = reference.toResourceAttributeGroup();
-            ResourceGroup parentGroup = reference.toResourceGroup();
+            ResourceGroupRelation parentGroup = reference.toResourceGroup();
 
             Boolean isValid = processingBundle.resourceAttributeValidity().get(resourceAttribute);
             processingBundle.addAttributeToParent(resourceAttribute, parentGroup);

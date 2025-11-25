@@ -6,7 +6,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -22,12 +22,12 @@ class CascadingDeleteTest {
 
     private ResourceBundle coreResourceBundle;
     private ResourceAttribute resourceAttribute;
-    private ResourceGroup resourceGroup;
+    private ResourceGroupRelation resourceGroup;
     private ResourceAttribute resourceAttribute2;
-    private ResourceGroup resourceGroup2;
+    private ResourceGroupRelation resourceGroup2;
     private ResourceAttribute resourceAttribute3;
-    private ResourceGroup parentResourceGroup1;
-    private ResourceGroup parentResourceGroup2;
+    private ResourceGroupRelation parentResourceGroup1;
+    private ResourceGroupRelation parentResourceGroup2;
     private CascadingDelete cascadingDelete;
     private Map<String, AnnotatedAttributeGroup> groupMap;
 
@@ -39,10 +39,10 @@ class CascadingDeleteTest {
         resourceAttribute2 = new ResourceAttribute("test2", new AnnotatedAttribute("test", "test", false));
         resourceAttribute3 = new ResourceAttribute("test3", new AnnotatedAttribute("test", "test", false));
 
-        resourceGroup = new ResourceGroup("resource1", "group1");
-        parentResourceGroup1 = new ResourceGroup("resourceP1", "group3");
-        resourceGroup2 = new ResourceGroup("resource1", "group2");
-        parentResourceGroup2 = new ResourceGroup("resourceP2", "group4");
+        resourceGroup = new ResourceGroupRelation("resource1", "group1");
+        parentResourceGroup1 = new ResourceGroupRelation("resourceP1", "group3");
+        resourceGroup2 = new ResourceGroupRelation("resource1", "group2");
+        parentResourceGroup2 = new ResourceGroupRelation("resourceP2", "group4");
 
         groupMap = new HashMap<>();
         groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", "", List.of(), List.of(), null, true));
@@ -200,11 +200,11 @@ class CascadingDeleteTest {
                 ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
                 ResourceAttribute attr3 = new ResourceAttribute("attr3", new AnnotatedAttribute("attr3", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
-                ResourceGroup leaf1 = new ResourceGroup("leaf1", "groupL1");
-                ResourceGroup leaf2 = new ResourceGroup("leaf2", "groupL2");
+                ResourceGroupRelation root = new ResourceGroupRelation("root", "groupRoot");
+                ResourceGroupRelation branch1 = new ResourceGroupRelation("branch1", "groupB1");
+                ResourceGroupRelation branch2 = new ResourceGroupRelation("branch2", "groupB2");
+                ResourceGroupRelation leaf1 = new ResourceGroupRelation("leaf1", "groupL1");
+                ResourceGroupRelation leaf2 = new ResourceGroupRelation("leaf2", "groupL2");
 
                 // Define all groups
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), null, true));
@@ -256,9 +256,9 @@ class CascadingDeleteTest {
                 ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
                 ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
+                ResourceGroupRelation root = new ResourceGroupRelation("root", "groupRoot");
+                ResourceGroupRelation branch1 = new ResourceGroupRelation("branch1", "groupB1");
+                ResourceGroupRelation branch2 = new ResourceGroupRelation("branch2", "groupB2");
 
                 // Define groups with branch2 protected
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), null, true));
@@ -295,10 +295,10 @@ class CascadingDeleteTest {
                 ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
                 ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
-                ResourceGroup leaf1 = new ResourceGroup("leaf1", "groupL1");
+                ResourceGroupRelation root = new ResourceGroupRelation("root", "groupRoot");
+                ResourceGroupRelation branch1 = new ResourceGroupRelation("branch1", "groupB1");
+                ResourceGroupRelation branch2 = new ResourceGroupRelation("branch2", "groupB2");
+                ResourceGroupRelation leaf1 = new ResourceGroupRelation("leaf1", "groupL1");
 
                 // Define groups
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), null, true));
@@ -349,7 +349,7 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             coreResourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
+            Set<ResourceGroupRelation> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
 
             assertThat(coreResourceBundle.childResourceGroupToResourceAttributesMap()).doesNotContainKey(resourceGroup);
             assertThat(result).isEmpty();
@@ -365,7 +365,7 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(mustHaveAttribute, resourceGroup);
             coreResourceBundle.setResourceAttributeValid(mustHaveAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
+            Set<ResourceGroupRelation> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
         }
@@ -381,7 +381,7 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             coreResourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroupRelation> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
 
             assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).containsKey(resourceAttribute);
             assertThat(result).isEmpty();
@@ -394,8 +394,8 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             coreResourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result1 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
-            Set<ResourceGroup> result2 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroupRelation> result1 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroupRelation> result2 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
 
             assertThat(result1).isEmpty();
             assertThat(result2).contains(resourceGroup);
@@ -408,7 +408,7 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             coreResourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroupRelation> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
 
             assertThat(result).contains(resourceGroup);
             assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
@@ -420,7 +420,7 @@ class CascadingDeleteTest {
             coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
             coreResourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroupRelation> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
 
             assertThat(result).isEmpty();
             assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);

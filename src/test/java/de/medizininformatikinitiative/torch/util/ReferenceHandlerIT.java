@@ -5,7 +5,11 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Organization;
 import org.hl7.fhir.r4.model.Patient;
@@ -142,15 +146,15 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroupRelation>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
-                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
+                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroupRelation(REFERENCE_MEDICATION, "Medication1")))
                     .verifyComplete();
 
             // Assuming the method returns a Map<ResourceGroup, Boolean>
             assertThat(coreBundle.resourceGroupValidity())
-                    .containsExactly(entry(new ResourceGroup(REFERENCE_MEDICATION, "Medication1"), true));
+                    .containsExactly(entry(new ResourceGroupRelation(REFERENCE_MEDICATION, "Medication1"), true));
         }
 
         @Test
@@ -159,7 +163,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroupRelation>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()
@@ -181,15 +185,15 @@ class ReferenceHandlerIT {
             Patient testPatient = parser.parseResource(Patient.class, PATIENT);
             patientBundle.put(new ResourceGroupWrapper(testPatient, Set.of()));
 
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroupRelation>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
-                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
+                    .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroupRelation(REFERENCE_MEDICATION, "Medication1")))
                     .verifyComplete();
 
             // Assuming the method returns a Map<ResourceGroup, Boolean>
             assertThat(coreBundle.resourceGroupValidity())
-                    .containsExactly(entry(new ResourceGroup(REFERENCE_MEDICATION, "Medication1"), true));
+                    .containsExactly(entry(new ResourceGroupRelation(REFERENCE_MEDICATION, "Medication1"), true));
         }
 
         @Test
@@ -198,7 +202,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroupRelation>> result = referenceHandler.handleReference(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()

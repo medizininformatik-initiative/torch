@@ -9,7 +9,7 @@ import de.medizininformatikinitiative.torch.model.management.PatientResourceBund
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Encounter;
@@ -331,8 +331,8 @@ class ReferenceResolverIT {
                             ResourceBundle processingBundle = bundle.bundle();
                             assertThat(bundle.isEmpty()).isFalse();
                             assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
-                                    Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
-                                            new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                                    Map.of(new ResourceGroupRelation("Condition/2", "Condition1"), false,
+                                            new ResourceGroupRelation("Patient/VHF00006", "Patient1"), false)
                             );
                             assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
                                     Map.of(expectedAttribute, false)
@@ -361,13 +361,13 @@ class ReferenceResolverIT {
 
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
-            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroupRelation("Condition/2", "Condition1"), true);
 
             var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
 
 
             StepVerifier.create(result)
-                    .assertNext(unprocessedResourceGroups -> assertThat(unprocessedResourceGroups).containsExactly(new ResourceGroup("Patient/VHF00006", "Patient1")))
+                    .assertNext(unprocessedResourceGroups -> assertThat(unprocessedResourceGroups).containsExactly(new ResourceGroupRelation("Patient/VHF00006", "Patient1")))
                     .verifyComplete();
         }
 
@@ -384,7 +384,7 @@ class ReferenceResolverIT {
 
             patientBundle.put(new ResourceGroupWrapper(patient, Set.of()));
             patientBundle.put(new ResourceGroupWrapper(condition, Set.of("Condition1")));
-            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroupRelation("Condition/2", "Condition1"), true);
 
 
             var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
@@ -404,7 +404,7 @@ class ReferenceResolverIT {
             ResourceBundle coreBundle = new ResourceBundle();
 
             patientBundle.put("Condition/2"); // add an empty reference
-            patientBundle.bundle().addResourceGroupValidity(new ResourceGroup("Condition/2", "Condition1"), true);
+            patientBundle.bundle().addResourceGroupValidity(new ResourceGroupRelation("Condition/2", "Condition1"), true);
 
 
             var result = referenceResolver.processResourceGroups(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, false, attributeGroupMap);
@@ -432,7 +432,7 @@ class ReferenceResolverIT {
 
             var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
 
-            assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
+            assertThat(result).containsExactly(Map.entry(new ResourceGroupRelation("Condition/2", "Condition1"), List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))));
         }
 
 
@@ -458,9 +458,9 @@ class ReferenceResolverIT {
             var result = referenceResolver.loadReferencesByResourceGroup(patientBundle.getValidResourceGroups(), patientBundle, coreBundle, attributeGroupMap);
 
 
-            assertThat(result).containsExactly(Map.entry(new ResourceGroup("Condition/2", "Condition1"),
+            assertThat(result).containsExactly(Map.entry(new ResourceGroupRelation("Condition/2", "Condition1"),
                             List.of(new ReferenceWrapper(conditionSubject, List.of(PAT_REFERENCE), "Condition1", "Condition/2"))),
-                    Map.entry(new ResourceGroup("Encounter/VHF00006-E-1", "Encounter1"),
+                    Map.entry(new ResourceGroupRelation("Encounter/VHF00006-E-1", "Encounter1"),
                             List.of(new ReferenceWrapper(encounterDiagnosis, List.of(DIAG_REFERENCE), "Encounter1", "Encounter/VHF00006-E-1")))
             );
         }
@@ -496,18 +496,18 @@ class ReferenceResolverIT {
                         assertThat(processingBundle.resourceAttributeToChildResourceGroup())
                                 .containsKey(expectedAttribute);
                         assertThat(processingBundle.resourceAttributeToChildResourceGroup().get(expectedAttribute))
-                                .contains(new ResourceGroup("Patient/VHF00006", "Patient1"));
+                                .contains(new ResourceGroupRelation("Patient/VHF00006", "Patient1"));
 
                         // Validate child-to-parent attribute mapping
                         assertThat(processingBundle.resourceAttributeToParentResourceGroup())
                                 .containsKey(expectedAttribute);
                         assertThat(processingBundle.resourceAttributeToParentResourceGroup().get(expectedAttribute))
-                                .contains(new ResourceGroup("Condition/2", "Condition1"));
+                                .contains(new ResourceGroupRelation("Condition/2", "Condition1"));
 
 
                         assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
-                                Map.of(new ResourceGroup("Condition/2", "Condition1"), true,
-                                        new ResourceGroup("Patient/VHF00006", "Patient1"), true)
+                                Map.of(new ResourceGroupRelation("Condition/2", "Condition1"), true,
+                                        new ResourceGroupRelation("Patient/VHF00006", "Patient1"), true)
                         );
                         assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
                                 Map.of(expectedAttribute, true)
@@ -537,8 +537,8 @@ class ReferenceResolverIT {
                                 ResourceBundle processingBundle = bundle.bundle();
                                 assertThat(bundle.isEmpty()).isFalse();
                                 assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
-                                        Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
-                                                new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                                        Map.of(new ResourceGroupRelation("Condition/2", "Condition1"), false,
+                                                new ResourceGroupRelation("Patient/VHF00006", "Patient1"), false)
                                 );
                                 assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(expectedAttribute, false)
@@ -577,8 +577,8 @@ class ReferenceResolverIT {
                                 ResourceBundle processingBundle = bundle.bundle();
                                 assertThat(bundle.isEmpty()).isFalse();
                                 assertThat(processingBundle.resourceGroupValidity()).containsExactlyInAnyOrderEntriesOf(
-                                        Map.of(new ResourceGroup("Condition/2", "Condition1"), false,
-                                                new ResourceGroup("Patient/VHF00006", "Patient1"), false)
+                                        Map.of(new ResourceGroupRelation("Condition/2", "Condition1"), false,
+                                                new ResourceGroupRelation("Patient/VHF00006", "Patient1"), false)
                                 );
                                 assertThat(processingBundle.resourceAttributeValidity()).containsExactlyInAnyOrderEntriesOf(
                                         Map.of(expectedAttribute, false)

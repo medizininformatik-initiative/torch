@@ -37,12 +37,12 @@ import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
  * @param cache
  */
 public record ResourceBundle(
-        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
-        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
-        ConcurrentHashMap<ResourceGroup, Boolean> resourceGroupValidity,
+        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroupRelation>> resourceAttributeToParentResourceGroup,
+        ConcurrentHashMap<ResourceAttribute, Set<ResourceGroupRelation>> resourceAttributeToChildResourceGroup,
+        ConcurrentHashMap<ResourceGroupRelation, Boolean> resourceGroupValidity,
         ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
-        ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
+        ConcurrentHashMap<ResourceGroupRelation, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
+        ConcurrentHashMap<ResourceGroupRelation, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<String, Optional<Resource>> cache) {
 
     public static final String PROGRAM_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/program";
@@ -94,187 +94,7 @@ public record ResourceBundle(
     }
 
 
-    public void addAttributeToChild(ResourceAttribute attribute, ResourceGroup child) {
-        // Link the child to the attribute in resourceAttributeToChildResourceGroup
-        resourceAttributeToChildResourceGroup
-                .computeIfAbsent(attribute, k -> ConcurrentHashMap.newKeySet())
-                .add(child);
-
-        // Ensure child-to-attribute mapping is updated
-        childResourceGroupToResourceAttributesMap
-                .computeIfAbsent(child, k -> ConcurrentHashMap.newKeySet())
-                .add(attribute);
-    }
-
-
-    public void addAttributeToParent(ResourceAttribute attribute, ResourceGroup parent) {
-        // Link the parent to the attribute in resourceAttributeToParentResourceGroup
-        resourceAttributeToParentResourceGroup
-                .computeIfAbsent(attribute, k -> ConcurrentHashMap.newKeySet())
-                .add(parent);
-
-        // Ensure parent-to-attribute mapping is updated
-        parentResourceGroupToResourceAttributesMap
-                .computeIfAbsent(parent, k -> ConcurrentHashMap.newKeySet())
-                .add(attribute);
-    }
-
-    /**
-     * Removes a parent resourceGroup for the given attribute.
-     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
-     *
-     * @param group     The resource group from which the attribute should be removed.
-     * @param attribute The attribute to remove from the group.
-     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
-     */
-    public boolean removeParentRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
-            set.remove(group);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
-    }
-
-    /**
-     * Removes a attribute for the given parent resourceGroup.
-     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
-     *
-     * @param group     The resource group from which the attribute should be removed.
-     * @param attribute The attribute to remove from the group.
-     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
-     */
-    public boolean removeAttributefromParentRG(ResourceGroup group, ResourceAttribute attribute) {
-        return removeFromMap(group, attribute, parentResourceGroupToResourceAttributesMap);
-    }
-
-    public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
-        return resourceAttributeValidity.put(attribute, true);
-    }
-
-    public Boolean setResourceAttributeInValid(ResourceAttribute attribute) {
-        return resourceAttributeValidity.put(attribute, false);
-    }
-
-    public boolean resourceAttributeValid(ResourceAttribute attribute) {
-        return resourceAttributeValidity.getOrDefault(attribute, false);
-    }
-
-    /**
-     * Removes a parent attribute for the given resource group.
-     * If the attribute is the last one in the set, the entire group is removed from the map.
-     *
-     * @param group     The resource group from which the attribute should be removed.
-     * @param attribute The attribute to remove from the group.
-     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
-     */
-    public boolean removeParentAttributeFromChildRG(ResourceGroup group, ResourceAttribute attribute) {
-        return removeFromMap(group, attribute, childResourceGroupToResourceAttributesMap);
-    }
-
-    private boolean removeFromMap(ResourceGroup group, ResourceAttribute attribute, ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-
-        childResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
-            set.remove(attribute);
-            if (set.isEmpty()) {
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
-    }
-
-    /**
-     * Removes a child resourceGroup for an attribute calling it.
-     * If the child resourceGroup is the last one in the set, the entire group is removed from the map.
-     * An attribute without children is automatically invalid.
-     *
-     * @param group     The resource group from which the attribute should be removed.
-     * @param attribute The attribute to remove from the group.
-     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
-     */
-    public boolean removeChildRGFromAttribute(ResourceGroup group, ResourceAttribute attribute) {
-        AtomicBoolean isEmpty = new AtomicBoolean(false);
-
-        resourceAttributeToChildResourceGroup.computeIfPresent(attribute, (key, set) -> {
-            set.remove(group);
-            if (set.isEmpty()) {
-                setResourceAttributeInValid(attribute);
-                isEmpty.set(true);
-                return null; // Remove key if set is empty
-            }
-            return set;
-        });
-
-        return isEmpty.get();
-    }
-
-    public boolean put(Resource resource, String groupId, boolean valid) {
-        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
-        addResourceGroupValidity(group, valid);
-        return cache.putIfAbsent(resourceUrl, Optional.of(resource)) == null;
-    }
-
-    /**
-     * Adds the wrapper into the underlying concurrent hashmap.
-     * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
-     *
-     * @param wrapper wrapper to be added to the resourcebundle
-     * @return boolean containing info if the wrapper is new or updated.
-     */
-    public boolean put(ResourceGroupWrapper wrapper) {
-        AtomicReference<Boolean> result = new AtomicReference<>(false);
-        if (wrapper == null) {
-            return result.get();
-        }
-        //set Cache Key to relative URL
-        DomainResource resource = wrapper.resource();
-
-        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true));
-        cache.put(resourceUrl, Optional.of(resource));
-
-        return result.get();
-    }
-
-    public ConcurrentMap<ResourceGroup, Boolean> getInvalid() {
-        ConcurrentHashMap<ResourceGroup, Boolean> invalidEntries = new ConcurrentHashMap<>();
-
-        resourceGroupValidity.forEach((key, value) -> {
-            if (Boolean.FALSE.equals(value)) { // If value is false, add to the new map
-                invalidEntries.put(key, false);
-            }
-        });
-
-        return invalidEntries;
-    }
-
-    public Set<ResourceGroup> getKnownResourceGroups() {
-        return Set.copyOf(resourceGroupValidity.keySet());
-    }
-
-    public Bundle toFhirBundle(String extractionId) {
-        Bundle bundle = new Bundle();
-        bundle.setType(TRANSACTION);
-        bundle.setId(UUID.randomUUID().toString());
-
-        cache.values().forEach(resource -> resource.ifPresent(value -> bundle.addEntry(createBundleEntry(value))));
-        getAttributeGroupProvenance(extractionId).forEach(provenance -> bundle.addEntry(createBundleEntry(provenance)));
-        return bundle;
-    }
-
-    private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroup> groupResources) {
+    private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroupRelation> groupResources) {
         Provenance provenance = new Provenance();
         provenance.setId(PROVENANCE_PREFIX + groupId);
         provenance.setRecorded(new Date());
@@ -317,16 +137,195 @@ public record ResourceBundle(
         return provenance;
     }
 
+    public void addAttributeToChild(ResourceAttribute attribute, ResourceGroupRelation child) {
+        // Link the child to the attribute in resourceAttributeToChildResourceGroup
+        resourceAttributeToChildResourceGroup
+                .computeIfAbsent(attribute, k -> ConcurrentHashMap.newKeySet())
+                .add(child);
+
+        // Ensure child-to-attribute mapping is updated
+        childResourceGroupToResourceAttributesMap
+                .computeIfAbsent(child, k -> ConcurrentHashMap.newKeySet())
+                .add(attribute);
+    }
+
+    public void addAttributeToParent(ResourceAttribute attribute, ResourceGroupRelation parent) {
+        // Link the parent to the attribute in resourceAttributeToParentResourceGroup
+        resourceAttributeToParentResourceGroup
+                .computeIfAbsent(attribute, k -> ConcurrentHashMap.newKeySet())
+                .add(parent);
+
+        // Ensure parent-to-attribute mapping is updated
+        parentResourceGroupToResourceAttributesMap
+                .computeIfAbsent(parent, k -> ConcurrentHashMap.newKeySet())
+                .add(attribute);
+    }
+
+    /**
+     * Removes a parent resourceGroup for the given attribute.
+     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeParentRGFromAttribute(ResourceGroupRelation group, ResourceAttribute attribute) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+
+        resourceAttributeToParentResourceGroup.computeIfPresent(attribute, (key, set) -> {
+            set.remove(group);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
+    public Boolean setResourceAttributeValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.put(attribute, true);
+    }
+
+    public Boolean setResourceAttributeInValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.put(attribute, false);
+    }
+
+    public boolean resourceAttributeValid(ResourceAttribute attribute) {
+        return resourceAttributeValidity.getOrDefault(attribute, false);
+    }
+
+    /**
+     * Removes a attribute for the given parent resourceGroup.
+     * If the resourceGroup is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeAttributefromParentRG(ResourceGroupRelation group, ResourceAttribute attribute) {
+        return removeFromMap(group, attribute, parentResourceGroupToResourceAttributesMap);
+    }
+
+    /**
+     * Removes a parent attribute for the given resource group.
+     * If the attribute is the last one in the set, the entire group is removed from the map.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeParentAttributeFromChildRG(ResourceGroupRelation group, ResourceAttribute attribute) {
+        return removeFromMap(group, attribute, childResourceGroupToResourceAttributesMap);
+    }
+
+    private boolean removeFromMap(ResourceGroupRelation group, ResourceAttribute attribute, ConcurrentHashMap<ResourceGroupRelation, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+
+
+        childResourceGroupToResourceAttributesMap.computeIfPresent(group, (key, set) -> {
+            set.remove(attribute);
+            if (set.isEmpty()) {
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
+    /**
+     * Removes a child resourceGroup for an attribute calling it.
+     * If the child resourceGroup is the last one in the set, the entire group is removed from the map.
+     * An attribute without children is automatically invalid.
+     *
+     * @param group     The resource group from which the attribute should be removed.
+     * @param attribute The attribute to remove from the group.
+     * @return true if the attribute was removed and the group became empty (or was absent); false otherwise.
+     */
+    public boolean removeChildRGFromAttribute(ResourceGroupRelation group, ResourceAttribute attribute) {
+        AtomicBoolean isEmpty = new AtomicBoolean(false);
+
+        resourceAttributeToChildResourceGroup.computeIfPresent(attribute, (key, set) -> {
+            set.remove(group);
+            if (set.isEmpty()) {
+                setResourceAttributeInValid(attribute);
+                isEmpty.set(true);
+                return null; // Remove key if set is empty
+            }
+            return set;
+        });
+
+        return isEmpty.get();
+    }
+
+    public boolean put(Resource resource, String groupId, boolean valid) {
+        String resourceUrl = ResourceUtils.getRelativeURL(resource);
+        ResourceGroupRelation group = new ResourceGroupRelation(resourceUrl, groupId);
+        addResourceGroupValidity(group, valid);
+        return cache.putIfAbsent(resourceUrl, Optional.of(resource)) == null;
+    }
+
+    /**
+     * Adds the wrapper into the underlying concurrent hashmap.
+     * Generates from IDPart and ResourceType of the resource the relative url as key for the cache
+     *
+     * @param wrapper wrapper to be added to the resourcebundle
+     * @return boolean containing info if the wrapper is new or updated.
+     */
+    public boolean put(ResourceGroupWrapper wrapper) {
+        AtomicReference<Boolean> result = new AtomicReference<>(false);
+        if (wrapper == null) {
+            return result.get();
+        }
+        //set Cache Key to relative URL
+        DomainResource resource = wrapper.resource();
+
+        String resourceUrl = ResourceUtils.getRelativeURL(resource);
+        wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroupRelation(resourceUrl, group), true));
+        cache.put(resourceUrl, Optional.of(resource));
+
+        return result.get();
+    }
+
+    public ConcurrentMap<ResourceGroupRelation, Boolean> getInvalid() {
+        ConcurrentHashMap<ResourceGroupRelation, Boolean> invalidEntries = new ConcurrentHashMap<>();
+
+        resourceGroupValidity.forEach((key, value) -> {
+            if (Boolean.FALSE.equals(value)) { // If value is false, add to the new map
+                invalidEntries.put(key, false);
+            }
+        });
+
+        return invalidEntries;
+    }
+
+    public Bundle toFhirBundle(String extractionId) {
+        Bundle bundle = new Bundle();
+        bundle.setType(TRANSACTION);
+        bundle.setId(UUID.randomUUID().toString());
+
+        cache.values().forEach(resource -> resource.ifPresent(value -> bundle.addEntry(createBundleEntry(value))));
+        getAttributeGroupProvenance(extractionId).forEach(provenance -> bundle.addEntry(createBundleEntry(provenance)));
+        return bundle;
+    }
+
+    public Set<ResourceGroupRelation> getKnownResourceGroups() {
+        return Set.copyOf(resourceGroupValidity.keySet());
+    }
+
     public List<Provenance> getAttributeGroupProvenance(String extractionId) {
         // Group all resources by groupId
-        Map<String, List<ResourceGroup>> groupedByGroupId = getValidResourceGroups().stream()
-                .collect(Collectors.groupingBy(ResourceGroup::groupId));
+        Map<String, List<ResourceGroupRelation>> groupedByGroupId = getValidResourceGroups().stream()
+                .collect(Collectors.groupingBy(ResourceGroupRelation::groupId));
 
         // Create one Provenance per group
         return groupedByGroupId.entrySet().stream()
                 .map(entry -> {
                     String groupId = entry.getKey();
-                    List<ResourceGroup> groupResources = entry.getValue();
+                    List<ResourceGroupRelation> groupResources = entry.getValue();
                     return createProvenance(extractionId, groupId, groupResources);
                 })
                 .toList();
@@ -343,11 +342,11 @@ public record ResourceBundle(
         return entryComponent;
     }
 
-    public Boolean isValidResourceGroup(ResourceGroup group) {
+    public Boolean isValidResourceGroup(ResourceGroupRelation group) {
         return resourceGroupValidity.get(group);
     }
 
-    public Boolean addResourceGroupValidity(ResourceGroup group, boolean valid) {
+    public Boolean addResourceGroupValidity(ResourceGroupRelation group, boolean valid) {
         return resourceGroupValidity.put(group, valid);
     }
 
@@ -359,7 +358,7 @@ public record ResourceBundle(
         return cache.isEmpty();
     }
 
-    public boolean contains(ResourceGroup ref) {
+    public boolean contains(ResourceGroupRelation ref) {
         return resourceGroupValidity.containsKey(ref);
     }
 
@@ -376,7 +375,7 @@ public record ResourceBundle(
         cache.put(resourceReference, Optional.empty());
     }
 
-    public Set<ResourceGroup> getValidResourceGroups() {
+    public Set<ResourceGroupRelation> getValidResourceGroups() {
         return resourceGroupValidity().entrySet().stream()
                 .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
                 .map(Map.Entry::getKey)

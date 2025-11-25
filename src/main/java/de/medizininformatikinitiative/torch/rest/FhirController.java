@@ -3,8 +3,9 @@ package de.medizininformatikinitiative.torch.rest;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+import de.medizininformatikinitiative.torch.jobhandling.JobManagerService;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
-import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
@@ -20,6 +21,7 @@ import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.Collections;
@@ -29,7 +31,9 @@ import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static java.util.Objects.requireNonNull;
-import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
 import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
@@ -44,17 +48,17 @@ public class FhirController {
     private final FhirContext fhirContext;
     private final ResultFileManager resultFileManager;
     private final ExtractDataParametersParser extractDataParametersParser;
-    private final ExtractDataService extractDataService;
+    private final JobManagerService jobManagerService;
     private final String baseUrl;
     private final CrtdlValidatorService validator;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ResultFileManager resultFileManager,
-                          ExtractDataParametersParser parser, ExtractDataService extractDataService, @Value("${torch.base.url}") String baseUrl, CrtdlValidatorService validator) {
+                          ExtractDataParametersParser parser, @Value("${torch.base.url}") String baseUrl, CrtdlValidatorService validator, JobManagerService jobManagerService) {
         this.fhirContext = requireNonNull(fhirContext);
         this.resultFileManager = requireNonNull(resultFileManager);
         this.extractDataParametersParser = requireNonNull(parser);
-        this.extractDataService = requireNonNull(extractDataService);
+        this.jobManagerService = requireNonNull(jobManagerService);
         this.baseUrl = baseUrl;
         this.validator = requireNonNull(validator);
     }
@@ -86,21 +90,28 @@ public class FhirController {
     }
 
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
-        String jobId = UUID.randomUUID().toString();
+        UUID jobId = UUID.randomUUID();
 
         return request.bodyToMono(String.class)
                 .filter(body -> body != null && !body.isBlank())
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .map(extractDataParametersParser::parseParameters)
                 .flatMap(parameters -> {
-                    Mono<Void> jobMono;
+                    AnnotatedCrtdl annotated;
                     try {
-                        jobMono = extractDataService
-                                .startJob(validator.validateAndAnnotate(parameters.crtdl()), parameters.patientIds(), jobId);
+                        annotated = validator.validateAndAnnotate(parameters.crtdl());
                     } catch (ValidationException | ConsentFormatException e) {
                         return Mono.error(new IllegalArgumentException(e.getMessage()));
                     }
-                    jobMono.subscribe();
+                    try {
+                        jobManagerService.createJob(
+                                annotated,
+                                parameters.patientIds(),
+                                jobId
+                        );
+                    } catch (IOException ioe) {
+                        return Mono.error(ioe);
+                    }
                     return ServerResponse.accepted()
                             .header("Content-Location",
                                     baseUrl + "/fhir/__status/" + jobId)
@@ -116,7 +127,7 @@ public class FhirController {
                         logger.error("Internal server error: {}", e.getMessage(), e);
                     }
 
-                    OperationOutcome outcome = createOperationOutcome(jobId, e);
+                    OperationOutcome outcome = createOperationOutcome(jobId.toString(), e);
 
                     return ServerResponse.status(status)
                             .contentType(MEDIA_TYPE_FHIR_JSON)

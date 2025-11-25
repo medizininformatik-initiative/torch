@@ -7,7 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
@@ -26,7 +26,11 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -43,7 +47,7 @@ class ReferenceBundleLoaderIT {
     @Autowired
     @Qualifier("fhirClient")
     WebClient webClient;
-    @Autowired
+
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
     @Autowired
@@ -65,7 +69,7 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroupRelation("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
@@ -95,7 +99,7 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroupRelation("Patient/1", "test"), List.of(reference1, reference2)), patientBundle, coreBundle, false);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
@@ -119,12 +123,12 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroupRelation("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
         cache.put("Condition/UnknownResource", Optional.of(new Condition()));
-        Mono<Void> rerun = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> rerun = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroupRelation("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
         StepVerifier.create(rerun).verifyComplete();
 
         long countEmpty = cache.values().stream()

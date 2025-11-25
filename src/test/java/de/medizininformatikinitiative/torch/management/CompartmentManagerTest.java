@@ -1,6 +1,6 @@
 package de.medizininformatikinitiative.torch.management;
 
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.Nested;
@@ -47,15 +47,15 @@ public class CompartmentManagerTest {
 
 
     @Nested
-    class ResourceGroupTest {
+    class ResourceGroupRelationTest {
         @Test
         public void contained() {
-            assertThat(manager.isInCompartment(new ResourceGroup("Observation/123", "Test"))).isTrue();
+            assertThat(manager.isInCompartment(new ResourceGroupRelation("Observation/123", "Test"))).isTrue();
         }
 
         @Test
         public void notContained() {
-            assertThat(manager.isInCompartment(new ResourceGroup("Medication/123", "Test"))).isFalse();
+            assertThat(manager.isInCompartment(new ResourceGroupRelation("Medication/123", "Test"))).isFalse();
         }
 
     }
