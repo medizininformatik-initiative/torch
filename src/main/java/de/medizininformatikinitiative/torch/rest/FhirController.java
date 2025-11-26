@@ -29,7 +29,9 @@ import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static java.util.Objects.requireNonNull;
-import static org.springframework.web.reactive.function.server.RequestPredicates.*;
+import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
+import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
 import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
 import static org.springframework.web.reactive.function.server.ServerResponse.notFound;
@@ -111,9 +113,9 @@ public class FhirController {
                             : HttpStatus.INTERNAL_SERVER_ERROR;
 
                     if (status == HttpStatus.BAD_REQUEST) {
-                        logger.warn("Bad request: {}", e.getMessage(), e);
+                        logger.warn("FHIR_CONTROLLER_0001 Bad request: {}", e.getMessage(), e);
                     } else {
-                        logger.error("Internal server error: {}", e.getMessage(), e);
+                        logger.error("FHIR_CONTROLLER_0002 Internal server error: {}", e.getMessage(), e);
                     }
 
                     OperationOutcome outcome = createOperationOutcome(jobId, e);
@@ -156,7 +158,7 @@ public class FhirController {
                 return Mono.fromCallable(() -> resultFileManager.loadErrorFromFileSystem(jobId))
                         .flatMap(error -> ServerResponse.status(status).contentType(MEDIA_TYPE_FHIR_JSON).bodyValue(error))
                         .onErrorResume(e -> {
-                            logger.error("Failed to load error for job {}: {}", jobId, e.getMessage(), e);
+                            logger.error("FHIR_CONTROLLER_0003 Failed to load error for job {}: {}", jobId, e.getMessage(), e);
                             return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
                                     .contentType(MediaType.TEXT_PLAIN)
                                     .bodyValue("Error file could not be read: " + e.getMessage());
