@@ -2,7 +2,10 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -11,7 +14,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -249,106 +251,6 @@ class ResourceBundleTest {
 
             assertThat(cache.resourceAttributeToParentResourceGroup().get(ATTRIBUTE_6))
                     .contains(PARENT_1);
-        }
-    }
-
-    @Nested
-    class CacheLess {
-
-        private final ResourceGroup patientGroup = new ResourceGroup("Patient/101", "GroupA");
-        private final ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-        private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-        private final ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
-        private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", false);
-        private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", false);
-        private final ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain
-        private final ResourceAttribute attribute3 = new ResourceAttribute("attr3", annotatedAttribute2); // Should be added
-        private final ResourceAttribute attribute4 = new ResourceAttribute("attr4", annotatedAttribute2); // Should be added
-        private ResourceBundle resourceBundle;
-        private CachelessResourceBundle cachelessResourceBundle;
-
-        @BeforeEach
-        void setUp() {
-            resourceBundle = new ResourceBundle();
-
-            // Initial state: ResourceBundle already contains some valid groups and attributes
-            resourceBundle.addResourceGroupValidity(patientGroup, true);
-            resourceBundle.addAttributeToParent(attribute1, patientGroup);
-            resourceBundle.addAttributeToChild(attribute1, medicationGroup1);
-            resourceBundle.addResourceGroupValidity(medicationGroup1, true);
-            resourceBundle.setResourceAttributeValid(attribute1);
-
-            // Prepare ImmutableResourceBundle with additional data to merge
-            cachelessResourceBundle = new CachelessResourceBundle(
-                    Map.of(
-                            attribute3, Set.of(medicationGroup1),
-                            attribute4, Set.of(medicationGroup2)
-                    ),
-                    Map.of(
-                            attribute3, Set.of(organizationGroup),
-                            attribute4, Set.of(organizationGroup)
-                    ),
-                    Map.of(
-                            medicationGroup1, true,
-                            medicationGroup2, true,
-                            organizationGroup, true
-                    ),
-                    Map.of(
-                            attribute3, true,
-                            attribute4, true
-                    ),
-                    Map.of(
-                            medicationGroup1, Set.of(attribute3),
-                            medicationGroup2, Set.of(attribute4)
-                    ),
-                    Map.of(
-                            organizationGroup, Set.of(attribute3, attribute4)
-                    )
-            );
-        }
-
-        @Test
-        void mergeCachelessBundlesIntoResourceBundle() {
-            // Merge the immutable bundle into the resource bundle
-            resourceBundle.merge(cachelessResourceBundle);
-
-            // **Step 1: Validate all expected groups are present (existing + new)**
-            assertThat(resourceBundle.resourceGroupValidity()).containsAllEntriesOf(Map.of(
-                    medicationGroup1, true,
-                    medicationGroup2, true,
-                    organizationGroup, true
-            ));
-            // Ensure no unexpected removals
-            assertThat(resourceBundle.resourceGroupValidity()).containsKey(patientGroup);
-
-            // **Step 2: Validate correct attribute validity**
-            assertThat(resourceBundle.resourceAttributeValidity()).containsAllEntriesOf(Map.of(
-                    attribute3, true,
-                    attribute4, true
-            ));
-            // Ensure pre-existing attribute is still valid
-            assertThat(resourceBundle.resourceAttributeValidity()).containsKey(attribute1);
-
-            // **Step 3: Verify Parent-Child relationships**
-            assertThat(resourceBundle.resourceAttributeToParentResourceGroup()).containsAllEntriesOf(Map.of(
-                    attribute3, Set.of(medicationGroup1),
-                    attribute4, Set.of(medicationGroup2)
-            ));
-
-            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).containsAllEntriesOf(Map.of(
-                    attribute3, Set.of(organizationGroup),
-                    attribute4, Set.of(organizationGroup)
-            ));
-
-            // **Step 4: Validate group-to-attribute mappings**
-            assertThat(resourceBundle.parentResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
-                    medicationGroup1, Set.of(attribute3),
-                    medicationGroup2, Set.of(attribute4)
-            ));
-
-            assertThat(resourceBundle.childResourceGroupToResourceAttributesMap()).containsAllEntriesOf(Map.of(
-                    organizationGroup, Set.of(attribute3, attribute4)
-            ));
         }
     }
 }

@@ -66,34 +66,6 @@ public record ResourceBundle(
         return cache.get(reference);
     }
 
-    /**
-     * Merges new information from an ImmutableResourceBundle i.e. bundle without ResourceCache into the resourcebundle.
-     *
-     * @param extractedData Bundle with extracted information to be merged
-     */
-    public void merge(CachelessResourceBundle extractedData) {
-        // Merge resource group validity
-        extractedData.resourceGroupValidity().forEach(this::addResourceGroupValidity);
-
-        // Merge parent-child relationships
-        extractedData.resourceAttributeToParentResourceGroup().forEach((attribute, groups) ->
-                groups.forEach(group -> this.addAttributeToParent(attribute, group)));
-
-        extractedData.resourceAttributeToChildResourceGroup().forEach((attribute, groups) ->
-                groups.forEach(group -> this.addAttributeToChild(attribute, group)));
-
-        // Merge group-attribute relationships
-        extractedData.parentResourceGroupToResourceAttributesMap().forEach((group, attributes) ->
-                attributes.forEach(attribute -> this.addAttributeToParent(attribute, group)));
-
-        extractedData.childResourceGroupToResourceAttributesMap().forEach((group, attributes) ->
-                attributes.forEach(attribute -> this.addAttributeToChild(attribute, group)));
-
-        // Merge attribute validity
-        extractedData.resourceAttributeValidity().keySet().forEach(this::setResourceAttributeValid);
-    }
-
-
     public void addAttributeToChild(ResourceAttribute attribute, ResourceGroup child) {
         // Link the child to the attribute in resourceAttributeToChildResourceGroup
         resourceAttributeToChildResourceGroup
@@ -381,13 +353,5 @@ public record ResourceBundle(
                 .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
                 .map(Map.Entry::getKey)
                 .collect(Collectors.toSet());
-    }
-
-    public void mergeCache(ResourceBundle other) {
-        other.cache().forEach((key, value) -> {
-            if (value.isPresent()) {
-                this.cache.put(key, value);
-            }
-        });
     }
 }
