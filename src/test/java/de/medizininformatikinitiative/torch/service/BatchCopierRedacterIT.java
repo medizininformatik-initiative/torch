@@ -8,6 +8,8 @@ import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
@@ -207,8 +209,6 @@ class BatchCopierRedacterIT {
             Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), conditionGroup.copyTree()));
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
-
-
     }
 
     @Nested
@@ -222,9 +222,9 @@ class BatchCopierRedacterIT {
             bundle.put(condition, "Condition1", true);
 
 
-            PatientResourceBundle result = batchCopierRedacter.transformBundle(bundle, attributeGroupMap);
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
 
-            assertThat(result.bundle().cache()).hasSize(1);
+            assertThat(result.cache()).hasSize(1);
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
@@ -245,9 +245,9 @@ class BatchCopierRedacterIT {
             bundle.bundle().addAttributeToChild(expectedAttribute, validResourceGroup);
             bundle.bundle().addResourceGroupValidity(validResourceGroup, true);
 
-            PatientResourceBundle result = batchCopierRedacter.transformBundle(bundle, attributeGroupMap);
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
 
-            assertThat(result.bundle().cache()).hasSize(1);
+            assertThat(result.cache()).hasSize(1);
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
@@ -267,12 +267,12 @@ class BatchCopierRedacterIT {
                 PatientBatchWithConsent consentBatch = PatientBatchWithConsent.fromList(List.of(bundle));
                 bundle.put(condition, "Condition1", true);
 
-                PatientBatchWithConsent result = batchCopierRedacter.transformBatch(consentBatch, attributeGroupMap);
+                ExtractionPatientBatch result = batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(consentBatch), attributeGroupMap);
 
                 assertThat(result.bundles()).hasSize(1);
-                PatientResourceBundle resultBundle = result.bundles().get("PatientBundle");
+                ExtractionResourceBundle resultBundle = result.get("PatientBundle");
 
-                assertThat(resultBundle.bundle().cache()).hasSize(1);
+                assertThat(resultBundle.cache()).hasSize(1);
                 String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.get("Condition/2").get());
                 String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
