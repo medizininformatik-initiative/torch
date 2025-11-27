@@ -1,14 +1,10 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
-import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import org.hl7.fhir.r4.model.Bundle;
 
-import java.io.IOException;
-import java.io.Writer;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -54,7 +50,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
                 .filter(id -> !consentPeriodsMap.get(id).isEmpty()) // consent period not empty
                 .collect(Collectors.toMap(
                         id -> id,
-                        id -> new PatientResourceBundle(id, consentPeriodsMap.get(id)) // use the constructor here
+                        id -> new PatientResourceBundle(id, consentPeriodsMap.get(id), new ResourceBundle())
                 ));
 
         if (filtered.isEmpty()) {
@@ -85,10 +81,4 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
         return new PatientBatchWithConsent(filtered, applyConsent, coreBundle);
     }
 
-    public void writeFhirBundlesTo(FhirContext fhirContext, Writer out, String extractionId) throws IOException {
-        for (Bundle fhirBundle : bundles.values().stream().map(PatientResourceBundle::bundle).map(bundle -> bundle.toFhirBundle(extractionId)).toList()) {
-            fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
-            out.append("\n");
-        }
-    }
 }

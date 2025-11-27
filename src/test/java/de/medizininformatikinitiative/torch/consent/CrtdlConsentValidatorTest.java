@@ -86,7 +86,7 @@ class CrtdlConsentValidatorTest {
 
     @BeforeEach
     void setUp() {
-        patientResourceBundle = new PatientResourceBundle(PATIENT_ID, noncontinousPeriod());
+        patientResourceBundle = new PatientResourceBundle(PATIENT_ID, noncontinousPeriod(), new ResourceBundle());
 
     }
 

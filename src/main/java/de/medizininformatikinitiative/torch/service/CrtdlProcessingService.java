@@ -9,9 +9,10 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
-import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import de.numcodex.sq2cql.Translator;
@@ -32,6 +33,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 public class CrtdlProcessingService {
@@ -115,7 +117,7 @@ public class CrtdlProcessingService {
 
     private Mono<Void> processIntern(AnnotatedCrtdl crtdl, String jobID, Flux<PatientBatch> batches) {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-        ResourceBundle coreBundle = new ResourceBundle();
+        ExtractionResourceBundle patientCoreExtraction = new ExtractionResourceBundle();
 
         // --- 1) Process all patient batches normally ---
         Mono<Void> patientPhase =
@@ -125,7 +127,7 @@ public class CrtdlProcessingService {
                                         .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
                                         .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty()),
                                 maxConcurrency)
-                        .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, coreBundle), maxConcurrency)
+                        .flatMap(batch -> processBatch(batch, jobID, groupsToProcess, patientCoreExtraction), maxConcurrency)
                         .then();
 
         // --- 2) ONE SINGLE POST-PROCESSING PHASE ---
@@ -135,7 +137,7 @@ public class CrtdlProcessingService {
 
             // Load direct/CORE attribute groups
             return directResourceLoader
-                    .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
+                    .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), new ResourceBundle())
 
                     // Resolve references once all data is in the bundle
                     .flatMap(cb -> referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups()))
@@ -144,10 +146,9 @@ public class CrtdlProcessingService {
                     .doOnNext(cb -> logger.debug("Running final cascading delete on core bundle"))
                     .flatMap(cb -> {
                         cascadingDelete.handleBundle(cb, groupsToProcess.allGroups());
-                        PatientResourceBundle corePRB = new PatientResourceBundle("CORE", cb);
-                        batchCopierRedacter.transformBundle(corePRB, groupsToProcess.allGroups());
-                        PatientBatchWithConsent finalCoreBatch =
-                                new PatientBatchWithConsent(Map.of("CORE", corePRB));
+                        ExtractionResourceBundle extractionBundle = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(cb), groupsToProcess.allGroups());
+                        ExtractionPatientBatch finalCoreBatch =
+                                new ExtractionPatientBatch(new ConcurrentHashMap<>(Map.of("CORE", extractionBundle.merge(patientCoreExtraction))));
                         return writeBatch(
                                 jobID,
                                 batchCopierRedacter.transformBatch(finalCoreBatch, groupsToProcess.allGroups())
@@ -174,7 +175,7 @@ public class CrtdlProcessingService {
                 available / (1024 * 1024));
     }
 
-    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ResourceBundle coreBundle) {
+    private Mono<Void> processBatch(PatientBatchWithConsent batch, String jobID, GroupsToProcess groupsToProcess, ExtractionResourceBundle coreBundle) {
         UUID id = UUID.randomUUID();
         logMemory(id);
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
@@ -182,16 +183,16 @@ public class CrtdlProcessingService {
                 .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .doOnNext(loadedBatch -> logger.debug("Batch resolved references {} with {} patients", id, loadedBatch.patientIds().size()))
-                .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
+                .map(patientBatch -> batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()))
                 .doOnNext(loadedBatch -> logger.debug("Batch finished extraction  {} ", id))
-                .flatMap(patientBatch -> {
-                            batchToCoreWriter.updateCore(patientBatch, coreBundle);
-                            return writeBatch(jobID, patientBatch);
+                .flatMap(extractionBatch -> {
+                            batchToCoreWriter.updateCore(coreBundle, extractionBatch);
+                            return writeBatch(jobID, extractionBatch);
                         }
                 );
     }
 
-    Mono<Void> writeBatch(String jobID, PatientBatchWithConsent batch) {
+    Mono<Void> writeBatch(String jobID, ExtractionPatientBatch batch) {
         try {
             resultFileManager.saveBatchToNDJSON(jobID, batch);
             return Mono.empty();
