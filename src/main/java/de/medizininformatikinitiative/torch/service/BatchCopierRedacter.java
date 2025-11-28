@@ -8,7 +8,7 @@ import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
@@ -107,12 +107,12 @@ public class BatchCopierRedacter {
                 .forEach(resourceAttribute -> {
                     String resourceId = resourceAttribute.resourceId();
                     String attributeRef = resourceAttribute.annotatedAttribute().attributeRef();
-                    Set<ResourceGroup> validResourceGroups = bundle.resourceAttributeToChildResourceGroup().getOrDefault(resourceAttribute, Set.of());
+                    Set<ResourceGroupRelation> validResourceGroups = bundle.resourceAttributeToChildResourceGroup().getOrDefault(resourceAttribute, Set.of());
                     logger.trace("Valid RG {} found for {} -> {}", validResourceGroups, resourceId, attributeRef);
                     // Filter valid resource groups
                     Set<String> validReferences = validResourceGroups.stream()
                             .filter(group -> Boolean.TRUE.equals(bundle.isValidResourceGroup(group)))
-                            .map(ResourceGroup::resourceId)
+                            .map(ResourceGroupRelation::resourceId)
                             .collect(Collectors.toSet());
 
                     if (!validReferences.isEmpty()) {// Merge into the result map
@@ -135,7 +135,7 @@ public class BatchCopierRedacter {
         bundle.resourceGroupValidity().entrySet().stream()
                 .filter(Map.Entry::getValue)
                 .forEach(entry -> {
-                    ResourceGroup group = entry.getKey();
+                    ResourceGroupRelation group = entry.getKey();
                     groupedResources.computeIfAbsent(group.resourceId(), k -> new HashSet<>()).add(group.groupId());
                 });
         return groupedResources;

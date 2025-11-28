@@ -4,7 +4,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashSet;
@@ -22,14 +22,13 @@ public class CascadingDelete {
     }
 
     void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
-        Queue<ResourceGroup> processingQueue = new LinkedList<>(invalidResourceGroups);
+        Set<ResourceGroupRelation> invalidResourceGroups = resourceBundle.getInvalid().keySet();
+        Queue<ResourceGroupRelation> processingQueue = new LinkedList<>(invalidResourceGroups);
         while (!processingQueue.isEmpty()) {
-            ResourceGroup invalidResourceGroup = processingQueue.poll();
+            ResourceGroupRelation invalidResourceGroup = processingQueue.poll();
             processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
-
     }
 
     /**
@@ -40,8 +39,8 @@ public class CascadingDelete {
      * @param parentRG       parentRG that triggered the deletion process.
      * @return children to be deleted
      */
-    Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG) {
-        Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
+    Set<ResourceGroupRelation> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroupRelation parentRG) {
+        Set<ResourceGroupRelation> resourceGroups = new LinkedHashSet<>();
         Set<ResourceAttribute> resourceAttributes = resourceBundle.parentResourceGroupToResourceAttributesMap().get(parentRG);
 
         if (resourceAttributes == null) {
@@ -53,9 +52,9 @@ public class CascadingDelete {
                 if (resourceBundle.removeParentRGFromAttribute(parentRG, resourceAttribute)) {
                     resourceBundle.removeAttributefromParentRG(parentRG, resourceAttribute);
                     resourceBundle.setResourceAttributeInValid(resourceAttribute);
-                    Set<ResourceGroup> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
+                    Set<ResourceGroupRelation> childrenResourceGroups = resourceBundle.resourceAttributeToChildResourceGroup().get(resourceAttribute);
 
-                    for (ResourceGroup group : childrenResourceGroups) {
+                    for (ResourceGroupRelation group : childrenResourceGroups) {
                         resourceBundle.removeChildRGFromAttribute(group, resourceAttribute);
                         if (resourceBundle.removeParentAttributeFromChildRG(group, resourceAttribute)) {
 
@@ -79,8 +78,8 @@ public class CascadingDelete {
      * @param childRG        rg whose parents have to be handled
      * @return removes the connection of a invalid ResourceGroup to its parents propagates up if must have attribute.
      */
-    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup childRG) {
-        Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
+    Set<ResourceGroupRelation> handleParents(ResourceBundle resourceBundle, ResourceGroupRelation childRG) {
+        Set<ResourceGroupRelation> resourceGroups = new LinkedHashSet<>();
         Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(childRG, Set.of());
 
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
@@ -92,14 +91,14 @@ public class CascadingDelete {
 
                 // If it's a must-have attribute, escalate to all parent groups of the attribute
                 if (resourceAttribute.annotatedAttribute().mustHave()) {
-                    Set<ResourceGroup> parentGroups = resourceBundle.resourceAttributeToParentResourceGroup()
+                    Set<ResourceGroupRelation> parentGroups = resourceBundle.resourceAttributeToParentResourceGroup()
                             .getOrDefault(resourceAttribute, Set.of());
 
                     // Add all parent groups to be invalidated
                     resourceGroups.addAll(parentGroups);
 
                     // Ensure invalidation is applied recursively
-                    for (ResourceGroup parentGroup : parentGroups) {
+                    for (ResourceGroupRelation parentGroup : parentGroups) {
                         resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
                         resourceBundle.addResourceGroupValidity(parentGroup, false);
                     }

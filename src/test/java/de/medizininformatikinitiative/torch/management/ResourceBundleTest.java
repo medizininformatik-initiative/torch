@@ -2,7 +2,11 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
-import de.medizininformatikinitiative.torch.model.management.*;
+import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -113,10 +117,10 @@ class ResourceBundleTest {
         private static final ResourceAttribute ATTRIBUTE_5 = new ResourceAttribute("attribute5", ATTRIBUTE);
         private static final ResourceAttribute ATTRIBUTE_6 = new ResourceAttribute("attribute6", ATTRIBUTE);
 
-        private static final ResourceGroup CHILD_1 = new ResourceGroup("child1", "group1");
-        private static final ResourceGroup CHILD_2 = new ResourceGroup("child2", "group1");
-        private static final ResourceGroup PARENT_1 = new ResourceGroup("parent1", "group1");
-        private static final ResourceGroup PARENT_2 = new ResourceGroup("parent2", "group2");
+        private static final ResourceGroupRelation CHILD_1 = new ResourceGroupRelation("child1", "group1");
+        private static final ResourceGroupRelation CHILD_2 = new ResourceGroupRelation("child2", "group1");
+        private static final ResourceGroupRelation PARENT_1 = new ResourceGroupRelation("parent1", "group1");
+        private static final ResourceGroupRelation PARENT_2 = new ResourceGroupRelation("parent2", "group2");
 
         private ResourceBundle cache;
 
@@ -255,10 +259,10 @@ class ResourceBundleTest {
     @Nested
     class CacheLess {
 
-        private final ResourceGroup patientGroup = new ResourceGroup("Patient/101", "GroupA");
-        private final ResourceGroup medicationGroup1 = new ResourceGroup("Medication/201", "GroupA");
-        private final ResourceGroup medicationGroup2 = new ResourceGroup("Medication/202", "GroupA");
-        private final ResourceGroup organizationGroup = new ResourceGroup("Organization/501", "GroupX");
+        private final ResourceGroupRelation patientGroup = new ResourceGroupRelation("Patient/101", "GroupA");
+        private final ResourceGroupRelation medicationGroup1 = new ResourceGroupRelation("Medication/201", "GroupA");
+        private final ResourceGroupRelation medicationGroup2 = new ResourceGroupRelation("Medication/202", "GroupA");
+        private final ResourceGroupRelation organizationGroup = new ResourceGroupRelation("Organization/501", "GroupX");
         private final AnnotatedAttribute annotatedAttribute1 = new AnnotatedAttribute("test", "test", false);
         private final AnnotatedAttribute annotatedAttribute2 = new AnnotatedAttribute("med", "med", false);
         private final ResourceAttribute attribute1 = new ResourceAttribute("attr1", annotatedAttribute1); // Should remain

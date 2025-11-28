@@ -7,7 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import org.hl7.fhir.r4.model.Resource;
@@ -86,7 +86,7 @@ public class ReferenceResolver {
                 .concatMap(entry -> resolvePatient(entry.getValue(), batch.coreBundle(), batch.applyConsent(), groupMap)
                         .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent(), batch.coreBundle()));
+                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent(), batch.coreBundle(), batch.id()));
     }
 
     /**
@@ -126,18 +126,18 @@ public class ReferenceResolver {
      * @param groupMap            map of known attribute groups
      * @return newly added resourceGroups to be fed back into reference handling pipeline.
      */
-    public Mono<Set<ResourceGroup>> processResourceGroups(
-            Set<ResourceGroup> validResourceGroups,
+    public Mono<Set<ResourceGroupRelation>> processResourceGroups(
+            Set<ResourceGroupRelation> validResourceGroups,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
             boolean applyConsent,
             Map<String, AnnotatedAttributeGroup> groupMap) {
-        Map<ResourceGroup, List<ReferenceWrapper>> referencesGroupedByResourceGroup =
+        Map<ResourceGroupRelation, List<ReferenceWrapper>> referencesGroupedByResourceGroup =
                 loadReferencesByResourceGroup(validResourceGroups, patientBundle, coreBundle, groupMap);
 
         // Get knownGroups ONCE before processing to avoid O(n²) copy operations
         ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
-        Set<ResourceGroup> knownGroups = processingBundle.getKnownResourceGroups();
+        Set<ResourceGroupRelation> knownGroups = processingBundle.getKnownResourceGroups();
 
         return bundleLoader.fetchUnknownResources(referencesGroupedByResourceGroup, patientBundle, coreBundle, applyConsent)
                 .thenMany(
@@ -172,8 +172,8 @@ public class ReferenceResolver {
      * @param groupMap       map of known attribute groups
      * @return extracted ReferenceWrappers ordered by their respective ResourceGroup
      */
-    public Map<ResourceGroup, List<ReferenceWrapper>> loadReferencesByResourceGroup(
-            Set<ResourceGroup> resourceGroups,
+    public Map<ResourceGroupRelation, List<ReferenceWrapper>> loadReferencesByResourceGroup(
+            Set<ResourceGroupRelation> resourceGroups,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap) {
@@ -201,8 +201,8 @@ public class ReferenceResolver {
      * @param groupMap      all known attribute Groups
      * @return extracted References for a ResourceGroup
      */
-    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> processResourceGroup(
-            ResourceGroup resourceGroup,
+    private Map.Entry<ResourceGroupRelation, List<ReferenceWrapper>> processResourceGroup(
+            ResourceGroupRelation resourceGroup,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap) {
@@ -230,16 +230,16 @@ public class ReferenceResolver {
      * @param coreBundle    bundle containing core resources
      * @return empty map entry to be handled later
      */
-    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> skipDueToMissingPatientBundle(
-            ResourceGroup resourceGroup, ResourceBundle coreBundle) {
+    private Map.Entry<ResourceGroupRelation, List<ReferenceWrapper>> skipDueToMissingPatientBundle(
+            ResourceGroupRelation resourceGroup, ResourceBundle coreBundle) {
 
         logger.warn("Skipping resourceGroup {}: Patient resource requires a PatientResourceBundle", resourceGroup);
         coreBundle.addResourceGroupValidity(resourceGroup, false);
         return Map.entry(resourceGroup, Collections.emptyList());
     }
 
-    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> extractReferences(
-            ResourceGroup resourceGroup,
+    private Map.Entry<ResourceGroupRelation, List<ReferenceWrapper>> extractReferences(
+            ResourceGroupRelation resourceGroup,
             Resource resource,
             Map<String, AnnotatedAttributeGroup> groupMap,
             ResourceBundle processingBundle) {
@@ -260,8 +260,8 @@ public class ReferenceResolver {
      * @param processingBundle bundle currently processed
      * @return empty map entry to be handled later
      */
-    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> handleMissingResource(
-            ResourceGroup resourceGroup,
+    private Map.Entry<ResourceGroupRelation, List<ReferenceWrapper>> handleMissingResource(
+            ResourceGroupRelation resourceGroup,
             ResourceBundle processingBundle) {
         logger.warn("Empty resource marked as valid for group {}", resourceGroup);
         processingBundle.addResourceGroupValidity(resourceGroup, false);

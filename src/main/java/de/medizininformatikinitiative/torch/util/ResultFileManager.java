@@ -26,7 +26,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -75,7 +74,7 @@ public class ResultFileManager {
     }
 
     public Path getJobDirectory(String jobId) {
-        return resultsDirPath.resolve(jobId);
+        return resultsDirPath.resolve(String.valueOf(jobId));
     }
 
     public Map<String, HttpStatus> getJobStatusMap() {
@@ -110,7 +109,7 @@ public class ResultFileManager {
                                         }
                                     }
                                 } catch (IOException e) {
-                                    logger.debug("Loading error.json failed for jobId: {}", jobId, e);
+                                    logger.debug("Loading error.json failed for id: {}", jobId, e);
                                     setStatus(jobId, HttpStatus.NOT_FOUND);
                                 }
                             }
@@ -119,10 +118,10 @@ public class ResultFileManager {
                                 boolean ndjsonExists = files.anyMatch(file -> file.toString().endsWith(NDJSON));
 
                                 if (ndjsonExists) {
-                                    logger.debug("Loaded existing job with jobId: {}", jobId);
+                                    logger.debug("Loaded existing job with id: {}", jobId);
                                     setStatus(jobId, HttpStatus.OK);
                                 } else {
-                                    logger.warn("No .ndjson file found for jobId: {}", jobId);
+                                    logger.warn("No .ndjson file found for id: {}", jobId);
                                     setStatus(jobId, HttpStatus.NOT_FOUND);
                                 }
                             }
@@ -162,7 +161,7 @@ public class ResultFileManager {
         requireNonNull(jobId);
         requireNonNull(batch);
         if (batch.isEmpty()) {
-            logger.trace("Attempted to save empty batch for jobId: {}", jobId);
+            logger.trace("Attempted to save empty batch for id: {}", jobId);
             return;
         }
         var ndJsonFile = createNdJsonFile(jobId, batch);
@@ -181,7 +180,7 @@ public class ResultFileManager {
             ndjsonFile = jobDir.resolve("core.ndjson");
             Files.deleteIfExists(ndjsonFile);
         } else {
-            ndjsonFile = jobDir.resolve(UUID.randomUUID() + NDJSON);
+            ndjsonFile = jobDir.resolve(batch + NDJSON);
         }
         return ndjsonFile;
     }
@@ -256,7 +255,7 @@ public class ResultFileManager {
                     }
                 });
             } catch (IOException e) {
-                logger.error("Failed to load bundles for jobId {}: {}", jobId, e.getMessage());
+                logger.error("Failed to load bundles for id {}: {}", jobId, e.getMessage());
             }
 
             logger.debug("OutputFiles size {}", outputFiles.size());
@@ -268,7 +267,7 @@ public class ResultFileManager {
             response.put("deleted", deletedFiles);
             response.put("error", errorFiles);
         } else {
-            logger.warn("Job directory does not exist or is not a directory for jobId: {}", jobId);
+            logger.warn("Job directory does not exist or is not a directory for id: {}", jobId);
         }
         return response;
     }

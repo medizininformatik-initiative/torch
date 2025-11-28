@@ -5,7 +5,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.management.CachelessResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -62,20 +62,20 @@ public class PatientBatchToCoreBundleWriter {
      */
     public CachelessResourceBundle extractRelevantPatientData(CachelessResourceBundle patientResourceBundle) {
         // Step 1: Identify valid ResourceGroups that are NOT in the compartment
-        Map<ResourceGroup, Boolean> validGroups = patientResourceBundle.resourceGroupValidity().entrySet().stream()
+        Map<ResourceGroupRelation, Boolean> validGroups = patientResourceBundle.resourceGroupValidity().entrySet().stream()
                 .filter(entry -> entry.getValue() && !compartmentManager.isInCompartment(entry.getKey())) // Exclude patient groups
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
 
         // Step 2: Collect attributes linked to valid parent groups
-        Map<ResourceAttribute, Set<ResourceGroup>> parentMap = new HashMap<>();
-        Map<ResourceAttribute, Set<ResourceGroup>> childMap = new HashMap<>();
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> parentMap = new HashMap<>();
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> childMap = new HashMap<>();
         Map<ResourceAttribute, Boolean> attributeValidity = new HashMap<>();
 
         // **Collect attributes that link to any valid parent resource**
-        for (Map.Entry<ResourceAttribute, Set<ResourceGroup>> entry : patientResourceBundle.resourceAttributeToParentResourceGroup().entrySet()) {
+        for (Map.Entry<ResourceAttribute, Set<ResourceGroupRelation>> entry : patientResourceBundle.resourceAttributeToParentResourceGroup().entrySet()) {
             ResourceAttribute attribute = entry.getKey();
-            Set<ResourceGroup> parents = entry.getValue();
+            Set<ResourceGroupRelation> parents = entry.getValue();
 
 
             // If any parent is valid, keep this attribute
@@ -85,33 +85,33 @@ public class PatientBatchToCoreBundleWriter {
             }
         }
 
-        for (Map.Entry<ResourceAttribute, Set<ResourceGroup>> entry : patientResourceBundle.resourceAttributeToChildResourceGroup().entrySet()) {
+        for (Map.Entry<ResourceAttribute, Set<ResourceGroupRelation>> entry : patientResourceBundle.resourceAttributeToChildResourceGroup().entrySet()) {
             ResourceAttribute attribute = entry.getKey();
-            Set<ResourceGroup> children = entry.getValue();
+            Set<ResourceGroupRelation> children = entry.getValue();
 
             // If this attribute was already validated via parent links, add children
             if (parentMap.containsKey(attribute)) {
                 childMap.put(attribute, new HashSet<>(children));
 
                 // Mark child resource groups as valid if they weren't already
-                for (ResourceGroup child : children) {
+                for (ResourceGroupRelation child : children) {
                     validGroups.putIfAbsent(child, true);
                 }
             }
         }
 
         // Step 3: Build the resource group to attributes mapping
-        Map<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToAttributesMap = new HashMap<>();
-        Map<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToAttributesMap = new HashMap<>();
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> parentResourceGroupToAttributesMap = new HashMap<>();
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> childResourceGroupToAttributesMap = new HashMap<>();
 
         parentMap.forEach((attribute, parents) -> {
-            for (ResourceGroup parent : parents) {
+            for (ResourceGroupRelation parent : parents) {
                 parentResourceGroupToAttributesMap.computeIfAbsent(parent, k -> new HashSet<>()).add(attribute);
             }
         });
 
         childMap.forEach((attribute, children) -> {
-            for (ResourceGroup child : children) {
+            for (ResourceGroupRelation child : children) {
                 childResourceGroupToAttributesMap.computeIfAbsent(child, k -> new HashSet<>()).add(attribute);
             }
         });
@@ -127,12 +127,12 @@ public class PatientBatchToCoreBundleWriter {
      * @return A merged ImmutableResourceBundle.
      */
     public CachelessResourceBundle mergeImmutableBundles(List<CachelessResourceBundle> bundles) {
-        Map<ResourceAttribute, Set<ResourceGroup>> mergedParentMap = new ConcurrentHashMap<>();
-        Map<ResourceAttribute, Set<ResourceGroup>> mergedChildMap = new ConcurrentHashMap<>();
-        Map<ResourceGroup, Boolean> mergedValidGroups = new ConcurrentHashMap<>();
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> mergedParentMap = new ConcurrentHashMap<>();
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> mergedChildMap = new ConcurrentHashMap<>();
+        Map<ResourceGroupRelation, Boolean> mergedValidGroups = new ConcurrentHashMap<>();
         Map<ResourceAttribute, Boolean> mergedAttributeValidity = new ConcurrentHashMap<>();
-        Map<ResourceGroup, Set<ResourceAttribute>> mergedParentGroupToAttributes = new ConcurrentHashMap<>();
-        Map<ResourceGroup, Set<ResourceAttribute>> mergedChildGroupToAttributes = new ConcurrentHashMap<>();
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> mergedParentGroupToAttributes = new ConcurrentHashMap<>();
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> mergedChildGroupToAttributes = new ConcurrentHashMap<>();
 
         for (CachelessResourceBundle bundle : bundles) {
             // Merge parent relationships

@@ -11,7 +11,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.Condition;
@@ -167,7 +167,7 @@ class BatchCopierRedacterIT {
     AnnotatedAttribute conditionMeta;
     AnnotatedAttribute conditionId;
     AnnotatedAttributeGroup conditionGroup;
-    ResourceGroup validResourceGroup;
+    ResourceGroupRelation validResourceGroup;
 
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -185,7 +185,7 @@ class BatchCopierRedacterIT {
         conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null);
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
-        validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
+        validResourceGroup = new ResourceGroupRelation("Patient/VHF00006", "Patient1");
 
 
         attributeGroupMap.put("Patient1", patientGroup);

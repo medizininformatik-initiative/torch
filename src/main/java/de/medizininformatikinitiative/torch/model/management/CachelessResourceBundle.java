@@ -9,12 +9,12 @@ import java.util.concurrent.ConcurrentHashMap;
  * ResourceGroup<->ResourceAttribute<->ResourceGroup
  */
 public record CachelessResourceBundle(
-        Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToParentResourceGroup,
-        Map<ResourceAttribute, Set<ResourceGroup>> resourceAttributeToChildResourceGroup,
-        Map<ResourceGroup, Boolean> resourceGroupValidity,
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> resourceAttributeToParentResourceGroup,
+        Map<ResourceAttribute, Set<ResourceGroupRelation>> resourceAttributeToChildResourceGroup,
+        Map<ResourceGroupRelation, Boolean> resourceGroupValidity,
         Map<ResourceAttribute, Boolean> resourceAttributeValidity,
-        Map<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
-        Map<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
+        Map<ResourceGroupRelation, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap
 ) {
     public CachelessResourceBundle {
         resourceAttributeToParentResourceGroup = Map.copyOf(resourceAttributeToParentResourceGroup);

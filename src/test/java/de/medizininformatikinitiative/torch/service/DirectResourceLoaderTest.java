@@ -5,7 +5,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
@@ -185,7 +185,7 @@ class DirectResourceLoaderTest {
                         assertThat(processedBatch.get("1").bundle().cache())
                                 .isEqualTo(Map.of("Observation/xyz", Optional.of(observation)));
                         assertThat(processedBatch.get("1").bundle().getValidResourceGroups()).doesNotContain(
-                                new ResourceGroup("Observation/xyz", "test"));
+                                new ResourceGroupRelation("Observation/xyz", "test"));
                     })
                     .verifyComplete();
         }
@@ -222,7 +222,7 @@ class DirectResourceLoaderTest {
                         assertThat(processedBatch.get("1").bundle().cache())
                                 .isEqualTo(Map.of("Observation/xyz", Optional.of(observation)));
                         assertThat(processedBatch.get("1").bundle().getValidResourceGroups()).containsExactly(
-                                new ResourceGroup("Observation/xyz", "test"));
+                                new ResourceGroupRelation("Observation/xyz", "test"));
                     })
                     .verifyComplete();
         }

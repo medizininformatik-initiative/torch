@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroupRelation;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 
@@ -65,7 +65,7 @@ public class CompartmentManager {
         return compartmentMap.containsKey(resourceType);
     }
 
-    public boolean isInCompartment(ResourceGroup resourceGroup) {
+    public boolean isInCompartment(ResourceGroupRelation resourceGroup) {
         return isInCompartment(resourceGroup.resourceId());
     }
 
