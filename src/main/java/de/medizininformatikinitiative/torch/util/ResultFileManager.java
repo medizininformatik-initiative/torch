@@ -3,7 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
-import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -158,7 +158,7 @@ public class ResultFileManager {
     }
 
 
-    public void saveBatchToNDJSON(String jobId, PatientBatchWithConsent batch) throws IOException {
+    public void saveBatchToNDJSON(String jobId, ExtractionPatientBatch batch) throws IOException {
         requireNonNull(jobId);
         requireNonNull(batch);
         if (batch.isEmpty()) {
@@ -168,16 +168,16 @@ public class ResultFileManager {
         var ndJsonFile = createNdJsonFile(jobId, batch);
 
         try (BufferedWriter out = Files.newBufferedWriter(ndJsonFile)) {
-            batch.writeFhirBundlesTo(fhirContext, out, jobId);
+            batch.writeToFhirBundles(fhirContext, out, jobId);
         }
     }
 
-    private Path createNdJsonFile(String jobId, PatientBatchWithConsent batch) throws IOException {
+    private Path createNdJsonFile(String jobId, ExtractionPatientBatch batch) throws IOException {
         Path jobDir = getJobDirectory(jobId);
         Files.createDirectories(jobDir); // Ensure job directory exists
 
         Path ndjsonFile;
-        if (batch.patientIds().equals(Set.of("CORE"))) {
+        if (batch.bundles().keySet().equals(Set.of("CORE"))) {
             ndjsonFile = jobDir.resolve("core.ndjson");
             Files.deleteIfExists(ndjsonFile);
         } else {

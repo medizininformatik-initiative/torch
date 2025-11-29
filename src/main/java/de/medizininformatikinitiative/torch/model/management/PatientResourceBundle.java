@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -30,14 +31,6 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
 
     public PatientResourceBundle(String patientID, ResourceBundle bundle) {
         this(patientID, NonContinuousPeriod.of(), bundle);
-    }
-
-    public PatientResourceBundle(String patientID, CachelessResourceBundle cachelessResourceBundle) {
-        this(patientID, NonContinuousPeriod.of(), cachelessResourceBundle.toCaching());
-    }
-
-    public PatientResourceBundle(String patientID, NonContinuousPeriod consentPeriods) {
-        this(patientID, consentPeriods, new ResourceBundle());
     }
 
     public Optional<Resource> get(String id) {
@@ -80,4 +73,5 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
     public Set<ResourceGroup> getValidResourceGroups() {
         return bundle.getValidResourceGroups();
     }
+
 }

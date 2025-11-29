@@ -12,18 +12,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 class PatientResourceBundleTest {
 
     @Test
-    void constructorWithCachelessResourceBundle() {
-        CachelessResourceBundle cacheless = new CachelessResourceBundle(new ResourceBundle());
-        PatientResourceBundle bundle2 = new PatientResourceBundle("p2", cacheless);
-
-        assertThat(bundle2.patientId()).isEqualTo("p2");
-        assertThat(bundle2.bundle()).isNotNull();
-    }
-
-    @Test
     void constructorWithConsentPeriods() {
         NonContinuousPeriod period = NonContinuousPeriod.of();
-        PatientResourceBundle bundle2 = new PatientResourceBundle("p2", period);
+        PatientResourceBundle bundle2 = new PatientResourceBundle("p2", period, new ResourceBundle());
 
         assertThat(bundle2.patientId()).isEqualTo("p2");
         assertThat(bundle2.consentPeriods()).isEqualTo(period);
