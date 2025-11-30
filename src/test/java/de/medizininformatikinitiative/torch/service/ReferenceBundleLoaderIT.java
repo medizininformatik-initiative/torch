@@ -65,7 +65,7 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false, null);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
@@ -95,7 +95,7 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2)), patientBundle, coreBundle, false, null);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
@@ -119,12 +119,12 @@ class ReferenceBundleLoaderIT {
         PatientResourceBundle patientBundle = new PatientResourceBundle("1");
 
         ResourceBundle coreBundle = new ResourceBundle();
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false, null);
 
         StepVerifier.create(result).verifyComplete();
         ConcurrentHashMap<String, Optional<Resource>> cache = patientBundle.bundle().cache();
         cache.put("Condition/UnknownResource", Optional.of(new Condition()));
-        Mono<Void> rerun = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false);
+        Mono<Void> rerun = referenceBundleLoader.fetchUnknownResources(Map.of(new ResourceGroup("Patient/1", "test"), List.of(reference1, reference2, reference3)), patientBundle, coreBundle, false, null);
         StepVerifier.create(rerun).verifyComplete();
 
         long countEmpty = cache.values().stream()

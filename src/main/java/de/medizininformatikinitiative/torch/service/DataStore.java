@@ -83,6 +83,30 @@ public class DataStore {
     }
 
 
+    public Mono<List<Resource>> executeBundle(Bundle bundle) {
+        // TODO logging
+        System.out.println("requesting bundle: " + fhirContext.newJsonParser().encodeResourceToString(bundle));
+        return client.post()
+                .uri("") // Target endpoint already set up in WebClient
+                .header(HttpHeaders.CONTENT_TYPE, APPLICATION_FHIR_JSON)
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
+                .retrieve()
+                .bodyToMono(String.class)
+                .map(str -> {
+                    System.out.println("str: " + str);
+                    return str;
+                })
+                .retryWhen(RETRY_SPEC)
+                .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
+                .map(this::extractResourcesFromBundle)
+                .doOnSuccess(resources ->
+                        logger.debug(
+                                "TODO logging"
+                        ))
+                .flatMap(resources -> resources.isEmpty() ? Mono.empty() : Mono.just(resources))
+                .doOnError(e -> logger.error("Error while executing batch bundle query: {}", e.getMessage()));
+    }
+
     /**
      * Loads a batch of resources.
      *
@@ -140,6 +164,7 @@ public class DataStore {
 
     private String serializeBatchBundle(Map<String, Set<String>> idsByType) {
         Bundle batchBundle = DataStoreHelper.createBatchBundleForReferences(idsByType);
+        logger.info(fhirContext.newJsonParser().encodeResourceToString(batchBundle));
         return fhirContext.newJsonParser().encodeResourceToString(batchBundle);
     }
 

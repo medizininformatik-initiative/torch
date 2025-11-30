@@ -121,10 +121,12 @@ public class CrtdlProcessingService {
         // Step 1: Preprocess Core Bundle (but don't write it out yet)
         Mono<CachelessResourceBundle> preProcessedCoreBundle = directResourceLoader
                 .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), coreBundle)
-                .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
+                //.flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle(updatedCoreBundle, groupsToProcess.allGroups()))
+                .flatMap(updatedCoreBundle -> referenceResolver.resolveCoreBundle_new(updatedCoreBundle, groupsToProcess.allGroups()))
                 .flatMap(updatedCoreBundle -> Mono.fromRunnable(() -> cascadingDelete.handleBundle(updatedCoreBundle, groupsToProcess.allGroups()))
                         .thenReturn(updatedCoreBundle)) // Ensure sequential execution
                 .map(CachelessResourceBundle::new); // Create immutable snapshot after processing
+
 
         // Step 2: Process Patient Batches Using Preprocessed Core Bundle
         logger.debug("Process patient batches with a concurrency of {}", maxConcurrency);
@@ -169,7 +171,8 @@ public class CrtdlProcessingService {
         logMemory(id);
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
                 .doOnNext(loadedBatch -> logger.debug("Directly loaded patient compartment for batch {} with {} patients", id, loadedBatch.patientIds().size()))
-                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
+                //.flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, coreBundle, groupsToProcess.allGroups()))
+                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch_new(patientBatch, coreBundle, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .doOnNext(loadedBatch -> logger.debug("Batch resolved references {} with {} patients", id, loadedBatch.patientIds().size()))
                 .map(patientBatch -> batchCopierRedacter.transformBatch(patientBatch, groupsToProcess.allGroups()))
@@ -183,9 +186,11 @@ public class CrtdlProcessingService {
 
     Mono<Void> writeBatch(String jobID, PatientBatchWithConsent batch) {
         try {
+            System.out.println("---------------- writing batch json");
             resultFileManager.saveBatchToNDJSON(jobID, batch);
             return Mono.empty();
         } catch (IOException e) {
+            System.out.println("---------------- error when writing batch json");
             return Mono.error(e);
         }
     }

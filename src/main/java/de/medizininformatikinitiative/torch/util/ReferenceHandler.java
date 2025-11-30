@@ -130,7 +130,7 @@ public class ReferenceHandler {
                     if (isValid == null) {
                         AnnotatedAttributeGroup group = groupMap.get(groupId);
                         boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
-                        if (group.compiledFilter() != null) {
+                        if (group.compiledFilter() != null) { // TODO remove filter test
                             fulfilled = fulfilled && group.compiledFilter().test(resource);
                         }
                         logger.trace("Group {} for Reference: {}", groupId, fulfilled);

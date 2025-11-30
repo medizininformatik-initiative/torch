@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import org.apache.commons.compress.archivers.zip.ScatterZipOutputStream;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
@@ -52,6 +53,9 @@ public class ReferenceExtractor {
                     })
                     .collect(Collectors.toList());
         } catch (RuntimeException e) {
+            System.out.println("laskdjflöaskdjfßßßßßßßßßß ");
+            System.out.println(e.getMessage());
+            e.printStackTrace();
             Throwable cause = e.getCause();
             if (cause instanceof MustHaveViolatedException) {
                 throw (MustHaveViolatedException) cause; // Unwrapping and rethrowing
@@ -87,6 +91,9 @@ public class ReferenceExtractor {
      */
     public List<String> collectReferences(Base element) {
         if (element instanceof Reference ref && ref.hasReference()) {
+            if (ref.getReference() == null) { // TODO remove???
+                return List.of();
+            }
             return List.of(ref.getReference());
         } else if (!element.isPrimitive()) {
             return element.children().stream()
