@@ -174,7 +174,7 @@ public class DataStore {
                             return Mono.just(bundle);
                         }
                         case OperationOutcome outcome -> {
-                            logger.error("FHIR server returned OperationOutcome: {}", fhirContext.newJsonParser().encodeResourceToString(outcome));
+                            logger.error("DATASTORE_0001 FHIR server returned OperationOutcome: {}", fhirContext.newJsonParser().encodeResourceToString(outcome));
                             return Mono.error(new DataStoreException("OperationOutcome returned by FHIR server With " + outcome.getIssue().toString()));
                         }
                         default -> {
@@ -198,7 +198,7 @@ public class DataStore {
                 })
                 .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds with {} resources.", queryId,
                         "%.1f".formatted(TimeUtils.durationSecondsSince(start)), counter.get()))
-                .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
+                .doOnError(e -> logger.error("DATASTORE_0002 Error while executing resource query `{}`: {}", query, e.getMessage()));
     }
 
     private Mono<Bundle> fetchPage(String url) {
@@ -220,7 +220,7 @@ public class DataStore {
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC)
                 .doOnSuccess(response -> logger.debug("Successfully executed a transaction."))
-                .doOnError(error -> logger.error("Error occurred executing a transaction: {}", error.getMessage()))
+                .doOnError(error -> logger.error("DATASTORE_0003 Error occurred executing a transaction: {}", error.getMessage()))
                 .then();
     }
 
@@ -249,7 +249,7 @@ public class DataStore {
                 .onErrorResume(AsyncException.class, e -> pollStatus(e.getStatusUrl(), measureUrn, start))
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {} in {} seconds.",
                         measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
-                .doOnError(error -> logger.error("Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
+                .doOnError(error -> logger.error("DATASTORE_0004 Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
     }
 
     private <T extends Resource> Mono<T> parseResource(Class<T> resourceType, String body) {
