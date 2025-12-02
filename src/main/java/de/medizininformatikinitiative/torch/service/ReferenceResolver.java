@@ -86,7 +86,7 @@ public class ReferenceResolver {
                 .concatMap(entry -> resolvePatient(entry.getValue(), batch.coreBundle(), batch.applyConsent(), groupMap)
                         .map(updatedBundle -> Map.entry(entry.getKey(), updatedBundle)))
                 .collectMap(Map.Entry::getKey, Map.Entry::getValue)
-                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent(), batch.coreBundle()));
+                .map(updatedBundles -> new PatientBatchWithConsent(updatedBundles, batch.applyConsent(), batch.coreBundle(), batch.id()));
     }
 
     /**

@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.model.extraction;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 
@@ -13,11 +15,24 @@ public record ResourceExtractionInfo(
         Set<String> groups,                              // groupIds valid for this resource
         Map<String, Set<String>> attributeToReferences   // elementId -> Set<resourceId>
 ) {
-
-    public ResourceExtractionInfo {
-        groups = Set.copyOf(groups);
-        attributeToReferences = Map.copyOf(attributeToReferences);
+    
+    @JsonCreator
+    public ResourceExtractionInfo(
+            @JsonProperty("groups") Set<String> groups,
+            @JsonProperty("attributeToReferences") Map<String, Set<String>> attributeToReferences
+    ) {
+        // Jackson may pass null → handle it
+        this.groups = groups == null ? Set.of() : Set.copyOf(groups);
+        this.attributeToReferences =
+                attributeToReferences == null
+                        ? Map.of()
+                        : attributeToReferences.entrySet().stream()
+                        .collect(Collectors.toUnmodifiableMap(
+                                Map.Entry::getKey,
+                                e -> Set.copyOf(e.getValue())
+                        ));
     }
+
 
     public static Map<String, ResourceExtractionInfo> toExtractionInfoMap(ResourceBundle bundle) {
 

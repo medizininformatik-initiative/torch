@@ -16,6 +16,19 @@ public class PatientBatchToCoreBundleWriter {
     }
 
     /**
+     * Creates a new core bundle from a ExtractionPatientBatch
+     *
+     * @param batch the patient batch containing patient bundles + its own core bundle
+     */
+    public ExtractionResourceBundle toCoreBundle(ExtractionPatientBatch batch) {
+        ExtractionResourceBundle resourceBundle = new ExtractionResourceBundle();
+        handlePatientBundles(resourceBundle, batch);
+        handleSourceCoreBundle(resourceBundle, batch.coreBundle());
+        return resourceBundle;
+    }
+
+
+    /**
      * Merges all non-compartment extraction data from the patient's ExtractionBundles
      * and merges the batch's core bundle into the global {@code coreBundle}.
      *

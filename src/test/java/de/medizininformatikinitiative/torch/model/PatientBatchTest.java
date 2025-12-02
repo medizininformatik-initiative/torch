@@ -62,7 +62,7 @@ class PatientBatchTest {
 
             List<PatientBatch> batches = originalBatch.split(5);
 
-            assertThat(batches).containsExactly(originalBatch);
+            assertThat(batches.getFirst().ids()).isEqualTo(originalBatch.ids());
         }
 
         @Test
@@ -70,8 +70,9 @@ class PatientBatchTest {
             PatientBatch originalBatch = PatientBatch.of("A", "B", "C", "D", "E");
 
             List<PatientBatch> batches = originalBatch.split(5);
-
-            assertThat(batches).containsExactly(originalBatch);
+            batches.forEach(
+                    batch -> assertThat(batch.ids()).isEqualTo(originalBatch.ids())
+            );
         }
 
         @Test
@@ -80,9 +81,8 @@ class PatientBatchTest {
 
             List<PatientBatch> batches = originalBatch.split(3);
 
-            assertThat(batches).containsExactly(
-                    PatientBatch.of("A", "B", "C"), PatientBatch.of("D", "E")
-            );
+            assertThat(batches.get(0).ids()).isEqualTo(List.of("A", "B", "C"));
+            assertThat(batches.get(1).ids()).isEqualTo(List.of("D", "E"));
         }
     }
 }

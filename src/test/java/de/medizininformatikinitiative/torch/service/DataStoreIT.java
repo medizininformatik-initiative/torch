@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,7 +43,6 @@ class DataStoreIT {
     @Autowired
     @Qualifier("fhirClient")
     WebClient webClient;
-    @Autowired
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
 
@@ -86,6 +86,39 @@ class DataStoreIT {
         Mono<List<Resource>> result = dataStore.executeSearchBatch(ReferencesGroupedByType);
         StepVerifier.create(result)
                 .verifyComplete();
+    }
+
+
+    @Nested
+    class GroupReferencesByTypeInChunks {
+        DataStore chunkDataStore = dataStore.pageCount(4);
+
+        @Test
+        void withoutChunking() {
+            var chunks = chunkDataStore.groupReferencesByTypeInChunks(Set.of(
+                    "Observation/123", "Patient/2", "Patient/1", "Medication/123"));
+
+            assertThat(chunks).containsExactly(Map.of(
+                    "Observation", Set.of("123"),
+                    "Patient", Set.of("2", "1"),
+                    "Medication", Set.of("123")));
+        }
+
+        @Test
+        void withChunking() {
+            var chunks = chunkDataStore.groupReferencesByTypeInChunks(Set.of(
+                    "Observation/123", "Patient/2", "Patient/1", "Medication/123", "MedicationAdministration/4"));
+
+            assertThat(chunks).containsExactly(Map.of(
+                            "Observation", Set.of("123"),
+                            "MedicationAdministration", Set.of("4"),
+                            "Medication", Set.of("123"),
+                            "Patient", Set.of("1")),
+                    Map.of(
+                            "Patient", Set.of("2")
+                    ));
+
+        }
     }
 
 }

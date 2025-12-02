@@ -1,144 +1,135 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
-import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
+import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.OperationOutcome;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeEach;
+import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.Provenance;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.util.FileSystemUtils;
+import org.junit.jupiter.api.io.TempDir;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.List;
-import java.util.stream.Stream;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResultFileManagerTest {
-    static final String RESULTS_DIR = "ResultFileManagerDir";
-    static final String ERROR_FILE = "error.json";
-    static final HttpStatus HTTP_OK = HttpStatus.OK;
+    @TempDir
+    Path tempDir;
 
-    ResultFileManager resultFileManager = new ResultFileManager(RESULTS_DIR, "PT20S", FhirContext.forR4(), "hostname", "fileServerName");
+    @Test
+    void writesExtractionResourceBundleWithProvenanceAndResourceMetadata() throws IOException {
+        // -------------------------------------------------------
+        // 1) Setup FHIR context + ResultFileManager
+        // -------------------------------------------------------
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx);
 
-    ResultFileManagerTest() throws IOException {
-    }
+        // -------------------------------------------------------
+        // 2) Create a ResourceExtractionInfo for a single resource
+        // -------------------------------------------------------
+        var extractionInfo = new ResourceExtractionInfo(
+                Set.of("GroupA", "GroupB"),           // groups this resource belongs to
+                Map.of("Condition.encounter", Set.of("Encounter/123"))
+        );
 
-    @BeforeEach
-    void setUp() throws IOException {
-        var dirFile = new File(RESULTS_DIR);
-        if (dirFile.exists()) {
-            FileSystemUtils.deleteRecursively(dirFile);
-        }
-        Files.createDirectory(new File(RESULTS_DIR).toPath());
-    }
+        // This is the extraction info map
+        var infoMap = new ConcurrentHashMap<String, ResourceExtractionInfo>();
+        infoMap.put("Condition/1", extractionInfo);
 
-    @AfterEach
-    void tearDown() {
-        FileSystemUtils.deleteRecursively(new File(RESULTS_DIR));
-    }
+        // -------------------------------------------------------
+        // 3) Create the cache map
+        // -------------------------------------------------------
+        var cache = new ConcurrentHashMap<String, Optional<Resource>>();
 
-    private String readJobErrorFile(String jobDir) throws IOException {
-        try (Stream<String> lines = Files.lines(Path.of(RESULTS_DIR, jobDir, ERROR_FILE))) {
-            var linesList = lines.toList();
-            if (linesList.isEmpty()) {
-                return "";
+        // -------------------------------------------------------
+        // 4) Create the ExtractionResourceBundle
+        // -------------------------------------------------------
+        var extractionBundle = new ExtractionResourceBundle(infoMap, cache);
+
+        // -------------------------------------------------------
+        // 5) Add one actual resource into a ResourceBundle
+        // -------------------------------------------------------
+        Condition c1 = new Condition();
+        c1.setId("Condition/1");
+
+
+        extractionBundle.put("Condition/1", Optional.of(c1));
+
+        Map<String, ExtractionResourceBundle> bundles = new ConcurrentHashMap<>();
+        bundles.put("CORE", extractionBundle);
+
+        ExtractionPatientBatch patientBatch = new ExtractionPatientBatch(bundles);
+
+        // -------------------------------------------------------
+        // 7) Write NDJSON
+        // -------------------------------------------------------
+        manager.saveBatchToNDJSON("jobX", patientBatch);
+
+        Path ndjson = tempDir.resolve("jobX").resolve("core.ndjson");
+        assertThat(ndjson).exists();
+
+        // Only one line: one bundle
+        var lines = Files.readAllLines(ndjson);
+        assertThat(lines).hasSize(1);
+
+        // -------------------------------------------------------
+        // 8) Parse Bundle
+        // -------------------------------------------------------
+        Bundle bundle = (Bundle) ctx.newJsonParser().parseResource(lines.get(0));
+
+        var provenanceList = bundle.getEntry().stream()
+                .map(Bundle.BundleEntryComponent::getResource)
+                .filter(Provenance.class::isInstance)
+                .map(r -> (Provenance) r)
+                .toList();
+
+        // Provenance IDs must match provenance prefix + groupId
+        assertThat(provenanceList).hasSize(2)
+                .anySatisfy(p -> assertThat(p.getId()).endsWith("GroupA"))
+                .anySatisfy(p -> assertThat(p.getId()).endsWith("GroupB"));
+
+        // Each provenance should have the correct entity for its group
+        for (Provenance p : provenanceList) {
+            String provJson = ctx.newJsonParser().encodeResourceToString(p);
+
+            // Has correct group ID
+            if (p.getId().endsWith("GroupA")) {
+                assertThat(provJson).contains("GroupA");
+                assertThat(provJson).doesNotContain("GroupB");
             } else {
-                return linesList.getFirst();
+                assertThat(provJson).contains("GroupB");
+                assertThat(provJson).doesNotContain("GroupA");
             }
+
+            // Each provenance must contain the extractionId entity
+            assertThat(provJson).contains("jobX");
+
+            // Each provenance must include the target resource ID
+            assertThat(provJson).contains("Condition/1");
         }
 
-    }
+        // 1 Condition resource in the bundle
+        long conditionCount = bundle.getEntry().stream()
+                .filter(e -> e.getResource() instanceof Condition)
+                .count();
+        assertThat(conditionCount).isEqualTo(1);
 
-    @Test
-    void testSaveErrorToJson() throws IOException {
-        var jobId = "job-102903";
-        var operationOutcome = new OperationOutcome();
+        assertThat(provenanceList)
+                .allSatisfy(p ->
+                        assertThat(p.getTarget())
+                                .extracting(Reference::getReference)
+                                .containsExactly("Condition/1")
+                );
 
-        resultFileManager.saveErrorToJson(jobId, operationOutcome, HTTP_OK).block();
-
-        assertThat(readJobErrorFile(jobId)).isEqualTo(fhirParser().encodeResourceToString(operationOutcome));
-    }
-
-    @Test
-    void testLoadErrorDirect() throws IOException {
-        var jobId = "job-110619";
-        var error = "error-110656";
-        Files.createDirectories(Path.of(RESULTS_DIR, jobId));
-        Files.writeString(Path.of(RESULTS_DIR, jobId, ERROR_FILE), error);
-
-        var loadedError = resultFileManager.loadErrorFromFileSystem(jobId);
-
-        assertThat(loadedError).isEqualTo(error);
-    }
-
-    @Test
-    void testLoadErrorFileNotExists() {
-        var jobId = "job-110619";
-
-        var loadedError = resultFileManager.loadErrorFromFileSystem(jobId);
-
-        assertThat(fhirParser().parseResource(loadedError)).isInstanceOf(OperationOutcome.class);
-    }
-
-    @Test
-    void testSaveAndLoad() {
-        var jobId = "job-102903";
-        var operationOutcome = new OperationOutcome();
-
-        resultFileManager.saveErrorToJson(jobId, operationOutcome, HTTP_OK).block();
-        var loadedError = resultFileManager.loadErrorFromFileSystem(jobId).replace(System.lineSeparator(), "");
-
-        assertThat(loadedError).isEqualTo(fhirParser().encodeResourceToString(operationOutcome));
-    }
-
-    @Test
-    void testLoadExistingResult_FatalAndInvalid() throws IOException {
-        var jobId = "job-115645";
-        var operationOutcome = new OperationOutcome()
-                .setIssue(List.of(new OperationOutcome.OperationOutcomeIssueComponent()
-                        .setSeverity(OperationOutcome.IssueSeverity.FATAL)
-                        .setCode(OperationOutcome.IssueType.INVALID)));
-        Files.createDirectories(Path.of(RESULTS_DIR, jobId));
-        Files.writeString(Path.of(RESULTS_DIR, jobId, ERROR_FILE), fhirParser().encodeResourceToString(operationOutcome));
-
-        resultFileManager = new ResultFileManager(RESULTS_DIR, "PT20S", FhirContext.forR4(), "hostname", "fileServerName");
-
-        assertThat(resultFileManager.getStatus(jobId)).isEqualTo(HttpStatus.INTERNAL_SERVER_ERROR);
-    }
-
-    @Test
-    void testLoadExistingResult_NoNdjsonExists() throws IOException {
-        var jobId = "job-115645";
-        var operationOutcome = new OperationOutcome()
-                .setIssue(List.of(new OperationOutcome.OperationOutcomeIssueComponent()
-                        .setSeverity(OperationOutcome.IssueSeverity.WARNING)
-                        .setCode(OperationOutcome.IssueType.INVALID)));
-        Files.createDirectories(Path.of(RESULTS_DIR, jobId));
-        Files.writeString(Path.of(RESULTS_DIR, jobId, ERROR_FILE), fhirParser().encodeResourceToString(operationOutcome));
-
-        resultFileManager = new ResultFileManager(RESULTS_DIR, "PT20S", FhirContext.forR4(), "hostname", "fileServerName");
-
-        assertThat(resultFileManager.getStatus(jobId)).isEqualTo(HttpStatus.NOT_FOUND);
-    }
-
-    @Test
-    void testLoadExistingResult_NdjsonExists() throws IOException {
-        var jobId = "job-115645";
-        Files.createDirectories(Path.of(RESULTS_DIR, jobId));
-        Files.writeString(Path.of(RESULTS_DIR, jobId, "bundle.ndjson"), fhirParser().encodeResourceToString(new Bundle()));
-
-        resultFileManager = new ResultFileManager(RESULTS_DIR, "PT20S", FhirContext.forR4(), "hostname", "fileServerName");
-
-        assertThat(resultFileManager.getStatus(jobId)).isEqualTo(HttpStatus.OK);
-    }
-
-    IParser fhirParser() {
-        return FhirContext.forR4().newJsonParser().setPrettyPrint(false);
     }
 }
