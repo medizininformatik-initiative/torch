@@ -44,8 +44,7 @@ services:
       TORCH_FHIR_MAX_CONNECTIONS: 4
       TORCH_RESULTS_DIR: /app/output
       LOG_LEVEL: debug
-      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8082
-      TORCH_BASE_URL: http://localhost:8082
+      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8080
       TORCH_BATCHSIZE: 100
       TORCH_MAXCONCURRENCY: 4
       TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
@@ -60,7 +59,7 @@ services:
     restart: unless-stopped
     image: nginxinc/nginx-unprivileged:1.29.2-alpine@sha256:1334f319b3f53168e696b593c0307f58d68d367ac9cae1da746f5f3c4e222143
     ports:
-      - "8082:8080"
+      - "8080:8080"
     volumes:
       - torch-data-store:/app/output
       - ./nginx.conf:/etc/nginx/nginx.conf

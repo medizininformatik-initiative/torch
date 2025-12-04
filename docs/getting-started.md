@@ -5,7 +5,7 @@
 Torch can be started with a single command using docker and by providing a configuration file (e.g. .env).
 See [Configuration](configuration.md) for details on the configuration options.
 ```sh
-docker run -d --name torch -p 8080:8080 ghcr.io/medizininformatik-initiative/torch:1.0.0-alpha.7 --env-file [/path/to/.env]
+docker run -d --name torch --env-file [/path/to/.env] -p 8080:8080 ghcr.io/medizininformatik-initiative/torch:1.0.0-alpha.12 
 ```
 
 ### Install prerequisites

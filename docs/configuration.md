@@ -21,6 +21,13 @@ If running a container it is the port inside the container.
 
 **Default:** `8080`
 
+#### `TORCH_BASE_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>
+
+Base server URL before any proxy, used for accessing TORCH directly.
+
+**Default:** – `http://localhost:8080`
+
+
 ---
 
 #### `TORCH_PROFILE_DIR` <Badge type="warning" text="Since 1.0.0-alpha"/>
@@ -198,12 +205,6 @@ Flag indicating whether to enable Clinical Quality Language (CQL) for processing
 **Default:** `true`
 
 ---
-
-#### `TORCH_BASE_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>
-
-Base server URL before any proxy, used for accessing TORCH directly.
-
-**Default:** – (none)
 
 ---
 
