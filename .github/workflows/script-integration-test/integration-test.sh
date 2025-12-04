@@ -47,7 +47,7 @@ TARGET_SERVER=http://localhost:8084/fhir
 
 # 3. Run extraction + transfer script
 echo "➡️ Running extraction and transfer..."
-TORCH_BASE_URL=http://localhost:8082 \
+TORCH_BASE_URL=http://localhost:8080 \
 "$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh" -c "$ROOT_DIR/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json" -t "$TARGET_SERVER"
 
 # 4. Assertions – Patient count
