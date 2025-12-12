@@ -57,7 +57,7 @@ services:
   nginx:
     container_name: nginx
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged:1.29.2-alpine@sha256:1334f319b3f53168e696b593c0307f58d68d367ac9cae1da746f5f3c4e222143
+    image: nginxinc/nginx-unprivileged:1.29.2-alpine@sha256:031d8c8ab79d2d171a2a383aa50a06f527791c05ba1aeae9ca05d7b9779caf8e
     ports:
       - "8080:8080"
     volumes:
