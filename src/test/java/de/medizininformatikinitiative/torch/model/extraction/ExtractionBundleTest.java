@@ -1,10 +1,14 @@
 package de.medizininformatikinitiative.torch.model.extraction;
 
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Provenance;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -13,6 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static de.medizininformatikinitiative.torch.assertions.BundleAssertFactory.BUNDLE_ASSERT;
 import static org.assertj.core.api.Assertions.assertThat;
 
 
@@ -190,7 +195,7 @@ class ExtractionBundleToFhirResourceBundleTest {
         assertThat(fhir.getEntry().getFirst().getRequest().getUrl())
                 .isEqualTo("Provenance/torch-G1");
 
-        Provenance prov = (Provenance) fhir.getEntry().get(0).getResource();
+        Provenance prov = (Provenance) fhir.getEntry().getFirst().getResource();
         assertThat(prov.getTarget())
                 .extracting(Reference::getReference)
                 .containsExactlyInAnyOrder("Patient/1", "Patient/2");
@@ -214,6 +219,37 @@ class ExtractionBundleToFhirResourceBundleTest {
         assertThat(fhir.getEntry()).hasSize(1);
         assertThat(fhir.getEntry().getFirst().getRequest().getUrl())
                 .isEqualTo("Patient/1");
+    }
+
+    @Test
+    void toFhirBundle_neverExportsInvalidResources() {
+        // given
+        ResourceBundle resourceBundle = new ResourceBundle();
+
+        resourceBundle.put(new Patient().setId("Patient/1"), "Group1", false);
+        resourceBundle.put(new Observation().setId("Observation/1"), "Group2", false);
+        resourceBundle.put(new Condition().setId("Condition/1"), "Group2", true);
+        resourceBundle.put(new Condition().setId("Condition/2"));
+
+        ExtractionResourceBundle extractionBundle =
+                ExtractionResourceBundle.of(resourceBundle);
+
+        // when
+        Bundle fhirBundle = extractionBundle.toFhirBundle("extraction-1");
+
+        assertThat(fhirBundle)
+                .asInstanceOf(BUNDLE_ASSERT)
+                .extractResources(r ->
+                        r.getId().equals("Condition/2")
+                                || r.getId().equals("Patient/1")
+                                || r.getId().equals("Observation/1"))
+                .isEmpty();
+
+        assertThat(fhirBundle)
+                .asInstanceOf(BUNDLE_ASSERT)
+                .extractResources(r ->
+                        r.getResourceType() != ResourceType.Provenance)
+                .hasSize(1);
     }
 
     @Test

@@ -66,9 +66,9 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
     }
 
     public static ExtractionResourceBundle of(ResourceBundle resourceBundle) {
-        // Values are immutable → safe to copy into CHM
         return new ExtractionResourceBundle(new ConcurrentHashMap<>(ResourceExtractionInfo.toExtractionInfoMap(resourceBundle)), new ConcurrentHashMap<>(resourceBundle.cache()));
     }
+
 
     public static ExtractionResourceBundle of(PatientResourceBundle patientResourceBundle) {
         return of(patientResourceBundle.bundle());
@@ -112,6 +112,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
 
         // 1. deterministic cache order
         cache.entrySet().stream()
+                .filter(e -> extractionInfoMap.containsKey(e.getKey()))
                 .sorted(Map.Entry.comparingByKey())
                 .forEach(entry -> entry.getValue()
                         .ifPresent(resource ->
