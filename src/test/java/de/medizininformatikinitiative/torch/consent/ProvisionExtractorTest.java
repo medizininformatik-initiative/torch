@@ -6,7 +6,11 @@ import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -92,6 +96,79 @@ class ProvisionExtractorTest {
         consent.setProvision(parentProvision);
 
         ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        assertThat(result.provisions()).isEmpty();
+    }
+
+    @Test
+    void skipsProvisionWithYearOnlyDates() throws Exception {
+        Consent consent = new Consent();
+        consent.setId("consent-year-only");
+        consent.setPatient(new Reference("Patient/123"));
+        consent.setDateTimeElement(new DateTimeType("2023-01-01"));
+
+        Consent.ProvisionComponent nested = new Consent.ProvisionComponent();
+        nested.setType(Consent.ConsentProvisionType.PERMIT);
+        nested.setCode(List.of(new CodeableConcept(new Coding("sys", "code1", ""))));
+        nested.setPeriod(new org.hl7.fhir.r4.model.Period()
+                .setStartElement(new DateTimeType("2022"))      // year only
+                .setEndElement(new DateTimeType("2022-12")));   // year + month
+
+        Consent.ProvisionComponent parent = new Consent.ProvisionComponent();
+        parent.setProvision(List.of(nested));
+        consent.setProvision(parent);
+
+        ConsentProvisions result =
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        // Must be skipped → no NPE, no extraction
+        assertThat(result.provisions()).isEmpty();
+    }
+
+    @Test
+    void skipsProvisionWithoutPeriod() throws Exception {
+        Consent consent = new Consent();
+        consent.setId("consent-no-period");
+        consent.setPatient(new Reference("Patient/123"));
+        consent.setDateTimeElement(new DateTimeType("2023-01-01"));
+
+        Consent.ProvisionComponent nested = new Consent.ProvisionComponent();
+        nested.setType(Consent.ConsentProvisionType.PERMIT);
+        nested.setCode(List.of(new CodeableConcept(new Coding("sys", "code1", "desc"))));
+        // no period set
+
+        Consent.ProvisionComponent parent = new Consent.ProvisionComponent();
+        parent.setProvision(List.of(nested));
+        consent.setProvision(parent);
+
+        ConsentProvisions result =
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        assertThat(result.provisions()).isEmpty();
+    }
+
+    @Test
+    void skipsProvisionWhenStartElementIsExplicitlyNull() throws Exception {
+        Consent consent = new Consent();
+        consent.setId("consent-null-start");
+        consent.setPatient(new Reference("Patient/123"));
+        consent.setDateTimeElement(new DateTimeType("2023-01-01"));
+
+        Consent.ProvisionComponent nested = new Consent.ProvisionComponent();
+        nested.setType(Consent.ConsentProvisionType.PERMIT);
+        nested.setCode(List.of(new CodeableConcept(new Coding("sys", "code1", "desc"))));
+
+        org.hl7.fhir.r4.model.Period period = new org.hl7.fhir.r4.model.Period();
+        period.setStartElement(null); // FORCE null
+        period.setEndElement(new DateTimeType("2022-12-31"));
+        nested.setPeriod(period);
+
+        Consent.ProvisionComponent parent = new Consent.ProvisionComponent();
+        parent.setProvision(List.of(nested));
+        consent.setProvision(parent);
+
+        ConsentProvisions result =
+                extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
 
         assertThat(result.provisions()).isEmpty();
     }

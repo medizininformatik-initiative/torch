@@ -1,12 +1,18 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import ca.uhn.fhir.model.api.TemporalPrecisionEnum;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Period;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -24,6 +30,11 @@ public class ProvisionExtractor {
 
     public static final Logger logger = LoggerFactory.getLogger(ProvisionExtractor.class);
 
+
+    private static boolean isNotFullDate(DateTimeType value) {
+        return !value.hasValue()
+                || value.getPrecision().compareTo(TemporalPrecisionEnum.DAY) < 0;
+    }
 
     /**
      * Transforms the consent consentPeriods within the provided {@link DomainResource} into a map of consent consentPeriods
@@ -43,27 +54,32 @@ public class ProvisionExtractor {
             throw new ConsentViolatedException("Consent resource " + consent.getId() + " has no valid consent date");
         }
         for (Consent.ProvisionComponent provision : consent.getProvision().getProvision()) {
-            if (!provision.hasCode()) continue;
 
-            // Iterate over all CodeableConcepts
+            if (!provision.hasPeriod()) continue;
+
+            Period period = provision.getPeriod();
+            DateTimeType start = period.getStartElement();
+            DateTimeType end = period.getEndElement();
+
+            if (!provision.hasCode() || isNotFullDate(start) || isNotFullDate(end)) continue;
+
+            boolean permit = provision.getType() == Consent.ConsentProvisionType.PERMIT;
+
             for (CodeableConcept cc : provision.getCode()) {
-                // Iterate over all codings
                 for (Coding coding : cc.getCoding()) {
+
                     TermCode code = new TermCode(coding.getSystem(), coding.getCode());
                     if (!requiredCodes.contains(code)) continue;
-
-                    Period period = provision.getPeriod();
-                    DateTimeType start = period.hasStart() ? period.getStartElement() : null;
-                    DateTimeType end = period.hasEnd() ? period.getEndElement() : null;
-
-                    // Only add provisions with valid start/end
-                    if (start != null && end != null) {
-                        provisions.add(new Provision(code, de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period), provision.getType() == Consent.ConsentProvisionType.PERMIT));
-                    }
+                    provisions.add(
+                            new Provision(
+                                    code,
+                                    de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period),
+                                    permit
+                            )
+                    );
                 }
             }
         }
         return new ConsentProvisions(ResourceUtils.patientId(consent), consent.getDateTimeElement(), provisions);
     }
-
 }
