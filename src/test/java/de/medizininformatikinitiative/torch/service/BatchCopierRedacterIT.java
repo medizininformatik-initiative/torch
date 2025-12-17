@@ -179,12 +179,12 @@ class BatchCopierRedacterIT {
 
         AnnotatedAttribute patiendID = new AnnotatedAttribute("Patient.id", "Patient.id", true);
         AnnotatedAttribute patiendGender = new AnnotatedAttribute("Patient.gender", "Patient.gender", true);
-        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of(), null);
+        patientGroup = new AnnotatedAttributeGroup("Patient1", "Patient", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Patient", List.of(patiendID, patiendGender), List.of());
 
         conditionSubject = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Patient1"));
         conditionMeta = new AnnotatedAttribute("Condition.meta", "Condition.meta", true, List.of("Patient1"));
         conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", true, List.of("Patient1"));
-        conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of(), null);
+        conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of());
 
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
         validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");

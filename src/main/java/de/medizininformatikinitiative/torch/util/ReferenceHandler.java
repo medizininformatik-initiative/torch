@@ -32,16 +32,16 @@ public class ReferenceHandler {
 
     }
 
-    private static Flux<List<ResourceGroup>> checkReferenceViolatesMustHave(ReferenceWrapper referenceWrapper, List<ResourceGroup> list, ResourceBundle processingBundle) {
+    private static Flux<List<ResourceGroup>> checkReferenceViolatesMustHave(ReferenceWrapper referenceWrapper, List<ResourceGroup> validRGs, ResourceBundle processingBundle) {
         ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
-        if (referenceWrapper.refAttribute().mustHave() && list.isEmpty()) {
+        if (referenceWrapper.refAttribute().mustHave() && validRGs.isEmpty()) {
             processingBundle.setResourceAttributeInValid(referenceAttribute);
             return Flux.error(new MustHaveViolatedException(
                     "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
             ));
         }
         processingBundle.setResourceAttributeValid(referenceAttribute);
-        return Flux.just(list);
+        return Flux.just(validRGs);
     }
 
     /**
@@ -55,16 +55,21 @@ public class ReferenceHandler {
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
                                                 Map<String, AnnotatedAttributeGroup> groupMap,
-                                                Set<ResourceGroup> knownGroups) throws MustHaveViolatedException {
-        ResourceBundle processingBundle = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
+                                                Set<ResourceGroup> knownGroups) {
+        ResourceBundle processingBundleForParent = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
         ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
 
-        List<ReferenceWrapper> unprocessedReferences = filterUnprocessedReferences(references, processingBundle);
+        List<ReferenceWrapper> unprocessedReferences;
+        try {
+            unprocessedReferences = filterUnprocessedReferences(references, processingBundleForParent);
+        } catch (MustHaveViolatedException e) {
+            return Flux.error(e);
+        }
         return Flux.fromIterable(unprocessedReferences)
-                .concatMap(ref -> handleReference(ref, patientBundle, coreBundle, groupMap).doOnNext(
+                .concatMap(ref -> handleReferenceAttribute(ref, patientBundle, coreBundle, groupMap).doOnNext(
                         resourceGroupList -> {
                             ResourceAttribute referenceAttribute = ref.toResourceAttributeGroup();
-                            resourceGroupList.forEach(resourceGroup -> processingBundle.addAttributeToChild(referenceAttribute, resourceGroup));
+                            resourceGroupList.forEach(resourceGroup -> processingBundleForParent.addAttributeToChild(referenceAttribute, resourceGroup));
                         }
                 ))
                 .collectList()
@@ -73,14 +78,14 @@ public class ReferenceHandler {
                         .toList()))
                 .filter(group -> !knownGroups.contains(group))
                 .onErrorResume(MustHaveViolatedException.class, e -> {
-                    processingBundle.addResourceGroupValidity(parentGroup, false);
+                    processingBundleForParent.addResourceGroupValidity(parentGroup, false);
                     logger.warn("MustHaveViolatedException occurred. Stopping resource processing: {}", e.getMessage());
                     return Flux.empty();
                 });
     }
 
     /**
-     * Handles a ReferenceWrapper by resolving its references and updating the processing bundle.
+     * Handles a ReferenceWrapper (i.e. references  from one attribute) by resolving its references and updating the processing bundle.
      *
      * @param referenceWrapper The reference wrapper to handle.
      * @param patientBundle    The patient bundle being updated, if present.
@@ -88,12 +93,12 @@ public class ReferenceHandler {
      * @param groupMap         Map of attribute groups for validation.
      * @return A Flux emitting a list of ResourceGroups corresponding to the resolved references.
      */
-    public Flux<List<ResourceGroup>> handleReference(ReferenceWrapper referenceWrapper,
-                                                     @Nullable PatientResourceBundle patientBundle,
-                                                     ResourceBundle coreBundle,
-                                                     Map<String, AnnotatedAttributeGroup> groupMap) {
+    public Flux<List<ResourceGroup>> handleReferenceAttribute(ReferenceWrapper referenceWrapper,
+                                                              @Nullable PatientResourceBundle patientBundle,
+                                                              ResourceBundle coreBundle,
+                                                              Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        ResourceBundle processingBundle = patientBundle != null ? patientBundle.bundle() : coreBundle;
+        ResourceBundle processingBundleForParent = patientBundle != null ? patientBundle.bundle() : coreBundle;
 
         List<ResourceGroup> allValidGroups = referenceWrapper.references()
                 .stream()
@@ -106,11 +111,11 @@ public class ReferenceHandler {
                 })
                 .filter(Objects::nonNull)
                 .filter(Optional::isPresent)
-                .flatMap(resource -> collectValidGroups(referenceWrapper, groupMap, resource.get(), processingBundle).stream())
+                .flatMap(resource -> collectValidGroups(referenceWrapper, groupMap, resource.get(), processingBundleForParent).stream())
                 .toList();
 
         // Now run your must-have validation and wrap in Flux
-        return checkReferenceViolatesMustHave(referenceWrapper, allValidGroups, processingBundle);
+        return checkReferenceViolatesMustHave(referenceWrapper, allValidGroups, processingBundleForParent);
     }
 
 
@@ -119,25 +124,22 @@ public class ReferenceHandler {
      * <p> For a given reference and resource checks if already a valid group in processingBundle.
      * If resourceGroups not assigned yet, executes filter, musthave (Without References) and profile checks.
      *
-     * @param groupMap         known attribute groups
-     * @param resource         Resource to be checked
-     * @param processingBundle bundle that is currently processed
+     * @param groupMap                  known attribute groups
+     * @param resource                  Resource to be checked
+     * @param processingBundleForParent bundle that is currently processed
      * @return ResourceGroup if previously unknown and assignable to the group.
      */
-    private List<ResourceGroup> collectValidGroups(ReferenceWrapper referenceWrapper, Map<String, AnnotatedAttributeGroup> groupMap, Resource resource, ResourceBundle processingBundle) {
+    private List<ResourceGroup> collectValidGroups(ReferenceWrapper referenceWrapper, Map<String, AnnotatedAttributeGroup> groupMap, Resource resource, ResourceBundle processingBundleForParent) {
         return referenceWrapper.refAttribute().linkedGroups().stream()
-                .map(groupId -> {
-                    ResourceGroup resourceGroup = new ResourceGroup(ResourceUtils.getRelativeURL(resource), groupId);
-                    Boolean isValid = processingBundle.isValidResourceGroup(resourceGroup);
+                .map(linkedGroupID -> {
+                    ResourceGroup resourceGroup = new ResourceGroup(ResourceUtils.getRelativeURL(resource), linkedGroupID);
+                    Boolean isValid = processingBundleForParent.isValidResourceGroup(resourceGroup);
                     if (isValid == null) {
-                        AnnotatedAttributeGroup group = groupMap.get(groupId);
+                        AnnotatedAttributeGroup group = groupMap.get(linkedGroupID);
                         boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
-                        if (group.compiledFilter() != null) {
-                            fulfilled = fulfilled && group.compiledFilter().test(resource);
-                        }
-                        logger.trace("Group {} for Reference: {}", groupId, fulfilled);
+                        logger.trace("Group {} for Reference: {}", linkedGroupID, fulfilled);
                         isValid = fulfilled;
-                        processingBundle.addResourceGroupValidity(resourceGroup, isValid);
+                        processingBundleForParent.addResourceGroupValidity(resourceGroup, isValid);
                     }
                     return isValid ? resourceGroup : null;
                 })
@@ -150,27 +152,27 @@ public class ReferenceHandler {
      *
      * <p>Checks for reference resource and attribute, if that combination has already been checked.
      *
-     * @param references       referencesWrappers to be handled
-     * @param processingBundle bundle on which the referenceWrappers are processed
+     * @param references                referencesWrappers to be handled
+     * @param processingBundleForParent bundle on which the referenceWrappers are processed
      * @return filters unprocessed ReferenceWrappers
      * @throws MustHaveViolatedException when attribute group in resource is invalid.
      */
     private List<ReferenceWrapper> filterUnprocessedReferences(List<ReferenceWrapper> references,
-                                                               ResourceBundle processingBundle) throws MustHaveViolatedException {
+                                                               ResourceBundle processingBundleForParent) throws MustHaveViolatedException {
         List<ReferenceWrapper> uncheckedReferences = new ArrayList<>();
 
         for (ReferenceWrapper reference : references) {
-            ResourceAttribute resourceAttribute = reference.toResourceAttributeGroup();
+            ResourceAttribute parentAttribute = reference.toResourceAttributeGroup();
             ResourceGroup parentGroup = reference.toResourceGroup();
 
-            Boolean isValid = processingBundle.resourceAttributeValidity().get(resourceAttribute);
-            processingBundle.addAttributeToParent(resourceAttribute, parentGroup);
+            Boolean isValid = processingBundleForParent.resourceAttributeValidity().get(parentAttribute);
+            processingBundleForParent.addAttributeToParent(parentAttribute, parentGroup);
             if (Boolean.TRUE.equals(isValid)) {
                 // Already valid, skip
             } else {
                 if (Boolean.FALSE.equals(isValid)) {
                     if (reference.refAttribute().mustHave()) {
-                        processingBundle.addResourceGroupValidity(parentGroup, false);
+                        processingBundleForParent.addResourceGroupValidity(parentGroup, false);
                         throw new MustHaveViolatedException(
                                 "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup);
                     }

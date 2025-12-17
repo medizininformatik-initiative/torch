@@ -19,7 +19,6 @@ import de.medizininformatikinitiative.torch.service.CascadingDelete;
 import de.medizininformatikinitiative.torch.service.CrtdlProcessingService;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.service.DirectResourceLoader;
-import de.medizininformatikinitiative.torch.service.FilterService;
 import de.medizininformatikinitiative.torch.service.PatientBatchToCoreBundleWriter;
 import de.medizininformatikinitiative.torch.service.ReferenceBundleLoader;
 import de.medizininformatikinitiative.torch.service.ReferenceResolver;
@@ -77,11 +76,6 @@ public class BaseConfig {
     @Bean
     public CompartmentManager compartmentManager() throws IOException {
         return new CompartmentManager("compartmentdefinition-patient.json");
-    }
-
-    @Bean
-    public FilterService filterService(FhirContext ctx, TorchProperties torchProperties) {
-        return new FilterService(ctx, torchProperties.searchParametersFile());
     }
 
     // ----------------------------------------------------------------------
@@ -217,8 +211,9 @@ public class BaseConfig {
     public ReferenceBundleLoader referenceBundleLoader(CompartmentManager manager,
                                                        DataStore dataStore,
                                                        ConsentValidator validator,
-                                                       FhirProperties torchProperties) {
-        return new ReferenceBundleLoader(manager, dataStore, validator, torchProperties.page().count());
+                                                       FhirProperties torchProperties,
+                                                       DseMappingTreeBase dseMappingTreeBase) {
+        return new ReferenceBundleLoader(manager, dataStore, validator, torchProperties.page().count(), dseMappingTreeBase);
     }
 
     // ----------------------------------------------------------------------

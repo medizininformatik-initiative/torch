@@ -180,7 +180,7 @@ public class CrtdlProcessingService {
         logMemory(id);
         return directResourceLoader.directLoadPatientCompartment(groupsToProcess.directPatientCompartmentGroups(), batch)
                 .doOnNext(loadedBatch -> logger.debug("Directly loaded patient compartment for batch {} with {} patients", id, loadedBatch.patientIds().size()))
-                .flatMap(patientBatch -> referenceResolver.processSinglePatientBatch(patientBatch, groupsToProcess.allGroups()))
+                .flatMap(patientBatch -> referenceResolver.resolvePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .map(patientBatch -> cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
                 .doOnNext(loadedBatch -> logger.debug("Batch resolved references {} with {} patients", id, loadedBatch.patientIds().size()))
                 .map(patientBatch -> batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()))

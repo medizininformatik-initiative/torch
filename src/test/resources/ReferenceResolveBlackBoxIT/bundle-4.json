@@ -1,0 +1,86 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Organization",
+        "id": "orga-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization"
+          ]
+        },
+        "partOf": {
+          "reference": "PractitionerRole/prac-1"
+        },
+        "endpoint": {
+          "reference": "PractitionerRole/prac-1"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Organization/orga-1"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Organization",
+        "id": "orga-2",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization"
+          ]
+        },
+        "partOf": {
+          "reference": "PractitionerRole/prac-2"
+        },
+        "endpoint": {
+          "reference": "PractitionerRole/prac-2"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Organization/orga-2"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "PractitionerRole",
+        "id": "prac-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/modul-studie/StructureDefinition/mii-pr-studie-beteiligte-person"
+          ]
+        },
+        "period": {
+          "start": "2023-01-02",
+          "end": "2023-01-30"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "PractitionerRole/prac-1"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "PractitionerRole",
+        "id": "prac-2",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/modul-studie/StructureDefinition/mii-pr-studie-beteiligte-person"
+          ]
+        },
+        "period": {
+          "start": "2024-01-02",
+          "end": "2024-01-30"
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "PractitionerRole/prac-2"
+      }
+    }
+  ]
+}

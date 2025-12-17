@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -22,6 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -63,17 +65,14 @@ class DataStoreIT {
                         assertThat(resource.getResourceType()).hasToString("Observation")
                 ))
                 .verifyComplete();
-
     }
 
 
     @Test
-    void successReferenceFetch() {
-        Map<String, Set<String>> ReferencesGroupedByType = Map.of(
-                "Observation", new LinkedHashSet<>(List.of("123")),
-                "Patient", new LinkedHashSet<>(List.of("2", "1")),
-                "Medication", new LinkedHashSet<>(List.of("123")));
-        Mono<List<Resource>> result = dataStore.executeSearchBatch(ReferencesGroupedByType);
+    void successReferenceBundleFetch() {
+        var bundle = createBundleFromQuery("Patient?_id=1,2");
+
+        Mono<List<Resource>> result = dataStore.executeBundle(bundle);
         StepVerifier.create(result)
                 .expectNextMatches(resources -> resources.size() == 2 && resources.stream().allMatch(Patient.class::isInstance))
                 .verifyComplete();
@@ -81,11 +80,23 @@ class DataStoreIT {
 
     @Test
     void emptyReferenceFetch() {
-        Map<String, Set<String>> ReferencesGroupedByType = Map.of(
-                "Observation", new LinkedHashSet<>(List.of("Unknown")));
-        Mono<List<Resource>> result = dataStore.executeSearchBatch(ReferencesGroupedByType);
+        var bundle = createBundleFromQuery("Observation?_id=Unknown");
+
+        Mono<List<Resource>> result = dataStore.executeBundle(bundle);
         StepVerifier.create(result)
                 .verifyComplete();
     }
 
+    public static Bundle createBundleFromQuery(String query) {
+        Bundle batchBundle = new Bundle();
+        batchBundle.setType(Bundle.BundleType.BATCH);
+        batchBundle.getMeta().setLastUpdated(new Date());
+        Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
+        entry.setRequest(new Bundle.BundleEntryRequestComponent()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl(query));
+        batchBundle.addEntry(entry);
+
+        return batchBundle;
+    }
 }

@@ -1,0 +1,95 @@
+{
+  "display": "",
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "Ausgewählte Merkmale",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "display": "Geschlecht",
+              "system": "http://snomed.info/sct",
+              "version": ""
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "display": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "version": "2099"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "pat-1-main",
+        "name": "Main Pat for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+        "attributes": [
+          {
+            "attributeRef": "Patient.gender",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "prac-group-1",
+        "name": "PractitionerRole",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/modul-studie/StructureDefinition/mii-pr-studie-beteiligte-person",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "PractitionerRole.period",
+            "mustHave": true
+          }
+        ]
+      },
+      {
+        "id": "prac-group-2",
+        "name": "PractitionerRole",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/modul-studie/StructureDefinition/mii-pr-studie-beteiligte-person",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "PractitionerRole.period",
+            "mustHave": true
+          }
+        ]
+      },
+      {
+        "id": "med-req-group-1",
+        "name": "MedicationRequest",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationRequest",
+        "attributes": [
+          {
+            "attributeRef": "MedicationRequest.recorder",
+            "mustHave": false,
+            "linkedGroups": ["prac-group-1"]
+          },
+          {
+            "attributeRef": "MedicationRequest.requester",
+            "mustHave": false,
+            "linkedGroups": ["prac-group-2"]
+          }
+        ]
+      }
+    ]
+  }
+}

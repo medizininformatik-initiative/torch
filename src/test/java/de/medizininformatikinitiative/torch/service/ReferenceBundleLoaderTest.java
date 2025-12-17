@@ -4,10 +4,13 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -42,122 +45,41 @@ class ReferenceBundleLoaderTest {
 
     AnnotatedAttribute referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
     ReferenceWrapper referenceWrapper;
+    DseMappingTreeBase mappingTree = null;
 
 
     @BeforeEach
     void setup() {
-        referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, pageCount);
+        referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, pageCount, mappingTree);
         referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), "Encounter1", "Encounter/123");
-    }
-
-    @Test
-    void fetchUnknownResourcesFailsOnError() {
-        // Mock DataStore to emit an error for any batch
-        when(dataStore.executeSearchBatch(any()))
-                .thenReturn(Mono.error(new RuntimeException("Something went wrong")));
-
-        // Prepare input
-        Map<ResourceGroup, List<ReferenceWrapper>> extractedReferences = Map.of(
-                new ResourceGroup("Patient", "Group1"), List.of(referenceWrapper)
-        );
-
-        PatientResourceBundle patientBundle = new PatientResourceBundle("Patient1");
-        ResourceBundle coreBundle = new ResourceBundle();
-
-        // Call the method
-        Mono<Void> result = referenceBundleLoader.fetchUnknownResources(
-                extractedReferences, patientBundle, coreBundle, true
-        );
-
-        // Verify that the error propagates
-        StepVerifier.create(result)
-                .expectErrorSatisfies(error -> assertThat(error)
-                        .isInstanceOf(RuntimeException.class)
-                        .hasMessageContaining("Something went wrong"))
-                .verify();
     }
 
 
     @Nested
-    class GroupReferencesByTypeInChunks {
+    class TestChunkReferences {
+        String REF_1 = "ref-1";
+        String REF_2 = "ref-2";
+        String REF_3 = "ref-3";
 
         @Test
-        void withoutChunking() {
-            var chunks = referenceBundleLoader.groupReferencesByTypeInChunks(Set.of(
-                    "Observation/123", "Patient/2", "Patient/1", "Medication/123"));
+        void testSingleChunk() {
+            var refsPerLinkedGroup = List.of("Resource/"+REF_1, "Resource/"+REF_2, "Resource/"+REF_3);
 
-            assertThat(chunks).containsExactly(Map.of(
-                    "Observation", Set.of("123"),
-                    "Patient", Set.of("2", "1"),
-                    "Medication", Set.of("123")));
+            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 10);
+
+            assertThat(chunks).containsExactly(Set.of(REF_1, REF_2, REF_3));
         }
 
         @Test
         void withChunking() {
-            var chunks = referenceBundleLoader.groupReferencesByTypeInChunks(Set.of(
-                    "Observation/123", "Patient/2", "Patient/1", "Medication/123", "MedicationAdministration/4"));
+            var refsPerLinkedGroup = List.of("Resource/"+REF_1, "Resource/"+REF_2, "Resource/"+REF_3);
 
-            assertThat(chunks).containsExactly(Map.of(
-                            "Observation", Set.of("123"),
-                            "MedicationAdministration", Set.of("4"),
-                            "Medication", Set.of("123"),
-                            "Patient", Set.of("1")),
-                    Map.of(
-                            "Patient", Set.of("2")
-                    ));
+            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 2);
 
+            assertThat(chunks).containsExactly(
+                    Set.of(REF_1, REF_2),
+                    Set.of(REF_3));
         }
-
 
     }
-
-    @Nested
-    class GetUnloadedRefs {
-        Map<ResourceGroup, List<ReferenceWrapper>> groupReferenceMap;
-
-        @BeforeEach
-        void setUp() {
-            groupReferenceMap = new HashMap<>();
-
-
-            groupReferenceMap.put(new ResourceGroup("Encounter/123", "Encounter1"), List.of(referenceWrapper));
-        }
-
-        @Test
-        void findsObservation() {
-            when(compartmentManager.isInCompartment(OBSERVATION_REF)).thenReturn(true);
-
-            Set<String> result = referenceBundleLoader.findUnloadedReferences(groupReferenceMap, new PatientResourceBundle("Test"), new ResourceBundle());
-
-            assertThat(result).containsExactlyInAnyOrder(OBSERVATION_REF);
-        }
-
-        @Test
-        void doesNotFindLoadedObservation() {
-            PatientResourceBundle patientResourceBundle = new PatientResourceBundle("Test");
-            patientResourceBundle.put(OBSERVATION_REF);
-            when(compartmentManager.isInCompartment(OBSERVATION_REF)).thenReturn(true);
-
-            Set<String> result = referenceBundleLoader.findUnloadedReferences(groupReferenceMap, patientResourceBundle, new ResourceBundle());
-
-            assertThat(result).isEmpty();
-        }
-
-        @Test
-        void doesSkipPatientResourceReferencesInCoreBundle() {
-            ResourceBundle coreBundle = new ResourceBundle();
-            when(compartmentManager.isInCompartment(OBSERVATION_REF)).thenReturn(true);
-
-            Set<String> result = referenceBundleLoader.findUnloadedReferences(groupReferenceMap, null, coreBundle);
-
-            assertThat(result).isEmpty();
-            assertThat(coreBundle.cache())
-                    .containsExactly(entry(OBSERVATION_REF, Optional.empty()));
-
-        }
-
-
-    }
-
-
 }

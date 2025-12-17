@@ -1,0 +1,71 @@
+{
+  "resourceType": "Bundle",
+  "type": "transaction",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "Patient",
+        "id": "pat-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+          ]
+        },
+        "gender": "female"
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Patient/pat-1"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Condition",
+        "id": "cond-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose"
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pat-1"
+        },
+        "code": {
+          "coding": [
+            {
+              "system": "http://snomed.info/sct",
+              "code": "262581006"
+            }
+          ]
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Condition/cond-1"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "Encounter",
+        "id": "enc-1",
+        "meta": {
+          "profile": [
+            "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+          ]
+        },
+        "subject": {
+          "reference": "Patient/pat-1"
+        },
+        "diagnosis" : {
+          "condition": {
+            "reference" : "Condition/cond-1"
+          }
+        }
+      },
+      "request": {
+        "method": "PUT",
+        "url": "Encounter/enc-1"
+      }
+    }
+  ]
+}

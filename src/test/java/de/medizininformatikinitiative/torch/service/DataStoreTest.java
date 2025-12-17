@@ -27,10 +27,9 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static de.medizininformatikinitiative.torch.service.DataStoreIT.createBundleFromQuery;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hl7.fhir.r4.model.ResourceType.MeasureReport;
@@ -378,7 +377,7 @@ class DataStoreTest {
                     .setHeader("Content-Type", "application/fhir+json")
                     .setBody(BATCH_RESPONSE));
 
-            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
 
             StepVerifier.create(result)
                     .expectNextMatches(resources ->
@@ -398,7 +397,7 @@ class DataStoreTest {
                     .setBody(BATCH_RESPONSE));
 
 
-            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
 
             StepVerifier.create(result)
                     .expectNextMatches(resources ->
@@ -420,7 +419,7 @@ class DataStoreTest {
             mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
             mockStore.enqueue(new MockResponse().setResponseCode(200));
 
-            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
 
             StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
         }
@@ -430,7 +429,7 @@ class DataStoreTest {
         void errorNoRetry() {
             mockStore.enqueue(new MockResponse().setResponseCode(400));
 
-            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
 
             StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
         }

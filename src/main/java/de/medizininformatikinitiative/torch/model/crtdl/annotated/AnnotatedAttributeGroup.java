@@ -23,7 +23,6 @@ public record AnnotatedAttributeGroup(
         String resourceType, String groupReference,
         List<AnnotatedAttribute> attributes,
         List<Filter> filter,
-        Predicate<Resource> compiledFilter,
         boolean includeReferenceOnly, CopyTreeNode copyTree) {
 
 
@@ -34,9 +33,8 @@ public record AnnotatedAttributeGroup(
                                    String resourceType,
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
-                                   List<Filter> filter,
-                                   Predicate<Resource> compiledFilter) {
-        this("", id, resourceType, groupReference, attributes, filter, compiledFilter, false, buildTree(attributes, resourceType));
+                                   List<Filter> filter) {
+        this("", id, resourceType, groupReference, attributes, filter, false, buildTree(attributes, resourceType));
     }
 
     public AnnotatedAttributeGroup(String name, String id,
@@ -44,9 +42,8 @@ public record AnnotatedAttributeGroup(
                                    String groupReference,
                                    List<AnnotatedAttribute> attributes,
                                    List<Filter> filter,
-                                   Predicate<Resource> compiledFilter,
                                    boolean includeReferenceOnly) {
-        this(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly, buildTree(attributes, resourceType));
+        this(name, id, resourceType, groupReference, attributes, filter, includeReferenceOnly, buildTree(attributes, resourceType));
     }
 
 
@@ -115,7 +112,7 @@ public record AnnotatedAttributeGroup(
 
         List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
         tempAttributes.addAll(newAttributes);
-        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, tempAttributes, filter, compiledFilter, includeReferenceOnly);
+        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, tempAttributes, filter, includeReferenceOnly);
     }
 
     public boolean hasMustHave() {
@@ -125,10 +122,6 @@ public record AnnotatedAttributeGroup(
 
     public List<AnnotatedAttribute> refAttributes() {
         return attributes.stream().filter(annotatedAttribute -> !annotatedAttribute.linkedGroups().isEmpty()).toList();
-    }
-
-    public AnnotatedAttributeGroup setCompiledFilter(Predicate<Resource> compiledFilter) {
-        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, attributes, filter, compiledFilter, includeReferenceOnly);
     }
 
 }

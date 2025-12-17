@@ -91,7 +91,7 @@ class SpecificBlackBoxIT {
         var testName = "diag-enc-diag";
         uploadTestData(testName);
 
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json")).block();
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_" + testName + ".json")).block();
         assertThat(statusUrl).isNotNull();
 
         var statusResponse = torchClient.pollStatus(statusUrl).block();
@@ -140,7 +140,7 @@ class SpecificBlackBoxIT {
     void testMustHaveResolve() throws IOException {
         var testName = "diag-no-enc-diag";
         uploadTestData(testName);
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_" + testName + ".json")).block();
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_" + testName + ".json")).block();
         assertThat(statusUrl).isNotNull();
 
         var statusResponse = torchClient.pollStatus(statusUrl).block();
