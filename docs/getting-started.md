@@ -28,7 +28,8 @@ of the feasibility-deploy repository, but can also be installed without it.
 
 ## Transfer Script
 
-TORCH provides a companion **transfer script** designed to automate the workflow of submitting a data extraction
+TORCH provides a companion [**transfer script
+**](https://github.com/medizininformatik-initiative/torch/blob/main/scripts/transfer-extraction-to-dup-fhir-server.sh) designed to automate the workflow of submitting a data extraction
 request, polling the status, and transferring the resulting files to a target FHIR server.
 
 The transfer script will:
