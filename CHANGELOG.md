@@ -4,7 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [v1.0.0-alpha.11] - 2025-11-12
+## [v1.0.0-alpha.13] - 2026-01-09
+
+### Added
+
+- Add metrics [#569](https://github.com/medizininformatik-initiative/torch/pull/569)
+
+### Changed
+
+- Improve Output File Documentation [#686](https://github.com/medizininformatik-initiative/torch/pull/686)
+
+### Fixed
+
+- Fix Unclear Message When Sliced Element Not Found in Defintion [#548](https://github.com/medizininformatik-initiative/torch/pull/619)
+- Fix Trailing Slashes Handling in FHIR Server URL [#618](https://github.com/medizininformatik-initiative/torch/pull/620)
+- Fix ResultFileManager Not Initialising Output Directory Not Critical Error [#642](https://github.com/medizininformatik-initiative/torch/pull/642)
+- Abort Extraction on 429 Response [#272](https://github.com/medizininformatik-initiative/torch/pull/272)
+- Fix unsupported FHIR time types in consent check [#645](https://github.com/medizininformatik-initiative/torch/pull/645)
+- Set required recorded field on Provenance resource [#662](https://github.com/medizininformatik-initiative/torch/pull/662)
+- Fix Missing Default For Base Url [#673](https://github.com/medizininformatik-initiative/torch/pull/673)
+- Fix Resource Cache Not Filtered After Reference Handling [#678](https://github.com/medizininformatik-initiative/torch/pull/678)
+- Fix NPE in Date Parsing Crashes Consent Extraction [#679](https://github.com/medizininformatik-initiative/torch/pull/679)
+
+## [v1.0.0-alpha.12] - 2025-11-12
 
 ### Added
 
