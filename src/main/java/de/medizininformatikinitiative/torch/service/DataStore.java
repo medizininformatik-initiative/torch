@@ -142,45 +142,20 @@ public class DataStore {
         return locations.isEmpty() ? new MissingContentLocationException() : new AsyncException(locations.getFirst());
     }
 
-
-    /**
-     * Loads a batch of resources.
-     *
-     * @param idsByType A map from resource types to sets of ids
-     * @return the resources found
-     */
-    public Mono<List<Resource>> executeSearchBatch(Map<String, Set<String>> idsByType) {
-        if (idsByType == null || idsByType.isEmpty()) {
-            return Mono.empty(); // No search to execute
-        }
-
-        var start = System.nanoTime();
-        var batchId = UUID.randomUUID().toString();
-        int queriedResources = idsByType.values().stream()
-                .mapToInt(Set::size)
-                .sum();
-        logger.debug("Execute batch bundle {} querying {} resources", batchId, queriedResources);
-
+    public Mono<List<Resource>> executeBundle(Bundle bundle) {
         return client.post()
                 .uri("") // Target endpoint already set up in WebClient
                 .header(HttpHeaders.CONTENT_TYPE, APPLICATION_FHIR_JSON)
-                .bodyValue(serializeBatchBundle(idsByType))
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
                 .retrieve()
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC)
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .map(this::extractResourcesFromBundle)
-                .doOnSuccess(resources ->
-                        logger.debug(
-                                "Finished batch bundle {} in {} seconds fetching {} resources successfully.",
-                                batchId,
-                                "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
-                                resources.size()
-                        ))
                 .flatMap(resources -> resources.isEmpty() ? Mono.empty() : Mono.just(resources))
-                .doOnError(e -> logger.error(
-                        "Error while executing batch bundle query: {}", e.getMessage()));
+                .doOnError(e -> logger.error("Error while executing batch bundle query: {}", e.getMessage()));
     }
+
 
     private List<Resource> extractResourcesFromBundle(Bundle bundle) {
         return bundle.getEntry().stream()
@@ -196,11 +171,6 @@ public class DataStore {
                     }
                 })
                 .toList();
-    }
-
-    private String serializeBatchBundle(Map<String, Set<String>> idsByType) {
-        Bundle batchBundle = DataStoreHelper.createBatchBundleForReferences(idsByType);
-        return fhirContext.newJsonParser().encodeResourceToString(batchBundle);
     }
 
 

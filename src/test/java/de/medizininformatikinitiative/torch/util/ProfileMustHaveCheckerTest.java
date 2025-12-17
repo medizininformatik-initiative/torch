@@ -30,7 +30,7 @@ class ProfileMustHaveCheckerTest {
     @Test
     void groupNoMustHave() {
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.effective", "Observation.effective", false);
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(validObservation, group)).isTrue();
@@ -39,7 +39,7 @@ class ProfileMustHaveCheckerTest {
     @Test
     void groupMustHave() {
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", true);
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(validObservation, group)).isTrue();
@@ -51,7 +51,7 @@ class ProfileMustHaveCheckerTest {
         observation.setSubject(new Reference("Patient/123"));
         AnnotatedAttribute effective = new AnnotatedAttribute("Observation.id", "Observation.id", true);
         AnnotatedAttribute effective2 = new AnnotatedAttribute("Observation.subject", "Observation.subject", true);
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective, effective2), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(effective, effective2), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(observation, group)).isFalse();
@@ -60,7 +60,7 @@ class ProfileMustHaveCheckerTest {
     @Test
     void groupProfileFail() {
         Observation observation = new Observation();
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(observation, group)).isFalse();
@@ -69,7 +69,7 @@ class ProfileMustHaveCheckerTest {
     @Test
     void groupProfileIgnoredForPatient() {
         Patient patient = new Patient();
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(patient, group)).isTrue();
@@ -80,7 +80,7 @@ class ProfileMustHaveCheckerTest {
     void shouldHandleNullProfileInMeta() {
         Observation observation = new Observation();
         observation.setMeta(null); // No meta data
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(observation, group)).isFalse();
@@ -90,7 +90,7 @@ class ProfileMustHaveCheckerTest {
     void shouldHandleNullProfilesList() {
         Observation observation = new Observation();
         observation.setMeta(new Meta()); // Meta exists but has no profiles
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(observation, group)).isFalse();
@@ -99,7 +99,7 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void shouldHandleEmptyAnnotatedAttributes() {
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null); // Empty attributes
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of()); // Empty attributes
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(validObservation, group)).isTrue();
@@ -107,7 +107,7 @@ class ProfileMustHaveCheckerTest {
 
     @Test
     void shouldHandleNullResource() {
-        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of(), null);
+        AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Test", "Observation", "Test", List.of(), List.of());
         ProfileMustHaveChecker checker = new ProfileMustHaveChecker(integrationTestSetup.fhirContext());
 
         assertThat(checker.fulfilled(null, group)).isFalse(); // Null resource should return false

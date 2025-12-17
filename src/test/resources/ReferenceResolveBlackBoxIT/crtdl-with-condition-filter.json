@@ -1,0 +1,90 @@
+{
+  "display": "",
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "Ausgewählte Merkmale",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "display": "Geschlecht",
+              "system": "http://snomed.info/sct",
+              "version": ""
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "display": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "version": "2099"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "pat-1-main",
+        "name": "Main Pat for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+        "attributes": [
+          {
+            "attributeRef": "Patient.gender",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "cond-group",
+        "name": "Main Cond for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "Condition.code",
+            "mustHave": false
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "system": "http://snomed.info/sct",
+                "code": "39065001"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "enc-group",
+        "name": "Main Enc for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+        "attributes": [
+          {
+            "attributeRef": "Encounter.diagnosis.condition",
+            "mustHave": false,
+            "linkedGroups": ["cond-group"]
+          }
+        ]
+      }
+    ]
+  }
+}

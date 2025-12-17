@@ -52,7 +52,7 @@ class CdsBlackBoxIT {
 
     @Test
     void testExamples() throws IOException {
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-crtdl.json")).block();
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_it-kds-crtdl.json")).block();
         assertThat(statusUrl).isNotNull();
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();

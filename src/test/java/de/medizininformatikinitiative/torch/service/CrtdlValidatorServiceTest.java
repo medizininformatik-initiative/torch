@@ -16,7 +16,6 @@ import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -28,9 +27,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
-    private static final FilterService filterService = new FilterService(FhirContext.forR4(), "search-parameters.json");
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
-            new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()), filterService);
+            new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()));
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());
@@ -38,10 +36,6 @@ class CrtdlValidatorServiceTest {
     CrtdlValidatorServiceTest() throws IOException {
     }
 
-    @BeforeAll
-    static void init() {
-        filterService.init();
-    }
 
     @Test
     void consentViolated() throws JsonProcessingException {
@@ -121,7 +115,6 @@ class CrtdlValidatorServiceTest {
         var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
         assertThat(validatedCrtdl).isNotNull();
-        assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().compiledFilter()).isNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
@@ -138,7 +131,6 @@ class CrtdlValidatorServiceTest {
         var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
         assertThat(validatedCrtdl).isNotNull();
-        assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).compiledFilter()).isNotNull();
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().get(1).attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Observation.id", "Observation.id", false),

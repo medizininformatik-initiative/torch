@@ -57,6 +57,6 @@ public class StandardAttributeGenerator {
             }
         }
 
-        return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), resourceType, attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), null, attributeGroup.includeReferenceOnly());
+        return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), resourceType, attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), attributeGroup.includeReferenceOnly());
     }
 }

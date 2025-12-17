@@ -31,8 +31,8 @@ class ReferenceExtractorTest {
     public static final AnnotatedAttribute ATTRIBUTE_2 = new AnnotatedAttribute("Condition.asserter", "Condition.asserter", true, List.of("AssertionGroup"));
     public static final String DIAG_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
     public static ReferenceExtractor referenceExtractor;
-    static AnnotatedAttributeGroup GROUP_TEST = new AnnotatedAttributeGroup("Test", "Condition", DIAG_URL, List.of(ATTRIBUTE_MUST_HAVE, ATTRIBUTE_2), List.of(), null);
-    static AnnotatedAttributeGroup GROUP_INVALID = new AnnotatedAttributeGroup("Test", "Condition", "invalid", List.of(ATTRIBUTE_MUST_HAVE, ATTRIBUTE_2), List.of(), null);
+    static AnnotatedAttributeGroup GROUP_TEST = new AnnotatedAttributeGroup("Test", "Condition", DIAG_URL, List.of(ATTRIBUTE_MUST_HAVE, ATTRIBUTE_2), List.of());
+    static AnnotatedAttributeGroup GROUP_INVALID = new AnnotatedAttributeGroup("Test", "Condition", "invalid", List.of(ATTRIBUTE_MUST_HAVE, ATTRIBUTE_2), List.of());
 
     static Map<String, AnnotatedAttributeGroup> GROUPS = new HashMap<>();
     private static IntegrationTestSetup itSetup;

@@ -1,0 +1,103 @@
+{
+  "display": "",
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "Ausgewählte Merkmale",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "display": "Geschlecht",
+              "system": "http://snomed.info/sct",
+              "version": ""
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "display": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "version": "2099"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "pat-1-main",
+        "name": "Main Pat for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+        "attributes": [
+          {
+            "attributeRef": "Patient.gender",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "enc-group-1",
+        "name": "Encounter",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+        "includeReferenceOnly": true,
+        "attributes": [
+            {
+            "attributeRef": "Encounter.period",
+            "mustHave": true
+            }
+        ]
+      },
+      {
+        "id": "enc-group-2",
+        "name": "Encounter",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "Encounter.period",
+            "mustHave": true
+          }
+        ],
+        "filter": [
+          {
+            "type": "date",
+            "name": "date",
+            "start": "2023-01-01",
+            "end": "2023-01-31"
+          }
+        ]
+      },
+      {
+        "id": "obs-group-1",
+        "name": "Observation",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+        "attributes": [
+          {
+            "attributeRef": "Observation.focus",
+            "mustHave": false,
+            "linkedGroups": ["enc-group-1"]
+          },
+          {
+            "attributeRef": "Observation.encounter",
+            "mustHave": false,
+            "linkedGroups": ["enc-group-2"]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -52,6 +52,7 @@ public class ReferenceExtractor {
                     })
                     .collect(Collectors.toList());
         } catch (RuntimeException e) {
+            e.printStackTrace();
             Throwable cause = e.getCause();
             if (cause instanceof MustHaveViolatedException) {
                 throw (MustHaveViolatedException) cause; // Unwrapping and rethrowing

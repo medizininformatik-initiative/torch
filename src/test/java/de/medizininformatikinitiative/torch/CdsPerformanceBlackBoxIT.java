@@ -42,9 +42,8 @@ class CdsPerformanceBlackBoxIT {
 
     @Test
     void testWithoutReferences() throws IOException {
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-wo-ref.json")).block();
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-wo-ref.json")).block();
         assertThat(statusUrl).isNotNull();
-
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
 
@@ -57,9 +56,8 @@ class CdsPerformanceBlackBoxIT {
 
     @Test
     void testWithReferences() throws IOException {
-        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("CRTDL_test_it-kds-perf-w-ref.json")).block();
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-w-ref.json")).block();
         assertThat(statusUrl).isNotNull();
-
         var statusResponse = torchClient.pollStatus(statusUrl).block();
         assertThat(statusResponse).isNotNull();
 

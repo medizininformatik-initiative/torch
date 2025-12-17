@@ -1,0 +1,124 @@
+{
+  "display": "",
+  "version": "http://json-schema.org/to-be-done/schema#",
+  "cohortDefinition": {
+    "version": "http://to_be_decided.com/draft-1/schema#",
+    "display": "Ausgewählte Merkmale",
+    "inclusionCriteria": [
+      [
+        {
+          "termCodes": [
+            {
+              "code": "263495000",
+              "display": "Geschlecht",
+              "system": "http://snomed.info/sct",
+              "version": ""
+            }
+          ],
+          "context": {
+            "code": "Patient",
+            "display": "Patient",
+            "system": "fdpg.mii.cds",
+            "version": "1.0.0"
+          },
+          "valueFilter": {
+            "selectedConcepts": [
+              {
+                "code": "female",
+                "display": "Female",
+                "system": "http://hl7.org/fhir/administrative-gender",
+                "version": "2099"
+              }
+            ],
+            "type": "concept"
+          }
+        }
+      ]
+    ]
+  },
+  "dataExtraction": {
+    "attributeGroups": [
+      {
+        "id": "pat-1-main",
+        "name": "Main Pat for Extraction",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+        "attributes": [
+          {
+            "attributeRef": "Patient.gender",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "med-group",
+        "name": "Medication",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "Medication.code",
+            "mustHave": false
+          },
+          {
+            "attributeRef": "Medication.manufacturer",
+            "mustHave": false,
+            "linkedGroups": ["linked-orga-group"]
+          },
+          {
+            "attributeRef": "Medication.ingredient.item[x]",
+            "mustHave": false,
+            "linkedGroups": ["subst-group"]
+          }
+        ],
+        "filter": [
+          {
+            "type": "token",
+            "name": "code",
+            "codes": [
+              {
+                "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                "code": "N06AA25"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "linked-orga-group",
+        "name": "Organization",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization",
+        "includeReferenceOnly": true,
+        "attributes": [
+          {
+            "attributeRef": "Organization.name",
+            "mustHave": false
+          }
+        ]
+      },
+      {
+        "id": "med-adm-group",
+        "name": "MedicationAdministration",
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration",
+        "attributes": [
+          {
+            "attributeRef": "MedicationAdministration.medication[x]",
+            "mustHave": false,
+            "linkedGroups": ["med-group"]
+          }
+        ]
+      },
+      {
+        "id": "subst-group",
+        "name": "Substance",
+        "includeReferenceOnly": true,
+        "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Substance",
+        "attributes": [
+          {
+            "attributeRef": "Substance.code",
+            "mustHave": false
+          }
+        ]
+      }
+    ]
+  }
+}

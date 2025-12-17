@@ -48,7 +48,7 @@ class DirectResourceLoaderTest {
         void testIgnoresEmptyFlux() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -73,7 +73,7 @@ class DirectResourceLoaderTest {
         void testIgnoresEmptyResource() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -99,7 +99,7 @@ class DirectResourceLoaderTest {
         void testIgnoresObservationOfUnknownPatient() {
 
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
 
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
@@ -129,7 +129,7 @@ class DirectResourceLoaderTest {
         void testIgnoresResourceWithoutPatientReference() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -158,7 +158,7 @@ class DirectResourceLoaderTest {
         void testStoresObservationWithInvalidMustHave() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
@@ -195,7 +195,7 @@ class DirectResourceLoaderTest {
         void testStoresObservationWithKnownPatient() {
             // Arrange
             var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of(), null);
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
             var patientBundle = new PatientResourceBundle("1");
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));

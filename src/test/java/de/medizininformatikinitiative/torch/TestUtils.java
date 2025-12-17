@@ -25,7 +25,7 @@ public class TestUtils {
     }
 
     private static String slurp(String path) throws IOException {
-        return Files.readString(Path.of("src/test/resources/CrtdlItTests/" + path));
+        return Files.readString(Path.of(path));
     }
 
     public static Parameters loadCrtdl(String path) throws IOException {

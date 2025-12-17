@@ -34,13 +34,11 @@ public class CrtdlValidatorService {
     private final StructureDefinitionHandler profileHandler;
 
     private final StandardAttributeGenerator attributeGenerator;
-    private final FilterService filterService;
     private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, FilterService filterService) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
-        this.filterService = filterService;
     }
 
     /**
@@ -118,15 +116,6 @@ public class CrtdlValidatorService {
         AnnotatedAttributeGroup group = attributeGenerator
                 .generate(attributeGroup, patientGroupId)
                 .addAttributes(annotatedAttributes);
-
-        if (!attributeGroup.filter().isEmpty()) {
-            try {
-                Predicate<Resource> filter = filterService.compileFilter(attributeGroup.filter(), definition.type());
-                return group.setCompiledFilter(filter);
-            } catch (Exception e) {
-                throw new RuntimeException(e);
-            }
-        }
 
         return group;
     }
