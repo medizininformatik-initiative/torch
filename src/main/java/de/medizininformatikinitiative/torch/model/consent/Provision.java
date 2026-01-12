@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
 import de.medizininformatikinitiative.torch.model.management.TermCode;
-import org.hl7.fhir.r4.model.Consent;
 
 import static java.util.Objects.requireNonNull;
 
@@ -11,9 +10,4 @@ public record Provision(TermCode code, Period period, boolean permit) {
         requireNonNull(period);
     }
 
-    public static Provision fromHapi(Consent.ProvisionComponent provision) {
-        boolean permit = provision.getType().equals(Consent.ConsentProvisionType.PERMIT);
-        TermCode consentCode = new TermCode(provision.getCode().getFirst().getCoding().getFirst().getSystem(), provision.getCode().getFirst().getCoding().getFirst().getCode());
-        return new Provision(consentCode, Period.fromHapi(provision.getPeriod()), permit);
-    }
 }

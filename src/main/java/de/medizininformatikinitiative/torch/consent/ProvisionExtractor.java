@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.consent;
 
-import ca.uhn.fhir.model.api.TemporalPrecisionEnum;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
@@ -10,7 +9,6 @@ import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Consent;
-import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Period;
 import org.slf4j.Logger;
@@ -19,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -30,11 +29,6 @@ public class ProvisionExtractor {
 
     public static final Logger logger = LoggerFactory.getLogger(ProvisionExtractor.class);
 
-
-    private static boolean isNotFullDate(DateTimeType value) {
-        return !value.hasValue()
-                || value.getPrecision().compareTo(TemporalPrecisionEnum.DAY) < 0;
-    }
 
     /**
      * Transforms the consent consentPeriods within the provided {@link DomainResource} into a map of consent consentPeriods
@@ -57,11 +51,10 @@ public class ProvisionExtractor {
 
             if (!provision.hasPeriod()) continue;
 
-            Period period = provision.getPeriod();
-            DateTimeType start = period.getStartElement();
-            DateTimeType end = period.getEndElement();
+            Optional<de.medizininformatikinitiative.torch.model.consent.Period> period =
+                    de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(provision.getPeriod());
 
-            if (!provision.hasCode() || isNotFullDate(start) || isNotFullDate(end)) continue;
+            if (period.isEmpty()) continue;
 
             boolean permit = provision.getType() == Consent.ConsentProvisionType.PERMIT;
 
@@ -73,7 +66,7 @@ public class ProvisionExtractor {
                     provisions.add(
                             new Provision(
                                     code,
-                                    de.medizininformatikinitiative.torch.model.consent.Period.fromHapi(period),
+                                    period.get(),
                                     permit
                             )
                     );

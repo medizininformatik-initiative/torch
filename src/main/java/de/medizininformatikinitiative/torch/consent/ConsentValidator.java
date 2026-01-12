@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -82,8 +83,9 @@ public class ConsentValidator {
         List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
 
         for (Base value : values) {
-            Period period = Period.fromHapi(value);
-            boolean hasValidConsent = patientResourceBundle.consentPeriods().within(period);
+            Optional<Period> period = Period.fromHapi(value);
+            if (period.isEmpty()) continue;
+            boolean hasValidConsent = patientResourceBundle.consentPeriods().within(period.get());
             if (hasValidConsent) {
                 return true;
             }

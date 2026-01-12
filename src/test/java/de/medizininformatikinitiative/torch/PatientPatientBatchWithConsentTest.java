@@ -44,7 +44,7 @@ class PatientPatientBatchWithConsentTest {
                       }
                     }""");
 
-            Period result = Period.fromHapi(condition.getOnsetPeriod());
+            Period result = Period.fromHapi(condition.getOnsetPeriod()).get();
 
             assertThat(result).isEqualTo(Period.of(LocalDate.parse("2020-02-26"), LocalDate.parse("2020-03-05")));
         }
@@ -57,7 +57,7 @@ class PatientPatientBatchWithConsentTest {
                       "onsetDateTime": "2019-01-20T12:00:00+01:00"
                     }""");
 
-            Period result = Period.fromHapi(condition.getOnsetDateTimeType());
+            Period result = Period.fromHapi(condition.getOnsetDateTimeType()).get();
 
             assertThat(result).isEqualTo(Period.of(LocalDate.parse("2019-01-20"), LocalDate.parse("2019-01-20")));
         }

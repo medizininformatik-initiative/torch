@@ -10,7 +10,11 @@ import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
-import org.hl7.fhir.r4.model.*;
+import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DateTimeType;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
@@ -82,7 +86,16 @@ class ProvisionExtractorIT {
 
         ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, expectedCodes);
 
-        assertThat(consentProvisions.provisions()).isEqualTo(List.of(Provision.fromHapi(nestedProvision)));
+        Provision expected = new Provision(
+                new TermCode(
+                        "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                        "2.16.840.1.113883.3.1937.777.24.5.3.10"
+                ),
+                de.medizininformatikinitiative.torch.model.consent.Period.of("2021-01-01", "2025-12-31"),
+                false // DENY => permit = false
+        );
+
+        assertThat(consentProvisions.provisions()).isEqualTo(List.of(expected));
     }
 
 

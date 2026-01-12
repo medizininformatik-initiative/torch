@@ -4,13 +4,19 @@ import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Encounter;
 
 import java.time.LocalDate;
-import java.util.*;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
 
 public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Provision> provisions) {
 
     public ConsentProvisions updateByEncounters(Collection<Encounter> encounters) {
         List<Period> encounterPeriods = encounters.stream()
                 .map(e -> Period.fromHapi(e.getPeriod()))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .toList();
 
         return new ConsentProvisions(
@@ -30,6 +36,4 @@ public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Pr
                 }).toList()
         );
     }
-
-
 }
