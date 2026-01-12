@@ -275,6 +275,7 @@ jobs:
     permissions:
       packages: write  # Push to GitHub Container Registry
       id-token: write  # For Cosign signing
+      contents: write
     if: ${{ ! startsWith(github.head_ref, 'dependabot/')}}
 
     steps:
