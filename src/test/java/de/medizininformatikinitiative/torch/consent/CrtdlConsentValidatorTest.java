@@ -50,93 +50,115 @@ class CrtdlConsentValidatorTest {
         return new NonContinuousPeriod(multiplePeriods);
     }
 
-    @Test
-    void checkConsent_shouldReturnTrue_whenResourceWithinAnyConsentPeriod() {
-        Observation observation = new Observation();
-        observation.setEffective(new DateTimeType("2022-04-20"));
-        boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-        assertThat(result).isTrue();
-
-    }
-
-    @Test
-    void checkConsent_shouldReturnFalse_whenResourceOutsideAllConsentPeriods() {
-        Observation observation = new Observation();
-        observation.setEffective(new DateTimeType("2018-04-20"));
-        boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-        assertThat(result).isFalse();
-
-    }
-
-    @Test
-    void checkConsent_shouldReturnTrue_whenResourceWithinSecondConsentPeriod() {
-        Observation observation = new Observation();
-        observation.setEffective(new DateTimeType("2029-04-20"));
-        boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-        assertThat(result).isTrue();
-    }
-
-    @Test
-    void notTimeDependent() {
-        Medication medication = new Medication();
-        boolean result = consentValidator.checkConsent(medication, patientResourceBundle);
-        assertThat(result).isTrue();
-
-    }
-
     @BeforeEach
     void setUp() {
         patientResourceBundle = new PatientResourceBundle(PATIENT_ID, noncontinousPeriod(), new ResourceBundle());
 
     }
 
-    @Test
-    void checkConsent_shouldReturnFalse_whenNoPatientBundleFound() {
-        Observation observation = new Observation();
-        // Resource has patient reference
-        observation.setEffective(new DateTimeType("2022-04-20"));
-        observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
-
-        // PatientBatchWithConsent with NO entry for "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
-
-        boolean result = consentValidator.checkConsent(observation, batch);
-
-        assertThat(result).isFalse();
-    }
-
-    @Test
-    void checkConsent_shouldReturnFalse_whenPatientIdNotFound() {
-        // Create a resource with NO patient reference
-        Observation noPatientObs = new Observation();
-        noPatientObs.setEffective(new DateTimeType("2022-04-20"));
-        // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
-
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
-
-        boolean result = consentValidator.checkConsent(noPatientObs, batch);
-
-        assertThat(result).isFalse();
-    }
-
-    @Test
-    void checkConsent_shouldReturnFalse_whenNoPatientResourceBundleFound() {
-        Observation observation = new Observation();
-        // Resource points to a different patient
-        observation.setSubject(new Reference("Patient/999"));
-        observation.setEffective(new DateTimeType("2022-04-20"));
-
-        // Batch contains only "123", not "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
-
-        boolean result = consentValidator.checkConsent(observation, batch);
-
-        assertThat(result).isFalse();
-    }
-
 
     @Nested
-    class CheckConsent {
+    class CheckConsentResourceBundle {
+
+
+        @Test
+        void resourceWithinAnyConsentPeriod() {
+            Observation observation = new Observation();
+            observation.setEffective(new DateTimeType("2022-04-20"));
+            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result).isTrue();
+
+        }
+
+        @Test
+        void resourceOutsideAllConsentPeriods() {
+            Observation observation = new Observation();
+            observation.setEffective(new DateTimeType("2018-04-20"));
+            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result).isFalse();
+
+        }
+
+        @Test
+        void resourceWithinSecondConsentPeriod() {
+            Observation observation = new Observation();
+            observation.setEffective(new DateTimeType("2029-04-20"));
+            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        void notTimeDependent() {
+            Medication medication = new Medication();
+            boolean result = consentValidator.checkConsent(medication, patientResourceBundle);
+            assertThat(result).isTrue();
+
+        }
+
+
+        @Test
+        void emptyTime() {
+            Observation observation = new Observation();
+            observation.setEffective(new DateTimeType());
+            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result).isFalse();
+        }
+
+    }
+
+    @Nested
+    class CheckConsentPatientBatch {
+
+
+        @Test
+        void noPatientBundleFound() {
+            Observation observation = new Observation();
+            // Resource has patient reference
+            observation.setEffective(new DateTimeType("2022-04-20"));
+            observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
+
+            // PatientBatchWithConsent with NO entry for "999"
+            PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+
+            boolean result = consentValidator.checkConsent(observation, batch);
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        void patientIdNotFound() {
+            // Create a resource with NO patient reference
+            Observation noPatientObs = new Observation();
+            noPatientObs.setEffective(new DateTimeType("2022-04-20"));
+            // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
+
+            PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+
+            boolean result = consentValidator.checkConsent(noPatientObs, batch);
+
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        void noPatientResourceBundleFound() {
+            Observation observation = new Observation();
+            // Resource points to a different patient
+            observation.setSubject(new Reference("Patient/999"));
+            observation.setEffective(new DateTimeType("2022-04-20"));
+
+            // Batch contains only "123", not "999"
+            PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle());
+
+            boolean result = consentValidator.checkConsent(observation, batch);
+
+            assertThat(result).isFalse();
+        }
+
+
+    }
+
+    @Nested
+    class CheckPatientIdAndConsent {
 
         @Test
         void missMatchPatientIDs() {
