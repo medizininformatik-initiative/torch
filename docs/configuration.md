@@ -257,5 +257,32 @@ Custom metrics might be added with time.
 For an example setup see [application-test.yml](https://github.com/medizininformatik-initiative/torch/blob/main/src/test/resources/application-test.yml)
 **Note**: Be Careful with exposing these endpoints outside
 
+## Setting up SSL Certificates
+
+Torch supports custom SSL Certificate Authorities (CAs) to connect to services like FHIR Servers or Flare.
+Provide PEM-encoded CA certificates by mounting them into /app/certs inside the Docker container.
+
+At startup, Torch automatically converts all *.pem files into a temporary Java truststore and starts the JVM with this truststore enabled. This allows secure connections to services using self-signed or private certificates.
+
+If no certificates are provided, Torch uses the default JVM truststore.
+
+See the container entrypoint script for implementation details.
+
+### Docker Compose example
+
+```yaml
+services:
+  torch:
+    image: ghcr.io/medizininformatik-initiative/torch:latest
+    volumes:
+      - torch-data-store:/app/output
+      # ...
+      - ./certs:/app/certs    # Optional: custom CA certificates (*.pem)
+
+```
+
+All *.pem files placed in ./certs will be picked up automatically at container startup.
+
+See the container  [entrypoint script](https://github.com/medizininformatik-initiative/torch/blob/main/docker-entrypoint.sh) for implementation details.
 
 [5]: https://www.hl7.org/fhir/http.html#async "FHIR Asynchronous Interaction Request Pattern"
