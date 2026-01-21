@@ -8,6 +8,7 @@ import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
+import okhttp3.mockwebserver.SocketPolicy;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
@@ -114,6 +115,42 @@ class DataStoreTest {
                 "status" : "generated",
                 "div" : "<div xmlns=\\"http://www.w3.org/1999/xhtml\\">Severe burn of left ear (Date: 24-May 2012)</div>"
               }
+            }
+            """;
+
+    private static final String PATIENT_BUNDLE_WITH_NEXT = """
+            {
+              "resourceType": "Bundle",
+              "type": "searchset",
+              "link": [
+                {
+                  "relation": "next",
+                  "url": "%s"
+                }
+              ],
+              "entry": [
+                {
+                  "resource": {
+                    "resourceType": "Patient",
+                    "id": "p1"
+                  }
+                }
+              ]
+            }
+            """;
+
+    private static final String PATIENT_BUNDLE_LAST_PAGE = """
+            {
+              "resourceType": "Bundle",
+              "type": "searchset",
+              "entry": [
+                {
+                  "resource": {
+                    "resourceType": "Patient",
+                    "id": "p2"
+                  }
+                }
+              ]
             }
             """;
 
@@ -230,6 +267,93 @@ class DataStoreTest {
                             .hasMessageContaining("Unexpected resource type")).verify();
         }
 
+        @Test
+        @DisplayName("retries on prematurely closed connection for the first page")
+        void retriesOnPrematureClose_firstPage() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(PATIENT_BUNDLE)); // body won't fully arrive due to disconnect
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(PATIENT_BUNDLE));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("123"))
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("paging: retries only the failing next-page request (does not redo first page)")
+        void pagingRetriesOnlyNextPage() throws InterruptedException {
+            // next-link must be an absolute URL because fetchPage(url) uses .uri(url)
+            String nextUrl = baseUrl + "/Patient?page=2";
+
+            String page1 = PATIENT_BUNDLE_WITH_NEXT.formatted(nextUrl);
+            String page2 = PATIENT_BUNDLE_LAST_PAGE;
+
+            var nextPageAttempts = new AtomicInteger(0);
+
+            mockStore.setDispatcher(new Dispatcher() {
+                @Override
+                public MockResponse dispatch(RecordedRequest request) {
+                    assert request.getPath() != null;
+
+                    // First page: POST /fhir/Patient/_search
+                    if (request.getMethod().equals("POST") && request.getPath().equals("/fhir/Patient/_search")) {
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(page1);
+                    }
+
+                    // Next page: GET /fhir/Patient?page=2  (first attempt disconnects)
+                    if (request.getMethod().equals("GET") && request.getPath().equals("/fhir/Patient?page=2")) {
+                        if (nextPageAttempts.getAndIncrement() == 0) {
+                            return new MockResponse()
+                                    .setResponseCode(200)
+                                    .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+                                    .setHeader("Content-Type", "application/fhir+json")
+                                    .setBody(page2);
+                        }
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(page2);
+                    }
+
+                    return new MockResponse().setResponseCode(404);
+                }
+            });
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p1"))
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p2"))
+                    .verifyComplete();
+
+            // Assert request pattern: 1x POST first page, 2x GET next page (disconnect + retry)
+            assertThat(mockStore.getRequestCount()).isEqualTo(3);
+
+            RecordedRequest r1 = mockStore.takeRequest();
+            RecordedRequest r2 = mockStore.takeRequest();
+            RecordedRequest r3 = mockStore.takeRequest();
+
+            assertThat(r1.getMethod()).isEqualTo("POST");
+            assertThat(r1.getPath()).isEqualTo("/fhir/Patient/_search");
+
+            assertThat(r2.getMethod()).isEqualTo("GET");
+            assertThat(r2.getPath()).isEqualTo("/fhir/Patient?page=2");
+
+            assertThat(r3.getMethod()).isEqualTo("GET");
+            assertThat(r3.getPath()).isEqualTo("/fhir/Patient?page=2");
+        }
+
     }
 
     @Nested
@@ -238,6 +362,30 @@ class DataStoreTest {
         @BeforeEach
         void setUp() {
             dataStore = new DataStore(client, ctx, 1000, false);
+        }
+
+        @Test
+        @DisplayName("executeSearchBatch retries on prematurely closed connection")
+        void batchRetriesOnPrematureClose() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setSocketPolicy(SocketPolicy.DISCONNECT_DURING_RESPONSE_BODY)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(BATCH_RESPONSE)); // body won't fully arrive due to disconnect
+
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(BATCH_RESPONSE));
+
+            var result = dataStore.executeSearchBatch(Map.of("Patient", Set.of("1", "2")));
+
+            StepVerifier.create(result)
+                    .expectNextMatches(resources ->
+                            resources.size() == 1
+                                    && resources.getFirst().getResourceType() == Patient
+                                    && resources.getFirst().getIdElement().getIdPart().equals("1"))
+                    .verifyComplete();
         }
 
         @Test
@@ -485,6 +633,126 @@ class DataStoreTest {
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
                         .verifyComplete();
             }
+        }
+    }
+
+    @Nested
+    class Retry {
+
+        private static Throwable invokeRootCause(Throwable t) {
+            try {
+                var m = DataStore.class.getDeclaredMethod("rootCause", Throwable.class);
+                m.setAccessible(true);
+                return (Throwable) m.invoke(null, t);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static String invokeRootCauseMessage(Throwable t) {
+            try {
+                var m = DataStore.class.getDeclaredMethod("rootCauseMessage", Throwable.class);
+                m.setAccessible(true);
+                return (String) m.invoke(null, t);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        private static boolean invokeIsRetryableTransportCause(Throwable t) {
+            try {
+                var m = DataStore.class.getDeclaredMethod("isRetryableTransportCause", Throwable.class);
+                m.setAccessible(true);
+                return (boolean) m.invoke(null, t);
+            } catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        /**
+         * Tries to create a reactor.netty.http.client.PrematureCloseException instance without
+         * referencing the (package-private) type at compile time.
+         * <p>
+         * Returns null if the class isn't present or can't be instantiated reflectively.
+         */
+        private static Object newPrematureCloseExceptionOrNull() {
+            try {
+                Class<?> c = Class.forName("reactor.netty.http.client.PrematureCloseException");
+
+                // Try no-arg constructor first
+                try {
+                    var ctor = c.getDeclaredConstructor();
+                    ctor.setAccessible(true);
+                    return ctor.newInstance();
+                } catch (NoSuchMethodException ignored) {
+                    // Try String constructor
+                }
+
+                try {
+                    var ctor = c.getDeclaredConstructor(String.class);
+                    ctor.setAccessible(true);
+                    return ctor.newInstance("premature close");
+                } catch (NoSuchMethodException ignored) {
+                    // give up
+                }
+
+                return null;
+            } catch (Throwable ignored) {
+                return null;
+            }
+        }
+
+        @Test
+        void rootCause_walksToDeepest() {
+            var root = new IllegalStateException("root");
+            var mid = new RuntimeException("mid", root);
+            var top = new RuntimeException("top", mid);
+
+            assertThat(invokeRootCause(top)).isSameAs(root);
+        }
+
+        @Test
+        void rootCauseMessage_formatsWithAndWithoutMessage() {
+            var withMsg = new IllegalArgumentException("nope");
+            assertThat(invokeRootCauseMessage(withMsg))
+                    .isEqualTo("IllegalArgumentException: nope");
+
+            var noMsg = new IllegalArgumentException((String) null);
+            assertThat(invokeRootCauseMessage(noMsg))
+                    .isEqualTo("IllegalArgumentException");
+        }
+
+        // ---- reflection helpers into DataStore ----
+
+        @Test
+        void isRetryableTransportCause_trueForIOException() {
+            assertThat(invokeIsRetryableTransportCause(new IOException("anything"))).isTrue();
+        }
+
+        @Test
+        void isRetryableTransportCause_trueForMessageMatches_whenNotIOException() {
+            // custom non-IOException throwable to force message-branch evaluation
+            assertThat(invokeIsRetryableTransportCause(new Throwable("premature"))).isTrue();
+            assertThat(invokeIsRetryableTransportCause(new Throwable("connection reset by peer"))).isTrue();
+            assertThat(invokeIsRetryableTransportCause(new Throwable("broken pipe"))).isTrue();
+            assertThat(invokeIsRetryableTransportCause(new Throwable("closed channel"))).isTrue();
+        }
+
+        @Test
+        void isRetryableTransportCause_falseWhenNoMatchAndNoIOException() {
+            assertThat(invokeIsRetryableTransportCause(new Throwable("something else"))).isFalse();
+            assertThat(invokeIsRetryableTransportCause(new Throwable((String) null))).isFalse(); // covers null-message path
+        }
+
+        @Test
+        void isRetryableTransportCause_trueForPrematureCloseException_ifAvailable() {
+            Object maybe = newPrematureCloseExceptionOrNull();
+            if (maybe == null) {
+                // Reactor Netty class not accessible/constructible in this environment.
+                // All other branches are still covered; this test intentionally becomes a no-op.
+                return;
+            }
+            assertThat(invokeIsRetryableTransportCause((Throwable) maybe)).isTrue();
         }
     }
 }

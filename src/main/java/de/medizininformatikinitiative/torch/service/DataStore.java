@@ -24,9 +24,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.PrematureCloseException;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -50,8 +52,20 @@ public class DataStore {
     private static final Duration ASYNC_POLL_DELAY = Duration.ofSeconds(2);
     private static final RetryBackoffSpec ASYNC_POLL_RETRY_SPEC = Retry.fixedDelay(1000, ASYNC_POLL_DELAY)
             .filter(AsyncRetryException.class::isInstance);
+    /**
+     * Retries:
+     * - HTTP status based (5xx, 404, 429) via WebClientResponseException
+     * - Transport problems like "prematurely closed connection" via WebClientRequestException causes
+     */
     private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
-            .filter(e -> e instanceof WebClientResponseException e1 && shouldRetry(e1.getStatusCode()));
+            .maxBackoff(Duration.ofSeconds(10))
+            .filter(DataStore::isRetryable)
+            .doBeforeRetry(rs -> logger.warn(
+                    "Retrying DataStore call (attempt {} of {}) due to: {}",
+                    rs.totalRetries() + 1,
+                    5,
+                    rootCauseMessage(rs.failure())
+            ));
     public static final String APPLICATION_FHIR_JSON = "application/fhir+json";
     public static final String CONTENT_TYPE = "Content-Type";
 
@@ -75,6 +89,52 @@ public class DataStore {
 
     private static boolean shouldRetry(HttpStatusCode code) {
         return code.is5xxServerError() || code.value() == 404 || code.value() == 429;
+    }
+
+    private static boolean isRetryable(Throwable e) {
+        Throwable cause = rootCause(e);
+
+        // Transport / connection problems (can surface as WebClientResponseException *or* WebClientRequestException)
+        if (isRetryableTransportCause(cause)) {
+            return true;
+        }
+
+        // HTTP response errors (status-based)
+        if (e instanceof WebClientResponseException wcre) {
+            return shouldRetry(wcre.getStatusCode());
+        }
+
+        return false;
+    }
+
+    private static boolean isRetryableTransportCause(Throwable cause) {
+        if (cause instanceof PrematureCloseException) {
+            return true;
+        }
+        if (cause instanceof IOException) {
+            return true;
+        }
+
+        String msg = (cause.getMessage() == null ? "" : cause.getMessage()).toLowerCase();
+        return msg.contains("premature")
+                || msg.contains("connection reset")
+                || msg.contains("broken pipe")
+                || msg.contains("closed channel");
+    }
+
+    private static String rootCauseMessage(Throwable t) {
+        Throwable rc = rootCause(t);
+        String name = rc.getClass().getSimpleName();
+        String msg = rc.getMessage();
+        return msg == null ? name : (name + ": " + msg);
+    }
+
+    private static Throwable rootCause(Throwable t) {
+        Throwable cur = t;
+        while (cur.getCause() != null && cur.getCause() != cur) {
+            cur = cur.getCause();
+        }
+        return cur;
     }
 
     private static Exception handleAcceptedResponse(ClientResponse response) {
@@ -157,57 +217,70 @@ public class DataStore {
     public <T extends Resource> Flux<T> search(Query query, Class<T> resourceType) {
         var start = System.nanoTime();
         var queryId = UUID.randomUUID();
-        logger.debug("Executing query {} for resource type {}", queryId, query.type());
-        logger.trace("Full query: {}", query);
         var counter = new AtomicInteger();
+
         return client.post()
                 .uri("/" + query.type() + "/_search")
                 .header("Prefer", "handling=strict")
                 .contentType(APPLICATION_FORM_URLENCODED)
-                .bodyValue(query.params().appendParam("_count", stringValue(Integer.toString(pageCount))).toString())
+                .bodyValue(query.params()
+                        .appendParam("_count", stringValue(Integer.toString(pageCount)))
+                        .toString())
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(RETRY_SPEC) // retry first page
                 .map(body -> fhirContext.newJsonParser().parseResource(body))
                 .flatMap(resource -> {
-                    switch (resource) {
-                        case Bundle bundle -> {
-                            return Mono.just(bundle);
-                        }
-                        case OperationOutcome outcome -> {
-                            logger.error("FHIR server returned OperationOutcome: {}", fhirContext.newJsonParser().encodeResourceToString(outcome));
-                            return Mono.error(new DataStoreException("OperationOutcome returned by FHIR server With " + outcome.getIssue().toString()));
-                        }
-                        default -> {
-                            return Mono.error(new DataStoreException("Unexpected resource type: " + resource.getClass()));
-                        }
+                    if (resource instanceof Bundle bundle) {
+                        return Mono.just(bundle);
                     }
+                    if (resource instanceof OperationOutcome outcome) {
+                        return Mono.error(new DataStoreException(
+                                "OperationOutcome returned: " + outcome.getIssue()));
+                    }
+                    return Mono.error(new DataStoreException(
+                            "Unexpected resource type: " + resource.getClass()));
                 })
-                .expand(bundle -> Optional.ofNullable(bundle.getLink("next"))
-                        .map(link -> fetchPage(link.getUrl()))
-                        .orElse(Mono.empty()))
-                .retryWhen(RETRY_SPEC)
-                .flatMap(bundle -> Flux.fromStream(bundle.getEntry().stream().map(Bundle.BundleEntryComponent::getResource)))
+                .expand(bundle ->
+                        Optional.ofNullable(bundle.getLink("next"))
+                                .map(link -> fetchPage(link.getUrl()))
+                                .orElse(Mono.empty())
+                )
+                .flatMap(bundle ->
+                        Flux.fromStream(
+                                bundle.getEntry()
+                                        .stream()
+                                        .map(Bundle.BundleEntryComponent::getResource)
+                        )
+                )
                 .flatMap(resource -> {
                     if (resourceType.isInstance(resource)) {
                         counter.incrementAndGet();
                         return Mono.just(resourceType.cast(resource));
-                    } else {
-                        logger.warn("Found miss match resource type {} querying type {}", resource.getClass().getSimpleName(), query.type());
-                        return Mono.empty();
                     }
+                    return Mono.empty();
                 })
-                .doOnComplete(() -> logger.debug("Finished query `{}` in {} seconds with {} resources.", queryId,
-                        "%.1f".formatted(TimeUtils.durationSecondsSince(start)), counter.get()))
-                .doOnError(e -> logger.error("Error while executing resource query `{}`: {}", query, e.getMessage()));
+                .doOnComplete(() ->
+                        logger.debug(
+                                "Finished query `{}` in {} seconds with {} resources.",
+                                queryId,
+                                "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
+                                counter.get()
+                        )
+                );
     }
 
     private Mono<Bundle> fetchPage(String url) {
-        logger.trace("Fetch Page {}", url);
+        logger.trace("Fetch page {}", url);
+
         return client.get()
                 .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
-                .map(response -> fhirContext.newJsonParser().parseResource(Bundle.class, response));
+                .retryWhen(RETRY_SPEC) // retry this page only
+                .map(body ->
+                        fhirContext.newJsonParser().parseResource(Bundle.class, body)
+                );
     }
 
     public Mono<Void> transact(Bundle bundle) {
