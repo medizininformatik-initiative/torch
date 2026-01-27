@@ -127,7 +127,6 @@ public class BatchCopierRedacter {
 
         copier.copy(extractionRedactionWrapper.resource(), tgt, extractionRedactionWrapper.copyTree());
         redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
-        logger.trace("Transformed resource: {}", tgt);
         return tgt;
     }
 

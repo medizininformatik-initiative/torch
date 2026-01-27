@@ -137,7 +137,6 @@ public class ReferenceHandler {
                     if (isValid == null) {
                         AnnotatedAttributeGroup group = groupMap.get(linkedGroupID);
                         boolean fulfilled = profileMustHaveChecker.fulfilled(resource, group);
-                        logger.trace("Group {} for Reference: {}", linkedGroupID, fulfilled);
                         isValid = fulfilled;
                         processingBundleForParent.addResourceGroupValidity(resourceGroup, isValid);
                     }

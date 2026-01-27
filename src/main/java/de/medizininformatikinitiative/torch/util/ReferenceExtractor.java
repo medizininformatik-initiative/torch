@@ -41,7 +41,6 @@ public class ReferenceExtractor {
     public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
         try {
             AnnotatedAttributeGroup group = groupMap.get(groupId);
-            logger.debug("Group Reference: '{}'", group.groupReference());
             return group.refAttributes().stream()
                     .map(refAttribute -> {
                         try {

@@ -29,7 +29,6 @@ public class DiscriminatorResolver {
      * @return true if Discriminator could be resolved, false otherwise
      */
     public static Boolean resolveDiscriminator(Base base, ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        logger.trace("Resolving discriminator for {} with type {}", base, discriminator.getType().toCode());
         return switch (discriminator.getType().toCode()) {
             case "pattern", "value" ->
                     resolvePattern(base, slice, discriminator, snapshot); //pattern is deprecated and functionally equal to value
@@ -45,7 +44,6 @@ public class DiscriminatorResolver {
      * @return String path that has to be wandered
      */
     private static ElementDefinition resolveSlicePath(ElementDefinition slice, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, StructureDefinition.StructureDefinitionSnapshotComponent snapshot) {
-        logger.trace("Resolving slice path for {}", discriminator.getPath());
         String path = discriminator.getPath();
         if (Objects.equals(path, "$this")) {
             return slice;
@@ -126,16 +124,13 @@ public class DiscriminatorResolver {
                 String childName = fixedChild.getName();
                 Property resolvedChild = resolvedBase.getChildByName(childName);
 
-                logger.trace("Handling Child {} {}", childName, resolvedChild);
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
-                    logger.trace("Missing or isEmpty child '{}' in resolvedBase", childName);
                     return false;
                 }
                 Base resolvedChildValue = resolvedChild.getValues().getFirst();
                 Base fixedChildValue = fixedChild.getValues().getFirst();
                 boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
                 if (!childComparison) {
-                    logger.trace("Mismatch found in child '{}'", childName);
                     return false;
                 }
             }

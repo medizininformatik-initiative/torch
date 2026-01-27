@@ -4,6 +4,8 @@ import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.OperationOutcome;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -19,6 +21,7 @@ public class ExtractDataService {
 
     private final ResultFileManager resultFileManager;
     private final CrtdlProcessingService processingService;
+    private static final Logger logger = LoggerFactory.getLogger(ExtractDataService.class);
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               CrtdlProcessingService processingService) {
@@ -37,6 +40,9 @@ public class ExtractDataService {
     }
 
     private void handleJobError(String jobId, Throwable e) {
+        logger.debug("Error occurred while processing job {} in {} (more information is logged on log level 'trace')",
+                jobId, e.getStackTrace()[0]);
+        logger.trace("Full error:", e);
         HttpStatus status = (e instanceof IllegalArgumentException || e instanceof ValidationException)
                 ? HttpStatus.BAD_REQUEST
                 : HttpStatus.INTERNAL_SERVER_ERROR;

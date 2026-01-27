@@ -140,7 +140,30 @@ public class DataStore {
         return locations.isEmpty() ? new MissingContentLocationException() : new AsyncException(locations.getFirst());
     }
 
+    /**
+     * Used for logging as logging all resource-IDs would bloat the log.
+     *
+     * @param query the query string to remove the IDs from
+     * @return      the same query but without the resource-IDs ({@code _id=<RESOURCE-IDs>} as placeholder)
+     */
+    private String removeIDsFromQuery(String query) {
+        var splits = query.split("\\?");
+        if (splits.length > 1) {
+            var paramSplits = splits[1].split("&");
+            for(int i = 0; i < paramSplits.length; i++) {
+                if (paramSplits[i].contains("_id")) {
+                    paramSplits[i] = "_id=<RESOURCE-IDs>";
+                }
+            }
+            splits[1] = String.join("&", paramSplits);
+        }
+
+        return String.join("?", splits);
+    }
+
     public Mono<List<Resource>> executeBundle(Bundle bundle) {
+        var queries =  bundle.getEntry().stream().map(e -> removeIDsFromQuery(e.getRequest().getUrl())).toList();
+        logger.debug("Executing queries for referenced resources: {}", queries);
         return client.post()
                 .uri("") // Target endpoint already set up in WebClient
                 .header(HttpHeaders.CONTENT_TYPE, APPLICATION_FHIR_JSON)
