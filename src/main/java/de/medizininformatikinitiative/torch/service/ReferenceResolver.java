@@ -274,7 +274,6 @@ public class ReferenceResolver {
             Map<String, Set<ResourceGroup>> RGsPerPat,
             PatientBatchWithConsent batch,
             Map<String, AnnotatedAttributeGroup> groupMap) {
-
         // When grouping by linked group, the connection from reference to patients will be lost.
         // So `refToPatHelper` is later used to find out which newly fetched resource is referenced by which patient in
         // order to put it into the correct patient bundle.
