@@ -72,10 +72,10 @@ public class ReferenceResolver {
     Mono<PatientBatchWithConsent> resolvePatientBatch(
             PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         var RGsPerPat = batch.bundles().entrySet().stream().map(entry ->
-                Map.entry(entry.getKey(), entry.getValue()
-                        .getValidResourceGroups().stream()
-                        .filter(compartmentManager::isInCompartment)
-                        .collect(Collectors.toSet())))
+                        Map.entry(entry.getKey(), entry.getValue()
+                                .getValidResourceGroups().stream()
+                                .filter(compartmentManager::isInCompartment)
+                                .collect(Collectors.toSet())))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         // use expand only to recursively resolve in place (mutating the bundles) -> ignoring the return value
@@ -97,22 +97,22 @@ public class ReferenceResolver {
                     return merged;
                 }));
 
-        return Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).flatMap(e -> {
+        return Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             var linkedGroupID = e.getKey();
             var unknownWrappers = e.getValue();
             var unknownRefs = getRefsFromWrappers(unknownWrappers);
 
             return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewCoreResources(fetchedResources, coreBundle))
-                    .map(fetchedResources -> setUnloadedAsInvalidCore(fetchedResources,unknownRefs,linkedGroupID,coreBundle))
+                    .map(fetchedResources -> setUnloadedAsInvalidCore(fetchedResources, unknownRefs, linkedGroupID, coreBundle))
                     .doOnNext(this::logMissingRefs);
-        }).thenMany(Flux.fromIterable(refsPerRG.entrySet()).flatMap(refsOfRg ->
-            referenceHandler.handleReferences(
-                    refsOfRg.getValue(),
-                    null,
-                    coreBundle,
-                    groupMap,
-                    coreBundle.getValidResourceGroups())
+        }).thenMany(Flux.fromIterable(refsPerRG.entrySet()).concatMap(refsOfRg ->
+                referenceHandler.handleReferences(
+                        refsOfRg.getValue(),
+                        null,
+                        coreBundle,
+                        groupMap,
+                        coreBundle.getValidResourceGroups())
         ).collect(Collectors.toSet())).filter(map -> !map.isEmpty());
 
     }
@@ -120,14 +120,14 @@ public class ReferenceResolver {
     /**
      * Puts the newly fetched resources in the correct patient bundles or core bundle.
      *
-     * @param resources         newly fetched resources to put into the patient bundles
-     * @param refToPatHelper    tells by which patients the resources is references
-     * @param batch             the batch containing the patient bundles and core bundle to put cache the resources in
-     * @return                  the unchanged resources for further processing
+     * @param resources      newly fetched resources to put into the patient bundles
+     * @param refToPatHelper tells by which patients the resources is references
+     * @param batch          the batch containing the patient bundles and core bundle to put cache the resources in
+     * @return the unchanged resources for further processing
      */
     private List<Resource> cacheNewResourcesFromPatient(List<Resource> resources,
-                                                    Map<ReferenceWrapper, String> refToPatHelper,
-                                                    PatientBatchWithConsent batch) {
+                                                        Map<ReferenceWrapper, String> refToPatHelper,
+                                                        PatientBatchWithConsent batch) {
         return resources.stream().peek(resource -> {
             refToPatHelper.forEach((wrapper, patID) -> wrapper.references().forEach(unknownRef -> {
                 if (unknownRef.equals(resource.getResourceType() + "/" + resource.getIdPart())) {
@@ -149,17 +149,17 @@ public class ReferenceResolver {
      * i.e. the resource group, is set as invalid here so the reference handler will know that the resource is "not part
      * of" this linked group.
      *
-     * @param fetchedResources  resources fetched using FHIRSearch with the filter of the linked group
-     * @param expectedRefs      all resources that should have been fetched
-     * @param linkedGroupID     ID of the linked group (used to apply the filter during the fetch)
-     * @param batch             batch containing the patient bundles and core bundle to mark the resources as invalid in
-     * @return                  the missing reference strings to be further processed
+     * @param fetchedResources resources fetched using FHIRSearch with the filter of the linked group
+     * @param expectedRefs     all resources that should have been fetched
+     * @param linkedGroupID    ID of the linked group (used to apply the filter during the fetch)
+     * @param batch            batch containing the patient bundles and core bundle to mark the resources as invalid in
+     * @return the missing reference strings to be further processed
      */
     private Set<String> setUnloadedAsInvalid(List<Resource> fetchedResources,
-                                                Map<ReferenceWrapper, String> refToPatHelper,
-                                                List<String> expectedRefs,
-                                                String linkedGroupID,
-                                                PatientBatchWithConsent batch) {
+                                             Map<ReferenceWrapper, String> refToPatHelper,
+                                             List<String> expectedRefs,
+                                             String linkedGroupID,
+                                             PatientBatchWithConsent batch) {
         Set<String> notLoaded = new HashSet<>(expectedRefs);
         fetchedResources.stream().map(r -> r.getResourceType() + "/" + r.getIdPart()).forEach(notLoaded::remove);
 
@@ -185,16 +185,16 @@ public class ReferenceResolver {
      * Works the same as {@link #setUnloadedAsInvalid(List, Map, List, String, PatientBatchWithConsent)} but here with
      * core resources only.
      *
-     * @param fetchedResources  resources fetched using FHIRSearch with the filter of the linked group
-     * @param expectedRefs      all resources that should have been fetched
-     * @param linkedGroupID     ID of the linked group (used to apply the filter during the fetch)
-     * @param coreBundle        the core bundle to mark the resources as invalid in
-     * @return                  the missing reference strings to be further processed
+     * @param fetchedResources resources fetched using FHIRSearch with the filter of the linked group
+     * @param expectedRefs     all resources that should have been fetched
+     * @param linkedGroupID    ID of the linked group (used to apply the filter during the fetch)
+     * @param coreBundle       the core bundle to mark the resources as invalid in
+     * @return the missing reference strings to be further processed
      */
     private Set<String> setUnloadedAsInvalidCore(List<Resource> fetchedResources,
-                                                List<String> expectedRefs,
-                                                String linkedGroupID,
-                                                ResourceBundle coreBundle) {
+                                                 List<String> expectedRefs,
+                                                 String linkedGroupID,
+                                                 ResourceBundle coreBundle) {
         Set<String> notLoaded = new HashSet<>(expectedRefs);
         fetchedResources.stream().map(r -> r.getResourceType() + "/" + r.getIdPart()).forEach(notLoaded::remove);
 
@@ -220,18 +220,18 @@ public class ReferenceResolver {
      * Calls the {@link ReferenceHandler} to set attribute- and group-validity and other information needed for cascading
      * delete later.
      *
-     * @param patID             ID of the patient of the parent resource
-     * @param refsPerParentRG   map from parent resource group to references of that resource to handle
-     * @param batch             batch containing the patient bundle and a core bundle
-     * @param groupMap          map from groupID to corresponding {@link AnnotatedAttributeGroup}
-     * @return                  map entry from patID and newly validated resources (as ResourceGroups) that were originally referenced
+     * @param patID           ID of the patient of the parent resource
+     * @param refsPerParentRG map from parent resource group to references of that resource to handle
+     * @param batch           batch containing the patient bundle and a core bundle
+     * @param groupMap        map from groupID to corresponding {@link AnnotatedAttributeGroup}
+     * @return map entry from patID and newly validated resources (as ResourceGroups) that were originally referenced
      */
     private Mono<Map.Entry<String, Set<ResourceGroup>>> handleReferencesForPatient(String patID, Map<ResourceGroup, List<ReferenceWrapper>> refsPerParentRG,
-                                                                             PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap ) {
+                                                                                   PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         var patientBundle = batch.bundles().get(patID);
 
         var newValidRGs = Flux.fromIterable(refsPerParentRG.values())
-                .flatMap(refsOfParentRg -> referenceHandler.handleReferences(
+                .concatMap(refsOfParentRg -> referenceHandler.handleReferences(
                         refsOfParentRg,
                         patientBundle,
                         batch.coreBundle(),
@@ -268,7 +268,7 @@ public class ReferenceResolver {
      * @param RGsPerPat map from patient ID to a set of resources of which the references should be resolved
      * @param batch     batch containing compartment and core bundles for all patients of the batch
      * @param groupMap  map from attribute-group ID to the corresponding {@link AnnotatedAttributeGroup}
-     * @return          map from patient ID to set of newly fetched (i.e. still unresolved) resources to be recursively resolved
+     * @return map from patient ID to set of newly fetched (i.e. still unresolved) resources to be recursively resolved
      */
     public Mono<Map<String, Set<ResourceGroup>>> resolveUnknownPatientBatchRefs(
             Map<String, Set<ResourceGroup>> RGsPerPat,
@@ -306,7 +306,7 @@ public class ReferenceResolver {
                     return merged;
                 }));
 
-        Flux<Map.Entry<String, Set<ResourceGroup>>> newRGsPerPat = Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).flatMap(e -> {
+        Flux<Map.Entry<String, Set<ResourceGroup>>> newRGsPerPat = Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             String linkedGroupID = e.getKey();
             List<ReferenceWrapper> unknownWrappers = e.getValue();
             var unknownRefs = getRefsFromWrappers(unknownWrappers);
@@ -318,10 +318,10 @@ public class ReferenceResolver {
                     .doOnNext(this::logMissingRefs);
         }).thenMany(
                 Flux.fromIterable(refsPerPatPerRG.entrySet())
-                        .flatMap(e -> handleReferencesForPatient( e.getKey(), e.getValue(), batch, groupMap)
-        ));
+                        .concatMap(e -> handleReferencesForPatient(e.getKey(), e.getValue(), batch, groupMap)
+                        ));
 
-        return newRGsPerPat.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue,(a, b) -> {
+        return newRGsPerPat.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
             Set<ResourceGroup> merged = new HashSet<>(a);
             merged.addAll(b);
             return merged;
@@ -344,7 +344,7 @@ public class ReferenceResolver {
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap) {
 
-        return resourceGroups.parallelStream()
+        return resourceGroups.stream()
                 .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap))
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(Collectors.toMap(
