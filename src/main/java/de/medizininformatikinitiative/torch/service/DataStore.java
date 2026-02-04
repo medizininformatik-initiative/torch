@@ -47,8 +47,12 @@ public class DataStore {
 
     private static final Logger logger = LoggerFactory.getLogger(DataStore.class);
 
-    private static final Duration ASYNC_POLL_DELAY = Duration.ofSeconds(2);
-    private static final RetryBackoffSpec ASYNC_POLL_RETRY_SPEC = Retry.fixedDelay(1000, ASYNC_POLL_DELAY)
+    /**
+     * 6 attempts at exponential delays ~63 seconds.
+     * 600 should yield around 5hrs.
+     */
+    private static final RetryBackoffSpec ASYNC_POLL_SPEC = Retry.backoff(600, Duration.ofSeconds(1))
+            .maxBackoff(Duration.ofSeconds(30))
             .filter(AsyncRetryException.class::isInstance);
     /**
      * Retries:
@@ -144,13 +148,13 @@ public class DataStore {
      * Used for logging as logging all resource-IDs would bloat the log.
      *
      * @param query the query string to remove the IDs from
-     * @return      the same query but without the resource-IDs ({@code _id=<RESOURCE-IDs>} as placeholder)
+     * @return the same query but without the resource-IDs ({@code _id=<RESOURCE-IDs>} as placeholder)
      */
     private String removeIDsFromQuery(String query) {
         var splits = query.split("\\?");
         if (splits.length > 1) {
             var paramSplits = splits[1].split("&");
-            for(int i = 0; i < paramSplits.length; i++) {
+            for (int i = 0; i < paramSplits.length; i++) {
                 if (paramSplits[i].contains("_id")) {
                     paramSplits[i] = "_id=<RESOURCE-IDs>";
                 }
@@ -162,7 +166,7 @@ public class DataStore {
     }
 
     public Mono<List<Resource>> executeBundle(Bundle bundle) {
-        var queries =  bundle.getEntry().stream().map(e -> removeIDsFromQuery(e.getRequest().getUrl())).toList();
+        var queries = bundle.getEntry().stream().map(e -> removeIDsFromQuery(e.getRequest().getUrl())).toList();
         logger.debug("Executing queries for referenced resources: {}", queries);
         return client.post()
                 .uri("") // Target endpoint already set up in WebClient
@@ -329,14 +333,13 @@ public class DataStore {
     private Mono<MeasureReport> pollStatus(String statusUrl, String measureUrn, long start) {
         return client.get().uri(statusUrl)
                 .retrieve()
-                .onStatus(status -> status.isSameCodeAs(ACCEPTED), response -> {
-                    logger.trace("Evaluation of measure with URN {} is still in progress for {} seconds. Next try will be in {}.",
-                            measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start)), ASYNC_POLL_DELAY);
+                .onStatus(status -> status.isSameCodeAs(ACCEPTED) || shouldRetry(status), response -> {
+                    logger.trace("Evaluation of measure with URN {} is still in progress for {} seconds.",
+                            measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start)));
                     return Mono.error(new AsyncRetryException());
                 })
                 .bodyToMono(String.class)
-                .retryWhen(ASYNC_POLL_RETRY_SPEC)
-                .retryWhen(RETRY_SPEC)
+                .retryWhen(ASYNC_POLL_SPEC)
                 .flatMap(body -> parseResource(Bundle.class, body))
                 .flatMap(bundle -> {
                     var entry = bundle.getEntryFirstRep();
