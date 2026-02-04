@@ -12,6 +12,7 @@ import okhttp3.mockwebserver.SocketPolicy;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -299,11 +300,12 @@ class DataStoreTest {
 
             mockStore.setDispatcher(new Dispatcher() {
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
                     assert request.getPath() != null;
 
                     // First page: POST /fhir/Patient/_search
-                    if (request.getMethod().equals("POST") && request.getPath().equals("/fhir/Patient/_search")) {
+
+                    if ("POST".equals(request.getMethod()) && request.getPath().equals("/fhir/Patient/_search")) {
                         return new MockResponse()
                                 .setResponseCode(200)
                                 .setHeader("Content-Type", "application/fhir+json")
@@ -311,7 +313,7 @@ class DataStoreTest {
                     }
 
                     // Next page: GET /fhir/Patient?page=2  (first attempt disconnects)
-                    if (request.getMethod().equals("GET") && request.getPath().equals("/fhir/Patient?page=2")) {
+                    if ("GET".equals(request.getMethod()) && request.getPath().equals("/fhir/Patient?page=2")) {
                         if (nextPageAttempts.getAndIncrement() == 0) {
                             return new MockResponse()
                                     .setResponseCode(200)
@@ -467,7 +469,7 @@ class DataStoreTest {
             return new Dispatcher() {
 
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
                     assert request.getPath() != null;
                     return switch (request.getPath()) {
                         case "/fhir/Measure/$evaluate-measure" -> evaluateMeasureResponse(request, response);
@@ -480,14 +482,14 @@ class DataStoreTest {
             };
         }
 
-        private Dispatcher statusEndpointNotFoundDispatcher(String response) {
+        private Dispatcher statusEndpointGoneDispatcher(String response) {
             return new Dispatcher() {
 
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
                     return "/fhir/Measure/$evaluate-measure".equals(request.getPath())
                             ? evaluateMeasureResponse(request, response)
-                            : new MockResponse().setResponseCode(404);
+                            : new MockResponse().setResponseCode(410);
                 }
             };
         }
@@ -497,7 +499,7 @@ class DataStoreTest {
             return new Dispatcher() {
 
                 @Override
-                public MockResponse dispatch(RecordedRequest request) {
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
                     assert request.getPath() != null;
                     return switch (request.getPath()) {
                         case "/fhir/Measure/$evaluate-measure" -> evaluateMeasureResponse(request, response);
@@ -537,8 +539,8 @@ class DataStoreTest {
             }
 
             @Test
-            void failsOnStatusEndpointNotFound() {
-                mockStore.setDispatcher(statusEndpointNotFoundDispatcher(responseSuccess));
+            void failsOnStatusEndpointGone() {
+                mockStore.setDispatcher(statusEndpointGoneDispatcher(responseSuccess));
 
                 var result = dataStore.evaluateMeasure(params("uri-152349"));
 
