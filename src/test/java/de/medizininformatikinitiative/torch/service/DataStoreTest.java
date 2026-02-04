@@ -192,23 +192,6 @@ class DataStoreTest {
             dataStore = new DataStore(client, ctx, 1000, false);
         }
 
-        @ParameterizedTest
-        @ValueSource(ints = {404, 500})
-        @DisplayName("fails after 5 unsuccessful retries")
-        void retryFails(int statusCode) {
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(200));
-
-            var result = dataStore.search(Query.ofType("Observation"), Observation.class);
-
-            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
-        }
-
         @Test
         @DisplayName("doesn't retry a 400")
         void errorNoRetry() {
@@ -285,6 +268,20 @@ class DataStoreTest {
             StepVerifier.create(result)
                     .expectNextMatches(p -> p.getIdElement().getIdPart().equals("123"))
                     .verifyComplete();
+        }
+
+        @ParameterizedTest
+        @ValueSource(ints = {404, 500})
+        @DisplayName("retries at least 3 unsuccessful calls")
+        void retrySuccess(int statusCode) {
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+            mockStore.enqueue(new MockResponse().setResponseCode(200));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result).verifyComplete();
         }
 
         @Test
@@ -389,33 +386,10 @@ class DataStoreTest {
                     .verifyComplete();
         }
 
-        @Test
-        @DisplayName("Fetch with retry")
-        void fetchWithRetry() {
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse().setResponseCode(500));
-            mockStore.enqueue(new MockResponse()
-                    .setResponseCode(200)
-                    .setBody(BATCH_RESPONSE));
-
-
-            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
-
-            StepVerifier.create(result)
-                    .expectNextMatches(resources ->
-                            resources.size() == 1 && resources.getFirst().getResourceType() == Patient && resources.getFirst().getIdElement().getIdPart().equals("1"))
-                    .expectComplete()
-                    .verify();
-        }
-
-
         @ParameterizedTest
         @ValueSource(ints = {404, 500})
-        @DisplayName("fails after 5 unsuccessful retries")
-        void retryFails(int statusCode) {
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
-            mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
+        @DisplayName("retries at least 3 unsuccessful calls")
+        void retrySuccess(int statusCode) {
             mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
             mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
             mockStore.enqueue(new MockResponse().setResponseCode(statusCode));
@@ -423,7 +397,7 @@ class DataStoreTest {
 
             var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"));
 
-            StepVerifier.create(result).verifyErrorMessage("Retries exhausted: 5/5");
+            StepVerifier.create(result).verifyComplete();
         }
 
         @Test

@@ -58,9 +58,10 @@ public class DataStore {
      * Retries:
      * - HTTP status based (5xx, 404, 429) via WebClientResponseException
      * - Transport problems like "prematurely closed connection" via WebClientRequestException causes
+     * Does try for 1h max at max 5min intervals (9 calls around 8min)
      */
-    private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(5, Duration.ofSeconds(1))
-            .maxBackoff(Duration.ofSeconds(10))
+    private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(20, Duration.ofSeconds(1))
+            .maxBackoff(Duration.ofMinutes(5))
             .filter(DataStore::isRetryable)
             .doBeforeRetry(rs -> logger.warn(
                     "Retrying DataStore call (attempt {} of {}) due to: {}",
