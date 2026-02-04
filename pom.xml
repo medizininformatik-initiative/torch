@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.6.0</Hapi.version>
-        <ontology-tag>v3.9.1</ontology-tag>
+        <ontology-tag>v3.9.5</ontology-tag>
     </properties>
 
     <dependencies>
