@@ -246,9 +246,9 @@ public record ResourceBundle(
         return bundle;
     }
 
-    private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroup> groupResources) {
+    private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroup> groupResources, String batchId) {
         Provenance provenance = new Provenance();
-        provenance.setId(PROVENANCE_PREFIX + groupId);
+        provenance.setId(PROVENANCE_PREFIX + batchId + "-" + groupId);
         provenance.setRecorded(new Date());
 
         // Add all resources under the same group as targets
@@ -299,7 +299,7 @@ public record ResourceBundle(
                 .map(entry -> {
                     String groupId = entry.getKey();
                     List<ResourceGroup> groupResources = entry.getValue();
-                    return createProvenance(extractionId, groupId, groupResources);
+                    return createProvenance(extractionId, groupId, groupResources, UUID.randomUUID().toString());
                 })
                 .toList();
     }
