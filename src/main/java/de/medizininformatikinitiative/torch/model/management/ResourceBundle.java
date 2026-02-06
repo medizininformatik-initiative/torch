@@ -1,29 +1,17 @@
 package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.hl7.fhir.r4.model.Bundle;
-import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Identifier;
-import org.hl7.fhir.r4.model.Period;
-import org.hl7.fhir.r4.model.Provenance;
-import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.Resource;
 
-import java.util.Date;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import static org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION;
-import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
 
 /**
  * Generic bundle that handles Resources
@@ -44,12 +32,6 @@ public record ResourceBundle(
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<String, Optional<Resource>> cache) {
-
-    public static final String PROGRAM_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/program";
-    public static final String ATTRIBUTE_GROUP_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/attribute_group";
-    public static final String EXTRACTION_ID_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/extraction_id";
-    public static final String TORCH = "torch";
-    public static final String PROVENANCE_PREFIX = "Provenance/torch-";
 
     public ResourceBundle() {
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
@@ -230,89 +212,6 @@ public record ResourceBundle(
         });
 
         return invalidEntries;
-    }
-
-    public Set<ResourceGroup> getKnownResourceGroups() {
-        return Set.copyOf(resourceGroupValidity.keySet());
-    }
-
-    public Bundle toFhirBundle(String extractionId) {
-        Bundle bundle = new Bundle();
-        bundle.setType(TRANSACTION);
-        bundle.setId(UUID.randomUUID().toString());
-
-        cache.values().forEach(resource -> resource.ifPresent(value -> bundle.addEntry(createBundleEntry(value))));
-        getAttributeGroupProvenance(extractionId).forEach(provenance -> bundle.addEntry(createBundleEntry(provenance)));
-        return bundle;
-    }
-
-    private static Provenance createProvenance(String extractionId, String groupId, List<ResourceGroup> groupResources, String batchId) {
-        Provenance provenance = new Provenance();
-        provenance.setId(PROVENANCE_PREFIX + batchId + "-" + groupId);
-        provenance.setRecorded(new Date());
-
-        // Add all resources under the same group as targets
-        groupResources.forEach(rg ->
-                provenance.addTarget(new Reference(rg.resourceId()))
-        );
-
-        // Set occurredPeriod (constant or dynamic)
-        Period occurred = new Period();
-        occurred.setStartElement(new DateTimeType(new Date()));
-        provenance.setOccurred(occurred);
-
-        // Add the agent (torch)
-        Provenance.ProvenanceAgentComponent agent = new Provenance.ProvenanceAgentComponent();
-        Reference whoReference = new Reference();
-        whoReference.setIdentifier(new Identifier()
-                .setSystem(PROGRAM_URL)
-                .setValue(TORCH));
-        agent.setWho(whoReference);
-        provenance.addAgent(agent);
-
-        // Add entity: attribute_group
-        Provenance.ProvenanceEntityComponent entityGroup = new Provenance.ProvenanceEntityComponent();
-        entityGroup.setRole(Provenance.ProvenanceEntityRole.SOURCE);
-        entityGroup.setWhat(new Reference().setIdentifier(new Identifier()
-                .setSystem(ATTRIBUTE_GROUP_URL)
-                .setValue(groupId)));
-        provenance.addEntity(entityGroup);
-
-        // Add entity: extraction_id
-        Provenance.ProvenanceEntityComponent entityExtraction = new Provenance.ProvenanceEntityComponent();
-        entityExtraction.setRole(Provenance.ProvenanceEntityRole.SOURCE);
-        entityExtraction.setWhat(new Reference().setIdentifier(new Identifier()
-                .setSystem(EXTRACTION_ID_URL)
-                .setValue(extractionId)));
-        provenance.addEntity(entityExtraction);
-
-        return provenance;
-    }
-
-    public List<Provenance> getAttributeGroupProvenance(String extractionId) {
-        // Group all resources by groupId
-        Map<String, List<ResourceGroup>> groupedByGroupId = getValidResourceGroups().stream()
-                .collect(Collectors.groupingBy(ResourceGroup::groupId));
-
-        // Create one Provenance per group
-        return groupedByGroupId.entrySet().stream()
-                .map(entry -> {
-                    String groupId = entry.getKey();
-                    List<ResourceGroup> groupResources = entry.getValue();
-                    return createProvenance(extractionId, groupId, groupResources, UUID.randomUUID().toString());
-                })
-                .toList();
-    }
-
-
-    private Bundle.BundleEntryComponent createBundleEntry(Resource resource) {
-        Bundle.BundleEntryComponent entryComponent = new Bundle.BundleEntryComponent();
-        entryComponent.setResource(resource);
-        Bundle.BundleEntryRequestComponent request = new Bundle.BundleEntryRequestComponent();
-        request.setUrl(ResourceUtils.getRelativeURL(resource));
-        request.setMethod(PUT);
-        entryComponent.setRequest(request);
-        return entryComponent;
     }
 
     public Boolean isValidResourceGroup(ResourceGroup group) {

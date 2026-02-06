@@ -1,28 +1,20 @@
 package de.medizininformatikinitiative.torch.management;
 
-import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroupWrapper;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Provenance;
-import org.hl7.fhir.r4.model.Reference;
-import org.hl7.fhir.r4.model.Resource;
-import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-import static de.medizininformatikinitiative.torch.assertions.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class ResourceBundleTest {
@@ -48,65 +40,6 @@ class ResourceBundleTest {
         wrapper3 = new ResourceGroupWrapper(patient3, attributeGroups1);
         wrapper1Mod = new ResourceGroupWrapper(patient1, attributeGroups2);
         id = ResourceUtils.getRelativeURL(patient1);
-    }
-
-    @Test
-    void toFhirBundleTest() {
-        ResourceBundle cache = new ResourceBundle();
-        cache.put(wrapper1);
-        cache.put(wrapper2);
-
-        var fhirBundle = cache.toFhirBundle("testExtraction");
-        assertThat(fhirBundle.getEntry())
-                .extracting(entry -> entry.getRequest().getUrl())
-                .contains("Patient/patient1", "Patient/patient2");
-        assertThat(fhirBundle)
-                .containsNEntries(4)
-                .extractResources()
-                .extracting(Resource::getId)
-                .contains("patient2", "http://blaze.com/fhir/Patient/patient1");
-        assertThat(fhirBundle)
-                .extractResourcesByType(ResourceType.Provenance)
-                .allSatisfy(resource -> assertThat(resource).extractElementsAt("target.reference").containsExactlyInAnyOrder(new TextNode("Patient/patient1"), new TextNode("Patient/patient2")));
-    }
-
-    @Test
-    void toFhirBundleProvenanceTest() {
-        ResourceBundle cache = new ResourceBundle();
-        cache.put(wrapper1); // Assuming wrapper1 belongs to group1
-        cache.put(wrapper2); // Assuming wrapper2 belongs to group2
-
-        var fhirBundle = cache.toFhirBundle("testExtraction");
-
-        // Filter only Provenance resources from the bundle
-        List<Provenance> provenances = fhirBundle.getEntry().stream()
-                .map(Bundle.BundleEntryComponent::getResource)
-                .filter(r -> r instanceof Provenance)
-                .map(r -> (Provenance) r)
-                .toList();
-
-        // 1. Check count matches the number of groups
-        assertThat(provenances).hasSize(2);
-
-        assertThat(provenances).allSatisfy(prov -> {
-            // 2. Validate the dynamic ID format (torch + UUID + groupId)
-            assertThat(prov.getId()).matches("Provenance/torch-.*-group\\d");
-
-            // 4. Validate Entities (Extraction ID and Attribute Group)
-            assertThat(prov.getEntity())
-                    .extracting(e -> e.getWhat().getIdentifier().getValue())
-                    .contains("testExtraction"); // extractionId
-
-            // 5. Validate the Period exists (recorded and occurred)
-            assertThat(prov.getRecorded()).isNotNull();
-            assertThat(prov.getOccurred()).isNotNull();
-        });
-
-        // 6. Specific check for targets (ensuring patients are linked)
-        assertThat(provenances)
-                .flatExtracting(prov -> prov.getTarget())
-                .extracting(Reference::getReference)
-                .contains("Patient/patient1", "Patient/patient2");
     }
 
     @Nested

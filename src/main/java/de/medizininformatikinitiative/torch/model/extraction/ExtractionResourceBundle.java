@@ -177,7 +177,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
             Set<String> resourceIds
     ) {
         Provenance p = new Provenance();
-        p.setId(PROVENANCE_PREFIX + groupId);
+        p.setId(PROVENANCE_PREFIX + UUID.randomUUID());
         p.setRecorded(new Date());
 
         // targets
