@@ -15,67 +15,72 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.stream.Stream;
 
 @Component
 public class ReferenceExtractor {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceExtractor.class);
-
-
     private final IFhirPath fhirPathEngine;
-
 
     public ReferenceExtractor(FhirContext ctx) {
         this.fhirPathEngine = ctx.newFhirPath();
     }
 
-    /**
-     * Extracts for a given group all references from a resource.
-     *
-     * @param resource containing the resource from which the references should be extracted
-     * @param groupMap Map of group IDs to their corresponding AnnotatedAttributeGroup
-     * @param groupId  group to be extracted from
-     * @return List of ReferenceWrapper containing the references and associated attributes of a resource
-     * @throws MustHaveViolatedException if a must-have field has no reference at all
-     */
     public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
+        // Guard 1: Basic input validation
+        if (resource == null || groupMap == null || groupId == null) {
+            return List.of();
+        }
+
         try {
+            // Guard 2: Missing group in map
             AnnotatedAttributeGroup group = groupMap.get(groupId);
+            if (group == null) {
+                logger.warn("No AnnotatedAttributeGroup found for groupId: {}", groupId);
+                return List.of();
+            }
+
             return group.refAttributes().stream()
+                    .filter(Objects::nonNull) // Ensure attribute list doesn't contain nulls
                     .map(refAttribute -> {
                         try {
-                            return new ReferenceWrapper(refAttribute, getReferences(resource, refAttribute), groupId, ResourceUtils.getRelativeURL(resource));
+                            List<String> refs = getReferences(resource, refAttribute);
+                            String relativeUrl = ResourceUtils.getRelativeURL(resource);
+
+                            // ReferenceWrapper should handle its own null-safety, but we pass safe values
+                            return new ReferenceWrapper(refAttribute, refs, groupId, relativeUrl);
                         } catch (MustHaveViolatedException e) {
-                            throw new RuntimeException(e); // Wrapping the exception first
+                            throw new RuntimeException(e);
                         }
                     })
-                    .collect(Collectors.toList());
+                    .toList();
         } catch (RuntimeException e) {
-            e.printStackTrace();
-            Throwable cause = e.getCause();
-            if (cause instanceof MustHaveViolatedException) {
-                throw (MustHaveViolatedException) cause; // Unwrapping and rethrowing
+            if (e.getCause() instanceof MustHaveViolatedException cause) {
+                throw cause;
             }
-            throw e; // Rethrow the original RuntimeException if it's not MustHaveViolatedException
+            logger.error("Unexpected error during reference extraction", e);
+            throw e;
         }
     }
 
+    List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+        if (resource == null || annotatedAttribute == null) return List.of();
 
-    List<String> getReferences(Resource resource,
-                               AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
-
+        // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
         List<Base> elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
 
-        // Collect all references recursively
-        List<String> references = elements.stream()
+        List<String> references = Optional.ofNullable(elements).orElse(List.of()).stream()
+                .filter(Objects::nonNull)
                 .flatMap(element -> collectReferences(element).stream())
+                .filter(Objects::nonNull) // Ensure no null strings leaked through
                 .toList();
 
-        // Enforce must-have after collection
         if (annotatedAttribute.mustHave() && references.isEmpty()) {
             throw new MustHaveViolatedException(
                     "No Reference found in required field " + annotatedAttribute.attributeRef() +
-                            " in resource " + resource.getId()
+                            " in resource " + resource.getIdElement().getValue()
             );
         }
 
@@ -83,17 +88,32 @@ public class ReferenceExtractor {
     }
 
     /**
-     * Recursively collect all references from any Base element
+     * Recursively collect all references from any Base element.
+     * Hardened against null elements and null reference strings.
      */
     public List<String> collectReferences(Base element) {
+        if (element == null) {
+            return List.of();
+        }
+
+        // Logic check: Pattern matching ensures 'ref' is non-null
         if (element instanceof Reference ref && ref.hasReference()) {
-            return List.of(ref.getReference());
-        } else if (!element.isPrimitive()) {
+            String refString = ref.getReference();
+            // List.of(refString) would throw NPE if refString is null.
+            // Stream.ofNullable().toList() is the safest way to return 0 or 1 items.
+            return Stream.ofNullable(refString).toList();
+        }
+
+        // Logic check: FHIR primitives don't have children
+        if (!element.isPrimitive()) {
             return element.children().stream()
+                    .filter(Objects::nonNull) // The Property object itself
                     .flatMap(child -> child.getValues().stream())
+                    .filter(Objects::nonNull) // The Base element in the values list
                     .flatMap(childElement -> collectReferences(childElement).stream())
                     .toList();
         }
+
         return List.of();
     }
 }
