@@ -320,5 +320,114 @@ class ReferenceExtractorTest {
 
     }
 
+    @Nested
+    class NullSafetyTests {
+
+        @Test
+        void collectReferences_withNullReferenceString_shouldNotThrowNPE() {
+            // This replicates the exact scenario that caused your crash:
+            // An object exists (Reference), but the actual string inside is null.
+            Reference refWithNull = new Reference();
+            // In some HAPI versions, manually setting null can bypass hasReference() checks
+            // depending on how the parser built the object.
+            refWithNull.setReference(null);
+
+            List<String> result = referenceExtractor.collectReferences(refWithNull);
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void collectReferences_withNullElement_shouldReturnEmptyList() {
+            // Tests the guard at the start of the recursive method
+            List<String> result = referenceExtractor.collectReferences(null);
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void extract_withNullInput_shouldReturnEmptyList() throws MustHaveViolatedException {
+            // Tests the top-level guards in the extract method
+            assertThat(referenceExtractor.extract(null, GROUPS, "Test")).isEmpty();
+            assertThat(referenceExtractor.extract(new Condition(), null, "Test")).isEmpty();
+            assertThat(referenceExtractor.extract(new Condition(), GROUPS, null)).isEmpty();
+        }
+
+        @Test
+        void extract_withMissingGroupId_shouldReturnEmptyList() throws MustHaveViolatedException {
+            // Tests the groupMap.get(groupId) guard
+            Condition condition = new Condition();
+            condition.setId("C1");
+
+            List<ReferenceWrapper> result = referenceExtractor.extract(condition, GROUPS, "NonExistentGroup");
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void getReferences_withMalformedResource_shouldHandleNullElementsInStream() throws MustHaveViolatedException {
+            // This simulates a FHIR object that might have a null in its children list
+            // (rare in HAPI, but possible with custom extensions or malformed parsing)
+            Condition condition = new Condition() {
+                @Override
+                public List<org.hl7.fhir.r4.model.Property> children() {
+                    // Force a null property into the stream
+                    List<org.hl7.fhir.r4.model.Property> props = new java.util.ArrayList<>(super.children());
+                    props.add(null);
+                    return props;
+                }
+            };
+            condition.setId("C1");
+            condition.setSubject(new Reference("Patient/1"));
+
+            List<String> result = referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
+
+            assertThat(result).containsExactly("Patient/1");
+        }
+    }
+
+    @Nested
+    class ExceptionHandlingTests {
+
+        @Test
+        void extract_shouldRethrowMustHaveViolatedException_whenWrappedInRuntimeException() throws MustHaveViolatedException {
+            // 1. Create a real group with a real attribute
+            AnnotatedAttribute attribute = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Group"));
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Poison", "Condition", "url", List.of(attribute), List.of());
+            Map<String, AnnotatedAttributeGroup> localGroups = Map.of("Poison", group);
+
+            // 2. Use Mockito to inject a "poisoned" fhirPathEngine into the extractor
+            // We need to use Reflection or a setter if fhirPathEngine is final/private
+            // But since we are in the same package, we can just swap it if it's not final,
+            // OR use a Mockito Spy on the ReferenceExtractor itself.
+
+            ReferenceExtractor spyExtractor = org.mockito.Mockito.spy(referenceExtractor);
+
+            // Simulate the internal call throwing the wrapped exception
+            org.mockito.Mockito.doThrow(new RuntimeException(new MustHaveViolatedException("Simulated violation")))
+                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute));
+
+            // 3. Assert the unwrapping logic works
+            assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Poison"))
+                    .isExactlyInstanceOf(MustHaveViolatedException.class)
+                    .hasMessageContaining("Simulated violation");
+        }
+
+        @Test
+        void extract_shouldLogErrorAndRethrow_whenGenericRuntimeExceptionOccurs() throws MustHaveViolatedException {
+            AnnotatedAttribute attribute = new AnnotatedAttribute("Condition.subject", "Condition.subject", true, List.of("Group"));
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Error", "Condition", "url", List.of(attribute), List.of());
+            Map<String, AnnotatedAttributeGroup> localGroups = Map.of("Error", group);
+
+            ReferenceExtractor spyExtractor = org.mockito.Mockito.spy(referenceExtractor);
+
+            // Simulate a generic RuntimeException without a MustHaveViolatedException cause
+            org.mockito.Mockito.doThrow(new RuntimeException("Unexpected technical error"))
+                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute));
+
+            assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Error"))
+                    .isExactlyInstanceOf(RuntimeException.class)
+                    .hasMessage("Unexpected technical error");
+        }
+    }
 
 }
