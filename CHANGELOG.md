@@ -4,6 +4,27 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.14] - 2026-02-09
+
+### Added
+
+- Add FAQ and Error Numbers for Lookup [#594](https://github.com/medizininformatik-initiative/torch/issues/594)
+- Implement Job Manager [#659](https://github.com/medizininformatik-initiative/torch/issues/659)
+
+### Changed
+
+- Update Ontology To 3.9.5 [#717](https://github.com/medizininformatik-initiative/torch/issues/717)
+- Use Fhir Search instead of Code Filter [#296](https://github.com/medizininformatik-initiative/torch/issues/296)
+- Improve Async $evaluate-measure Call [#691](https://github.com/medizininformatik-initiative/torch/issues/691)
+- Improve Sync Retry Spec [#715](https://github.com/medizininformatik-initiative/torch/issues/715)
+
+### Fixed
+
+- Fix NPE in collectReferences [#726](https://github.com/medizininformatik-initiative/torch/issues/726)
+- Fix NPE in DateTimeReading [#696](https://github.com/medizininformatik-initiative/torch/issues/696)
+- Fix Torch Not Retrying On Prematurely Closed [#701](https://github.com/medizininformatik-initiative/torch/issues/701)
+- Large JSON files cause "create-parameters.sh" to fail [#675](https://github.com/medizininformatik-initiative/torch/issues/675)
+
 ## [v1.0.0-alpha.13] - 2026-01-09
 
 ### Added
