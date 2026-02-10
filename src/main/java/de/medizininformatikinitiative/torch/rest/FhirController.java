@@ -13,15 +13,29 @@ import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.rest.schema.JobManifestSchema;
+import de.medizininformatikinitiative.torch.rest.schema.OperationOutcomeSchema;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.enums.ParameterIn;
+import io.swagger.v3.oas.annotations.headers.Header;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.parameters.RequestBody;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springdoc.core.annotations.RouterOperation;
+import org.springdoc.core.annotations.RouterOperations;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
@@ -55,6 +69,7 @@ import static org.springframework.web.reactive.function.server.ServerResponse.ac
  *  * <a href="https://hl7.org/fhir/R5/async-bulk.html">FHIR R5 Async Bulk Data
  */
 @RestController
+
 public class FhirController {
 
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
@@ -83,12 +98,96 @@ public class FhirController {
     }
 
     @Bean
+    @RouterOperations({
+            @RouterOperation(
+                    path = "/fhir/$extract-data",
+                    method = RequestMethod.POST,
+                    beanClass = FhirController.class,
+                    beanMethod = "handleExtractData"
+            ),
+            @RouterOperation(
+                    path = "/fhir/__status/{jobId}",
+                    method = RequestMethod.GET,
+                    beanClass = FhirController.class,
+                    beanMethod = "checkStatus"
+            )
+    })
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
     }
 
+    @Operation(
+            summary = "POST /fhir/$extract-data — Bulk Data Kick-off",
+            description = """
+                    Starts a TORCH extraction job.
+                    
+                    Expects a FHIR Parameters resource containing:
+                    - parameter[name='crtdl'].valueBase64Binary = base64 encoded CRTDL JSON
+                    - optional repeated parameter[name='patient'].valueString to provide explicit patient IDs
+                    """,
+            requestBody = @RequestBody(
+                    required = true,
+                    content = @Content(
+                            mediaType = "application/fhir+json",
+                            examples = {
+                                    @ExampleObject(
+                                            name = "CRTDL only",
+                                            value = """
+                                                    {
+                                                      "resourceType": "Parameters",
+                                                      "parameter": [
+                                                        { "name": "crtdl", "valueBase64Binary": "<Base64 encoded CRTDL>" }
+                                                      ]
+                                                    }
+                                                    """
+                                    ),
+                                    @ExampleObject(
+                                            name = "CRTDL + patients",
+                                            value = """
+                                                    {
+                                                      "resourceType": "Parameters",
+                                                      "parameter": [
+                                                        { "name": "crtdl", "valueBase64Binary": "<Base64 encoded CRTDL>" },
+                                                        { "name": "patient", "valueString": "Patient/123" },
+                                                        { "name": "patient", "valueString": "Patient/456" }
+                                                      ]
+                                                    }
+                                                    """
+                                    )
+                            }
+                    )
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "202",
+                            description = "Accepted - job created",
+                            content = @Content(schema = @Schema(hidden = true)),
+                            headers = @Header(
+                                    name = "Content-Location",
+                                    description = "URL to poll job status",
+                                    schema = @Schema(type = "string")
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "400",
+                            description = "Bad Request",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Internal Server Error",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    )
+            }
+    )
     /**
      * Handles {@code POST /fhir/$extract-data}.
      *
@@ -142,6 +241,67 @@ public class FhirController {
                 });
     }
 
+
+    @Operation(
+            summary = "GET /fhir/__status/{jobId} — Bulk Data Status Request",
+            parameters = @Parameter(
+                    name = "jobId",
+                    in = ParameterIn.PATH,
+                    required = true,
+                    description = "Job identifier returned by the kick-off endpoint",
+                    schema = @Schema(type = "string", format = "uuid")
+            ),
+            responses = {
+                    @ApiResponse(
+                            responseCode = "200",
+                            description = "Job Completed - Manifest is ready",
+                            content = @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(implementation = JobManifestSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "202",
+                            description = "Job In-Progress",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "404",
+                            description = "Job Not Found",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "410",
+                            description = "Job Cancelled or Expired",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "500",
+                            description = "Job Failed",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    ),
+                    @ApiResponse(
+                            responseCode = "503",
+                            description = "Service Unavailable (Transient Failure)",
+                            content = @Content(
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(implementation = OperationOutcomeSchema.class)
+                            )
+                    )
+            }
+    )
     /**
      * Handles {@code GET /fhir/__status/{jobId}}.
      *
@@ -227,16 +387,14 @@ public class FhirController {
         root.put("requiresAccessToken", false);
 
         ArrayNode outputArr = mapper.createArrayNode();
-        job.batches().forEach((f, batchState) -> {
-                    if (WorkUnitStatus.FINISHED.equals(batchState.status())) {
-                        outputArr.add(mapper.createObjectNode()
-                                .put("url", fileServerName + "/" + job.id() + "/" + f + ".ndjson")
-                                .put("type", "NDJSON Bundle"));
-                    }
-                }
+        // Job already contains the filenames — just generate URLs
+        job.batches().keySet().forEach(f ->
+                outputArr.add(mapper.createObjectNode()
+                        .put("url", fileServerName + "/" + job.id() + "/" + f + ".ndjson")
+                        .put("type", "NDJSON Bundle"))
         );
 
-        if (WorkUnitStatus.FINISHED.equals(job.coreState().status())) {
+        if (job.coreState().status() == WorkUnitStatus.FINISHED) {
             outputArr.add(mapper.createObjectNode()
                     .put("url", fileServerName + "/" + job.id() + "/core.ndjson")
                     .put("type", "NDJSON Bundle"));
