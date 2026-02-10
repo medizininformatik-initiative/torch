@@ -17,7 +17,10 @@ import reactor.netty.resources.ConnectionProvider;
 @Configuration
 @Profile("test")
 @Import(BaseConfig.class)
-@ComponentScan("de.medizininformatikinitiative.torch")
+@ComponentScan(basePackages = {
+        "de.medizininformatikinitiative.torch",
+        "org.springdoc"
+})
 public class TestConfig {
     private static final Logger logger = LoggerFactory.getLogger(TestConfig.class);
 

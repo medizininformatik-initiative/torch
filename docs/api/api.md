@@ -1,27 +1,35 @@
-# API
+<style>
+/* Hide the "Servers" section */
+#servers, h2#servers,
+h2#servers + div,
+.OAServers,
+.v-openapi-servers {
+  display: none !important;
+}
 
-TORCH provides a FHIR REST API for extracting data based on the Clinical Resource Transfer Definition Language (CRTDL).
-It implements the FHIR [Asynchronous Bulk Data Request Pattern](http://hl7.org/fhir/R5/async-bulk.html).
+/* The paths are rendered as a 2-column grid. Keep only the left column. */
+.OAPath .sm\:grid-cols-2 {
+  grid-template-columns: 1fr !important;
+}
 
-### Key Features of the API
+/* Hide the right column (contains: Body editor, Try it out, Samples/cURL tabs) */
+.OAPath .sm\:grid-cols-2 > :nth-child(2) {
+  display: none !important;
+}
+</style>
 
-- **Asynchronous Requests**: Supports long-running data extraction tasks.
-- **FHIR Compliant**: Adheres to FHIR standards for resource representation.
-- **CRTDL Integration**: Uses CRTDL definitions to specify data extraction rules.
+<ClientOnly>
+  <OASpec spec-url="../openapi.json" />
+</ClientOnly>
 
-### API Endpoints
+## Implementation Details
 
-- **`/$extract-data`**: Initiates a data extraction job based on a CRTDL definition.
-- **`/__status`**: Checks the status of an ongoing data extraction job.
-- **`/metadata`**: Provides metadata about the TORCH server and its capabilities.
+The TORCH REST API follows the [Asynchronous Bulk Data Request Pattern][1].
 
-## TORCH REST API (based on FHIR Bulk Data Request)
+### $extract-data Kick-off
 
-Torch implements the FHIR [Asynchronous Bulk Data Request Pattern][1].
-
-### $extract-data
-
-The $extract-data endpoint implements the kick-off request in the Async Bulk Pattern. It receives a FHIR parameters
+The `$extract-data` endpoint initiates the extraction. It expects a FHIR
+`Parameters` resource containing a Base64 encoded **CRTDL** definition.
 resource with a **_crtdl_** parameter containing a
 valueBase64Binary [CRTDL](https://github.com/medizininformatik-initiative/clinical-resource-transfer-definition-language).
 In all examples torch is configured with the base url **`http://localhost:8080`**.
@@ -30,7 +38,10 @@ In all examples torch is configured with the base url **`http://localhost:8080`*
 scripts/create-parameters.sh src/test/resources/CRTDL/CRTDL_observation.json | curl -s 'http://localhost:8080/fhir/$extract-data' -H "Content-Type: application/fhir+json" -d @- -v
 ```
 
-The Parameters resource created by `scripts/create-parameters.sh` look like this:
+## Request Body Structure
+
+The Parameters resource created by [
+`create-parameters.sh`](https://github.com/medizininformatik-initiative/torch/blob/main/scripts/create-parameters.sh) look like this:
 
 ```
 {
@@ -64,71 +75,6 @@ Optionally patient ids can be submitted for a known cohort, bypassing the cohort
     }
   ]
 }
-```
-
-#### Response - Error (e.g. unsupported search parameter)
-
-* HTTP Status Code of 4XX or 5XX
-
-#### Response - Success
-
-* HTTP Status Code of 202 Accepted
-* Content-Location header with the absolute URL of an endpoint for subsequent status requests (polling location)
-
-
-### Status Request
-
-Torch provides a Status Request Endpoint which can be called using the Content-Location returned from the extract Data Endpoint.
-
-```sh
-curl -s http://localhost:8080/fhir/__status/{location} 
-```
-
-#### Response - In-Progress
-
-* HTTP Status Code of 202 Accepted
-
-#### Response - Error
-
-* HTTP status code of 4XX or 5XX
-* Content-Type header of application/fhir+json
-* Operation Outcome with fatal issue
-
-#### Response - Complete
-
-* HTTP status of 200 OK
-* Content-Type header of application/fhir+json
-* A body containing a JSON file describing the file links to the batched transformation results
-
-```sh
-curl -s 'http://localhost:8080/fhir/$extract-data' -H "Content-Type: application/fhir+json" -d '<query>'
-```
-
-The result looks something like this:
-
-```json
-{
-  "requiresAccessToken": false,
-  "output": [
-    {
-      "type": "Bundle",
-      "url": "http://localhost:8080/da4a1c56-f5d9-468c-b57a-b8186ea4fea8/6c88f0ff-0e9a-4cf7-b3c9-044c2e844cfc.ndjson"
-    },
-    {
-      "type": "Bundle",
-      "url": "http://localhost:8080/da4a1c56-f5d9-468c-b57a-b8186ea4fea8/a4dd907c-4d98-4461-9d4c-02d62fc5a88a.ndjson"
-    },
-    {
-      "type": "Bundle",
-      "url": "http://localhost:8080/da4a1c56-f5d9-468c-b57a-b8186ea4fea8/f33634bd-d51b-463c-a956-93409d96935f.ndjson"
-    }
-  ],
-  "request": "http://localhost:8080//fhir/$extract-data",
-  "deleted": [],
-  "transactionTime": "2024-09-05T12:30:32.711151718Z",
-  "error": []
-}
-
 ```
 
 ### Result Files

@@ -3,7 +3,7 @@ import {withMermaid} from "vitepress-plugin-mermaid";
 export default withMermaid({
     title: 'TORCH',
     description: 'TORCH Documentation',
-    base: process.env.DOCS_BASE || '',
+    base: process.env.DOCS_BASE || '/',
     appearance: true,
     lastUpdated: true,
     themeConfig: {
@@ -55,7 +55,7 @@ export default withMermaid({
                 link: '/documentation',
                 items: [
                     {text: 'Configuration', link: '/configuration'},
-                    {text: 'API', link: '/api/api'},
+                    {text: 'API', link: '/api/api.md'},
                     {
                         text: 'CRTDL', link: '/crtdl/crtdl',
                         items: [

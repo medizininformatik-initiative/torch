@@ -1,0 +1,388 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TORCH FHIR API",
+    "description": "Data Extraction compliant with [HL7 FHIR Bulk Data Access IG](https://hl7.org/fhir/uv/bulkdata/export.html)\n**Note:** The server URLs provided below (e.g., localhost) are for demonstration purposes only.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/fhir/metadata": {
+      "get": {
+        "tags": [
+          "capability-statement-controller"
+        ],
+        "summary": "GET /fhir/metadata — CapabilityStatement",
+        "description": "Returns the server CapabilityStatement (FHIR R4).",
+        "operationId": "getCapabilityStatement",
+        "responses": {
+          "200": {
+            "description": "FHIR CapabilityStatement",
+            "content": {
+              "application/fhir+json": {}
+            }
+          }
+        }
+      }
+    },
+    "/fhir/$extract-data": {
+      "post": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "POST /fhir/$extract-data — Bulk Data Kick-off",
+        "description": "Starts a TORCH extraction job.\n\nExpects a FHIR Parameters resource containing:\n- parameter[name='crtdl'].valueBase64Binary = base64 encoded CRTDL JSON\n- optional repeated parameter[name='patient'].valueString to provide explicit patient IDs\n",
+        "operationId": "handleExtractData",
+        "requestBody": {
+          "content": {
+            "application/fhir+json": {
+              "examples": {
+                "CRTDL only": {
+                  "description": "CRTDL only",
+                  "value": {
+                    "resourceType": "Parameters",
+                    "parameter": [
+                      {
+                        "name": "crtdl",
+                        "valueBase64Binary": "<Base64 encoded CRTDL>"
+                      }
+                    ]
+                  }
+                },
+                "CRTDL + patients": {
+                  "description": "CRTDL + patients",
+                  "value": {
+                    "resourceType": "Parameters",
+                    "parameter": [
+                      {
+                        "name": "crtdl",
+                        "valueBase64Binary": "<Base64 encoded CRTDL>"
+                      },
+                      {
+                        "name": "patient",
+                        "valueString": "Patient/123"
+                      },
+                      {
+                        "name": "patient",
+                        "valueString": "Patient/456"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Accepted - job created",
+            "headers": {
+              "Content-Location": {
+                "description": "URL to poll job status",
+                "style": "simple",
+                "schema": {}
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/__status/{jobId}": {
+      "get": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "GET /fhir/__status/{jobId} — Bulk Data Status Request",
+        "operationId": "checkStatus",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "Job identifier returned by the kick-off endpoint",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Job Completed - Manifest is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobManifest"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Job In-Progress",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job Not Found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Job Cancelled or Expired",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Job Failed",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable (Transient Failure)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OperationOutcome": {
+        "type": "object",
+        "description": "Reduced FHIR OperationOutcome (TORCH responses)",
+        "properties": {
+          "resourceType": {
+            "type": "string",
+            "example": "OperationOutcome"
+          },
+          "id": {
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/OperationOutcomeMeta"
+          },
+          "issue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationOutcomeIssue"
+            }
+          }
+        }
+      },
+      "OperationOutcomeIssue": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "fatal",
+              "error",
+              "warning",
+              "information"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "diagnostics": {
+            "type": "string"
+          }
+        }
+      },
+      "OperationOutcomeMeta": {
+        "type": "object",
+        "properties": {
+          "lastUpdated": {
+            "type": "string"
+          }
+        }
+      },
+      "JobManifest": {
+        "type": "object",
+        "description": "FHIR Async Bulk Data manifest (TORCH variant)",
+        "properties": {
+          "transactionTime": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "requiresAccessToken": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobManifestOutput"
+            }
+          },
+          "extension": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobManifestExtension"
+            }
+          }
+        }
+      },
+      "JobManifestExtension": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://torch.mii.de/fhir/StructureDefinition/torch-job"
+          },
+          "valueObject": {
+            "$ref": "#/components/schemas/TorchJob",
+            "description": "Serialized TORCH Job state (mapper.valueToTree(job))"
+          }
+        }
+      },
+      "JobManifestOutput": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      },
+      "TorchIssue": {
+        "type": "object",
+        "description": "Issue attached to a job/work unit",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "description": "Issue severity (TORCH)",
+            "example": "ERROR"
+          },
+          "code": {
+            "type": "string",
+            "description": "Issue code",
+            "example": "invalid"
+          },
+          "diagnostics": {
+            "type": "string",
+            "description": "Human readable diagnostics",
+            "example": "Some explanation..."
+          }
+        }
+      },
+      "TorchJob": {
+        "type": "object",
+        "description": "TORCH job state embedded into the manifest extension.valueObject",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "example": "550e8400-e29b-41d4-a716-446655440000"
+          },
+          "status": {
+            "type": "string",
+            "description": "Overall job status.\n\nFinal states: COMPLETED, FAILED, CANCELLED.\nNon-final states: PENDING, RUNNING_GET_COHORT, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, PAUSED, TEMP_FAILED.\n",
+            "enum": [
+              "PENDING",
+              "RUNNING_GET_COHORT",
+              "RUNNING_PROCESS_BATCH",
+              "RUNNING_PROCESS_CORE",
+              "PAUSED",
+              "FAILED",
+              "COMPLETED",
+              "CANCELLED",
+              "TEMP_FAILED"
+            ]
+          },
+          "batches": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/WorkUnitState"
+            },
+            "description": "Batch work units keyed by batch name (e.g., 'batch-1', etc.)"
+          },
+          "coreState": {
+            "$ref": "#/components/schemas/WorkUnitState",
+            "description": "Core work unit state"
+          }
+        }
+      },
+      "WorkUnitState": {
+        "type": "object",
+        "description": "State of a TORCH work unit",
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "Execution status of this work unit.\n\nTerminal states (orchestration considers the unit done):\nFINISHED, SKIPPED, FAILED.\n\nNon-terminal / retry-related states:\nINIT, IN_PROGRESS, TEMP_FAILED.\n",
+            "enum": [
+              "INIT",
+              "IN_PROGRESS",
+              "SKIPPED",
+              "FINISHED",
+              "FAILED",
+              "TEMP_FAILED"
+            ]
+          },
+          "issues": {
+            "type": "array",
+            "description": "Optional issues attached to this work unit (if present in your serialized state)",
+            "items": {
+              "$ref": "#/components/schemas/TorchIssue"
+            }
+          }
+        }
+      }
+    }
+  }
+}
