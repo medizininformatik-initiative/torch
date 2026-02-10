@@ -1,0 +1,329 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "TORCH FHIR API",
+    "description": "Data Extraction compliant with [HL7 FHIR Bulk Data Access IG](https://hl7.org/fhir/uv/bulkdata/export.html)\n**Note:** The server URLs provided below (e.g., localhost) are for demonstration purposes only.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080",
+      "description": "Local Development Server"
+    }
+  ],
+  "paths": {
+    "/fhir/metadata": {
+      "get": {
+        "tags": [
+          "capability-statement-controller"
+        ],
+        "operationId": "getCapabilityStatement",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/$extract-data": {
+      "post": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "Bulk Data Kick-off",
+        "operationId": "handleExtractData",
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "headers": {
+              "Content-Location": {
+                "description": "URL for checking job status",
+                "style": "simple",
+                "schema": {
+                  "example": "http://localhost:8080/fhir/__status/550e8400-e29b-41d4-a716-446655440000"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request (e.g. invalid CRTDL)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Invalid Request": {
+                    "description": "Invalid Request",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "id": "request-outcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "invalid",
+                          "diagnostics": "Empty request body"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/__status/{jobId}": {
+      "get": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "Bulk Data Status Request",
+        "operationId": "checkStatus",
+        "responses": {
+          "200": {
+            "description": "Job Completed - Manifest is ready",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobManifest"
+                },
+                "examples": {
+                  "Completed Manifest": {
+                    "description": "Completed Manifest",
+                    "value": {
+                      "transactionTime": "2026-02-10T12:00:00Z",
+                      "request": "http://torch-server/fhir/$extract-data",
+                      "requiresAccessToken": false,
+                      "output": [
+                        {
+                          "url": "http://fileserver/550e/batch-1.ndjson",
+                          "type": "NDJSON Bundle"
+                        },
+                        {
+                          "url": "http://fileserver/550e/core.ndjson",
+                          "type": "NDJSON Bundle"
+                        }
+                      ],
+                      "extension": [
+                        {
+                          "url": "https://torch.mii.de/fhir/StructureDefinition/torch-job",
+                          "valueObject": {
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "status": "COMPLETED"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Job In-Progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Job Progress": {
+                    "description": "Job Progress",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "id": "job-550e-outcome",
+                      "issue": [
+                        {
+                          "severity": "information",
+                          "code": "informational",
+                          "diagnostics": "Job 550e8400...\n status: RUNNING_PROCESS_BATCH\n batch progress: 45%\n cohort Size: 1200"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "NotFound": {
+                    "description": "NotFound",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "id": "request-outcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "No job with id ... exists"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "Job Cancelled or Expired",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Job Failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable (Transient Failure)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OperationOutcome": {
+        "type": "object",
+        "description": "Reduced FHIR OperationOutcome",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "resourceType": {
+            "type": "string"
+          },
+          "meta": {
+            "$ref": "#/components/schemas/OperationOutcomeMeta"
+          },
+          "issue": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OperationOutcomeIssue"
+            }
+          }
+        }
+      },
+      "OperationOutcomeIssue": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "fatal",
+              "error",
+              "warning",
+              "information"
+            ]
+          },
+          "code": {
+            "type": "string"
+          },
+          "diagnostics": {
+            "type": "string"
+          }
+        }
+      },
+      "OperationOutcomeMeta": {
+        "type": "object",
+        "properties": {
+          "lastUpdated": {
+            "type": "string"
+          }
+        }
+      },
+      "JobManifest": {
+        "type": "object",
+        "description": "The Bulk Data Access manifest JSON",
+        "properties": {
+          "transactionTime": {
+            "type": "string"
+          },
+          "request": {
+            "type": "string"
+          },
+          "requiresAccessToken": {
+            "type": "boolean"
+          },
+          "output": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobManifestOutput"
+            }
+          },
+          "extension": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/JobManifestExtension"
+            }
+          }
+        }
+      },
+      "JobManifestExtension": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "valueObject": {
+            "type": "object"
+          }
+        }
+      },
+      "JobManifestOutput": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}
