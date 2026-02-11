@@ -13,7 +13,7 @@
 
     <groupId>de.medizininformatikinitiative</groupId>
     <artifactId>torch</artifactId>
-    <version>v1.0.0-alpha.14</version>
+    <version>v1.0.0-alpha.15</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>

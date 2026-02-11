@@ -35,7 +35,7 @@ public class CapabilityStatementController {
         capabilityStatement.setDate(new java.util.Date());
         capabilityStatement.setFhirVersion(Enumerations.FHIRVersion._4_0_1);
         capabilityStatement.setKind(CapabilityStatement.CapabilityStatementKind.INSTANCE);
-        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0-alpha.14");
+        capabilityStatement.getSoftware().setName("Torch FHIR Server").setVersion("1.0.0-alpha.15");
         capabilityStatement.getImplementation().setDescription("Torch FHIR Server Implementation");
         logger.trace("Created basic metadata for CapabilityStatement");
 
