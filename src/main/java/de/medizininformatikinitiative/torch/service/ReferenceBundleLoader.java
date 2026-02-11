@@ -9,9 +9,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Bundle;
@@ -24,18 +22,10 @@ import reactor.core.publisher.Mono;
 import javax.annotation.Nullable;
 import java.util.ArrayList;
 import java.util.Date;
-import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
-
-import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.multiStringValue;
 
 public class ReferenceBundleLoader {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceBundleLoader.class);
@@ -62,8 +52,8 @@ public class ReferenceBundleLoader {
         var bundles = chunkedRefs.stream().map(c -> createBatchBundle(c, linkedGroupID, groupMap));
 
         return Flux.fromStream(bundles)
-                .flatMap(datastore::executeBundle)
-                .flatMap(Flux::fromIterable)
+                .concatMap(datastore::executeBundle)
+                .concatMap(Flux::fromIterable)
                 .collectList();
     }
 
@@ -124,9 +114,9 @@ public class ReferenceBundleLoader {
 
     /**
      *
-     * @param refsOfGroup   a "flat" list of references of resources of the (linked) group
-     * @param chunkSize     number of elements each resulting chunk should contain
-     * @return              list of set where each set represents one chunk (still mapping from group ID to references)
+     * @param refsOfGroup a "flat" list of references of resources of the (linked) group
+     * @param chunkSize   number of elements each resulting chunk should contain
+     * @return list of set where each set represents one chunk (still mapping from group ID to references)
      */
     public List<Set<String>> chunkRefs(List<String> refsOfGroup, int chunkSize) {
         List<Set<String>> chunks = new ArrayList<>();
@@ -138,7 +128,7 @@ public class ReferenceBundleLoader {
             currentChunk.add(refId);
             currentChunkSize++;
 
-            if(currentChunkSize == chunkSize) {
+            if (currentChunkSize == chunkSize) {
                 chunks.add(currentChunk);
                 currentChunk = new HashSet<>();
                 currentChunkSize = 0;
