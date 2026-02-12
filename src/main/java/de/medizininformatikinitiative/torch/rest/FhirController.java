@@ -9,7 +9,6 @@ import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
-import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -22,7 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -33,12 +32,11 @@ import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
+import static de.medizininformatikinitiative.torch.jobhandling.failure.Severity.ERROR;
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static java.util.Objects.requireNonNull;
-import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
-import static org.springframework.web.reactive.function.server.RequestPredicates.POST;
+import static org.springdoc.webflux.core.fn.SpringdocRouteBuilder.route;
 import static org.springframework.web.reactive.function.server.RequestPredicates.accept;
-import static org.springframework.web.reactive.function.server.RouterFunctions.route;
 import static org.springframework.web.reactive.function.server.ServerResponse.accepted;
 
 /**
@@ -54,8 +52,8 @@ import static org.springframework.web.reactive.function.server.ServerResponse.ac
  *  * follows the FHIR Asynchronous Request pattern as defined in
  *  * <a href="https://hl7.org/fhir/R5/async-bulk.html">FHIR R5 Async Bulk Data
  */
-@RestController
-public class FhirController {
+@Component
+public class FhirController implements FhirApi {
 
     private static final Logger logger = LoggerFactory.getLogger(FhirController.class);
 
@@ -84,9 +82,12 @@ public class FhirController {
 
     @Bean
     public RouterFunction<ServerResponse> queryRouter() {
-        logger.info("Init FhirController Router");
-        return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
+        return route()
+                .POST("/fhir/$extract-data", accept(MEDIA_TYPE_FHIR_JSON), this::handleExtractData,
+                        ops -> ops.beanClass(FhirApi.class).beanMethod("handleExtractData"))
+                .GET("/fhir/__status/{jobId}", this::checkStatus,
+                        ops -> ops.beanClass(FhirApi.class).beanMethod("checkStatus"))
+                .build();
     }
 
     /**
@@ -97,6 +98,7 @@ public class FhirController {
      *
      * <p>On errors, returns an {@link OperationOutcome} as FHIR JSON.</p>
      */
+
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
 
         return request.bodyToMono(String.class)
@@ -160,7 +162,7 @@ public class FhirController {
         } catch (IllegalArgumentException e) {
             String oo = fhirContext.newJsonParser().encodeResourceToString(
                     OperationOutcomeCreator.simple(
-                            Severity.ERROR,
+                            ERROR,
                             OperationOutcome.IssueType.INVALID,
                             "Invalid jobId\n" +
                                     "The provided jobId is not a valid UUID: " + jobIdRaw
@@ -175,7 +177,7 @@ public class FhirController {
         if (job == null) {
             String oo = fhirContext.newJsonParser().encodeResourceToString(
                     OperationOutcomeCreator.simple(
-                            Severity.ERROR.ERROR,
+                            ERROR,
                             OperationOutcome.IssueType.NOTFOUND,
                             "Job not found \n" +
                                     "No job with id " + jobId + " exists"
