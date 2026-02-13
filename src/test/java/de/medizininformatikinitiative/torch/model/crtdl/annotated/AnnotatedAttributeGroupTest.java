@@ -106,6 +106,22 @@ class AnnotatedAttributeGroupTest {
             assertThat(root.getChild(new FieldCondition("identifier", "")).get().children()).isEqualTo(List.of(new CopyTreeNode("system")));
             assertThat(root.getChild(new FieldCondition("identifier", ".where(type='official')")).get().children()).isEqualTo(List.of(new CopyTreeNode("value")));
         }
+
+        @Test
+        void buildTree_encounterTypeKontaktebene() {
+            var condition = ".where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')";
+            var attrs = List.of(
+                    new AnnotatedAttribute(
+                            "Encounter.type:Kontaktebene",
+                            "Encounter.type.where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene').coding.code",
+                            false)
+            );
+
+            var root = AnnotatedAttributeGroup.buildTree(attrs, "Encounter");
+
+            var typeNode = root.getChild(new FieldCondition("type", condition)).orElseThrow();
+            assertThat(typeNode.fieldCondition().condition()).isEqualTo(condition);
+        }
     }
 
 }
