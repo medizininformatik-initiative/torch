@@ -17,6 +17,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.jupiter.api.BeforeEach;
@@ -149,6 +150,123 @@ class BatchCopierRedacterIT {
             }""";
 
 
+    String ENCOUNTER = """
+                {
+                "resourceType": "Encounter",
+                "id": "encounter1",
+                "meta": {
+                    "versionId": "32",
+                    "lastUpdated": "2026-02-06T19:22:28.577Z",
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+                    ],
+                    "tag": [
+                        {
+                            "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationValue",
+                            "code": "SUBSETTED"
+                        }
+                    ]
+                },
+                "identifier": [
+                    {
+                        "type": {
+                            "coding": [
+                                {
+                                    "system": "http://terminology.hl7.org/CodeSystem/v2-0203",
+                                    "code": "VN"
+                                }
+                            ]
+                        },
+                        "system": "https://www.charite.de/fhir/NamingSystem/Aufnahmenummern",
+                        "value": "MII_0000003"
+                    }
+                ],
+                "status": "finished",
+                "class": {
+                    "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                    "code": "IMP"
+                },
+                "type": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://fhir.de/CodeSystem/Kontaktebene",
+                                "code": "einrichtungskontakt"
+                            }
+                        ]
+                    },
+                    {
+                        "coding": [
+                            {
+                                "system": "http://fhir.de/CodeSystem/kontaktart-de",
+                                "code": "normalstationaer"
+                            }
+                        ]
+                    }
+                ],
+                "serviceType": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/dkgev/Fachabteilungsschluessel",
+                            "code": "0100"
+                        }
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/mii-exa-test-data-patient-3"
+                },
+                "diagnosis": [
+                    {
+                        "condition": {
+                            "reference": "Condition/mii-exa-test-data-patient-3-diagnose-1"
+                        }
+                    }
+                ]
+            }
+            """;
+
+    String ENCOUNTER_RESULT = """
+              {
+              "resourceType": "Encounter",
+              "id": "encounter1",
+              "meta": {
+                "versionId": "32",
+                "lastUpdated": "2026-02-06T19:22:28.577Z",
+                "profile": [ "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung" ],
+                "tag": [ {
+                  "system": "http://terminology.hl7.org/CodeSystem/v3-ObservationValue",
+                  "code": "SUBSETTED"
+                } ]
+              },
+              "_status": {
+                "extension": [ {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                } ]
+              },
+              "class": {
+                "extension": [ {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "masked"
+                } ]
+              },
+              "type": [ {
+                "coding": [ {
+                  "system": "http://fhir.de/CodeSystem/Kontaktebene",
+                  "code": "einrichtungskontakt"
+                } ]
+              } ],
+              "subject": {
+                "_reference": {
+                  "extension": [ {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "masked"
+                  } ]
+                }
+              }
+            }""";
+
+
     String CONDITION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
 
     @Autowired
@@ -170,6 +288,7 @@ class BatchCopierRedacterIT {
     AnnotatedAttribute conditionId;
     AnnotatedAttributeGroup conditionGroup;
     ResourceGroup validResourceGroup;
+    AnnotatedAttributeGroup encounterGroup;
 
     Map<String, AnnotatedAttributeGroup> attributeGroupMap = new HashMap<>();
 
@@ -186,12 +305,19 @@ class BatchCopierRedacterIT {
         conditionId = new AnnotatedAttribute("Condition.id", "Condition.id", true, List.of("Patient1"));
         conditionGroup = new AnnotatedAttributeGroup("Condition1", "Condition", CONDITION_PROFILE, List.of(conditionSubject, conditionMeta, conditionId), List.of());
 
+        AnnotatedAttribute encounterSubject = new AnnotatedAttribute("Encounter.subject", "Encounter.subject", true, List.of("Patient1"));
+        AnnotatedAttribute encounterMeta = new AnnotatedAttribute("Encounter.meta", "Encounter.meta", true, List.of("Patient1"));
+        AnnotatedAttribute encounterId = new AnnotatedAttribute("Encounter.id", "Encounter.id", true, List.of("Patient1"));
+        AnnotatedAttribute encounterType = new AnnotatedAttribute("Encounter.type:Kontaktebene", "Encounter.type.where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')", true, List.of("Patient1"));
+
+        encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterSubject, encounterMeta, encounterId, encounterType), List.of());
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
         validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
 
 
         attributeGroupMap.put("Patient1", patientGroup);
         attributeGroupMap.put("Condition1", conditionGroup);
+        attributeGroupMap.put("Encounter1", encounterGroup);
 
 
         this.batchCopierRedacter = new BatchCopierRedacter(copier, redacter);
@@ -228,6 +354,28 @@ class BatchCopierRedacterIT {
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
+
+            assertThat(actualJson).isEqualTo(expectedJson);
+
+        }
+
+        @Test
+        void testEncounter() {
+            Encounter encounter = parser.parseResource(Encounter.class, ENCOUNTER);
+            Encounter expectedResult = parser.parseResource(Encounter.class, ENCOUNTER_RESULT);
+
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+            bundle.bundle().setResourceAttributeValid(expectedAttribute);
+            bundle.bundle().addAttributeToChild(expectedAttribute, validResourceGroup);
+            bundle.bundle().addResourceGroupValidity(validResourceGroup, true);
+            System.out.println(encounterGroup.copyTree().get());
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
+
+            assertThat(result.cache()).hasSize(1);
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Encounter/encounter1").get());
+            String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
             assertThat(actualJson).isEqualTo(expectedJson);
 

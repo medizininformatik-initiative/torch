@@ -34,6 +34,35 @@ public class CopyTreeNodeTest {
     }
 
     @Test
+    public void testEncounterTypeSlice_isPreservedWhenMergingIntoEmptyRoot() {
+        // This mirrors BatchCopierRedacter.createWrapper:
+        // start with a fresh root and merge in the group's tree
+        CopyTreeNode emptyRoot = new CopyTreeNode(new FieldCondition("Encounter", ""), List.of());
+
+        CopyTreeNode groupTree = new CopyTreeNode(new FieldCondition("Encounter", ""), List.of(
+                new CopyTreeNode(new FieldCondition("subject", ""), List.of()),
+                new CopyTreeNode(new FieldCondition("meta", ""), List.of()),
+                new CopyTreeNode(new FieldCondition("id", ""), List.of()),
+                new CopyTreeNode(new FieldCondition(
+                        "type",
+                        ".where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')"
+                ), List.of())
+        ));
+
+        CopyTreeNode merged = emptyRoot.merged(groupTree);
+
+        assertThat(merged.getChild(new FieldCondition("subject", ""))).isPresent();
+        assertThat(merged.getChild(new FieldCondition("meta", ""))).isPresent();
+        assertThat(merged.getChild(new FieldCondition("id", ""))).isPresent();
+
+
+        assertThat(merged.getChild(new FieldCondition(
+                "type",
+                ".where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')"
+        ))).isPresent();
+    }
+
+    @Test
     public void testHierarchicalMerge() {
         // Unconditional path: patient.identifier.system + value
         CopyTreeNode a = new CopyTreeNode(new FieldCondition("patient", ""),
@@ -175,5 +204,55 @@ public class CopyTreeNodeTest {
                 .containsExactly(new CopyTreeNode(new FieldCondition("value", "")));
     }
 
+    @Test
+    public void testConditionalEmptyChildren_isKeptEvenIfUnconditionalPartiallyCoversField() {
+        // Unconditional covers only part of identifier
+        CopyTreeNode a = new CopyTreeNode(new FieldCondition("patient", ""),
+                List.of(new CopyTreeNode(new FieldCondition("identifier", ""),
+                        List.of(new CopyTreeNode(new FieldCondition("system", ""))))));
 
+        // Conditional slice on same fieldName, but with empty children => means "copy whole slice"
+        CopyTreeNode b = new CopyTreeNode(new FieldCondition("patient", ""),
+                List.of(new CopyTreeNode(new FieldCondition("identifier", ".where(type='official')"),
+                        List.of())));
+
+        CopyTreeNode merged = a.merged(b);
+
+        // Unconditional remains
+        assertThat(merged.getChild(new FieldCondition("identifier", ""))).isPresent();
+        assertThat(merged.getChild(new FieldCondition("identifier", "")).get().children())
+                .containsExactly(new CopyTreeNode(new FieldCondition("system", "")));
+
+        // Conditional must NOT be dropped (hits: uncondMatch != null && c.children().isEmpty() => keep)
+        assertThat(merged.getChild(new FieldCondition("identifier", ".where(type='official')"))).isPresent();
+        assertThat(merged.getChild(new FieldCondition("identifier", ".where(type='official')")).get().children())
+                .isEmpty();
+    }
+
+    @Test
+    public void testUnconditionalMerge_whenThisNodeHasNoChildren_takesOtherUnconditionalChildren() {
+        // this copies identifier but has no children (i.e., nothing specified below it)
+        CopyTreeNode a = new CopyTreeNode(new FieldCondition("patient", ""),
+                List.of(new CopyTreeNode(new FieldCondition("identifier", ""), List.of())));
+
+        // other specifies unconditional children under identifier
+        CopyTreeNode b = new CopyTreeNode(new FieldCondition("patient", ""),
+                List.of(new CopyTreeNode(new FieldCondition("identifier", ""),
+                        List.of(
+                                new CopyTreeNode(new FieldCondition("system", "")),
+                                new CopyTreeNode(new FieldCondition("value", ""))
+                        ))));
+
+        CopyTreeNode merged = a.merged(b);
+
+        // identifier subtree should contain other's unconditional children
+        CopyTreeNode idNode = merged.getChild(new FieldCondition("identifier", "")).orElseThrow();
+        assertThat(idNode.children()).containsExactlyInAnyOrder(
+                new CopyTreeNode(new FieldCondition("system", "")),
+                new CopyTreeNode(new FieldCondition("value", ""))
+        );
+
+        // sanity: root condition from "this" is used
+        assertThat(merged.fieldCondition()).isEqualTo(new FieldCondition("patient", ""));
+    }
 }

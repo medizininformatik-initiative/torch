@@ -74,50 +74,69 @@ public record CopyTreeNode(FieldCondition fieldCondition, List<CopyTreeNode> chi
      * @return a new {@code CopyTreeNode} containing the merged structure
      */
     public CopyTreeNode merged(CopyTreeNode other) {
-        // Step 0: combine unconditional children first
-
-        // Collect all unconditional children from both trees
-        List<CopyTreeNode> uncondThis = this.children().stream().filter(c -> c.fieldCondition.condition().isEmpty()).toList();
-        List<CopyTreeNode> uncondOther = other.children().stream().filter(c -> c.fieldCondition.condition().isEmpty()).toList();
+        // Unconditional children from both
+        List<CopyTreeNode> uncondThis = this.children().stream()
+                .filter(c -> c.fieldCondition().condition().isEmpty())
+                .toList();
+        List<CopyTreeNode> uncondOther = other.children().stream()
+                .filter(c -> c.fieldCondition().condition().isEmpty())
+                .toList();
 
         // Merge unconditional children by fieldName recursively
         List<CopyTreeNode> mergedUncond = new ArrayList<>();
         for (CopyTreeNode c : uncondThis) {
-            CopyTreeNode match = uncondOther.stream().filter(o -> o.fieldCondition.fieldName().equals(c.fieldCondition.fieldName())).findFirst().orElse(null);
+            CopyTreeNode match = uncondOther.stream()
+                    .filter(o -> o.fieldCondition().fieldName().equals(c.fieldCondition().fieldName()))
+                    .findFirst()
+                    .orElse(null);
 
-            if (match != null) {
-                mergedUncond.add(c.merged(match));
-            } else {
-                mergedUncond.add(c);
-            }
+            mergedUncond.add(match != null ? c.merged(match) : c);
         }
 
-        // Add unconditional children from other that were not in this
-        uncondOther.stream().filter(o -> mergedUncond.stream().noneMatch(m -> m.fieldCondition.fieldName().equals(o.fieldCondition.fieldName()))).forEach(mergedUncond::add);
+        // Add unconditional children from other not present in this
+        uncondOther.stream()
+                .filter(o -> mergedUncond.stream().noneMatch(m -> m.fieldCondition().fieldName().equals(o.fieldCondition().fieldName())))
+                .forEach(mergedUncond::add);
 
         List<CopyTreeNode> allChildren = new ArrayList<>(mergedUncond);
 
-        // Step 1: handle conditional children
-        List<CopyTreeNode> condChildren = Stream.concat(this.children().stream().filter(c -> !c.fieldCondition.condition().isEmpty()), other.children().stream().filter(c -> !c.fieldCondition.condition().isEmpty())).toList();
+        // Conditional children from both
+        List<CopyTreeNode> condChildren = Stream.concat(
+                this.children().stream().filter(c -> !c.fieldCondition().condition().isEmpty()),
+                other.children().stream().filter(c -> !c.fieldCondition().condition().isEmpty())
+        ).toList();
 
         for (CopyTreeNode c : condChildren) {
-            // Find corresponding unconditional child with same fieldName
-            CopyTreeNode uncondMatch = mergedUncond.stream().filter(u -> u.fieldCondition.fieldName().equals(c.fieldCondition.fieldName())).findFirst().orElse(null);
+            CopyTreeNode uncondMatch = mergedUncond.stream()
+                    .filter(u -> u.fieldCondition().fieldName().equals(c.fieldCondition().fieldName()))
+                    .findFirst()
+                    .orElse(null);
 
-            List<CopyTreeNode> remainingChildren;
-            if (uncondMatch != null) {
-                // Remove any children that are already in the unconditional branch
-                remainingChildren = c.children().stream().filter(ch -> uncondMatch.children().stream().noneMatch(uCh -> uCh.equals(ch))).toList();
-            } else {
-                remainingChildren = new ArrayList<>(c.children());
+            // If unconditional exists AND it copies the whole field (empty children),
+            // then any conditional slice/filter on that same field is redundant → drop it.
+            if (uncondMatch != null && uncondMatch.children().isEmpty()) {
+                continue;
             }
+
+            // Otherwise keep the conditional branch.
+            // If unconditional partially covers children, remove overlaps — BUT:
+            // if conditional has empty children, we MUST keep it (it means "copy whole slice").
+            if (uncondMatch == null || c.children().isEmpty()) {
+                allChildren.add(c);
+                continue;
+            }
+
+            List<CopyTreeNode> remainingChildren = c.children().stream()
+                    .filter(ch -> uncondMatch.children().stream().noneMatch(uCh -> uCh.equals(ch)))
+                    .toList();
 
             if (!remainingChildren.isEmpty()) {
-                allChildren.add(new CopyTreeNode(c.fieldCondition, remainingChildren));
+                allChildren.add(new CopyTreeNode(c.fieldCondition(), remainingChildren));
             }
+            // else: conditional adds nothing beyond what unconditional already copies → drop it
         }
 
-        return new CopyTreeNode(this.fieldCondition, allChildren);
+        return new CopyTreeNode(this.fieldCondition(), allChildren);
     }
 
 
