@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.15] - 2026-02-16
+
+### Fixed
+
+- Fix slice with coding not resolved correctly [#737](https://github.com/medizininformatik-initiative/torch/pull/737)
+
 ## [v1.0.0-alpha.15] - 2026-02-11
 
 ### Fixed
