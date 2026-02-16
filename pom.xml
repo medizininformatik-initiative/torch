@@ -13,7 +13,7 @@
 
     <groupId>de.medizininformatikinitiative</groupId>
     <artifactId>torch</artifactId>
-    <version>v1.0.0-alpha.15</version>
+    <version>v1.0.0-alpha.16</version>
 
     <properties>
         <maven.compiler.source>21</maven.compiler.source>
@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.6.0</Hapi.version>
-        <ontology-tag>v3.9.5</ontology-tag>
+        <ontology-tag>v3.9.6</ontology-tag>
     </properties>
 
     <dependencies>
