@@ -175,7 +175,7 @@ public class FhirController {
         if (job == null) {
             String oo = fhirContext.newJsonParser().encodeResourceToString(
                     OperationOutcomeCreator.simple(
-                            Severity.ERROR.ERROR,
+                            Severity.ERROR,
                             OperationOutcome.IssueType.NOTFOUND,
                             "Job not found \n" +
                                     "No job with id " + jobId + " exists"
@@ -227,14 +227,16 @@ public class FhirController {
         root.put("requiresAccessToken", false);
 
         ArrayNode outputArr = mapper.createArrayNode();
-        // Job already contains the filenames — just generate URLs
-        job.batches().keySet().forEach(f ->
-                outputArr.add(mapper.createObjectNode()
-                        .put("url", fileServerName + "/" + job.id() + "/" + f + ".ndjson")
-                        .put("type", "NDJSON Bundle"))
+        job.batches().forEach((f, batchState) -> {
+                    if (WorkUnitStatus.FINISHED.equals(batchState.status())) {
+                        outputArr.add(mapper.createObjectNode()
+                                .put("url", fileServerName + "/" + job.id() + "/" + f + ".ndjson")
+                                .put("type", "NDJSON Bundle"));
+                    }
+                }
         );
 
-        if (job.coreState().status() == WorkUnitStatus.FINISHED) {
+        if (WorkUnitStatus.FINISHED.equals(job.coreState().status())) {
             outputArr.add(mapper.createObjectNode()
                     .put("url", fileServerName + "/" + job.id() + "/core.ndjson")
                     .put("type", "NDJSON Bundle"));
