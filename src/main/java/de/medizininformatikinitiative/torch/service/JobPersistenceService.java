@@ -406,13 +406,6 @@ public class JobPersistenceService {
                         e
                 );
                 updatedJob = current.onJobError(e, List.of(issue));
-            } catch (RuntimeException e) {
-                Issue issue = Issue.fromException(
-                        Severity.ERROR,
-                        "Job update failed: " + e.getMessage(),
-                        e
-                );
-                updatedJob = current.onJobError(e, List.of(issue));
             }
             if (current.equals(updatedJob)) {
                 return current;
