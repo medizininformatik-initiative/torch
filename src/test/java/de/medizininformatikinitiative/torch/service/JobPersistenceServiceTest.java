@@ -969,13 +969,11 @@ class JobPersistenceServiceTest {
 
         @Test
         void testUpdateJobAndReturn_Branch_RuntimeExceptionInLogic() {
-            String result = persistenceService.updateJobAndReturn(jobId, job -> {
+            assertThatThrownBy(() -> persistenceService.updateJobAndReturn(jobId, job -> {
                 throw new RuntimeException("Unexpected runtime bug");
-            });
-
-            assertThat(result).isNull();
-            Job updated = persistenceService.getJob(jobId).orElseThrow();
-            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            }))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unexpected runtime bug");
         }
 
         @Test
@@ -999,8 +997,9 @@ class JobPersistenceServiceTest {
 
             serviceWithSpy.onCohortError(jobId, List.of(), new Exception("Trigger save"));
 
-            assertThat(serviceWithSpy.getJob(jobId));
+            assertThat(serviceWithSpy.getJob(jobId)).isPresent();
+            assertThat(serviceWithSpy.getJob(jobId).orElseThrow().status())
+                    .isEqualTo(JobStatus.TEMP_FAILED);
         }
     }
-
 }
