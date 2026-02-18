@@ -50,13 +50,10 @@ public class Redaction {
         this.structureDefinitionHandler = requireNonNull(structureDefinitionHandler);
     }
 
-
     /**
-     * Redacts disallowed {@link Reference} values in the given property.
+     * Removes disallowed {@link Reference} values from the given property.
      * <p>
-     * If a reference is not in the provided {@code references} set, it is replaced
-     * with a placeholder containing an absent reason extension, and all non-reference,
-     * non-extension child elements are removed.
+     * If a reference is not in the provided {@code references} set, it is removed entirely.
      * </p>
      *
      * @param child      the property containing reference values
@@ -66,16 +63,10 @@ public class Redaction {
         child.getValues().forEach(referenceValue -> {
             if (referenceValue instanceof Reference reference && reference.hasReference() && !references.contains(reference.getReference())) {
                 referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
-                referenceValue.children().forEach(childValue -> {
-                    String name = childValue.getName();
-                    if (!REFERENCE.equals(name) && !EXTENSION.equals(name) && childValue.hasValues()) {
-                        childValue.getValues().forEach(value -> referenceValue.removeChild(name, value));
-                    }
-                });
             }
-
         });
     }
+
 
     private static List<String> getTypes(Property child, List<String> collectedTypes) {
         return collectedTypes.isEmpty() ? List.of(child.getTypeCode().split("\\|")) : collectedTypes;
