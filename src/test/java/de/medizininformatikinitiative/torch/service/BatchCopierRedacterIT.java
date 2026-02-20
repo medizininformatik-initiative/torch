@@ -225,6 +225,33 @@ class BatchCopierRedacterIT {
             }
             """;
 
+    private static final String ENCOUNTER_WITH_DAR_CLASS = """
+            {
+              "resourceType": "Encounter",
+              "id": "encounterDar",
+              "meta": {
+                "profile": [
+                  "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"
+                ]
+              },
+              "status": "finished",
+              "class": {
+                "extension": [ {
+                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                  "valueCode": "unknown"
+                } ]
+              },
+              "subject": {
+                "reference": "Patient/VHF00006"
+              },
+              "type": [ {
+                "coding": [ {
+                  "system": "http://fhir.de/CodeSystem/Kontaktebene",
+                  "code": "einrichtungskontakt"
+                } ]
+              } ]
+            }
+            """;
     String ENCOUNTER_RESULT = """
               {
               "resourceType": "Encounter",
@@ -244,12 +271,10 @@ class BatchCopierRedacterIT {
                   "valueCode": "masked"
                 } ]
               },
-              "class": {
-                "extension": [ {
-                  "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
-                  "valueCode": "masked"
-                } ]
-              },
+                "class": {
+                  "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                  "code": "IMP"
+                },
               "type": [ {
                 "coding": [ {
                   "system": "http://fhir.de/CodeSystem/Kontaktebene",
@@ -309,8 +334,9 @@ class BatchCopierRedacterIT {
         AnnotatedAttribute encounterMeta = new AnnotatedAttribute("Encounter.meta", "Encounter.meta", true, List.of("Patient1"));
         AnnotatedAttribute encounterId = new AnnotatedAttribute("Encounter.id", "Encounter.id", true, List.of("Patient1"));
         AnnotatedAttribute encounterType = new AnnotatedAttribute("Encounter.type:Kontaktebene", "Encounter.type.where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')", true, List.of("Patient1"));
+        AnnotatedAttribute encounterClass = new AnnotatedAttribute("Encounter.class", "Encounter.class", true, List.of());
 
-        encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterSubject, encounterMeta, encounterId, encounterType), List.of());
+        encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterSubject, encounterMeta, encounterId, encounterType, encounterClass), List.of());
         expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
         validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
 
@@ -401,6 +427,36 @@ class BatchCopierRedacterIT {
 
             assertThat(actualJson).isEqualTo(expectedJson);
 
+        }
+
+        @Test
+        void preservesExistingDAR() {
+            // GIVEN: Encounter.class already contains DAR-only "unknown"
+            Encounter encounter = parser.parseResource(Encounter.class, ENCOUNTER_WITH_DAR_CLASS);
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+            // WHEN
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
+
+            // THEN
+            assertThat(result.cache()).hasSize(1);
+
+            Encounter out = (Encounter) result.get("Encounter/encounterDar").orElseThrow();
+
+            assertThat(out.hasClass_()).isTrue();
+            assertThat(out.getClass_().hasExtension()).isTrue();
+            assertThat(out.getClass_().getExtensionFirstRep().getUrl())
+                    .isEqualTo("http://hl7.org/fhir/StructureDefinition/data-absent-reason");
+            assertThat(out.getClass_().getExtensionFirstRep().getValue())
+                    .isInstanceOf(org.hl7.fhir.r4.model.CodeType.class);
+            assertThat(((org.hl7.fhir.r4.model.CodeType) out.getClass_().getExtensionFirstRep().getValue()).getValue())
+                    .isEqualTo("unknown");
+
+            // still DAR-only (projection should not invent system/code/display)
+            assertThat(out.getClass_().hasSystem()).isFalse();
+            assertThat(out.getClass_().hasCode()).isFalse();
+            assertThat(out.getClass_().hasDisplay()).isFalse();
         }
 
 
