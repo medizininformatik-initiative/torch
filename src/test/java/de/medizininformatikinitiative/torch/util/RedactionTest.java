@@ -7,11 +7,13 @@ import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.CanonicalType;
+import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
@@ -270,7 +272,7 @@ public class RedactionTest {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
@@ -280,7 +282,7 @@ public class RedactionTest {
         @ValueSource(strings = {"Diagnosis1.json"})
         void failsWhenRequiredProfileMissing(String resource) throws IOException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
@@ -289,7 +291,7 @@ public class RedactionTest {
         @Test
         void failsWhenMetaMissing() {
             Condition condition = new Condition();
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
@@ -301,38 +303,28 @@ public class RedactionTest {
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType("InvalidProfile")));
             condition.setMeta(meta);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition, Set.of("InvalidProfile"), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition.copy(), Set.of("InvalidProfile"), Map.of("Condition.subject", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
         }
+    }
 
-        @Test
-        void doesSupportNestedReferences() throws RedactionException {
-            Condition src = new Condition();
-            Meta meta = new Meta();
-            meta.setProfile(List.of(new CanonicalType(DIAGNOSIS)));
-            src.setMeta(meta);
-            src.setSubject(new Reference("Patient/12345"));
-
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(DIAGNOSIS), Map.of("Condition", Set.of("Patient/12345", "Patient/123"), "Condition.encounter", Set.of("Encounter/12345")), new CopyTreeNode("dummy"));
-            var redaction = integrationTestSetup.redaction();
-            Condition tgt = (Condition) redaction.redact(wrapper);
-
-            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
-        }
-
+    @Nested
+    class EncounterTest {
         @Test
         void supportNestedReferences() throws RedactionException {
             Encounter src = new Encounter();
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
             src.setMeta(meta);
+            src.setStatus(Encounter.EncounterStatus.ARRIVED);
+            src.setClass_(new Coding("Test", "Test", "Test"));
             src.setId("Encounter/12345");
             src.setSubject(new Reference("Patient/12345"));
-            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345"))));
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345")).setUse(new CodeableConcept(new Coding("Test", "Test", "")))));
 
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src, Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnoses", Set.of("Condition/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnosis", Set.of("Condition/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
             Encounter tgt = (Encounter) redaction.redact(wrapper);
 
@@ -340,6 +332,55 @@ public class RedactionTest {
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
         }
 
+        @Test
+        void ignoresExistingDAR() throws RedactionException {
+            Encounter src = new Encounter();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
+            src.setMeta(meta);
+            src.setStatus(Encounter.EncounterStatus.ARRIVED);
+            Coding absent = new Coding();
+            absent.setExtension(List.of(createAbsentReasonExtension("unknown")));
+            src.setClass_(absent);
+            src.setId("Encounter/12345");
+            src.setSubject(new Reference("Patient/12345"));
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345")).setUse(new CodeableConcept(new Coding("Test", "Test", "")))));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnosis", Set.of("Condition/12345")), new CopyTreeNode("dummy"));
+            var redaction = integrationTestSetup.redaction();
+            Encounter tgt = (Encounter) redaction.redact(wrapper);
+            System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+            System.out.println("Actual");
+
+            System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+        }
+
+        @Test
+        void ignoresNonCanonicalDAR() throws RedactionException {
+            Encounter src = new Encounter();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
+            src.setMeta(meta);
+            src.setStatus(Encounter.EncounterStatus.ARRIVED);
+            Coding absent = new Coding();
+            absent.setExtension(List.of(new Extension().setUrl("http://terminology.hl7.org/CodeSystem/data-absent-reason").setValue(new CodeType(("unknown")))));
+            src.setClass_(absent);
+            src.setId("Encounter/12345");
+            src.setSubject(new Reference("Patient/12345"));
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345")).setUse(new CodeableConcept(new Coding("Test", "Test", "")))));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(ENCOUNTER), Map.of("Encounter.subject", Set.of("Patient/12345", "Patient/123"), "Encounter.diagnosis", Set.of("Condition/12345")), new CopyTreeNode("dummy"));
+            var redaction = integrationTestSetup.redaction();
+            Encounter tgt = (Encounter) redaction.redact(wrapper);
+            System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+            System.out.println("Actual");
+
+            System.out.println(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt));
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+        }
 
     }
 }
