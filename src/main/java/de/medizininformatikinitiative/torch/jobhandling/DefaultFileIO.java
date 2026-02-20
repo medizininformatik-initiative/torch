@@ -7,6 +7,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.stream.Stream;
 
 /**
@@ -61,5 +62,26 @@ public class DefaultFileIO implements FileIo {
     public boolean isDirectory(Path path) {
         return Files.isDirectory(path);
     }
+    @Override
+    public void deleteDir(Path dir) throws IOException {
+        if (dir == null || !Files.exists(dir)) {
+            return;
+        }
 
+        try (Stream<Path> walk = Files.walk(dir)) {
+            walk.sorted((p1, p2) -> p2.compareTo(p1)) // delete children before parents
+                    .forEach(path -> {
+                        try {
+                            Files.deleteIfExists(path);
+                        } catch (IOException e) {
+                            throw new RuntimeException("Failed to delete " + path, e);
+                        }
+                    });
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof IOException io) {
+                throw io;
+            }
+            throw e;
+        }
+    }
 }

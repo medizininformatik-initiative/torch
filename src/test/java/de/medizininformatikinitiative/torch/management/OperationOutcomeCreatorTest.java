@@ -51,7 +51,7 @@ class OperationOutcomeCreatorTest {
                 issues,
                 params,
                 priority,
-                coreState
+                coreState, 0L
         );
     }
 

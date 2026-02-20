@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -14,6 +15,7 @@ import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
+import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
@@ -23,6 +25,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import org.hl7.fhir.r4.model.Task;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -92,9 +95,224 @@ class JobPersistenceServiceTest {
                 List.of(),
                 EMPTY_PARAMETERS,
                 JobPriority.NORMAL,
-                WorkUnitState.initNow());
+                WorkUnitState.initNow(), 0L);
     }
 
+    @Test
+    void deleteJob_withExpectedVersion_isIdempotentWhenMissing(@TempDir Path dir) throws Exception {
+        var service = new JobPersistenceService(new DefaultFileIO(), JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID missing = UUID.randomUUID();
+        service.deleteJob(missing, 0L); // should not throw
+    }
+
+    @Test
+    void deleteJob_withExpectedVersion_throwsOnMismatch(@TempDir Path dir) throws Exception {
+        var service = new JobPersistenceService(new DefaultFileIO(), JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID jobId = UUID.randomUUID();
+        Job job = JobPersistenceServiceTest.createJob(jobId); // version probably 0L
+        service.putJobForTest(job);
+
+        assertThatThrownBy(() -> service.deleteJob(jobId, 123L))
+                .isInstanceOf(VersionConflictException.class)
+                .hasMessageContaining("Version mismatch");
+    }
+
+    @Test
+    void deleteJob_withExpectedVersion_deletesAndRemoves(@TempDir Path dir) throws Exception {
+        var service = new JobPersistenceService(new DefaultFileIO(), JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID jobId = service.createJob(JobPersistenceServiceTest.EMPTY_PARAMETERS.crtdl(), JobPersistenceServiceTest.EMPTY_PARAMETERS.paramBatch());
+
+        long version = service.getJob(jobId).orElseThrow().version();
+
+        service.deleteJob(jobId, version);
+
+        assertThat(service.getJob(jobId)).isEmpty();
+        assertThat(dir.resolve(jobId.toString())).doesNotExist();
+    }
+
+    @Test
+    void tryStartBatch_throwsWhenBatchMissing() throws Exception {
+        var io = new DefaultFileIO();
+        var dir = Files.createTempDirectory("jps");
+        var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID jobId = UUID.randomUUID();
+        Job job = JobPersistenceServiceTest.createJob(jobId)
+                .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+        service.putJobForTest(job);
+
+        UUID missingBatch = UUID.randomUUID();
+
+        assertThatThrownBy(() -> service.tryStartBatch(jobId, missingBatch))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("Missing batch");
+    }
+
+    @Test
+    void onBatchProcessingSuccess_whenNoCoreBundle_doesNotPersistCorePart(@TempDir Path dir) throws Exception {
+        FileIo spyIo = spy(new DefaultFileIO());
+        var service = new JobPersistenceService(spyIo, JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+
+        // Put a job where batch is IN_PROGRESS so job.canAcceptBatchSuccess(batchId) is true
+        BatchState inProgress = new BatchState(batchId, WorkUnitState.startNow());
+        Job job = JobPersistenceServiceTest.createJob(jobId)
+                .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                .withBatchState(inProgress);
+        service.putJobForTest(job);
+
+        BatchResult br = mock(BatchResult.class);
+        when(br.jobId()).thenReturn(jobId);
+        when(br.batchId()).thenReturn(batchId);
+        when(br.batchState()).thenReturn(inProgress);
+        when(br.resultCoreBundle()).thenReturn(Optional.empty());
+
+        service.onBatchProcessingSuccess(br);
+
+        // crude but effective: ensure no file created under core_batches
+        Path coreDir = dir.resolve(jobId.toString()).resolve("core_batches");
+        if (Files.exists(coreDir)) {
+            try (var s = Files.list(coreDir)) {
+                assertThat(s.toList()).isEmpty();
+            }
+        }
+    }
+
+    @Test
+    void onBatchProcessingSuccess_whenCoreBundlePresent_persistsCorePart(@TempDir Path dir) throws Exception {
+        var service = new JobPersistenceService(new DefaultFileIO(), JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+        service.init();
+
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+
+        BatchState inProgress = new BatchState(batchId, WorkUnitState.startNow());
+        Job job = JobPersistenceServiceTest.createJob(jobId)
+                .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                .withBatchState(inProgress);
+        service.putJobForTest(job);
+
+        ExtractionResourceBundle cb = new ExtractionResourceBundle(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+
+        BatchResult br = mock(BatchResult.class);
+        when(br.jobId()).thenReturn(jobId);
+        when(br.batchId()).thenReturn(batchId);
+        when(br.batchState()).thenReturn(inProgress);
+        when(br.resultCoreBundle()).thenReturn(Optional.of(cb));
+
+        service.onBatchProcessingSuccess(br);
+
+        Path coreFile = dir.resolve(jobId.toString()).resolve("core_batches").resolve(batchId + ".json");
+        assertThat(coreFile).exists();
+    }
+
+    @Nested
+    class JobPersistenceServiceTaskCommandTests {
+
+        @Test
+        void applyTaskCommand_throwsWhenVersionIdNotNumeric() throws Exception {
+            var io = new DefaultFileIO();
+            var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, Files.createTempDirectory("jps").toString(), 5);
+            service.init();
+
+            UUID jobId = service.createJob(JobPersistenceServiceTest.EMPTY_PARAMETERS.crtdl(), JobPersistenceServiceTest.EMPTY_PARAMETERS.paramBatch());
+
+            Task t = new Task();
+            t.getMeta().setVersionId("abc"); // non-numeric
+
+            assertThatThrownBy(() -> service.applyTaskCommand(jobId, t))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("Task.meta.versionId must be numeric");
+        }
+
+        @Test
+        void applyTaskCommand_throwsVersionConflictWhenMismatch() throws Exception {
+            var io = new DefaultFileIO();
+            var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, Files.createTempDirectory("jps").toString(), 5);
+            service.init();
+
+            UUID jobId = service.createJob(JobPersistenceServiceTest.EMPTY_PARAMETERS.crtdl(), JobPersistenceServiceTest.EMPTY_PARAMETERS.paramBatch());
+
+            // job starts at version 0 (based on your Job ctor usage); adjust if yours differs
+            Task t = new Task();
+            t.getMeta().setVersionId("999");
+
+            assertThatThrownBy(() -> service.applyTaskCommand(jobId, t))
+                    .isInstanceOf(VersionConflictException.class)
+                    .hasMessageContaining("Version mismatch");
+        }
+
+        @Test
+        void applyTaskCommand_finalJob_isIgnored() throws Exception {
+            var io = new DefaultFileIO();
+            var dir = Files.createTempDirectory("jps");
+            var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+            service.init();
+
+            UUID jobId = UUID.randomUUID();
+            Job finalJob = JobPersistenceServiceTest.createJob(jobId).withStatus(JobStatus.COMPLETED); // assumes final
+            service.putJobForTest(finalJob);
+
+            Task t = new Task();
+            t.setStatus(Task.TaskStatus.CANCELLED);
+            t.setPriority(Task.TaskPriority.STAT);
+
+            Job returned = service.applyTaskCommand(jobId, t).orElseThrow();
+            assertThat(returned).isEqualTo(finalJob);           // unchanged
+            assertThat(service.getJob(jobId).orElseThrow()).isEqualTo(finalJob); // persisted in-memory unchanged
+        }
+
+        @Test
+        void applyTaskCommand_statusAndPriorityMapping() throws Exception {
+            var io = new DefaultFileIO();
+            var dir = Files.createTempDirectory("jps");
+            var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+            service.init();
+
+            UUID jobId = service.createJob(JobPersistenceServiceTest.EMPTY_PARAMETERS.crtdl(), JobPersistenceServiceTest.EMPTY_PARAMETERS.paramBatch());
+
+            // Force job into a paused/transient-ish state so READY/INPROGRESS resumes something meaningful.
+            // If you have a direct "pause" helper, use it; otherwise just apply ONHOLD first.
+            Task onHold = new Task();
+            onHold.setStatus(Task.TaskStatus.ONHOLD);
+            onHold.setPriority(Task.TaskPriority.ASAP);
+
+            Job afterHold = service.applyTaskCommand(jobId, onHold).orElseThrow();
+            assertThat(afterHold.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(afterHold.priority()).isEqualTo(JobPriority.HIGH);
+
+            Task resume = new Task();
+            resume.setStatus(Task.TaskStatus.READY);
+            resume.setPriority(Task.TaskPriority.ROUTINE); // default -> NORMAL
+
+            Job afterResume = service.applyTaskCommand(jobId, resume).orElseThrow();
+            assertThat(afterResume.priority()).isEqualTo(JobPriority.NORMAL);
+            // status depends on resumeFromTransient() implementation; but at least it's not PAUSED anymore
+            assertThat(afterResume.status()).isNotEqualTo(JobStatus.PAUSED);
+
+            Task cancel = new Task();
+            cancel.setStatus(Task.TaskStatus.CANCELLED);
+
+            Job afterCancel = service.applyTaskCommand(jobId, cancel).orElseThrow();
+            assertThat(afterCancel.status()).isEqualTo(JobStatus.CANCELLED);
+
+            Task lenient = new Task();
+            lenient.setStatus(Task.TaskStatus.DRAFT); // hits default -> keep lenient
+
+            Job afterLenient = service.applyTaskCommand(jobId, lenient).orElseThrow();
+            assertThat(afterLenient.status()).isEqualTo(JobStatus.CANCELLED); // unchanged
+        }
+    }
 
     // -------------------------------------------------------------------------
     // REAL FILESYSTEM TESTS
@@ -228,6 +446,17 @@ class JobPersistenceServiceTest {
         }
 
         @Test
+        void selectNextWorkUnit_returnsEmpty_whenJobHasNoWorkUnit(@TempDir Path dir) throws Exception {
+            var service = new JobPersistenceService(new DefaultFileIO(), JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+            service.init();
+            UUID jobId = UUID.randomUUID();
+            Job unschedulable = JobPersistenceServiceTest.createJob(jobId)
+                    .withStatus(JobStatus.FAILED);
+            service.putJobForTest(unschedulable);
+            assertThat(service.selectNextWorkUnit()).isEmpty();
+        }
+
+        @Test
         void loadAllJobs() throws IOException {
             UUID j1 = UUID.randomUUID();
             UUID j2 = UUID.randomUUID();
@@ -291,6 +520,23 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void init() {
             service = new JobPersistenceService(io, MAPPER, "Any", 10);
+        }
+
+        @Test
+        void loadBatch_throwsWhenLinesFails(@TempDir Path dir) throws Exception {
+            FileIo io = mock(FileIo.class);
+            var service = new JobPersistenceService(io, JobPersistenceServiceTest.MAPPER, dir.toString(), 5);
+
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+            Path file = Path.of(dir.toString()).resolve(jobId.toString()).resolve("batches").resolve(batchId + ".ndjson");
+
+            when(io.exists(file)).thenReturn(true);
+            when(io.lines(file)).thenThrow(new IOException("read failed"));
+
+            assertThatThrownBy(() -> service.loadBatch(jobId, batchId))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("read failed");
         }
 
         @Test
@@ -411,7 +657,7 @@ class JobPersistenceServiceTest {
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
                     // IN_PROGRESS
-                    WorkUnitState.startNow());
+                    WorkUnitState.startNow(), 0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -455,7 +701,7 @@ class JobPersistenceServiceTest {
                     List.of(),
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+                    WorkUnitState.initNow(), 0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -495,7 +741,7 @@ class JobPersistenceServiceTest {
                     List.of(),
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+                    WorkUnitState.initNow(), 0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(job));
 
@@ -526,7 +772,7 @@ class JobPersistenceServiceTest {
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
                     // even if persisted wrongly, final job should not resume
-                    WorkUnitState.startNow());
+                    WorkUnitState.startNow(), 0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(completedButHasCore));
 
@@ -553,7 +799,7 @@ class JobPersistenceServiceTest {
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
                     // coreState missing
-                    WorkUnitState.initNow());
+                    WorkUnitState.initNow(), 0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(noCoreState));
 
@@ -619,7 +865,7 @@ class JobPersistenceServiceTest {
                     List.of(),
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+                    WorkUnitState.initNow(), 0L);
 
             persistJob(jobDir, job);
 
@@ -660,7 +906,8 @@ class JobPersistenceServiceTest {
                     List.of(),
                     EMPTY_PARAMETERS,
                     JobPriority.NORMAL,
-                    WorkUnitState.initNow()
+                    WorkUnitState.initNow(),
+                    0L
             );
 
             persistJob(jobDir, job);
@@ -690,6 +937,7 @@ class JobPersistenceServiceTest {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2);
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            service.selectNextWorkUnit();
         }
 
         @Test

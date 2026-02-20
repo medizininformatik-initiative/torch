@@ -101,7 +101,6 @@ public class ResultFileManager {
     public void saveCoreBundleToNDJSON(String jobId, ExtractionResourceBundle bundle) throws IOException {
         requireNonNull(jobId);
         requireNonNull(bundle);
-
         Path resultDir = getJobDirectory(jobId);
         fileIo.createDirectories(resultDir);
 

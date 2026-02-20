@@ -64,7 +64,7 @@ class ProcessCohortWorkUnitTest {
                 List.of(),
                 params,
                 JobPriority.NORMAL,
-                WorkUnitState.initNow());
+                WorkUnitState.initNow(), 0L);
     }
 
     private JobExecutionContext ctx() {
