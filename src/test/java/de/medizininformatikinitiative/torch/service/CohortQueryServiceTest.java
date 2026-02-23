@@ -1,14 +1,17 @@
 package de.medizininformatikinitiative.torch.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.TextNode;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -23,6 +26,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
@@ -67,7 +71,7 @@ class CohortQueryServiceTest {
 
 
     @Test
-    void nonEmpty() throws JsonProcessingException {
+    void nonEmpty() {
         List<String> patients1 = service.fetchPatientListFromFlare(crtdlAllObservations).block();
         List<String> patients2 = service.fetchPatientListUsingCql(crtdlAllObservations).block();
 
@@ -75,12 +79,29 @@ class CohortQueryServiceTest {
     }
 
     @Test
-    void empty() throws JsonProcessingException {
+    void empty() {
         Mono<List<String>> batches1 = service.fetchPatientListFromFlare(crtdlNoPatients);
         Mono<List<String>> batches2 = service.fetchPatientListUsingCql(crtdlNoPatients);
 
         StepVerifier.create(batches1).expectNext(List.of()).verifyComplete();
 
         StepVerifier.create(batches2).expectNext(List.of()).verifyComplete();
+    }
+
+    @Test
+    void runCohortQuery_invalidCohortDefinition_emitsErrorSignal() {
+        JsonNode invalidNode = TextNode.valueOf("not a structured query");
+
+        // we don't care about extraction in this test
+        AnnotatedDataExtraction dummyExtraction = Mockito.mock(AnnotatedDataExtraction.class);
+
+        AnnotatedCrtdl badCrtdl =
+                new AnnotatedCrtdl(invalidNode, dummyExtraction, Optional.empty());
+
+        Mono<List<String>> result = service.runCohortQuery(badCrtdl);
+
+        StepVerifier.create(result)
+                .expectError()
+                .verify();
     }
 }

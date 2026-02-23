@@ -244,6 +244,44 @@ class FhirControllerIT {
         }
     }
 
+    @Test
+    void invalidCohortDefinitionDoesNotCrashPipeline() throws IOException {
+        TestRestTemplate restTemplate = new TestRestTemplate();
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("content-type", "application/fhir+json");
+
+        String fileContent = Files.readString(
+                Paths.get("src/test/resources/CRTDL_Parameters/Parameters_invalid_cohort.json"),
+                StandardCharsets.UTF_8
+        );
+        HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+
+        long start = System.nanoTime();
+        ResponseEntity<String> response = restTemplate.exchange(
+                "http://localhost:" + port + "/fhir/$extract-data",
+                HttpMethod.POST, entity, String.class
+        );
+
+        // Job is accepted
+        assertThat(response.getStatusCode().value()).isEqualTo(202);
+        assertThat(durationSecondsSince(start)).isLessThan(1);
+
+        List<String> locations = response.getHeaders().get("Content-Location");
+        assertThat(locations).hasSize(1);
+
+        // Job should reach a terminal failed state, not hang or crash
+        pollStatusEndpoint(restTemplate, headers, locations.getFirst(), 500);
+
+        // Verify a second job can still be submitted and processed normally — pipeline survived
+        testExecutor(
+                "src/test/resources/CRTDL_Parameters/Parameters_observation_all_fields_without_refs.json",
+                "http://localhost:" + port + "/fhir/$extract-data",
+                headers
+        );
+
+        clearDirectory(locations.getFirst().substring(locations.getFirst().lastIndexOf('/')));
+    }
+
     /**
      * Recursively deletes all files inside the given directory.
      *

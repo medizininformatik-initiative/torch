@@ -26,22 +26,21 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
 
         Mono<List<String>> patientIdsMono =
                 job.parameters().paramBatch().isEmpty()
-                        ? ctx.cohortQueryService()
-                        .runCohortQuery(job.parameters().crtdl())
+                        ? ctx.cohortQueryService().runCohortQuery(job.parameters().crtdl())
                         : Mono.just(job.parameters().paramBatch());
 
         return patientIdsMono
                 .flatMap(ids ->
-                        Mono.fromRunnable(() ->
-                                ctx.persistence()
-                                        .onCohortSuccess(job.id(), ids)
-                        ).subscribeOn(Schedulers.boundedElastic())
+                        Mono.fromRunnable(() -> ctx.persistence().onCohortSuccess(job.id(), ids))
+                                .subscribeOn(Schedulers.boundedElastic())
                 )
-                .onErrorResume(e ->
-                        Mono.fromRunnable(() ->
-                                ctx.persistence()
-                                        .onCohortError(job.id(), List.of(), (Exception) e)
-                        )
-                ).then();
+                .onErrorResume(t ->
+                        Mono.fromRunnable(() -> {
+                                    Exception ex = (t instanceof Exception e) ? e : new RuntimeException(t);
+                                    ctx.persistence().onCohortError(job.id(), List.of(), ex);
+                                })
+                                .subscribeOn(Schedulers.boundedElastic())
+                )
+                .then();
     }
 }
