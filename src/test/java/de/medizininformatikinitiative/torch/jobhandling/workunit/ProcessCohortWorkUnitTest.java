@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class GetCohortWorkUnitTest {
+class ProcessCohortWorkUnitTest {
 
     @Mock
     JobPersistenceService persistence;
@@ -85,7 +85,7 @@ class GetCohortWorkUnitTest {
         verifyNoInteractions(cohortQueryService);
 
         verify(persistence).onCohortSuccess(jobId, paramBatch);
-        verify(persistence, never()).onJobError(any(), anyList(), any());
+        verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
     @Test
@@ -103,7 +103,7 @@ class GetCohortWorkUnitTest {
 
         verify(cohortQueryService).runCohortQuery(job.parameters().crtdl());
         verify(persistence).onCohortSuccess(jobId, ids);
-        verify(persistence, never()).onJobError(any(), anyList(), any());
+        verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
     @Test
@@ -122,5 +122,21 @@ class GetCohortWorkUnitTest {
 
         verify(persistence, never()).onCohortSuccess(any(), anyList());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
+    }
+
+    @Test
+    void cohortQueryFailsWithErrorandCompletes() {
+        UUID jobId = UUID.randomUUID();
+        Job job = jobWithParams(jobId, List.of());
+        ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
+
+        AssertionError boom = new AssertionError("boom");
+        when(cohortQueryService.runCohortQuery(any())).thenReturn(Mono.error(boom));
+
+        assertThatCode(() -> wu.execute(ctx()).block())
+                .doesNotThrowAnyException();
+
+        verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
     }
 }

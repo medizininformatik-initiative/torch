@@ -45,7 +45,7 @@ public class CohortQueryService {
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
     }
-    
+
     /**
      * Executes the cohort definition contained in the given {@link AnnotatedCrtdl}.
      *
@@ -53,11 +53,7 @@ public class CohortQueryService {
      * @return mono emitting the list of matching patient IDs
      */
     public Mono<List<String>> runCohortQuery(AnnotatedCrtdl crtdl) {
-        try {
-            return useCql ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
-        } catch (JsonProcessingException e) {
-            return Mono.error(e);
-        }
+        return useCql ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
     }
 
     public Mono<List<String>> fetchPatientListFromFlare(AnnotatedCrtdl crtdl) {
@@ -84,9 +80,10 @@ public class CohortQueryService {
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Mono<List<String>> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) throws JsonProcessingException {
-        StructuredQuery ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
-        return cqlClient.fetchPatientIds(cqlQueryTranslator.toCql(ccdl).print())
+    public Mono<List<String>> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) {
+        return Mono.fromCallable(() -> objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class))
+                .map(ccdl -> cqlQueryTranslator.toCql(ccdl).print())
+                .flatMapMany(cqlClient::fetchPatientIds)
                 .collectList();
     }
 }
