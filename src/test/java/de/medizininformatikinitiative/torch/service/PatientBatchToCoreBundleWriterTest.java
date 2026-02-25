@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
@@ -55,8 +56,8 @@ class PatientBatchToCoreBundleWriterTest {
         void updateCore_shouldMergeOnlyNonCompartmentResources() {
             ResourceBundle patientBundle = new ResourceBundle();
 
-            ResourceGroup patientGroup = new ResourceGroup("Patient/123", "PG1");
-            ResourceGroup medicationGroup = new ResourceGroup("Medication/456", "MG1");
+            ResourceGroup patientGroup = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/123"), "PG1");
+            ResourceGroup medicationGroup = new ResourceGroup(ExtractionId.fromRelativeUrl("Medication/456"), "MG1");
 
             // Mark both groups as valid in the bundle
             patientBundle.addResourceGroupValidity(patientGroup, true);
@@ -64,14 +65,14 @@ class PatientBatchToCoreBundleWriterTest {
 
             // simple attribute from patient → medication (not really used by writer directly,
             // but ensures that ResourceExtractionInfo groups are correctly populated)
-            ResourceAttribute attr = new ResourceAttribute("attr1", annotatedAttribute1);
+            ResourceAttribute attr = new ResourceAttribute(ExtractionId.fromRelativeUrl("r/attr1"), annotatedAttribute1);
             patientBundle.addAttributeToParent(attr, patientGroup);
             patientBundle.addAttributeToChild(attr, medicationGroup);
             patientBundle.setResourceAttributeValid(attr);
 
             // Compartment manager: patient in compartment, medication is not
-            when(compartmentManager.isInCompartment("Patient/123")).thenReturn(true);
-            when(compartmentManager.isInCompartment("Medication/456")).thenReturn(false);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Patient/123"))).thenReturn(true);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Medication/456"))).thenReturn(false);
 
             ExtractionPatientBatch batch = extractionBatchFrom(
                     Map.of("patient1", patientBundle)
@@ -82,9 +83,9 @@ class PatientBatchToCoreBundleWriterTest {
 
             // Expect only medication resourceId in core
             assertThat(core.extractionInfoMap().keySet())
-                    .containsExactly("Medication/456");
+                    .containsExactly(ExtractionId.fromRelativeUrl("Medication/456"));
 
-            ResourceExtractionInfo medInfo = core.extractionInfoMap().get("Medication/456");
+            ResourceExtractionInfo medInfo = core.extractionInfoMap().get(ExtractionId.fromRelativeUrl("Medication/456"));
             assertThat(medInfo.groups()).containsExactly("MG1");
         }
 
@@ -92,10 +93,10 @@ class PatientBatchToCoreBundleWriterTest {
         void updateCore_shouldNotAddCompartmentResourcesToCore() {
             ResourceBundle patientBundle = new ResourceBundle();
 
-            ResourceGroup patientGroup = new ResourceGroup("Patient/999", "PGX");
+            ResourceGroup patientGroup = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/999"), "PGX");
             patientBundle.addResourceGroupValidity(patientGroup, true);
 
-            when(compartmentManager.isInCompartment("Patient/999")).thenReturn(true);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Patient/999"))).thenReturn(true);
 
             ExtractionPatientBatch batch = extractionBatchFrom(
                     Map.of("p", patientBundle)
@@ -113,8 +114,8 @@ class PatientBatchToCoreBundleWriterTest {
             ResourceBundle patientBundle = new ResourceBundle();
 
             // ResourceIds
-            String patientId = "Patient/111";
-            String medId = "Medication/222";
+            ExtractionId patientId = ExtractionId.fromRelativeUrl("Patient/111");
+            ExtractionId medId = ExtractionId.fromRelativeUrl("Medication/222");
 
             // Groups
             ResourceGroup patientGroup = new ResourceGroup(patientId, "PG1");
@@ -125,9 +126,9 @@ class PatientBatchToCoreBundleWriterTest {
 
             // Add entries to cache
             Patient pRes = new Patient();
-            pRes.setId(patientId);
+            pRes.setId(patientId.toRelativeUrl());
             Medication mRes = new Medication();
-            mRes.setId(medId);
+            mRes.setId(medId.toRelativeUrl());
 
             patientBundle.cache().put(patientId, Optional.of(pRes));
             patientBundle.cache().put(medId, Optional.of(mRes));
@@ -156,21 +157,21 @@ class PatientBatchToCoreBundleWriterTest {
             ResourceBundle bundle2 = new ResourceBundle();
 
             // Patient 1: Patient/101, Medication/201
-            ResourceGroup p1 = new ResourceGroup("Patient/101", "PG1");
-            ResourceGroup m1 = new ResourceGroup("Medication/201", "MG1");
+            ResourceGroup p1 = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/101"), "PG1");
+            ResourceGroup m1 = new ResourceGroup(ExtractionId.fromRelativeUrl("Medication/201"), "MG1");
             bundle1.addResourceGroupValidity(p1, true);
             bundle1.addResourceGroupValidity(m1, true);
 
             // Patient 2: Patient/102, Medication/202
-            ResourceGroup p2 = new ResourceGroup("Patient/102", "PG2");
-            ResourceGroup m2 = new ResourceGroup("Medication/202", "MG2");
+            ResourceGroup p2 = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/102"), "PG2");
+            ResourceGroup m2 = new ResourceGroup(ExtractionId.fromRelativeUrl("Medication/202"), "MG2");
             bundle2.addResourceGroupValidity(p2, true);
             bundle2.addResourceGroupValidity(m2, true);
 
-            when(compartmentManager.isInCompartment("Patient/101")).thenReturn(true);
-            when(compartmentManager.isInCompartment("Patient/102")).thenReturn(true);
-            when(compartmentManager.isInCompartment("Medication/201")).thenReturn(false);
-            when(compartmentManager.isInCompartment("Medication/202")).thenReturn(false);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Patient/101"))).thenReturn(true);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Patient/102"))).thenReturn(true);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Medication/201"))).thenReturn(false);
+            when(compartmentManager.isInCompartment(ExtractionId.fromRelativeUrl("Medication/202"))).thenReturn(false);
 
             ExtractionPatientBatch batch = extractionBatchFrom(
                     Map.of(
@@ -183,30 +184,29 @@ class PatientBatchToCoreBundleWriterTest {
             writer.updateCore(core, batch);
 
             assertThat(core.extractionInfoMap().keySet())
-                    .containsExactlyInAnyOrder("Medication/201", "Medication/202");
+                    .containsExactlyInAnyOrder(ExtractionId.fromRelativeUrl("Medication/201"), ExtractionId.fromRelativeUrl("Medication/202"));
         }
     }
 
     @Nested
     class HandleSourceCoreBundleTests {
-
         @Test
         void updateCore_shouldMergeSourceCoreBundleIntoGlobalCore() {
             // Existing global core with one resource
             ExtractionResourceBundle globalCore = new ExtractionResourceBundle();
             globalCore.extractionInfoMap().put(
-                    "Observation/1",
+                    ExtractionId.fromRelativeUrl("Observation/1"),
                     new ResourceExtractionInfo(Set.of("G-OBS-1"), Map.of())
             );
 
             // Batch-level core with overlapping and new resource
             ExtractionResourceBundle batchCore = new ExtractionResourceBundle();
             batchCore.extractionInfoMap().put(
-                    "Observation/1",
+                    ExtractionId.fromRelativeUrl("Observation/1"),
                     new ResourceExtractionInfo(Set.of("G-OBS-2"), Map.of())
             );
             batchCore.extractionInfoMap().put(
-                    "Medication/777",
+                    ExtractionId.fromRelativeUrl("Medication/777"),
                     new ResourceExtractionInfo(Set.of("G-MED-1"), Map.of())
             );
 
@@ -220,25 +220,27 @@ class PatientBatchToCoreBundleWriterTest {
             writer.updateCore(globalCore, batch);
 
             assertThat(globalCore.extractionInfoMap().keySet())
-                    .containsExactlyInAnyOrder("Observation/1", "Medication/777");
+                    .containsExactlyInAnyOrder(ExtractionId.fromRelativeUrl("Observation/1"), ExtractionId.fromRelativeUrl("Medication/777"));
 
-            ResourceExtractionInfo obsInfo = globalCore.extractionInfoMap().get("Observation/1");
+            ResourceExtractionInfo obsInfo = globalCore.extractionInfoMap().get(ExtractionId.fromRelativeUrl("Observation/1"));
             // union of groups from both
             assertThat(obsInfo.groups())
                     .containsExactlyInAnyOrder("G-OBS-1", "G-OBS-2");
 
-            ResourceExtractionInfo medInfo = globalCore.extractionInfoMap().get("Medication/777");
+            ResourceExtractionInfo medInfo = globalCore.extractionInfoMap().get(ExtractionId.fromRelativeUrl("Medication/777"));
             assertThat(medInfo.groups()).containsExactly("G-MED-1");
         }
 
         @Test
         void updateCore_shouldMergeSourceCoreCache() {
+            ExtractionId organization = ExtractionId.fromRelativeUrl("Organization/501");
+
             ExtractionResourceBundle globalCore = new ExtractionResourceBundle();
 
             ExtractionResourceBundle batchCore = new ExtractionResourceBundle();
             Organization org = new Organization();
             org.setId("Organization/501");
-            batchCore.cache().put("Organization/501", Optional.of(org));
+            batchCore.cache().put(organization, Optional.of(org));
 
             ExtractionPatientBatch batch = new ExtractionPatientBatch(
                     Map.of(),
@@ -249,9 +251,9 @@ class PatientBatchToCoreBundleWriterTest {
             writer.updateCore(globalCore, batch);
 
             assertThat(globalCore.cache().keySet())
-                    .containsExactly("Organization/501");
+                    .containsExactly(organization);
 
-            assertThat(globalCore.cache().get("Organization/501")).contains(org);
+            assertThat(globalCore.cache().get(organization)).contains(org);
         }
     }
 }

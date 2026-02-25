@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
@@ -60,15 +61,15 @@ class BatchCopierRedacterTest {
         resource.setId("dummy");
 
         // Set up bundle with exactly one resource and its info
-        Map<String, ResourceExtractionInfo> infoMap = Map.of(
-                "dummy",
+        Map<ExtractionId, ResourceExtractionInfo> infoMap = Map.of(
+                ExtractionId.fromRelativeUrl("Patient/dummy"),
                 new ResourceExtractionInfo(
                         Set.of("G1"),
                         Map.of() // no references needed for this test
                 )
         );
-        ConcurrentHashMap<String, Optional<Resource>> cache = new ConcurrentHashMap<>();
-        cache.put("dummy", Optional.of(resource));
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> cache = new ConcurrentHashMap<>();
+        cache.put(ExtractionId.fromRelativeUrl("Patient/dummy"), Optional.of(resource));
 
         extractionBundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(infoMap), cache);
 
@@ -90,7 +91,7 @@ class BatchCopierRedacterTest {
 
         transformer.transformBundle(extractionBundle, Map.of());
 
-        assertThat(extractionBundle.getResource("dummy")).isEmpty();
+        assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
     }
 
     @org.junit.jupiter.api.Test
@@ -105,6 +106,6 @@ class BatchCopierRedacterTest {
 
         transformer.transformBundle(extractionBundle, Map.of());
 
-        assertThat(extractionBundle.getResource("dummy")).isEmpty();
+        assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
     }
 }

@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.Test;
@@ -10,6 +11,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class PatientResourceBundleTest {
+
+    ExtractionId patId1 = ExtractionId.fromRelativeUrl("Patient/pat1");
 
     @Test
     void constructorWithConsentPeriods() {
@@ -29,7 +32,7 @@ class PatientResourceBundleTest {
 
         bundle.put(patient);
 
-        Optional<?> retrieved = bundle.get("Patient/pat1");
+        Optional<?> retrieved = bundle.get(patId1);
         assertThat(retrieved).isPresent();
         assertThat(retrieved.get()).isEqualTo(patient);
     }
@@ -41,10 +44,10 @@ class PatientResourceBundleTest {
         PatientResourceBundle bundle = new PatientResourceBundle("patient1");
         bundle.put(patient);
 
-        assertThat(bundle.contains("Patient/pat1")).isTrue();
+        assertThat(bundle.contains(patId1)).isTrue();
 
-        bundle.remove("Patient/pat1");
-        assertThat(bundle.contains("Patient/pat1")).isFalse();
+        bundle.remove(patId1);
+        assertThat(bundle.contains(patId1)).isFalse();
     }
 
     @Test
@@ -56,13 +59,13 @@ class PatientResourceBundleTest {
 
         boolean result = bundle.put(obs, "group1", true);
         assertThat(result).isTrue(); // should be true if added successfully
-        assertThat(bundle.contains("Observation/obs1")).isTrue();
+        assertThat(bundle.contains(ExtractionId.fromRelativeUrl("Observation/obs1"))).isTrue();
     }
 
     @Test
     void putResourceReferenceCreatesEmptyOptional() {
         PatientResourceBundle bundle = new PatientResourceBundle("patient1");
-        String ref = "unknownResource";
+        ExtractionId ref = ExtractionId.fromRelativeUrl("RT/unknownResource");
         bundle.put(ref);
 
         Optional<?> retrieved = bundle.get(ref);
@@ -88,7 +91,7 @@ class PatientResourceBundleTest {
         patient.setId("p1");
         bundle.put(patient);
 
-        assertThat(bundle.contains("Patient/p1")).isTrue();
+        assertThat(bundle.contains(ExtractionId.fromRelativeUrl("Patient/p1"))).isTrue();
     }
 
 }

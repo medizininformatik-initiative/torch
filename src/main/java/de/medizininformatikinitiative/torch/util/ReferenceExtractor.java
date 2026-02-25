@@ -5,6 +5,7 @@ import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
@@ -46,8 +47,8 @@ public class ReferenceExtractor {
                     .filter(Objects::nonNull) // Ensure attribute list doesn't contain nulls
                     .map(refAttribute -> {
                         try {
-                            List<String> refs = getReferences(resource, refAttribute);
-                            String relativeUrl = ResourceUtils.getRelativeURL(resource);
+                            List<ExtractionId> refs = getReferences(resource, refAttribute);
+                            ExtractionId relativeUrl = ResourceUtils.getRelativeURL(resource);
 
                             // ReferenceWrapper should handle its own null-safety, but we pass safe values
                             return new ReferenceWrapper(refAttribute, refs, groupId, relativeUrl);
@@ -65,16 +66,25 @@ public class ReferenceExtractor {
         }
     }
 
-    List<String> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
         if (resource == null || annotatedAttribute == null) return List.of();
 
         // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
         List<Base> elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
 
-        List<String> references = Optional.ofNullable(elements).orElse(List.of()).stream()
+        List<ExtractionId> references = Optional.ofNullable(elements).orElse(List.of()).stream()
                 .filter(Objects::nonNull)
                 .flatMap(element -> collectReferences(element).stream())
-                .filter(Objects::nonNull) // Ensure no null strings leaked through
+                .flatMap(refStr -> {
+                    try {
+                        return java.util.stream.Stream.of(ExtractionId.fromRelativeUrl(refStr));
+                    } catch (IllegalArgumentException ex) {
+                        logger.debug("Ignoring invalid reference '{}' in {} (attr={}, fhirPath={} due to {})",
+                                refStr, resource.getIdElement().getValue(), annotatedAttribute.attributeRef(),
+                                annotatedAttribute.fhirPath(), ex.getMessage());
+                        return java.util.stream.Stream.empty();
+                    }
+                })
                 .toList();
 
         if (annotatedAttribute.mustHave() && references.isEmpty()) {

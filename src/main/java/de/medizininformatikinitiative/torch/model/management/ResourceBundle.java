@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
@@ -10,7 +11,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
 /**
@@ -31,7 +31,7 @@ public record ResourceBundle(
         ConcurrentHashMap<ResourceAttribute, Boolean> resourceAttributeValidity,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> parentResourceGroupToResourceAttributesMap,
         ConcurrentHashMap<ResourceGroup, Set<ResourceAttribute>> childResourceGroupToResourceAttributesMap,
-        ConcurrentHashMap<String, Optional<Resource>> cache) {
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> cache) {
 
     public ResourceBundle() {
         this(new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
@@ -44,7 +44,7 @@ public record ResourceBundle(
      * @return resource when in cache, optional.empty() when fetch was attempted but not successful
      * or null when reference is not known to cache.
      */
-    public Optional<Resource> get(String reference) {
+    public Optional<Resource> get(ExtractionId reference) {
         return cache.get(reference);
     }
 
@@ -174,10 +174,17 @@ public record ResourceBundle(
     }
 
     public boolean put(Resource resource, String groupId, boolean valid) {
-        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
-        addResourceGroupValidity(group, valid);
-        return cache.putIfAbsent(resourceUrl, Optional.of(resource)) == null;
+        ExtractionId resourceUrl;
+        try {
+            resourceUrl = ResourceUtils.getRelativeURL(resource);
+            boolean isNew = !cache.containsKey(resourceUrl);
+            ResourceGroup group = new ResourceGroup(resourceUrl, groupId);
+            addResourceGroupValidity(group, valid);
+            cache.putIfAbsent(resourceUrl, Optional.of(resource));
+            return isNew;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     /**
@@ -188,18 +195,21 @@ public record ResourceBundle(
      * @return boolean containing info if the wrapper is new or updated.
      */
     public boolean put(ResourceGroupWrapper wrapper) {
-        AtomicReference<Boolean> result = new AtomicReference<>(false);
         if (wrapper == null) {
-            return result.get();
+            return false;
         }
         //set Cache Key to relative URL
         DomainResource resource = wrapper.resource();
 
-        String resourceUrl = ResourceUtils.getRelativeURL(resource);
-        wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true));
-        cache.put(resourceUrl, Optional.of(resource));
+        try {
+            ExtractionId resourceUrl = ResourceUtils.getRelativeURL(resource);
+            wrapper.groupSet().forEach(group -> addResourceGroupValidity(new ResourceGroup(resourceUrl, group), true));
+            cache.put(resourceUrl, Optional.of(resource));
 
-        return result.get();
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
     public ConcurrentMap<ResourceGroup, Boolean> getInvalid() {
@@ -222,7 +232,7 @@ public record ResourceBundle(
         return resourceGroupValidity.put(group, valid);
     }
 
-    public void remove(String id) {
+    public void remove(ExtractionId id) {
         cache.remove(id);
     }
 
@@ -234,16 +244,26 @@ public record ResourceBundle(
         return resourceGroupValidity.containsKey(ref);
     }
 
-    public boolean contains(String ref) {
+    public boolean contains(ExtractionId ref) {
         return cache.containsKey(ref);
     }
 
-    public void put(Resource resource) {
-        cache.put(ResourceUtils.getRelativeURL(resource), Optional.of(resource));
+    public boolean put(Resource resource) {
+        if (resource == null) {
+            return false;
+        }
+        ExtractionId id;
+        try {
+            id = ResourceUtils.getRelativeURL(resource);
+            cache.put(id, Optional.of(resource));
+            return true;
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
     }
 
 
-    public void put(String resourceReference) {
+    public void put(ExtractionId resourceReference) {
         cache.put(resourceReference, Optional.empty());
     }
 

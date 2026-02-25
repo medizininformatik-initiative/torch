@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
@@ -62,7 +63,7 @@ public class BatchCopierRedacter {
      * @return Mono of Transformed PatientResourceBundle
      */
     public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
-        Map<String, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
+        Map<ExtractionId, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
 
         infoMap.keySet().parallelStream().forEach(resourceId -> {
             Optional<Resource> opt = extractionBundle.getResource(resourceId);
@@ -79,11 +80,11 @@ public class BatchCopierRedacter {
 
                 Resource transformed = transformResource(wrapper);
 
-                extractionBundle.put(resourceId, Optional.of(transformed));
+                extractionBundle.put(transformed);
 
             } catch (Exception e) {
                 logger.warn("BatchCopierRedacter001: Error transforming resource {}: {}", resourceId, e.getMessage());
-                extractionBundle.put(resourceId, Optional.empty());
+                extractionBundle.put(resourceId);
             }
         });
 

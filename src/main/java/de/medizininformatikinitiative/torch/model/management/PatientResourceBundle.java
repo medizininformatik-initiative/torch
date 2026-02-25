@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.management;
 
 
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import org.hl7.fhir.r4.model.Resource;
 
 import java.util.Optional;
@@ -33,7 +34,7 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
         this(patientID, NonContinuousPeriod.of(), bundle);
     }
 
-    public Optional<Resource> get(String id) {
+    public Optional<Resource> get(ExtractionId id) {
         return bundle.get(id);
     }
 
@@ -41,7 +42,7 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
         return bundle.put(wrapper);
     }
 
-    public void remove(String id) {
+    public void remove(ExtractionId id) {
         bundle.remove(id);
     }
 
@@ -49,7 +50,7 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
         return bundle.isEmpty();
     }
 
-    public boolean contains(String ref) {
+    public boolean contains(ExtractionId ref) {
         return bundle.contains(ref);
     }
 
@@ -66,7 +67,7 @@ public record PatientResourceBundle(String patientId, NonContinuousPeriod consen
      *
      * @param resourceReference the referenceString of the resource that could not be fetched.
      */
-    public void put(String resourceReference) {
+    public void put(ExtractionId resourceReference) {
         bundle.put(resourceReference);
     }
 

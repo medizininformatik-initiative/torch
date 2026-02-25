@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import org.hl7.fhir.r4.model.DomainResource;
 
 import java.util.Map;
@@ -15,7 +16,7 @@ import java.util.Set;
  * @param copyTree   merged attribute copy tree for the extraction
  */
 public record ExtractionRedactionWrapper(DomainResource resource, Set<String> profiles,
-                                         Map<String, Set<String>> references,
+                                         Map<String, Set<ExtractionId>> references,
                                          CopyTreeNode copyTree) {
 
     public ExtractionRedactionWrapper {

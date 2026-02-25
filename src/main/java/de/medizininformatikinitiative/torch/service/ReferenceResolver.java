@@ -4,12 +4,14 @@ import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -156,7 +158,7 @@ public class ReferenceResolver {
             PatientBatchWithConsent batch
     ) {
         // Build ref -> patientId map once (if ref belongs to exactly one patient)
-        Map<String, String> refToPatient = refToPatHelper.entrySet().stream()
+        Map<ExtractionId, String> refToPatient = refToPatHelper.entrySet().stream()
                 .flatMap(e -> e.getKey().references().stream()
                         .map(ref -> Map.entry(ref, e.getValue())))
                 .collect(java.util.stream.Collectors.toMap(
@@ -166,7 +168,7 @@ public class ReferenceResolver {
                 ));
 
         resources.stream().forEach(resource -> {
-            String ref = resource.getResourceType() + "/" + resource.getIdPart();
+            ExtractionId ref = ResourceUtils.getRelativeURL(resource);
             String patID = refToPatient.get(ref);
             if (patID != null) {
                 bundleLoader.cacheSearchResults(
@@ -198,13 +200,13 @@ public class ReferenceResolver {
      * @param batch            batch containing the patient bundles and core bundle to mark the resources as invalid in
      * @return the missing reference strings to be further processed
      */
-    private Set<String> setUnloadedAsInvalid(List<Resource> fetchedResources,
-                                             Map<ReferenceWrapper, String> refToPatHelper,
-                                             List<String> expectedRefs,
-                                             String linkedGroupID,
-                                             PatientBatchWithConsent batch) {
-        Set<String> notLoaded = new HashSet<>(expectedRefs);
-        fetchedResources.stream().map(r -> r.getResourceType() + "/" + r.getIdPart()).forEach(notLoaded::remove);
+    private Set<ExtractionId> setUnloadedAsInvalid(List<Resource> fetchedResources,
+                                                   Map<ReferenceWrapper, String> refToPatHelper,
+                                                   List<ExtractionId> expectedRefs,
+                                                   String linkedGroupID,
+                                                   PatientBatchWithConsent batch) {
+        Set<ExtractionId> notLoaded = new HashSet<>(expectedRefs);
+        fetchedResources.stream().map(r -> new ExtractionId(r.getResourceType().toString(), r.getIdPart())).forEach(notLoaded::remove);
 
         refToPatHelper.forEach((wrapper, patID) -> wrapper.references().forEach(unknownRef -> {
             if (notLoaded.contains(unknownRef)) {
@@ -234,12 +236,12 @@ public class ReferenceResolver {
      * @param coreBundle       the core bundle to mark the resources as invalid in
      * @return the missing reference strings to be further processed
      */
-    private Set<String> setUnloadedAsInvalidCore(List<Resource> fetchedResources,
-                                                 List<String> expectedRefs,
-                                                 String linkedGroupID,
-                                                 ResourceBundle coreBundle) {
-        Set<String> notLoaded = new HashSet<>(expectedRefs);
-        fetchedResources.stream().map(r -> r.getResourceType() + "/" + r.getIdPart()).forEach(notLoaded::remove);
+    private Set<ExtractionId> setUnloadedAsInvalidCore(List<Resource> fetchedResources,
+                                                       List<ExtractionId> expectedRefs,
+                                                       String linkedGroupID,
+                                                       ResourceBundle coreBundle) {
+        Set<ExtractionId> notLoaded = new HashSet<>(expectedRefs);
+        fetchedResources.stream().map(r -> new ExtractionId(r.getResourceType().toString(), r.getIdPart())).forEach(notLoaded::remove);
 
         notLoaded.forEach(missingRef -> {
             ResourceGroup resourceGroup = new ResourceGroup(missingRef, linkedGroupID);
@@ -254,7 +256,7 @@ public class ReferenceResolver {
         return fetchedResources;
     }
 
-    private void logMissingRefs(Set<String> missingRefs) {
+    private void logMissingRefs(Set<ExtractionId> missingRefs) {
         if (!missingRefs.isEmpty()) {
             logger.warn("Some references were not loaded: {}", missingRefs);
         }
@@ -292,7 +294,7 @@ public class ReferenceResolver {
         return newValidRGs.map(RGs -> Map.entry(patID, RGs));
     }
 
-    private List<String> getRefsFromWrappers(List<ReferenceWrapper> wrappers) {
+    private List<ExtractionId> getRefsFromWrappers(List<ReferenceWrapper> wrappers) {
         return wrappers.stream().flatMap(wrapper -> wrapper.references().stream()).toList();
     }
 

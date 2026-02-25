@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
@@ -337,8 +338,8 @@ class BatchCopierRedacterIT {
         AnnotatedAttribute encounterClass = new AnnotatedAttribute("Encounter.class", "Encounter.class", true, List.of());
 
         encounterGroup = new AnnotatedAttributeGroup("Encounter1", "Encounter", "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung", List.of(encounterSubject, encounterMeta, encounterId, encounterType, encounterClass), List.of());
-        expectedAttribute = new ResourceAttribute("Condition/2", conditionSubject);
-        validResourceGroup = new ResourceGroup("Patient/VHF00006", "Patient1");
+        expectedAttribute = new ResourceAttribute(ExtractionId.fromRelativeUrl("Condition/2"), conditionSubject);
+        validResourceGroup = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/VHF00006"), "Patient1");
 
 
         attributeGroupMap.put("Patient1", patientGroup);
@@ -358,7 +359,7 @@ class BatchCopierRedacterIT {
         void testResourceWithKnownGroups() throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
-            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of("Patient/VHF00006")), conditionGroup.copyTree().get()));
+            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of(ExtractionId.fromRelativeUrl("Patient/VHF00006"))), conditionGroup.copyTree().get()));
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
     }
@@ -377,7 +378,7 @@ class BatchCopierRedacterIT {
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
 
             assertThat(result.cache()).hasSize(1);
-            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Condition/2")).get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
 
@@ -400,7 +401,7 @@ class BatchCopierRedacterIT {
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
 
             assertThat(result.cache()).hasSize(1);
-            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Encounter/encounter1").get());
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Encounter/encounter1")).get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
             assertThat(actualJson).isEqualTo(expectedJson);
@@ -422,7 +423,7 @@ class BatchCopierRedacterIT {
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap);
 
             assertThat(result.cache()).hasSize(1);
-            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.get("Condition/2").get());
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Condition/2")).get());
             String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
             assertThat(actualJson).isEqualTo(expectedJson);
@@ -442,7 +443,7 @@ class BatchCopierRedacterIT {
             // THEN
             assertThat(result.cache()).hasSize(1);
 
-            Encounter out = (Encounter) result.get("Encounter/encounterDar").orElseThrow();
+            Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/encounterDar")).orElseThrow();
 
             assertThat(out.hasClass_()).isTrue();
             assertThat(out.getClass_().hasExtension()).isTrue();
@@ -477,7 +478,7 @@ class BatchCopierRedacterIT {
                 ExtractionResourceBundle resultBundle = result.get("PatientBundle");
 
                 assertThat(resultBundle.cache()).hasSize(1);
-                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.get("Condition/2").get());
+                String actualJson = parser.setPrettyPrint(true).encodeResourceToString(resultBundle.markMissing(ExtractionId.fromRelativeUrl("Condition/2")).get());
                 String expectedJson = parser.setPrettyPrint(true).encodeResourceToString(expectedResult);
 
 

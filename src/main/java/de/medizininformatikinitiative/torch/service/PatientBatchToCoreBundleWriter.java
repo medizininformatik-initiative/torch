@@ -69,7 +69,7 @@ public class PatientBatchToCoreBundleWriter {
                 }
             });
             bundle.cache().forEach((key, value) -> {
-                if (!compartmentManager.isInCompartment(key) && value.isPresent()) {
+                if (!compartmentManager.isInCompartment(key)) {
                     coreBundle.cache().put(key, value);
                 }
             });
@@ -108,9 +108,7 @@ public class PatientBatchToCoreBundleWriter {
 
         // cache
         sourceCoreBundle.cache().forEach((key, value) -> {
-            if (value.isPresent()) {
-                coreBundle.cache().put(key, value);
-            }
+            coreBundle.cache().put(key, value);
         });
     }
 }

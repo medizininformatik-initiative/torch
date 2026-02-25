@@ -23,7 +23,7 @@ import java.util.stream.Collectors;
  */
 public record ResourceExtractionInfo(
         Set<String> groups,                              // groupIds valid for this resource
-        Map<String, Set<String>> attributeToReferences   // elementId -> Set<resourceId>
+        Map<String, Set<ExtractionId>> attributeToReferences   // elementId -> Set<resourceId>
 ) {
 
     /**
@@ -38,7 +38,7 @@ public record ResourceExtractionInfo(
     @JsonCreator
     public ResourceExtractionInfo(
             @JsonProperty("groups") Set<String> groups,
-            @JsonProperty("attributeToReferences") Map<String, Set<String>> attributeToReferences
+            @JsonProperty("attributeToReferences") Map<String, Set<ExtractionId>> attributeToReferences
     ) {
         // Jackson may pass null → handle it
         this.groups = groups == null ? Set.of() : Set.copyOf(groups);
@@ -60,9 +60,9 @@ public record ResourceExtractionInfo(
      * @param bundle the resource bundle to extract metadata from.
      * @return resourceId → extraction info.
      */
-    public static Map<String, ResourceExtractionInfo> toExtractionInfoMap(ResourceBundle bundle) {
+    public static Map<ExtractionId, ResourceExtractionInfo> toExtractionInfoMap(ResourceBundle bundle) {
 
-        Set<String> resourceIds =
+        Set<ExtractionId> resourceIds =
                 bundle.resourceGroupValidity().entrySet().stream()
                         .filter(Map.Entry::getValue)
                         .map(Map.Entry::getKey)
@@ -76,7 +76,7 @@ public record ResourceExtractionInfo(
                 ));
     }
 
-    public static ResourceExtractionInfo of(ResourceBundle bundle, String resourceId) {
+    public static ResourceExtractionInfo of(ResourceBundle bundle, ExtractionId resourceId) {
         return new ResourceExtractionInfo(
                 collectValidGroups(bundle, resourceId),
                 computeAttributeReferenceMap(bundle, resourceId)
@@ -93,11 +93,11 @@ public record ResourceExtractionInfo(
      * @param resourceId the resource id.
      * @return attributeRef → referenced resource IDs.
      */
-    public static Map<String, Set<String>> computeAttributeReferenceMap(
+    public static Map<String, Set<ExtractionId>> computeAttributeReferenceMap(
             ResourceBundle bundle,
-            String resourceId
+            ExtractionId resourceId
     ) {
-        Map<String, Set<String>> attrToRefs = new HashMap<>();
+        Map<String, Set<ExtractionId>> attrToRefs = new HashMap<>();
 
         bundle.resourceAttributeValidity().entrySet().stream()
                 .filter(Map.Entry::getValue) // only valid attributes
@@ -113,7 +113,7 @@ public record ResourceExtractionInfo(
                                     .getOrDefault(attr, Set.of());
 
                     // Filter only valid referenced groups and extract their resourceIds
-                    Set<String> validReferencedResourceIds =
+                    Set<ExtractionId> validReferencedResourceIds =
                             childGroups.stream()
                                     .filter(g -> Boolean.TRUE.equals(bundle.isValidResourceGroup(g)))
                                     .map(ResourceGroup::resourceId)
@@ -137,7 +137,7 @@ public record ResourceExtractionInfo(
      * @param resourceId the resource id.
      * @return set of valid group IDs.
      */
-    private static Set<String> collectValidGroups(ResourceBundle bundle, String resourceId) {
+    private static Set<String> collectValidGroups(ResourceBundle bundle, ExtractionId resourceId) {
         return bundle.resourceGroupValidity().entrySet().stream()
                 .filter(Map.Entry::getValue) // only valid groups
                 .map(Map.Entry::getKey)      // ResourceGroup
@@ -165,7 +165,7 @@ public record ResourceExtractionInfo(
         mergedGroups.addAll(other.groups());
 
         // --- merge attributeToReferences (deep merge) ---
-        Map<String, Set<String>> mergedAttr = new HashMap<>();
+        Map<String, Set<ExtractionId>> mergedAttr = new HashMap<>();
 
         // 1. copy current attributes
         this.attributeToReferences().forEach((attr, refs) ->

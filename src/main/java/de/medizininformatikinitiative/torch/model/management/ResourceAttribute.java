@@ -1,10 +1,12 @@
 package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 
 import java.util.Objects;
 
-public record ResourceAttribute(String resourceId, AnnotatedAttribute annotatedAttribute) {
+public record ResourceAttribute(ExtractionId resourceId,
+                                AnnotatedAttribute annotatedAttribute) {
 
     public ResourceAttribute {
         Objects.requireNonNull(annotatedAttribute);

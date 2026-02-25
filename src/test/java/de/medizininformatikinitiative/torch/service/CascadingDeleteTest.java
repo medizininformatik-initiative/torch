@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceAttribute;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -31,18 +32,22 @@ class CascadingDeleteTest {
     private CascadingDelete cascadingDelete;
     private Map<String, AnnotatedAttributeGroup> groupMap;
 
+    private static ExtractionId rid(String relativeUrl) {
+        return ExtractionId.fromRelativeUrl(relativeUrl);
+    }
+
     @BeforeEach
     void setUp() {
         coreResourceBundle = new ResourceBundle();
 
-        resourceAttribute = new ResourceAttribute("test", new AnnotatedAttribute("test", "test", false));
-        resourceAttribute2 = new ResourceAttribute("test2", new AnnotatedAttribute("test", "test", false));
-        resourceAttribute3 = new ResourceAttribute("test3", new AnnotatedAttribute("test", "test", false));
+        resourceAttribute = new ResourceAttribute(rid("r/test1"), new AnnotatedAttribute("test", "test", false));
+        resourceAttribute2 = new ResourceAttribute(rid("r/test2"), new AnnotatedAttribute("test", "test", false));
+        resourceAttribute3 = new ResourceAttribute(rid("r/test3"), new AnnotatedAttribute("test", "test", false));
 
-        resourceGroup = new ResourceGroup("resource1", "group1");
-        parentResourceGroup1 = new ResourceGroup("resourceP1", "group3");
-        resourceGroup2 = new ResourceGroup("resource1", "group2");
-        parentResourceGroup2 = new ResourceGroup("resourceP2", "group4");
+        resourceGroup = new ResourceGroup(rid("r/resource1"), "group1");
+        parentResourceGroup1 = new ResourceGroup(rid("r/resourceP1"), "group3");
+        resourceGroup2 = new ResourceGroup(rid("r/resource1"), "group2");
+        parentResourceGroup2 = new ResourceGroup(rid("r/resourceP2"), "group4");
 
         groupMap = new HashMap<>();
         groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", "", List.of(), List.of(), true));
@@ -196,15 +201,15 @@ class CascadingDeleteTest {
 
             @Test
             void branchingGraphFullDeletion() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
-                ResourceAttribute attr3 = new ResourceAttribute("attr3", new AnnotatedAttribute("attr3", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute(rid("r/attr1"), new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute(rid("r/attr2"), new AnnotatedAttribute("attr2", "test", false));
+                ResourceAttribute attr3 = new ResourceAttribute(rid("r/attr3"), new AnnotatedAttribute("attr3", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
-                ResourceGroup leaf1 = new ResourceGroup("leaf1", "groupL1");
-                ResourceGroup leaf2 = new ResourceGroup("leaf2", "groupL2");
+                ResourceGroup root = new ResourceGroup(rid("r/root"), "groupRoot");
+                ResourceGroup branch1 = new ResourceGroup(rid("r/branch1"), "groupB1");
+                ResourceGroup branch2 = new ResourceGroup(rid("r/branch2"), "groupB2");
+                ResourceGroup leaf1 = new ResourceGroup(rid("r/leaf1"), "groupL1");
+                ResourceGroup leaf2 = new ResourceGroup(rid("r/leaf2"), "groupL2");
 
                 // Define all groups
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), true));
@@ -253,12 +258,12 @@ class CascadingDeleteTest {
 
             @Test
             void branchingGraphWithProtectedGroup() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute(rid("r/attr1"), new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute(rid("r/attr2"), new AnnotatedAttribute("attr2", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
+                ResourceGroup root = new ResourceGroup(rid("r/root"), "groupRoot");
+                ResourceGroup branch1 = new ResourceGroup(rid("r/branch1"), "groupB1");
+                ResourceGroup branch2 = new ResourceGroup(rid("r/branch2"), "groupB2");
 
                 // Define groups with branch2 protected
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), true));
@@ -292,13 +297,13 @@ class CascadingDeleteTest {
 
             @Test
             void asymmetricBranchingWithPartialDeletion() {
-                ResourceAttribute attr1 = new ResourceAttribute("attr1", new AnnotatedAttribute("attr1", "test", false));
-                ResourceAttribute attr2 = new ResourceAttribute("attr2", new AnnotatedAttribute("attr2", "test", false));
+                ResourceAttribute attr1 = new ResourceAttribute(rid("r/attr1"), new AnnotatedAttribute("attr1", "test", false));
+                ResourceAttribute attr2 = new ResourceAttribute(rid("r/attr2"), new AnnotatedAttribute("attr2", "test", false));
 
-                ResourceGroup root = new ResourceGroup("root", "groupRoot");
-                ResourceGroup branch1 = new ResourceGroup("branch1", "groupB1");
-                ResourceGroup branch2 = new ResourceGroup("branch2", "groupB2");
-                ResourceGroup leaf1 = new ResourceGroup("leaf1", "groupL1");
+                ResourceGroup root = new ResourceGroup(rid("r/root"), "groupRoot");
+                ResourceGroup branch1 = new ResourceGroup(rid("r/branch1"), "groupB1");
+                ResourceGroup branch2 = new ResourceGroup(rid("r/branch2"), "groupB2");
+                ResourceGroup leaf1 = new ResourceGroup(rid("r/reaf1"), "groupL1");
 
                 // Define groups
                 groupMap.put("groupRoot", new AnnotatedAttributeGroup("", "groupRoot", "", "", List.of(), List.of(), true));
@@ -358,7 +363,7 @@ class CascadingDeleteTest {
 
         @Test
         void mustHaveAttributesTriggerInvalidation() {
-            ResourceAttribute mustHaveAttribute = new ResourceAttribute("mustHave", new AnnotatedAttribute("mustHave", "test", true));
+            ResourceAttribute mustHaveAttribute = new ResourceAttribute(rid("r/mustHave"), new AnnotatedAttribute("mustHave", "test", true));
             coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup1);
             coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup2);
 
