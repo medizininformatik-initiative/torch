@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.Condition;
@@ -204,8 +205,23 @@ class ReferenceExtractorTest {
         void successDirectReference() throws MustHaveViolatedException {
             Condition condition = new Condition();
             condition.setId("Condition1");
-            condition.setSubject(new Reference("Patient1"));
-            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE)).containsExactly("Patient1");
+            condition.setSubject(new Reference("Patient/1"));
+            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE)).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
+        }
+
+        @Test
+        void getReferences_returnsEmptyList_whenResourceOrAttributeIsNull() throws MustHaveViolatedException {
+            Condition condition = new Condition();
+            condition.setId("Condition/1");
+
+            // resource == null
+            assertThat(referenceExtractor.getReferences(null, ATTRIBUTE_OPTIONAL)).isEmpty();
+
+            // annotatedAttribute == null
+            assertThat(referenceExtractor.getReferences(condition, null)).isEmpty();
+
+            // both null
+            assertThat(referenceExtractor.getReferences(null, null)).isEmpty();
         }
 
         @Test
@@ -214,6 +230,17 @@ class ReferenceExtractorTest {
             condition.setId("Condition1");
             itSetup.structureDefinitionHandler().getDefinition(DIAG_URL);
             assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL)).isEmpty();
+        }
+
+        @Test
+        void skipsInvalid() throws MustHaveViolatedException {
+            Condition condition = new Condition();
+            condition.setId("Condition/1");
+            condition.setSubject(new Reference("INVALID_REFERENCE_FORMAT"));
+
+            List<ExtractionId> result =
+                    referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -228,23 +255,23 @@ class ReferenceExtractorTest {
         void successRecursive() throws MustHaveViolatedException {
             Condition condition = new Condition();
             condition.setId("Condition1");
-            condition.setSubject(new Reference("Patient1"));
+            condition.setSubject(new Reference("Patient/1"));
 
-            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_RESOURCE)).containsExactly("Patient1");
+            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_RESOURCE)).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
         }
 
         @Test
         void successRecursiveEncounter() throws MustHaveViolatedException {
             Encounter encounter = new Encounter();
             encounter.setId("Encounter1");
-            encounter.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition1"))));
-            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly("Condition1");
+            encounter.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/1"))));
+            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly(ExtractionId.fromRelativeUrl("Condition/1"));
         }
 
         @Test
         void successRecursiveEncounter2() throws MustHaveViolatedException {
             Encounter encounter = itSetup.fhirContext().newJsonParser().parseResource(Encounter.class, encounterString);
-            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly("Condition/torch-test-diag-enc-diag-diag-1", "Condition/torch-test-diag-enc-diag-diag-2");
+            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly(ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-1"), ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-2"));
         }
 
     }
@@ -255,11 +282,13 @@ class ReferenceExtractorTest {
         @Test
         void success() throws MustHaveViolatedException {
             Condition condition = new Condition();
-            condition.setId("Condition1");
-            condition.setSubject(new Reference("Patient1"));
-            condition.setAsserter(new Reference("Asserter1"));
+            condition.setId("Condition/1");
+            condition.setSubject(new Reference("Patient/1"));
+            condition.setAsserter(new Reference("Asserter/1"));
 
-            assertThat(referenceExtractor.extract(condition, GROUPS, "Test")).containsExactly(new ReferenceWrapper(ATTRIBUTE_MUST_HAVE, List.of("Patient1"), "Test", "Condition/Condition1"), new ReferenceWrapper(ATTRIBUTE_2, List.of("Asserter1"), "Test", "Condition/Condition1"));
+            assertThat(referenceExtractor.extract(condition, GROUPS, "Test")).containsExactly(
+                    new ReferenceWrapper(ATTRIBUTE_MUST_HAVE, List.of(ExtractionId.fromRelativeUrl("Patient/1")), "Test", ExtractionId.fromRelativeUrl("Condition/1")),
+                    new ReferenceWrapper(ATTRIBUTE_2, List.of(ExtractionId.fromRelativeUrl("Asserter/1")), "Test", ExtractionId.fromRelativeUrl("Condition/1")));
         }
 
         @Test
@@ -379,9 +408,9 @@ class ReferenceExtractorTest {
             condition.setId("C1");
             condition.setSubject(new Reference("Patient/1"));
 
-            List<String> result = referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
+            List<ExtractionId> result = referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
 
-            assertThat(result).containsExactly("Patient/1");
+            assertThat(result).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
         }
     }
 

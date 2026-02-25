@@ -6,12 +6,14 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -45,7 +47,7 @@ public class ReferenceBundleLoader {
         this.mappingTree = dseMappingTreeBase;
     }
 
-    public Mono<List<Resource>> fetchUnknownResources(List<String> refsOfLinkedGroup,
+    public Mono<List<Resource>> fetchUnknownResources(List<ExtractionId> refsOfLinkedGroup,
                                                       String linkedGroupID,
                                                       Map<String, AnnotatedAttributeGroup> groupMap) {
         var chunkedRefs = chunkRefs(refsOfLinkedGroup, pageCount);
@@ -54,6 +56,16 @@ public class ReferenceBundleLoader {
         return Flux.fromStream(bundles)
                 .concatMap(datastore::executeBundle)
                 .concatMap(Flux::fromIterable)
+                .filter(r -> {
+                    try {
+                        ResourceUtils.getRelativeURL(r);
+                        return true;
+                    } catch (RuntimeException e) {
+                        logger.warn("Skipping malformed fetched resource (no usable id). type={}, idElement={}",
+                                r.fhirType(), r.getId());
+                        return false;
+                    }
+                })
                 .collectList();
     }
 
@@ -91,7 +103,7 @@ public class ReferenceBundleLoader {
      * @param resource      the resource to put into the respective bundle
      */
     public void cacheSearchResults(@Nullable PatientResourceBundle patientBundle, ResourceBundle coreBundle, boolean applyConsent, Resource resource) {
-        String relativeUrl = ResourceUtils.getRelativeURL(resource);
+        ExtractionId relativeUrl = ResourceUtils.getRelativeURL(resource);
         boolean isPatientResource = compartmentManager.isInCompartment(relativeUrl);
 
         if (isPatientResource && patientBundle == null) {
@@ -118,13 +130,13 @@ public class ReferenceBundleLoader {
      * @param chunkSize   number of elements each resulting chunk should contain
      * @return list of set where each set represents one chunk (still mapping from group ID to references)
      */
-    public List<Set<String>> chunkRefs(List<String> refsOfGroup, int chunkSize) {
+    public List<Set<String>> chunkRefs(@MonotonicNonNull List<ExtractionId> refsOfGroup, int chunkSize) {
         List<Set<String>> chunks = new ArrayList<>();
         Set<String> currentChunk = new HashSet<>();
         int currentChunkSize = 0;
 
-        for (String ref : refsOfGroup) {
-            var refId = ref.split("/")[1];
+        for (ExtractionId ref : refsOfGroup) {
+            var refId = ref.id();
             currentChunk.add(refId);
             currentChunkSize++;
 

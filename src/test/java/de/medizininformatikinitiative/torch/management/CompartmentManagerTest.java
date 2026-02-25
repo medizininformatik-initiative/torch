@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.management;
 
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Patient;
@@ -22,12 +23,12 @@ public class CompartmentManagerTest {
 
         @Test
         public void contained() {
-            assertThat(manager.isInCompartment("Patient")).isTrue();
+            assertThat(manager.isInCompartment(new ExtractionId("Patient", "123"))).isTrue();
         }
 
         @Test
         public void notContained() {
-            assertThat(manager.isInCompartment("Medication")).isFalse();
+            assertThat(manager.isInCompartment(new ExtractionId("Medication", "123"))).isFalse();
         }
     }
 
@@ -50,30 +51,15 @@ public class CompartmentManagerTest {
     class ResourceGroupRelationTest {
         @Test
         public void contained() {
-            assertThat(manager.isInCompartment(new ResourceGroup("Observation/123", "Test"))).isTrue();
+            assertThat(manager.isInCompartment(new ResourceGroup(new ExtractionId("Patient", "123"), "Test"))).isTrue();
         }
 
         @Test
         public void notContained() {
-            assertThat(manager.isInCompartment(new ResourceGroup("Medication/123", "Test"))).isFalse();
+            assertThat(manager.isInCompartment(new ResourceGroup(new ExtractionId("Medication", "123"), "Test"))).isFalse();
         }
 
     }
-
-    @Nested
-    class ReferenceStringTest {
-        @Test
-        public void contained() {
-            assertThat(manager.isInCompartment("Observation/123")).isTrue();
-        }
-
-        @Test
-        public void notContained() {
-            assertThat(manager.isInCompartment("Medication/123")).isFalse();
-        }
-
-    }
-
 
     @Test
     public void getCompartmentTest() {

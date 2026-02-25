@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
@@ -63,7 +64,7 @@ public class ReferenceResolverIT {
     }
 
     private ResourceGroup rgFromResource(Resource resource, String groupID) {
-        return new ResourceGroup(resource.getId(), groupID);
+        return new ResourceGroup(ExtractionId.fromRelativeUrl(resource.getId()), groupID);
     }
 
     private boolean containsIdInQuery(Bundle bundle, String requestedResourceId) {
@@ -79,9 +80,9 @@ public class ReferenceResolverIT {
     class ResolveCoreBundle {
         public static final String MEDICATION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication";
         public static final String ORGANIZATION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization";
-        public static final String ORG_ID_1 = "Organization/org_1";
-        public static final String ORG_ID_2 = "Organization/org_2";
-        public static final String MED_ID_1 = "Medication/med_1";
+        public static final ExtractionId ORG_ID_1 = ExtractionId.fromRelativeUrl("Organization/org_1");
+        public static final ExtractionId ORG_ID_2 = ExtractionId.fromRelativeUrl("Organization/org_2");
+        public static final ExtractionId MED_ID_1 = ExtractionId.fromRelativeUrl("Medication/med_1");
         public static final String MED_GROUP = "med-group";
         public static final String LINKED_ORG_GROUP_1 = "linked-org-1";
         public static final String LINKED_ORG_GROUP_2 = "linked-org-2";
@@ -106,8 +107,8 @@ public class ReferenceResolverIT {
 
         private Medication createMedication() {
             var med = new Medication()
-                    .setManufacturer(new Reference(ResolveCoreBundle.ORG_ID_1))
-                    .setId(ResolveCoreBundle.MED_ID_1)
+                    .setManufacturer(new Reference(String.valueOf(ResolveCoreBundle.ORG_ID_1)))
+                    .setId(String.valueOf(ResolveCoreBundle.MED_ID_1))
                     .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(MEDICATION_PROFILE))));
 
             return (Medication) med;
@@ -115,8 +116,8 @@ public class ReferenceResolverIT {
 
         @Test
         void testNestedResolve() {
-            var org_1 = createOrganization(ORG_ID_1, ORG_ID_2);
-            var org_2 = createOrganization(ORG_ID_2, null).setName("name-83849");
+            var org_1 = createOrganization(ORG_ID_1.toString(), ORG_ID_2.toString());
+            var org_2 = createOrganization(ORG_ID_2.toString(), null).setName("name-83849");
             var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
@@ -157,7 +158,7 @@ public class ReferenceResolverIT {
 
         @Test
         void testSameLinkedGroupTwice() {
-            var org_1 = createOrganization(ORG_ID_1, null);
+            var org_1 = createOrganization(ORG_ID_1.toString(), null);
             var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
@@ -194,8 +195,8 @@ public class ReferenceResolverIT {
 
         @Test
         void testNestedInvalid() {
-            var org_1 = createOrganization(ORG_ID_1, ORG_ID_2);
-            var org_2 = createOrganization(ORG_ID_2, null); // has no name but name is set to must-have=true -> invalid
+            var org_1 = createOrganization(ORG_ID_1.toString(), ORG_ID_2.toString());
+            var org_2 = createOrganization(ORG_ID_2.toString(), null); // has no name but name is set to must-have=true -> invalid
             var med = createMedication();
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
@@ -241,11 +242,11 @@ public class ReferenceResolverIT {
         public static final String CONDITION_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose";
         public static final String ENCOUNTER_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
         public static final String PATIENT_PROFILE = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
-        public static final String ENC_ID_1 = "Encounter/enc_1";
-        public static final String ENC_ID_2 = "Encounter/enc_2";
-        public static final String COND_ID_1 = "Condition/cond_1";
-        public static final String COND_ID_2 = "Condition/cond_2";
-        public static final String PAT_ID_1 = "Patient/pat-1";
+        public static final ExtractionId ENC_ID_1 = ExtractionId.fromRelativeUrl("Encounter/enc_1");
+        public static final ExtractionId ENC_ID_2 = ExtractionId.fromRelativeUrl("Encounter/enc_2");
+        public static final ExtractionId COND_ID_1 = ExtractionId.fromRelativeUrl("Condition/cond_1");
+        public static final ExtractionId COND_ID_2 = ExtractionId.fromRelativeUrl("Condition/cond_2");
+        public static final ExtractionId PAT_ID_1 = ExtractionId.fromRelativeUrl("Patient/pat-1");
         public static final String COND_GROUP = "cond-group";
         public static final String PAT_GROUP = "pat-group";
         public static final String ENC_GROUP = "enc-group";
@@ -268,7 +269,7 @@ public class ReferenceResolverIT {
 
         private Encounter createEncounter(String encId, String partOfId) {
             var enc = (Encounter) new Encounter()
-                    .setSubject(new Reference(ResolvePatientBundle.PAT_ID_1))
+                    .setSubject(new Reference(String.valueOf(ResolvePatientBundle.PAT_ID_1)))
                     .setId(encId)
                     .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(ENCOUNTER_PROFILE))));
             if (partOfId != null) {
@@ -279,8 +280,8 @@ public class ReferenceResolverIT {
 
         private Condition createCondition(String condId) {
             var cond = new Condition()
-                    .setSubject(new Reference(ResolvePatientBundle.PAT_ID_1))
-                    .setEncounter(new Reference(ResolvePatientBundle.ENC_ID_1))
+                    .setSubject(new Reference(String.valueOf(ResolvePatientBundle.PAT_ID_1)))
+                    .setEncounter(new Reference(String.valueOf(ResolvePatientBundle.ENC_ID_1)))
                     .setId(condId)
                     .setMeta(new Meta().setProfile(List.of((CanonicalType) new CanonicalType().setValue(CONDITION_PROFILE))));
 
@@ -301,10 +302,10 @@ public class ReferenceResolverIT {
 
         @Test
         void testNested() {
-            var pat = createPatient(PAT_ID_1);
-            var enc_1 = createEncounter(ENC_ID_1, ENC_ID_2);
-            var enc_2 = createEncounter(ENC_ID_2, null).setStatus(Encounter.EncounterStatus.ARRIVED);
-            var cond = createCondition(COND_ID_1);
+            var pat = createPatient(PAT_ID_1.toString());
+            var enc_1 = createEncounter(ENC_ID_1.toString(), ENC_ID_2.toString());
+            var enc_2 = createEncounter(ENC_ID_2.toString(), null).setStatus(Encounter.EncounterStatus.ARRIVED);
+            var cond = createCondition(COND_ID_1.toString());
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 var list = returnResourcesByQuery(queryBundle, enc_1, enc_2, cond, pat);
@@ -312,11 +313,11 @@ public class ReferenceResolverIT {
             });
 
             var coreBundle = new ResourceBundle();
-            var patBundles = Map.of(stripType(PAT_ID_1), new PatientResourceBundle(stripType(PAT_ID_1)));
-            patBundles.get(stripType(PAT_ID_1)).bundle().put(pat);
-            patBundles.get(stripType(PAT_ID_1)).bundle().put(cond);
-            patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
-            patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(cond, COND_GROUP), true);
+            var patBundles = Map.of(PAT_ID_1.id(), new PatientResourceBundle(PAT_ID_1.id()));
+            patBundles.get(PAT_ID_1.id()).bundle().put(pat);
+            patBundles.get(PAT_ID_1.id()).bundle().put(cond);
+            patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
+            patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(cond, COND_GROUP), true);
             var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
@@ -342,7 +343,7 @@ public class ReferenceResolverIT {
 
             assertThat(resultBatch).isNotNull();
             assertThat(resultBatch.bundles()).hasSize(1);
-            var patBundle = resultBatch.bundles().get(stripType(PAT_ID_1)).bundle();
+            var patBundle = resultBatch.bundles().get(PAT_ID_1.id()).bundle();
             assertThat(patBundle.resourceGroupValidity()).containsOnly(
                     Map.entry(rgFromResource(cond, COND_GROUP), true),
                     Map.entry(rgFromResource(enc_1, LINKED_GROUP_1), true),
@@ -358,11 +359,11 @@ public class ReferenceResolverIT {
 
         @Test
         void testTwoRefsSameLevel() {
-            var pat = createPatient(PAT_ID_1);
-            var enc = createEncounter(ENC_ID_1, null);
-            var cond_1 = createCondition(COND_ID_1).setCode(COND_CODE);
-            var cond_2 = createCondition(COND_ID_2).setCode(COND_CODE);
-            enc.setReasonReference(List.of(new Reference(COND_ID_1), new Reference(COND_ID_2)));
+            var pat = createPatient(PAT_ID_1.toString());
+            var enc = createEncounter(ENC_ID_1.toString(), null);
+            var cond_1 = createCondition(COND_ID_1.toString()).setCode(COND_CODE);
+            var cond_2 = createCondition(COND_ID_2.toString()).setCode(COND_CODE);
+            enc.setReasonReference(List.of(new Reference(COND_ID_1.toString()), new Reference(COND_ID_2.toString())));
             when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
                 Bundle queryBundle = invocation.getArgument(0);
                 var list = returnResourcesByQuery(queryBundle, enc, cond_1, cond_2, pat);
@@ -370,11 +371,11 @@ public class ReferenceResolverIT {
             });
 
             var coreBundle = new ResourceBundle();
-            var patBundles = Map.of(stripType(PAT_ID_1), new PatientResourceBundle(stripType(PAT_ID_1)));
-            patBundles.get(stripType(PAT_ID_1)).bundle().put(pat);
-            patBundles.get(stripType(PAT_ID_1)).bundle().put(enc);
-            patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
-            patBundles.get(stripType(PAT_ID_1)).bundle().addResourceGroupValidity(rgFromResource(enc, ENC_GROUP), true);
+            var patBundles = Map.of(PAT_ID_1.id(), new PatientResourceBundle(PAT_ID_1.id()));
+            patBundles.get(PAT_ID_1.id()).bundle().put(pat);
+            patBundles.get(PAT_ID_1.id()).bundle().put(enc);
+            patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
+            patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(enc, ENC_GROUP), true);
             var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
@@ -396,7 +397,7 @@ public class ReferenceResolverIT {
 
             assertThat(resultBatch).isNotNull();
             assertThat(resultBatch.bundles()).hasSize(1);
-            var patBundle = resultBatch.bundles().get(stripType(PAT_ID_1)).bundle();
+            var patBundle = resultBatch.bundles().get(PAT_ID_1.id()).bundle();
             assertThat(patBundle.resourceGroupValidity()).containsOnly(
                     Map.entry(rgFromResource(cond_1, LINKED_GROUP_1), true),
                     Map.entry(rgFromResource(cond_2, LINKED_GROUP_1), true),

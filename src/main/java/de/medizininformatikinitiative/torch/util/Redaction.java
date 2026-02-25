@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
 import org.hl7.fhir.exceptions.FHIRException;
@@ -56,12 +57,25 @@ public class Redaction {
      * If a reference is not in the provided {@code references} set, it is removed entirely.
      * </p>
      *
-     * @param child      the property containing reference values
-     * @param references the set of allowed reference strings
+     * @param child   the property containing reference values
+     * @param allowed the set of allowed reference strings
      */
-    private void handleReference(Property child, Set<String> references) {
+    private void handleReference(Property child, Set<ExtractionId> allowed) {
         child.getValues().forEach(referenceValue -> {
-            if (referenceValue instanceof Reference reference && reference.hasReference() && !references.contains(reference.getReference())) {
+            if (!(referenceValue instanceof Reference reference) || !reference.hasReference()) {
+                return;
+            }
+
+            String refString = reference.getReference();
+            boolean isAllowed;
+            try {
+                ExtractionId id = ExtractionId.fromRelativeUrl(refString);
+                isAllowed = allowed.contains(id);
+            } catch (IllegalArgumentException ex) {
+                isAllowed = false;
+            }
+
+            if (!isAllowed) {
                 referenceValue.setProperty(REFERENCE, HapiFactory.create("string").addExtension(ABSENT_REASON_EXTENSION));
             }
         });
@@ -122,7 +136,7 @@ public class Redaction {
      * @param context    the element context used to evaluate and process extensions
      * @param references Map of allowed references
      */
-    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<String>> references) {
+    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
         MultiElementContext extensionsContext = context.descend(EXTENSION);
         removeUnknownExtensions(base, extensionsContext);
         redactKnownExtensions(base, extensionsContext, references);
@@ -145,7 +159,7 @@ public class Redaction {
      * @param context    the context for redacting extensions
      * @param references Map of allowed references
      */
-    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<String>> references) {
+    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
         getExtensions(base).forEach(extension -> redactChildren(extension, context, references));
     }
 
@@ -169,7 +183,7 @@ public class Redaction {
      * @param context     element ID and associated structure definitions
      * @param references  Map of allowed references
      */
-    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<String>> references) {
+    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
         handleSlicing(dataElement, context).ifPresent(updatedContext -> {
             redactExtensions(dataElement, updatedContext, references);
             if (!dataElement.isPrimitive()) {
@@ -217,7 +231,7 @@ public class Redaction {
      * @param contexts    element ID and associated structure definitions
      * @param references  Map of allowed references
      */
-    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<String>> references) {
+    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<ExtractionId>> references) {
 
         baseElement.children().forEach(child -> {
             MultiElementContext childContexts = contexts.descend(child.getName());

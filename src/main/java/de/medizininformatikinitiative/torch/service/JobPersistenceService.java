@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
@@ -535,7 +536,7 @@ public class JobPersistenceService {
             List<ExtractionResourceBundle> results = new ArrayList<>();
             for (Path path : files.filter(p -> p.toString().endsWith(".json")).toList()) {
                 try (var reader = io.newBufferedReader(path)) {
-                    Map<String, ResourceExtractionInfo> infoMap =
+                    Map<ExtractionId, ResourceExtractionInfo> infoMap =
                             mapper.readValue(reader, new TypeReference<>() {
                             });
                     results.add(new ExtractionResourceBundle(

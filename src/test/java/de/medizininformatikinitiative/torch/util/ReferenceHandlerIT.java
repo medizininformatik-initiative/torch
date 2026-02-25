@@ -6,6 +6,7 @@ import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -95,8 +96,8 @@ class ReferenceHandlerIT {
                            }
              }""";
 
-    public static final String PAT_REFERENCE = "Patient/VHF00006";
-    public static final String REFERENCE_MEDICATION = "Medication/testMedication";
+    public static final ExtractionId PAT_REFERENCE = ExtractionId.fromRelativeUrl("Patient/VHF00006");
+    public static final ExtractionId REFERENCE_MEDICATION = ExtractionId.fromRelativeUrl("Medication/testMedication");
 
     @Autowired
     private ProfileMustHaveChecker profileMustHaveChecker;
@@ -144,7 +145,7 @@ class ReferenceHandlerIT {
         @Test
         void testHandleReferences_invalidResource() {
             referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
-            ReferenceWrapper refWrapper = new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent");
+            ReferenceWrapper refWrapper = new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("MedicationAdministration/parent"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
@@ -163,7 +164,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
@@ -180,7 +181,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()
@@ -200,9 +201,9 @@ class ReferenceHandlerIT {
 
             PatientResourceBundle patientBundle = new PatientResourceBundle("VHF00006");
             Patient testPatient = parser.parseResource(Patient.class, PATIENT);
-            patientBundle.put(new ResourceGroupWrapper(testPatient, Set.of()));
+            patientBundle.put(testPatient);
 
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
@@ -218,8 +219,8 @@ class ReferenceHandlerIT {
             referenceAttribute = new AnnotatedAttribute("Encounter.subject", "Encounter.subject", true, List.of("Patient1"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
-            coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), "EncounterGroup", "parent"), null, coreBundle, attributeGroupMap);
+            coreBundle.put(testResource);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()

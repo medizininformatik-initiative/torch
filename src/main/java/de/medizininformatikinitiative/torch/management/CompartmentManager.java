@@ -3,7 +3,9 @@ package de.medizininformatikinitiative.torch.management;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 
@@ -51,17 +53,12 @@ public class CompartmentManager {
      * @param input String to be handled
      * @return true if prefeix
      */
-    public boolean isInCompartment(String input) {
-        String resourceType;
+    public boolean isInCompartment(@MonotonicNonNull ExtractionId input) {
+        return isInCompartment(input.resourceType());
+    }
 
-        if (input.contains("/")) {
-            // Looks like a reference string, get the part before '/'
-            resourceType = input.split("/")[0];
-        } else {
-            // Assume it's a resourceType string already
-            resourceType = input;
-        }
 
+    public boolean isInCompartment(String resourceType) {
         return compartmentMap.containsKey(resourceType);
     }
 

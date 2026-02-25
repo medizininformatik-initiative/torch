@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.hl7.fhir.r4.model.Resource;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -30,7 +32,7 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReferenceBundleLoaderTest {
-    public static final String OBSERVATION_REF = "Observation/12";
+    public static final ExtractionId OBSERVATION_REF = ExtractionId.fromRelativeUrl("Observation/12");
     int pageCount = 4;
     @Mock
     private CompartmentManager compartmentManager;
@@ -48,36 +50,40 @@ class ReferenceBundleLoaderTest {
     @BeforeEach
     void setup() {
         referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, pageCount, mappingTree);
-        referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), "Encounter1", "Encounter/123");
+        referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), "Encounter1", ExtractionId.fromRelativeUrl("Encounter/123"));
     }
 
+    @Test
+    void fetchUnknownResources_skipsMalformedFetchedResourcesWithoutId() {
+        // given
+        AnnotatedAttributeGroup mockGroup = mock(AnnotatedAttributeGroup.class);
+        when(mockGroup.resourceType()).thenReturn("Patient");
+        when(mockGroup.queries(any(), any())).thenReturn(List.of()); // no entries needed for this test
+        Map<String, AnnotatedAttributeGroup> groupMap = Map.of("linkedGroup", mockGroup);
 
-    @Nested
-    class TestChunkReferences {
-        String REF_1 = "ref-1";
-        String REF_2 = "ref-2";
-        String REF_3 = "ref-3";
+        // A fetched resource missing an id => ResourceUtils.getRelativeURL(resource) should fail / be considered malformed
+        Resource malformed = new org.hl7.fhir.r4.model.Patient(); // no id set
 
-        @Test
-        void testSingleChunk() {
-            var refsPerLinkedGroup = List.of("Resource/" + REF_1, "Resource/" + REF_2, "Resource/" + REF_3);
+        // A fetched resource with a valid id
+        org.hl7.fhir.r4.model.Patient ok = new org.hl7.fhir.r4.model.Patient();
+        ok.setId("Patient/42"); // ensure idPart exists
 
-            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 10);
+        when(dataStore.executeBundle(any()))
+                .thenReturn(Mono.just(List.of(malformed, ok)));
 
-            assertThat(chunks).containsExactly(Set.of(REF_1, REF_2, REF_3));
-        }
+        List<ExtractionId> refs = List.of(
+                ExtractionId.fromRelativeUrl("Patient/1"),
+                ExtractionId.fromRelativeUrl("Patient/2")
+        );
 
-        @Test
-        void withChunking() {
-            var refsPerLinkedGroup = List.of("Resource/" + REF_1, "Resource/" + REF_2, "Resource/" + REF_3);
-
-            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 2);
-
-            assertThat(chunks).containsExactly(
-                    Set.of(REF_1, REF_2),
-                    Set.of(REF_3));
-        }
-
+        // when / then
+        StepVerifier.create(referenceBundleLoader.fetchUnknownResources(refs, "linkedGroup", groupMap))
+                .assertNext(resources -> {
+                    assertThat(resources).hasSize(1);
+                    assertThat(resources.getFirst().getResourceType().name()).isEqualTo("Patient");
+                    assertThat(resources.getFirst().getIdElement().getIdPart()).isEqualTo("42");
+                })
+                .verifyComplete();
     }
 
     @Test
@@ -106,7 +112,7 @@ class ReferenceBundleLoaderTest {
                     .doOnCancel(activeCalls::decrementAndGet);
         });
 
-        List<String> refs = List.of("Patient/1", "Patient/2", "Patient/3");
+        List<ExtractionId> refs = Stream.of("Patient/1", "Patient/2", "Patient/3").map(ExtractionId::fromRelativeUrl).toList();
 
         StepVerifier.create(referenceBundleLoader.fetchUnknownResources(refs, "linkedGroup", groupMap))
                 .expectNextCount(1)
@@ -115,5 +121,33 @@ class ReferenceBundleLoaderTest {
         assertThat(maxActive.get())
                 .as("Max concurrent executeBundle calls should be 1")
                 .isEqualTo(1);
+    }
+
+    @Nested
+    class TestChunkReferences {
+        String REF_1 = "ref-1";
+        String REF_2 = "ref-2";
+        String REF_3 = "ref-3";
+
+        @Test
+        void testSingleChunk() {
+            var refsPerLinkedGroup = Stream.of("Resource/" + REF_1, "Resource/" + REF_2, "Resource/" + REF_3).map(ExtractionId::fromRelativeUrl).toList();
+
+            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 10);
+
+            assertThat(chunks).containsExactly(Set.of(REF_1, REF_2, REF_3));
+        }
+
+        @Test
+        void withChunking() {
+            var refsPerLinkedGroup = Stream.of("Resource/" + REF_1, "Resource/" + REF_2, "Resource/" + REF_3).map(ExtractionId::fromRelativeUrl).toList();
+
+            var chunks = referenceBundleLoader.chunkRefs(refsPerLinkedGroup, 2);
+
+            assertThat(chunks).containsExactly(
+                    Set.of(REF_1, REF_2),
+                    Set.of(REF_3));
+        }
+
     }
 }

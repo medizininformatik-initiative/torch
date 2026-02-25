@@ -50,8 +50,8 @@ import static org.hl7.fhir.r4.model.Bundle.HTTPVerb.PUT;
  * @param extractionInfoMap metadata per resourceId
  * @param cache             resolved FHIR resources per resourceId
  */
-public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtractionInfo> extractionInfoMap,
-                                       ConcurrentHashMap<String, Optional<Resource>> cache) {
+public record ExtractionResourceBundle(ConcurrentHashMap<ExtractionId, ResourceExtractionInfo> extractionInfoMap,
+                                       ConcurrentHashMap<ExtractionId, Optional<Resource>> cache) {
 
     public static final String PROGRAM_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/program";
     public static final String ATTRIBUTE_GROUP_URL = "https://www.medizininformatik-initiative.de/fhir/fdpg/NamingSystem/attribute_group";
@@ -77,16 +77,26 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
         return of(patientResourceBundle.bundle());
     }
 
-    public Optional<Resource> getResource(String id) {
+    public Optional<Resource> getResource(ExtractionId id) {
         return cache.getOrDefault(id, Optional.empty());
     }
 
-    public Optional<Resource> get(String id) {
+    public Optional<Resource> markMissing(ExtractionId id) {
         return cache.get(id);
     }
 
-    public void put(String id, Optional<Resource> resource) {
-        cache.put(id, resource);
+    public void put(ExtractionId id) {
+        cache.put(id, Optional.empty());
+    }
+
+    public boolean put(Resource resource) {
+        try {
+            ExtractionId id = ResourceUtils.getRelativeURL(resource);
+            cache.put(id, Optional.of(resource));
+            return true;
+        } catch (IllegalArgumentException ex) {
+            return false;
+        }
     }
 
     public boolean isEmpty() {
@@ -94,10 +104,10 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
     }
 
     public ExtractionResourceBundle merge(ExtractionResourceBundle other) {
-        Map<String, ResourceExtractionInfo> mergedInfo = new HashMap<>(this.extractionInfoMap);
+        Map<ExtractionId, ResourceExtractionInfo> mergedInfo = new HashMap<>(this.extractionInfoMap);
         mergedInfo.putAll(other.extractionInfoMap); // safe, immutable values
 
-        ConcurrentHashMap<String, Optional<Resource>> newCache = new ConcurrentHashMap<>(this.cache);
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> newCache = new ConcurrentHashMap<>(this.cache);
 
         other.cache.forEach((k, v) -> {
             if (v.isPresent()) newCache.put(k, v);
@@ -113,8 +123,8 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
      *
      * @return set of missing resourceIds
      */
-    public Set<String> missingCacheEntries() {
-        Set<String> keys = Set.copyOf(extractionInfoMap.keySet());
+    public Set<ExtractionId> missingCacheEntries() {
+        Set<ExtractionId> keys = Set.copyOf(extractionInfoMap.keySet());
 
         return keys.stream()
                 .filter(id -> {
@@ -149,7 +159,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
         entry.setResource(resource);
 
         Bundle.BundleEntryRequestComponent req = new Bundle.BundleEntryRequestComponent();
-        req.setUrl(ResourceUtils.getRelativeURL(resource));
+        req.setUrl(ResourceUtils.getRelativeURL(resource).toRelativeUrl());
         req.setMethod(PUT);
 
         entry.setRequest(req);
@@ -170,7 +180,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
         // resourceId → ResourceExtractionInfo(groups = Set<String>)
         // =>
         // groupId → Set<resourceId>
-        Map<String, Set<String>> groupIdToResourceIds =
+        Map<String, Set<ExtractionId>> groupIdToResourceIds =
                 extractionInfoMap.entrySet().stream()
                         .flatMap(e -> e.getValue().groups().stream()
                                 .map(groupId -> Map.entry(groupId, e.getKey())))
@@ -193,7 +203,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
     private Provenance createProvenance(
             String extractionId,
             String groupId,
-            Set<String> resourceIds
+            Set<ExtractionId> resourceIds
     ) {
         Provenance p = new Provenance();
         p.setId(PROVENANCE_PREFIX + UUID.randomUUID());
@@ -201,7 +211,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
 
         // targets
         resourceIds.forEach(rId ->
-                p.addTarget(new Reference(rId)));
+                p.addTarget(new Reference(rId.toRelativeUrl())));
 
         // occurred
         Period occurred = new Period();
@@ -235,4 +245,5 @@ public record ExtractionResourceBundle(ConcurrentHashMap<String, ResourceExtract
         fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(this.toFhirBundle(extractionId), out);
         out.append("\n");
     }
+
 }

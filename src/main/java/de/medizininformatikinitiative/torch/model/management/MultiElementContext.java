@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.ElementDefinition;
@@ -59,7 +60,7 @@ public record MultiElementContext(List<ElementContext> contexts) {
                 .isPresent();
     }
 
-    public Set<String> allowedReferences(Map<String, Set<String>> references) {
+    public Set<ExtractionId> allowedReferences(Map<String, Set<ExtractionId>> references) {
         return contexts.stream()
                 .map(ElementContext::elementId)
                 .flatMap(id -> references.entrySet().stream()

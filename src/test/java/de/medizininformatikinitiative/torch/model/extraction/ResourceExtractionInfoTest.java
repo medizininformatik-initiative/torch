@@ -37,11 +37,11 @@ class ResourceExtractionInfoTest {
 
     @Test
     void collectValidGroups_shouldReturnOnlyValidGroupsForResource() {
-        String resourceId = "Patient/1";
+        ExtractionId resourceId = ExtractionId.fromRelativeUrl("Patient/1");
 
         ResourceGroup g1 = new ResourceGroup(resourceId, "A");
         ResourceGroup g2 = new ResourceGroup(resourceId, "B");
-        ResourceGroup g3 = new ResourceGroup("Other", "X");
+        ResourceGroup g3 = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/Other"), "X");
 
         Map<ResourceGroup, Boolean> validity = Map.of(
                 g1, true,
@@ -62,15 +62,15 @@ class ResourceExtractionInfoTest {
 
     @Test
     void computeAttributeReferenceMap_shouldReturnValidReferencesOnly() {
-        String resourceId = "Observation/123";
+        ExtractionId resourceId = ExtractionId.fromRelativeUrl("Observation/123");
 
         // Create attributes
         ResourceAttribute attrA = new ResourceAttribute(resourceId, new AnnotatedAttribute("code", "p1", false));
         ResourceAttribute attrB = new ResourceAttribute(resourceId, new AnnotatedAttribute("subject", "p2", false));
 
-        ResourceGroup rg1 = new ResourceGroup("Patient/9", "G1");
-        ResourceGroup rg2 = new ResourceGroup("Patient/10", "G2");
-        ResourceGroup rgInvalid = new ResourceGroup("Patient/99", "GX");
+        ResourceGroup rg1 = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/9"), "G1");
+        ResourceGroup rg2 = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/10"), "G2");
+        ResourceGroup rgInvalid = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/99"), "GX");
 
         Map<ResourceAttribute, Set<ResourceGroup>> child = Map.of(
                 attrA, Set.of(rg1, rgInvalid),
@@ -90,29 +90,29 @@ class ResourceExtractionInfoTest {
 
         ResourceBundle bundle = bundle(Map.of(), child, validity, attrValidity);
 
-        Map<String, Set<String>> result =
+        Map<String, Set<ExtractionId>> result =
                 ResourceExtractionInfo.computeAttributeReferenceMap(bundle, resourceId);
 
         assertThat(result)
                 .containsOnlyKeys("code", "subject");
 
         assertThat(result.get("code"))
-                .containsExactly("Patient/9")              // valid only
-                .doesNotContain("Patient/99");            // invalid → excluded
+                .containsExactly(ExtractionId.fromRelativeUrl("Patient/9"))              // valid only
+                .doesNotContain(ExtractionId.fromRelativeUrl("Patient/99"));            // invalid → excluded
 
         assertThat(result.get("subject"))
-                .containsExactly("Patient/10");
+                .containsExactly(ExtractionId.fromRelativeUrl("Patient/10"));
     }
 
     @Test
     void of_shouldCombineGroupsAndAttributeMapping() {
-        String resourceId = "Condition/11";
+        ExtractionId resourceId = ExtractionId.fromRelativeUrl("Condition/11");
 
         ResourceAttribute attr = new ResourceAttribute(resourceId,
                 new AnnotatedAttribute("severity", "f1", false));
 
         ResourceGroup group = new ResourceGroup(resourceId, "GRP");
-        ResourceGroup ref = new ResourceGroup("Patient/18", "GRPX");
+        ResourceGroup ref = new ResourceGroup(ExtractionId.fromRelativeUrl("Patient/18"), "GRPX");
         Map<ResourceAttribute, Boolean> attrValidity = Map.of(attr, true);
 
         Map<ResourceAttribute, Set<ResourceGroup>> child = Map.of(
@@ -139,14 +139,14 @@ class ResourceExtractionInfoTest {
                 .containsOnlyKeys("severity");
 
         assertThat(info.attributeToReferences().get("severity"))
-                .containsExactly("Patient/18");
+                .containsExactly(ExtractionId.fromRelativeUrl("Patient/18"));
     }
 
     @Test
     void merge_nullOther_shouldReturnThis() {
         ResourceExtractionInfo left = new ResourceExtractionInfo(
                 Set.of("G1"),
-                Map.of("code", Set.of("P1"))
+                Map.of("code", Set.of(ExtractionId.fromRelativeUrl("RT/P1")))
         );
 
         assertThat(left.merge(null)).isSameAs(left);
@@ -157,16 +157,16 @@ class ResourceExtractionInfoTest {
         ResourceExtractionInfo left = new ResourceExtractionInfo(
                 Set.of("G1", "G2"),
                 Map.of(
-                        "code", Set.of("Patient/1", "Patient/2"),
-                        "subject", Set.of("Patient/3")
+                        "code", Set.of(ExtractionId.fromRelativeUrl("Patient/1"), ExtractionId.fromRelativeUrl("Patient/2")),
+                        "subject", Set.of(ExtractionId.fromRelativeUrl("Patient/3"))
                 )
         );
 
         ResourceExtractionInfo right = new ResourceExtractionInfo(
                 Set.of("G2", "G3"),
                 Map.of(
-                        "code", Set.of("Patient/99"),
-                        "author", Set.of("Practitioner/7")
+                        "code", Set.of(ExtractionId.fromRelativeUrl("Patient/99")),
+                        "author", Set.of(ExtractionId.fromRelativeUrl("Practitioner/7"))
                 )
         );
 
@@ -175,9 +175,11 @@ class ResourceExtractionInfoTest {
         ResourceExtractionInfo expected = new ResourceExtractionInfo(
                 Set.of("G1", "G2", "G3"),
                 Map.of(
-                        "code", Set.of("Patient/1", "Patient/2", "Patient/99"),
-                        "subject", Set.of("Patient/3"),
-                        "author", Set.of("Practitioner/7")
+                        "code", Set.of(ExtractionId.fromRelativeUrl("Patient/1"),
+                                ExtractionId.fromRelativeUrl("Patient/2"),
+                                ExtractionId.fromRelativeUrl("Patient/99")),
+                        "subject", Set.of(ExtractionId.fromRelativeUrl("Patient/3")),
+                        "author", Set.of(ExtractionId.fromRelativeUrl("Practitioner/7"))
                 )
         );
 

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Consent;
@@ -105,8 +106,12 @@ public class ResourceUtils {
         throw new PatientIdNotFoundException("First entry in bundle is not a DomainResource");
     }
 
-    public static String getRelativeURL(Resource resource) {
-        return resource.fhirType() + "/" + resource.getIdPart();
+    public static ExtractionId getRelativeURL(Resource resource) {
+        try {
+            return new ExtractionId(resource.fhirType(), resource.getIdPart());
+        } catch (NullPointerException e) {
+            throw new IllegalArgumentException("Resource cannot be null");
+        }
     }
 
     /**

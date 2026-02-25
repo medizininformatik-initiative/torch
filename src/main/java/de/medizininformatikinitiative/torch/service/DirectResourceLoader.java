@@ -113,24 +113,26 @@ public class DirectResourceLoader {
         logger.debug("Process core attribute group {}...", group.id());
 
         AtomicBoolean atLeastOneResource = new AtomicBoolean(!group.hasMustHave());
-        return groupQueries(group).flatMap(query -> dataStore.search(query, DomainResource.class), 1).doOnNext(resource -> {
-            String id = ResourceUtils.getRelativeURL(resource);
-            logger.trace("Storing resource {} under ID: {}", id, id);
-            if (profileMustHaveChecker.fulfilled(resource, group)) {
+        return groupQueries(group)
+                .flatMap(query -> dataStore.search(query, DomainResource.class), 1)
+                .flatMap(resource -> {
+                    boolean valid = profileMustHaveChecker.fulfilled(resource, group);
+                    if (valid) {
+                        atLeastOneResource.set(true);
+                    }
 
-                atLeastOneResource.set(true);
-                resourceBundle.put(resource, group.id(), true);
-            } else {
-                resourceBundle.put(resource, group.id(), false);
-            }
-        }).then(Mono.defer(() -> {
-            if (atLeastOneResource.get()) {
-                return Mono.empty();
-            } else {
-                logger.trace("MustHave violated for group: {}", group.groupReference());
-                return Mono.error(new MustHaveViolatedException("MustHave requirement violated for group: " + group.id()));
-            }
-        }));
+                    resourceBundle.put(resource, group.id(), valid);
+                    return Mono.empty();
+                })
+                .then(Mono.defer(() -> {
+                    if (atLeastOneResource.get()) {
+                        return Mono.empty();
+                    } else {
+                        logger.trace("MustHave violated for group: {}", group.groupReference());
+                        return Mono.error(new MustHaveViolatedException(
+                                "MustHave requirement violated for group: " + group.id()));
+                    }
+                }));
     }
 
     private static ResourceWithPatientId extractPatientId(DomainResource resource) {

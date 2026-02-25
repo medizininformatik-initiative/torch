@@ -18,7 +18,6 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceB
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -193,10 +192,7 @@ public class ExtractDataService {
                             .map(DataStoreHelper::createBatchBundleForReferences)
                             .concatMap(dataStore::executeBundle)
                             .flatMapIterable(list -> list)
-                            .doOnNext(resource -> {
-                                String id = ResourceUtils.getRelativeURL(resource);
-                                finalCb.put(id, Optional.of(resource));
-                            })
+                            .doOnNext(finalCb::put)
                             .then(Mono.just(finalCb)); // return updated cb
                 })
                 .flatMap(cb -> {

@@ -19,6 +19,7 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
@@ -257,12 +258,12 @@ class JobPersistenceServiceTest {
             ResourceExtractionInfo rei =
                     new ResourceExtractionInfo(
                             Set.of("G1"),
-                            Map.of("Patient.name", Set.of("rid-1"))
+                            Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1")))
                     );
 
             ExtractionResourceBundle cb =
                     new ExtractionResourceBundle(
-                            new ConcurrentHashMap<>(Map.of("rid-1", rei)),
+                            new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("r/rid-1"), rei)),
                             new ConcurrentHashMap<>()
                     );
 
@@ -271,8 +272,8 @@ class JobPersistenceServiceTest {
             ExtractionResourceBundle merged =
                     persistenceService.loadCoreInfo(jobId);
 
-            assertThat(merged.extractionInfoMap()).containsOnlyKeys("rid-1");
-            assertThat(merged.extractionInfoMap().get("rid-1").groups())
+            assertThat(merged.extractionInfoMap()).containsOnlyKeys(ExtractionId.fromRelativeUrl("r/rid-1"));
+            assertThat(merged.extractionInfoMap().get(ExtractionId.fromRelativeUrl("r/rid-1")).groups())
                     .containsExactly("G1");
         }
     }

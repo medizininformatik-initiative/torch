@@ -4,8 +4,10 @@ import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.DataFormatException;
 import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
+import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -335,7 +337,7 @@ public class DataStore {
      * @param references reference strings to be chunked
      * @return list of chunks containing the References grouped by Type.
      */
-    public List<Map<String, Set<String>>> groupReferencesByTypeInChunks(Set<String> references) {
+    public List<Map<String, Set<String>>> groupReferencesByTypeInChunks(@MonotonicNonNull Set<ExtractionId> references) {
         List<String> absoluteRefs = new ArrayList<>();
         List<String> malformedRefs = new ArrayList<>();
 
@@ -345,7 +347,7 @@ public class DataStore {
 
         int currentCount = 0;
 
-        for (String ref : references.stream().sorted().toList()) {
+        for (String ref : references.stream().map(ExtractionId::toRelativeUrl).sorted().toList()) {
             if (ref.startsWith("http")) {
                 absoluteRefs.add(ref);
                 continue;

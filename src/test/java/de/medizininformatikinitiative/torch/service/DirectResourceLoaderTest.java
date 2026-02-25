@@ -1,12 +1,18 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Nested;
@@ -23,8 +29,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -39,6 +49,66 @@ class DirectResourceLoaderTest {
     ProfileMustHaveChecker profileMustHaveChecker;
     @InjectMocks
     DirectResourceLoader directResourceLoader;
+
+    @Nested
+    class ProcessCoreAttributeGroupCoverage {
+
+        @Test
+        void shouldPutValidTrue_andComplete_whenAtLeastOneResourceIsValid() {
+            // mustHave=true => atLeastOneResource starts false
+            var attr = new AnnotatedAttribute("Observation.subject", "Observation.subject", true);
+            var groupRef = "http://example.org/StructureDefinition/test";
+            var group = new AnnotatedAttributeGroup(
+                    "core", "Observation", groupRef, List.of(attr), List.of()
+            );
+
+            // queries(...) with empty filters => single query with only _profile:below
+            Query expectedQuery = Query.of("Observation",
+                    QueryParams.EMPTY.appendParam("_profile:below", stringValue(groupRef)));
+
+            Observation obs = new Observation();
+            obs.setId("Observation/xyz");
+
+            when(dataStore.search(eq(expectedQuery), eq(DomainResource.class)))
+                    .thenReturn(Flux.just(obs));
+            when(profileMustHaveChecker.fulfilled(eq(obs), eq(group)))
+                    .thenReturn(true);
+
+            ResourceBundle bundle = mock(ResourceBundle.class);
+
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle))
+                    .verifyComplete();
+
+            verify(bundle).put(obs, "core", true);
+        }
+
+        @Test
+        void shouldPutValidFalse_andThenError_whenMustHaveAndNoValidResource() {
+            var attr = new AnnotatedAttribute("Observation.subject", "Observation.subject", true);
+            var groupRef = "http://example.org/StructureDefinition/test";
+            var group = new AnnotatedAttributeGroup(
+                    "core", "Observation", groupRef, List.of(attr), List.of()
+            );
+
+            Query expectedQuery = Query.of("Observation",
+                    QueryParams.EMPTY.appendParam("_profile:below", stringValue(groupRef)));
+
+            Observation obs = new Observation();
+            obs.setId("Observation/xyz");
+
+            when(dataStore.search(eq(expectedQuery), eq(DomainResource.class)))
+                    .thenReturn(Flux.just(obs));
+            when(profileMustHaveChecker.fulfilled(eq(obs), eq(group)))
+                    .thenReturn(false);
+
+            ResourceBundle bundle = mock(ResourceBundle.class);
+
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle))
+                    .expectError(MustHaveViolatedException.class)
+                    .verify();
+            verify(bundle).put(obs, "core", false);
+        }
+    }
 
 
     @Nested
@@ -64,7 +134,7 @@ class DirectResourceLoaderTest {
             StepVerifier.create(result)
                     .assertNext(res -> {
                         assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache()).doesNotContainKey("Observation/xyz");
+                        assertThat(res.get("1").bundle().cache()).doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
                     })
                     .verifyComplete();
         }
@@ -89,7 +159,7 @@ class DirectResourceLoaderTest {
             StepVerifier.create(result)
                     .assertNext(res -> {
                         assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache()).doesNotContainKey("Observation/xyz");
+                        assertThat(res.get("1").bundle().cache()).doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
                     })
                     .verifyComplete();
         }
@@ -120,7 +190,7 @@ class DirectResourceLoaderTest {
             StepVerifier.create(result)
                     .assertNext(res -> {
                         assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache()).doesNotContainKey("Observation/xyz");
+                        assertThat(res.get("1").bundle().cache()).doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
                     })
                     .verifyComplete();
         }
@@ -148,7 +218,7 @@ class DirectResourceLoaderTest {
             StepVerifier.create(result)
                     .assertNext(res -> {
                         assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache()).doesNotContainKey("Observation/xyz");
+                        assertThat(res.get("1").bundle().cache()).doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
                     })
                     .verifyComplete();
         }
@@ -183,9 +253,9 @@ class DirectResourceLoaderTest {
 
                         // Example check for modified bundle cache
                         assertThat(processedBatch.get("1").bundle().cache())
-                                .isEqualTo(Map.of("Observation/xyz", Optional.of(observation)));
+                                .isEqualTo(Map.of(ExtractionId.fromRelativeUrl("Observation/xyz"), Optional.of(observation)));
                         assertThat(processedBatch.get("1").bundle().getValidResourceGroups()).doesNotContain(
-                                new ResourceGroup("Observation/xyz", "test"));
+                                new ResourceGroup(ExtractionId.fromRelativeUrl("Observation/xyz"), "test"));
                     })
                     .verifyComplete();
         }
@@ -220,9 +290,9 @@ class DirectResourceLoaderTest {
 
                         // Example check for modified bundle cache
                         assertThat(processedBatch.get("1").bundle().cache())
-                                .isEqualTo(Map.of("Observation/xyz", Optional.of(observation)));
+                                .isEqualTo(Map.of(ExtractionId.fromRelativeUrl("Observation/xyz"), Optional.of(observation)));
                         assertThat(processedBatch.get("1").bundle().getValidResourceGroups()).containsExactly(
-                                new ResourceGroup("Observation/xyz", "test"));
+                                new ResourceGroup(ExtractionId.fromRelativeUrl("Observation/xyz"), "test"));
                     })
                     .verifyComplete();
         }

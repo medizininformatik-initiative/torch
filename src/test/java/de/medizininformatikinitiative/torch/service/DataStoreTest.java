@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
 import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
@@ -515,7 +516,7 @@ class DataStoreTest {
 
             @Test
             void withoutChunking() {
-                var chunks = dataStore.groupReferencesByTypeInChunks(Set.of(
+                var chunks = dataStore.groupReferencesByTypeInChunks(ExtractionId.of(
                         "Observation/123",
                         "Patient/2",
                         "Patient/1",
@@ -533,7 +534,7 @@ class DataStoreTest {
 
             @Test
             void withChunking() {
-                var chunks = dataStore.groupReferencesByTypeInChunks(Set.of(
+                var chunks = dataStore.groupReferencesByTypeInChunks(ExtractionId.of(
                         "Observation/123",
                         "Patient/2",
                         "Patient/1",
