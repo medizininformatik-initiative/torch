@@ -7,6 +7,8 @@ echo "➡️ Uploading initial data bundle..."
 echo "Root dir: $ROOT_DIR"
 ls "$ROOT_DIR/src/test/resources/BlazeBundle.json"
 
+
+
 if curl -s http://localhost:8083/fhir/metadata?_elements=software | jq -r '.software.name' | grep -iq blaze; then
   echo "✅ Source FHIR Server Live"
 else
@@ -25,11 +27,23 @@ TARGET_SERVER=http://localhost:8084/fhir
 
 # 2. Run extraction + transfer script
 echo "➡️ Running extraction and transfer..."
-TORCH_BASE_URL=http://localhost:8080 \
-"$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh" -c "$ROOT_DIR/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json" -t "$TARGET_SERVER"
+TORCH_BASE_URL=http://localhost:8080
+
+EXTRACT_SCRIPT="$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh"
+CRTDL="$ROOT_DIR/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json"
+
+if [[ -n "${PATIENTS:-}" ]]; then
+  echo "👤 Using patients filter: $PATIENTS"
+  TORCH_BASE_URL=$TORCH_BASE_URL \
+    "$EXTRACT_SCRIPT" -c "$CRTDL" -t "$TARGET_SERVER" --patients "$PATIENTS"
+else
+  echo "👤 No patients filter"
+  TORCH_BASE_URL=$TORCH_BASE_URL \
+    "$EXTRACT_SCRIPT" -c "$CRTDL" -t "$TARGET_SERVER"
+fi
 
 # 3. Assertions – Patient count
-EXPECTED_PATIENT_COUNT=4
+EXPECTED_PATIENT_COUNT="${EXPECTED_PATIENT_COUNT:-4}"
 ACTUAL_PATIENT_COUNT=$(curl -s "${TARGET_SERVER}/Patient?_summary=count" | jq '.total')
 
 if [ "$ACTUAL_PATIENT_COUNT" -eq "$EXPECTED_PATIENT_COUNT" ]; then
@@ -40,7 +54,7 @@ else
 fi
 
 # 4. Assertions – Observation count
-EXPECTED_OBSERVATION_COUNT=4
+EXPECTED_OBSERVATION_COUNT="${EXPECTED_OBSERVATION_COUNT:-4}"
 ACTUAL_OBSERVATION_COUNT=$(curl -s "${TARGET_SERVER}/Observation?_summary=count" | jq '.total')
 
 if [ "$ACTUAL_OBSERVATION_COUNT" -eq "$EXPECTED_OBSERVATION_COUNT" ]; then
