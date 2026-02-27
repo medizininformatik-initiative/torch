@@ -19,6 +19,19 @@ cleanup() {
 }
 trap cleanup EXIT
 
+PATIENTS=()
+
+add_patients_csv() {
+  local csv="${1:-}"
+  [[ -z "$csv" ]] && return 0
+  IFS=',' read -r -a _arr <<<"$csv"
+  for p in "${_arr[@]}"; do
+    # trim whitespace
+    p="$(echo "$p" | awk '{$1=$1;print}')"
+    [[ -n "$p" ]] && PATIENTS+=("$p")
+  done
+}
+
 echo "🔧 Transfer Extraction To DUP FHIR Server Configuration:"
 echo "  TORCH_BASE_URL = $TORCH_BASE_URL"
 echo "  MAX_RUNTIME_MINS    = $MAX_RUNTIME_MINS"
@@ -38,6 +51,7 @@ Options:
   -j <id>        Existing export/status id
   -t <string>    Target DUP FHIR server URL
   --help         Show this help message
+  --patients      Optional Comma-separated list of patients -> adds repeated Parameters.parameter[name=patient]
 
 Environment variables:
   TORCH_BASE_URL    Default: http://localhost:8080
@@ -57,6 +71,10 @@ while [[ $# -gt 0 ]]; do
       EXPORT_ID="${2:-}"
       shift 2
       ;;
+    --patients)
+        add_patients_csv "${2:-}"
+        shift 2
+        ;;
     -t)
       TARGET_SERVER="${2:-}"
       shift 2
@@ -111,14 +129,20 @@ if [[ -z "$EXPORT_ID" ]]; then
   echo "➡️ Generating and uploading Parameters from: $CRTDL_FILE"
   echo "📤 Posting to $TORCH_BASE_URL/fhir/\$extract-data"
 
-  RESPONSE=$(
-    parameters \
-      | jq --arg content "$(cat "$CRTDL_FILE")" -cM '.parameter[0].valueBase64Binary = ($content | @base64)' \
-      | curl -i -s \
-          -X POST "$TORCH_BASE_URL/fhir/\$extract-data" \
-          -H "Content-Type: application/fhir+json" \
-          --data-binary @-
-  )
+RESPONSE=$(
+  parameters \
+    | jq -cM \
+         --arg content "$(cat "$CRTDL_FILE")" \
+         '
+          .parameter[0].valueBase64Binary = ($content | @base64)
+          | .parameter += ($ARGS.positional | map({name:"patient", valueString:.}))
+         ' \
+         --args "${PATIENTS[@]}" \
+    | curl -i -s \
+        -X POST "$TORCH_BASE_URL/fhir/\$extract-data" \
+        -H "Content-Type: application/fhir+json" \
+        --data-binary @-
+)
 
   RAW_LOCATION=$(echo "$RESPONSE" | awk '/Content-Location:/ {print $2}' | tr -d '\r\n')
   if [[ -z "$RAW_LOCATION" ]]; then

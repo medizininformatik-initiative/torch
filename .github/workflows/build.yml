@@ -223,6 +223,21 @@ jobs:
   script-integration-test:
     needs: build
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: no-patients
+            patients: ""              # no --patients flag
+            expected_patients: 4
+            expected_observations: 4
+
+          - name: with-patients
+            patients: "VHF00006"
+            expected_patients: 1
+            expected_observations: 1
+
+    name: script-integration-test (${{ matrix.name }})
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
@@ -253,6 +268,10 @@ jobs:
         run: docker compose up --wait -d
 
       - name: Run integration script
+        env:
+          PATIENTS: ${{ matrix.patients }}
+          EXPECTED_PATIENT_COUNT: ${{ matrix.expected_patients }}
+          EXPECTED_OBSERVATION_COUNT: ${{ matrix.expected_observations }}
         run: bash .github/workflows/script-integration-test/integration-test.sh
 
   script-resumeability-test:
