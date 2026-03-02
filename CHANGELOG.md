@@ -4,7 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [v1.0.0-alpha.15] - 2026-02-16
+## [v1.0.0-alpha.17] - 2026-03-02
+
+### Added
+
+- Introduce a Reference Record [#751](https://github.com/medizininformatik-initiative/torch/issues/751)
+
+### Changed
+
+- Remove Torch Reference Restriction [#741](https://github.com/medizininformatik-initiative/torch/issues/741)
+- Update sq2cql To 1.3.0 [#755](https://github.com/medizininformatik-initiative/torch/issues/755)
+- Update Onto To v4.0.0 [#757](https://github.com/medizininformatik-initiative/torch/issues/757)
+
+### Fixed
+
+- Fix RuntimeException In Update Results In JobError [#743](https://github.com/medizininformatik-initiative/torch/issues/743)
+- Fix do not suggest output if there is none [#742](https://github.com/medizininformatik-initiative/torch/issues/742)
+- Ensure Unexpandable concept does not shut down torch [#749](https://github.com/medizininformatik-initiative/torch/issues/749)
+- Large JSON files cause "create-parameters.sh" to fail [#675](https://github.com/medizininformatik-initiative/torch/issues/675)
+
+## [v1.0.0-alpha.16] - 2026-02-16
 
 ### Fixed
 
