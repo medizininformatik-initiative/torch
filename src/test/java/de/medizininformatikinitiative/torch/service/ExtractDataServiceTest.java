@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
+import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
@@ -174,7 +175,15 @@ class ExtractDataServiceTest {
                             assertThat(res.batchId()).isEqualTo(batchId);
                             assertThat(res.batchState()).isSameAs(finishedState);
                             assertThat(res.resultCoreBundle()).containsSame(coreBundle);
-                            assertThat(res.issues()).isEmpty();
+                            assertThat(res.issues())
+                                    .extracting(Issue::msg)
+                                    .containsExactly(
+                                            "Loaded patient compartment",
+                                            "Resolved references",
+                                            "Applied cascading delete",
+                                            "Extraction finished",
+                                            "Wrote NDJSON bundle"
+                                    );
                         })
                         .verifyComplete();
 
