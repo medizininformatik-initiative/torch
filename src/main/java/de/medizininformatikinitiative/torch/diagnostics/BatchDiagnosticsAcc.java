@@ -1,27 +1,24 @@
 package de.medizininformatikinitiative.torch.diagnostics;
 
-import java.util.Collections;
-import java.util.Map;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * Thread-safe accumulator for collecting exclusion diagnostics during batch processing.
  *
- * <p>Call {@link #incPatientsExcluded} and {@link #incResourcesExcluded} concurrently from
- * worker threads, then call {@link #snapshot()} once at the end to obtain an immutable
- * {@link BatchDiagnostics} record.
+ * <p>Call {@link #incPatientsExcluded}, {@link #incResourcesExcluded}, and
+ * {@link #recordDuration} concurrently from worker threads, then call
+ * {@link #snapshot(long)} once at the end to obtain an immutable {@link BatchDiagnostics} record.
  */
 public final class BatchDiagnosticsAcc {
 
     private final UUID jobId;
     private final UUID batchId;
-    private final int cohortPatientsInBatch;
+    private final long cohortPatientsInBatch;
 
-    private final AtomicInteger finalPatientsInBatch = new AtomicInteger(-1);
     private final ConcurrentHashMap<CriterionKey, CriterionCounts> criteria = new ConcurrentHashMap<>();
 
     /**
@@ -33,7 +30,7 @@ public final class BatchDiagnosticsAcc {
      * @throws NullPointerException     if {@code jobId} or {@code batchId} is {@code null}
      * @throws IllegalArgumentException if {@code cohortPatientsInBatch} is negative
      */
-    public BatchDiagnosticsAcc(UUID jobId, UUID batchId, int cohortPatientsInBatch) {
+    public BatchDiagnosticsAcc(UUID jobId, UUID batchId, long cohortPatientsInBatch) {
         this.jobId = requireNonNull(jobId, "jobId");
         this.batchId = requireNonNull(batchId, "batchId");
         if (cohortPatientsInBatch < 0) {
@@ -50,24 +47,8 @@ public final class BatchDiagnosticsAcc {
         return batchId;
     }
 
-    public int cohortPatientsInBatch() {
+    public long cohortPatientsInBatch() {
         return cohortPatientsInBatch;
-    }
-
-    /**
-     * Records the number of patients that passed all exclusion checks in this batch.
-     *
-     * <p>Intended to be called once at the end of processing. If called multiple times, the last
-     * write wins. When never called, {@link #snapshot()} falls back to {@code cohortPatientsInBatch}.
-     *
-     * @param finalPatients number of surviving patients; must be &gt;= 0
-     * @throws IllegalArgumentException if {@code finalPatients} is negative
-     */
-    public void setFinalPatientsInBatch(int finalPatients) {
-        if (finalPatients < 0) {
-            throw new IllegalArgumentException("finalPatientsInBatch must be >= 0");
-        }
-        finalPatientsInBatch.set(finalPatients);
     }
 
     /**
@@ -127,27 +108,27 @@ public final class BatchDiagnosticsAcc {
     /**
      * Returns an immutable {@link BatchDiagnostics} reflecting the current accumulated state.
      *
-     * <p>If {@link #setFinalPatientsInBatch} was never called, {@code finalPatientsInBatch} defaults
-     * to {@code cohortPatientsInBatch}. Can be called multiple times; each call produces an
-     * independent snapshot.
+     * <p>Can be called multiple times; each call produces an independent snapshot.
      *
+     * @param finalPatientsInBatch number of patients that survived all exclusion checks; must be &gt;= 0
      * @return a point-in-time snapshot of batch diagnostics
+     * @throws IllegalArgumentException if {@code finalPatientsInBatch} is negative
      */
-    public BatchDiagnostics snapshot() {
-        int finalPatients = finalPatientsInBatch.get();
-        if (finalPatients < 0) {
-            finalPatients = cohortPatientsInBatch;
+    public BatchDiagnostics snapshot(long finalPatientsInBatch) {
+        if (finalPatientsInBatch < 0) {
+            throw new IllegalArgumentException("finalPatientsInBatch must be >= 0");
         }
 
-        // Make it immutable-ish for downstream consumers
-        Map<CriterionKey, CriterionCounts> copy = Collections.unmodifiableMap(new ConcurrentHashMap<>(criteria));
+        List<CriterionEntry> entries = criteria.entrySet().stream()
+                .map(e -> new CriterionEntry(e.getKey(), e.getValue()))
+                .toList();
 
         return new BatchDiagnostics(
                 jobId,
                 batchId,
                 cohortPatientsInBatch,
-                finalPatients,
-                copy
+                finalPatientsInBatch,
+                List.copyOf(entries)
         );
     }
 }

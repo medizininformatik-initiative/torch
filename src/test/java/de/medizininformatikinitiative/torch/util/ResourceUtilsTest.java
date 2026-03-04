@@ -6,11 +6,22 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ResourceUtilsTest {
 
+
+    @Nested
+    class GetMethodWithOneParam {
+
+        @Test
+        void throwsWhenMethodNotFound() {
+            assertThatThrownBy(() -> ResourceUtils.getMethodWithOneParam(new Patient(), "nonExistentMethod"))
+                    .isInstanceOf(NoSuchMethodException.class);
+        }
+    }
 
     @Nested
     class getPatientId {

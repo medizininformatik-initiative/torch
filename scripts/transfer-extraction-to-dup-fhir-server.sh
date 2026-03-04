@@ -256,6 +256,32 @@ wait_for_url() {
   return 1
 }
 
+print_summary() {
+  local url="$1"
+  local filename="$TMP_DIR/$(basename "$url")"
+
+  if ! wait_for_url "$url" 10 10; then
+    echo "❌ Timed out waiting for diagnostics file: $url" >&2
+    exit 1
+  fi
+
+  echo "🌐 Downloading diagnostics: $url"
+  curl -s -o "$filename" "$url"
+
+  echo
+  echo "📊 TORCH Job Diagnostics"
+  echo "--------------------------------------------"
+  if command -v jq >/dev/null 2>&1; then
+    jq . "$filename"
+  else
+    cat "$filename"
+  fi
+  echo "--------------------------------------------"
+  echo
+
+  rm -f "$filename"
+}
+
 process_file() {
   local url="$1"
   local filename="$TMP_DIR/$(basename "$url")"
@@ -282,9 +308,13 @@ for url in "${urls[@]}"; do
   [[ "$url" == *core.ndjson ]] && process_file "$url" && break
 done
 
+for url in "${urls[@]}"; do
+  [[ "$url" == */reports/job-summary.json ]] && print_summary "$url"
+done
+
 # rest
 for url in "${urls[@]}"; do
-  [[ "$url" != *core.ndjson ]] && process_file "$url"
+  [[ "$url" != *core.ndjson && "$url" != */reports/job-summary.json ]] && process_file "$url"
 done
 
 echo "✅ Extraction transfer completed"

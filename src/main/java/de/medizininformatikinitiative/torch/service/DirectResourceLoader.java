@@ -1,6 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
+import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -38,17 +41,19 @@ public class DirectResourceLoader {
     private static final Logger logger = LoggerFactory.getLogger(DirectResourceLoader.class);
 
     private final DataStore dataStore;
-
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final ProfileMustHaveChecker profileMustHaveChecker;
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
-        this.dataStore = dataStore;
-        this.consentValidator = validator;
-        this.dseMappingTreeBase = dseMappingTreeBase;
-        this.profileMustHaveChecker = profileMustHaveChecker;
+    public DirectResourceLoader(DataStore dataStore,
+                                DseMappingTreeBase dseMappingTreeBase,
+                                ProfileMustHaveChecker profileMustHaveChecker,
+                                ConsentValidator validator) {
+        this.dataStore = requireNonNull(dataStore);
+        this.consentValidator = requireNonNull(validator);
+        this.dseMappingTreeBase = requireNonNull(dseMappingTreeBase);
+        this.profileMustHaveChecker = requireNonNull(profileMustHaveChecker);
     }
 
     /**
@@ -56,28 +61,35 @@ public class DirectResourceLoader {
      *
      * @param attributeGroups CRTDL to be applied on batch
      * @param batch           Batch of Patient IDs
+     * @param acc             diagnostics accumulator (per batch)
      * @return Mono containing processed PatientBatchWithConsent
      */
     public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
             List<AnnotatedAttributeGroup> attributeGroups,
-            PatientBatchWithConsent batch) {
+            PatientBatchWithConsent batch,
+            BatchDiagnosticsAcc acc) {
 
         logger.trace("Starting collectResourcesByPatientReference");
         logger.trace("Patients Received: {}", batch);
 
-        return processBatchWithConsent(attributeGroups, batch);
+        return processBatchWithConsent(attributeGroups, batch, acc);
     }
 
-    private Mono<PatientBatchWithConsent> processBatchWithConsent(List<AnnotatedAttributeGroup> attributeGroups, PatientBatchWithConsent patientBatchWithConsent) {
+    private Mono<PatientBatchWithConsent> processBatchWithConsent(
+            List<AnnotatedAttributeGroup> attributeGroups,
+            PatientBatchWithConsent patientBatchWithConsent,
+            BatchDiagnosticsAcc acc) {
+
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet)
-                .doOnNext(bundle -> {
-                    logger.debug(" {} out of {} patients passed consent checks",
+
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet, acc)
+                .doOnNext(__ -> {
+                    logger.debug("{} out of {} patients passed checks",
                             safeSet.size(),
                             patientBatchWithConsent.patientBatch().ids().size());
                     logger.trace("Surviving patient IDs: {}", String.join(", ", safeSet));
                 })
-                .map(bundle -> patientBatchWithConsent.keep(safeSet));
+                .map(__ -> patientBatchWithConsent.keep(safeSet));
     }
 
     private Flux<Query> groupQueries(AnnotatedAttributeGroup group) {
@@ -86,39 +98,67 @@ public class DirectResourceLoader {
 
     Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
         logger.debug("Execute query {} over {} patients", query, batch.ids().size());
-        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())), DomainResource.class);
+        return dataStore.search(
+                Query.of(
+                        query.type(),
+                        batch.compartmentSearchParam(query.type()).appendParams(query.params())
+                ),
+                DomainResource.class
+        );
     }
 
-    private Mono<DomainResource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
+    private Mono<DomainResource> applyConsent(DomainResource resource,
+                                              PatientBatchWithConsent patientBatchWithConsent,
+                                              BatchDiagnosticsAcc acc) {
         if (!patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent)) {
             return Mono.just(resource);
-        } else {
-            logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-            return Mono.empty();
         }
+        logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+        acc.incResourcesExcluded(CriterionKeys.consentResourceBlocked(), 1);
+        return Mono.empty();
     }
 
-    public Mono<PatientBatchWithConsent> processPatientAttributeGroups(List<AnnotatedAttributeGroup> groups, PatientBatchWithConsent batch, Set<String> safeSet) {
-        logger.debug("Process {} patient attribute groups over {} patients...", groups.size(), batch.patientBatch().ids().size());
+    public Mono<PatientBatchWithConsent> processPatientAttributeGroups(
+            List<AnnotatedAttributeGroup> groups,
+            PatientBatchWithConsent batch,
+            Set<String> safeSet,
+            BatchDiagnosticsAcc acc) {
+
+        logger.debug("Process {} patient attribute groups over {} patients...",
+                groups.size(), batch.patientBatch().ids().size());
+
         return Flux.fromIterable(groups)
-                .concatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet))
-                .then(Mono.just(batch));
+                .concatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet, acc))
+                .then().thenReturn(batch);
     }
 
-    public Mono<ResourceBundle> processCoreAttributeGroups(List<AnnotatedAttributeGroup> attributeGroups, ResourceBundle coreResourceBundle) {
-        return Flux.fromIterable(attributeGroups).concatMap(group -> processCoreAttributeGroup(group, coreResourceBundle)).then(Mono.just(coreResourceBundle));
+    public Mono<ResourceBundle> processCoreAttributeGroups(
+            List<AnnotatedAttributeGroup> attributeGroups,
+            ResourceBundle coreResourceBundle,
+            BatchDiagnosticsAcc acc) {
+
+        return Flux.fromIterable(attributeGroups)
+                .concatMap(group -> processCoreAttributeGroup(group, coreResourceBundle, acc))
+                .then().thenReturn(coreResourceBundle);
     }
 
-    public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group, ResourceBundle resourceBundle) {
+    public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group,
+                                                ResourceBundle resourceBundle,
+                                                BatchDiagnosticsAcc acc) {
         logger.debug("Process core attribute group {}...", group.id());
 
         AtomicBoolean atLeastOneResource = new AtomicBoolean(!group.hasMustHave());
+
         return groupQueries(group)
                 .flatMap(query -> dataStore.search(query, DomainResource.class), 1)
                 .flatMap(resource -> {
-                    boolean valid = profileMustHaveChecker.fulfilled(resource, group);
+                    MustHaveEvaluation eval = profileMustHaveChecker.evaluateFirst(resource, group);
+                    boolean valid = eval instanceof MustHaveEvaluation.Fulfilled;
+
                     if (valid) {
                         atLeastOneResource.set(true);
+                    } else if (eval instanceof MustHaveEvaluation.Violated v) {
+                        acc.incResourcesExcluded(CriterionKeys.mustHaveAttribute(group, v.firstViolated()), 1);
                     }
 
                     resourceBundle.put(resource, group.id(), valid);
@@ -127,11 +167,10 @@ public class DirectResourceLoader {
                 .then(Mono.defer(() -> {
                     if (atLeastOneResource.get()) {
                         return Mono.empty();
-                    } else {
-                        logger.trace("MustHave violated for group: {}", group.groupReference());
-                        return Mono.error(new MustHaveViolatedException(
-                                "MustHave requirement violated for group: " + group.id()));
                     }
+                    logger.trace("MustHave violated for group: {}", group.groupReference());
+                    return Mono.error(new MustHaveViolatedException(
+                            "MustHave requirement violated for group: " + group.id()));
                 }));
     }
 
@@ -151,46 +190,67 @@ public class DirectResourceLoader {
         }
     }
 
-    /**
-     * Fetches all resources for a batch and adds them to it, if
-     *
-     * @param group   Annotated Attribute Group to be processed
-     * @param batch   patient batch containing the PatientResourceBundles to be filled
-     * @param safeSet resources that have survived so far.
-     * @return Patient batch containing a bundle per Patient Resource
-     */
     private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(AnnotatedAttributeGroup group,
                                                                              PatientBatchWithConsent batch,
-                                                                             Set<String> safeSet) {
+                                                                             Set<String> safeSet,
+                                                                             BatchDiagnosticsAcc acc) {
         logger.debug("Process patient attribute group {}...", group.id());
+
         Set<String> safeGroup = new HashSet<>();
+
+        // snapshot of who is currently alive before this group executes
+        Set<String> aliveBeforeGroup = new HashSet<>(safeSet);
 
         if (!group.hasMustHave()) {
             safeGroup.addAll(batch.patientBatch().ids());
             logger.trace("Group has no must-have constraints, initial safe group: {}", safeGroup);
         }
 
-        // Extract a mutable copy of the patient bundles
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
         return groupQueries(group)
                 .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
-                .concatMap(resource -> applyConsent(resource, batch))
+                .concatMap(resource -> applyConsent(resource, batch, acc))
                 .mapNotNull(DirectResourceLoader::extractPatientId)
                 .filter(tuple -> batch.bundles().containsKey(tuple.patientId))
                 .doOnDiscard(ResourceWithPatientId.class, tuple ->
-                        logger.warn("Ignoring resource {} referencing patient {} not in batch", tuple.resource.getId(), tuple.patientId))
+                        logger.warn("Ignoring resource {} referencing patient {} not in batch",
+                                tuple.resource.getId(), tuple.patientId))
                 .doOnNext(tuple -> {
                     PatientResourceBundle bundle = mutableBundles.get(tuple.patientId);
-                    if (profileMustHaveChecker.fulfilled(tuple.resource, group)) {
+
+                    MustHaveEvaluation eval = profileMustHaveChecker.evaluateFirst(tuple.resource, group);
+
+                    // Not applicable (profile mismatch etc.) -> not counted as must-have failure
+                    if (eval instanceof MustHaveEvaluation.NotApplicable) {
+                        bundle.put(tuple.resource, group.id(), false);
+                        return;
+                    }
+
+                    if (eval instanceof MustHaveEvaluation.Fulfilled) {
                         safeGroup.add(tuple.patientId);
                         bundle.put(tuple.resource, group.id(), true);
-                    } else {
-                        logger.trace("Resource {} has not fulfilled must have checks for group {}", tuple.resource.getId(), group.id());
+                    } else if (eval instanceof MustHaveEvaluation.Violated v) {
                         bundle.put(tuple.resource, group.id(), false);
+                        acc.incResourcesExcluded(CriterionKeys.mustHaveAttribute(group, v.firstViolated()), 1);
                     }
                 })
-                .doOnTerminate(() -> safeSet.retainAll(safeGroup))
-                .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent(), batch.coreBundle(), batch.id()))); // Convert back to immutable
+                .doFinally(signal -> {
+                    if (group.hasMustHave()) {
+                        Set<String> removed = new HashSet<>(aliveBeforeGroup);
+                        removed.removeAll(safeGroup);
+
+                        if (!removed.isEmpty()) {
+                            acc.incPatientsExcluded(CriterionKeys.mustHaveGroup(group), removed.size());
+                        }
+                    }
+                    safeSet.retainAll(safeGroup);
+                })
+                .then().thenReturn(new PatientBatchWithConsent(
+                        mutableBundles,
+                        batch.applyConsent(),
+                        batch.coreBundle(),
+                        batch.id()
+                ));
     }
 }
