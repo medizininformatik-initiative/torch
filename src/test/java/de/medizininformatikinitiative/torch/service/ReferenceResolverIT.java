@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -235,6 +236,102 @@ public class ReferenceResolverIT {
             );
         }
 
+        @Test
+        void testNestedResolveWithAcc() {
+            var org_1 = createOrganization(ORG_ID_1.toString(), ORG_ID_2.toString());
+            var org_2 = createOrganization(ORG_ID_2.toString(), null).setName("name-83849");
+            var med = createMedication();
+            when(dataStore.executeBundle(any())).thenAnswer(invocation -> {
+                Bundle queryBundle = invocation.getArgument(0);
+                return Mono.just(returnResourcesByQuery(queryBundle, org_1, org_2, med));
+            });
+            ResourceBundle resourceBundle = new ResourceBundle();
+            resourceBundle.put(med);
+            resourceBundle.addResourceGroupValidity(rgFromResource(med, MED_GROUP), true);
+            Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
+            AnnotatedAttribute med_manufacturer = new AnnotatedAttribute(MANUFACTURER_PATH, MANUFACTURER_PATH, false, List.of(LINKED_ORG_GROUP_1));
+            AnnotatedAttribute org_partOf = new AnnotatedAttribute(PARTOF_PATH, PARTOF_PATH, false, List.of(LINKED_ORG_GROUP_2));
+            AnnotatedAttribute org_name = new AnnotatedAttribute(ORGNAME_PATH, ORGNAME_PATH, false, List.of());
+            AnnotatedAttributeGroup medAG = new AnnotatedAttributeGroup(AG_1, MEDICATION_TYPE,
+                    MEDICATION_PROFILE, List.of(med_manufacturer), List.of());
+            AnnotatedAttributeGroup linkedOrgAG_1 = new AnnotatedAttributeGroup(AG_2, ORGANIZATION_TYPE,
+                    ORGANIZATION_PROFILE, List.of(org_partOf), List.of());
+            AnnotatedAttributeGroup linkedOrgAG_2 = new AnnotatedAttributeGroup(AG_3, ORGANIZATION_TYPE,
+                    ORGANIZATION_PROFILE, List.of(org_name), List.of());
+            groupMap.put(MED_GROUP, medAG);
+            groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
+            groupMap.put(LINKED_ORG_GROUP_2, linkedOrgAG_2);
+
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, 1);
+
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, acc).block();
+
+            assertThat(resultBundle).isNotNull();
+            assertThat(resultBundle.resourceGroupValidity()).containsOnly(
+                    Map.entry(rgFromResource(med, MED_GROUP), true),
+                    Map.entry(rgFromResource(org_1, LINKED_ORG_GROUP_1), true),
+                    Map.entry(rgFromResource(org_2, LINKED_ORG_GROUP_2), true));
+        }
+
+        @Test
+        void testMissingReferenceWithAcc() {
+            var med = createMedication();
+            // Server returns nothing — org_1 is not found
+            when(dataStore.executeBundle(any())).thenReturn(Mono.just(List.of()));
+            ResourceBundle resourceBundle = new ResourceBundle();
+            resourceBundle.put(med);
+            resourceBundle.addResourceGroupValidity(rgFromResource(med, MED_GROUP), true);
+            Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
+            AnnotatedAttribute med_manufacturer = new AnnotatedAttribute(MANUFACTURER_PATH, MANUFACTURER_PATH, false, List.of(LINKED_ORG_GROUP_1));
+            AnnotatedAttributeGroup medAG = new AnnotatedAttributeGroup(AG_1, MEDICATION_TYPE,
+                    MEDICATION_PROFILE, List.of(med_manufacturer), List.of());
+            AnnotatedAttributeGroup linkedOrgAG_1 = new AnnotatedAttributeGroup(AG_2, ORGANIZATION_TYPE,
+                    ORGANIZATION_PROFILE, List.of(), List.of());
+            groupMap.put(MED_GROUP, medAG);
+            groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
+
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, 1);
+
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, acc).block();
+
+            assertThat(resultBundle).isNotNull();
+            assertThat(resultBundle.resourceGroupValidity().get(rgFromResource(med, MED_GROUP))).isTrue();
+            // org_1 was not fetched → its ResourceGroup should be marked invalid
+            var org1Rg = new ResourceGroup(ORG_ID_1, LINKED_ORG_GROUP_1);
+            assertThat(resultBundle.resourceGroupValidity().get(org1Rg)).isFalse();
+            // Diagnostics should record the missing reference
+            var snapshot = acc.snapshot();
+            assertThat(snapshot.criteria()).isNotEmpty();
+        }
+
+        @Test
+        void testMissingReference_noAcc() {
+            var med = createMedication();
+            // Server returns nothing — org_1 is not found
+            when(dataStore.executeBundle(any())).thenReturn(Mono.just(List.of()));
+            ResourceBundle resourceBundle = new ResourceBundle();
+            resourceBundle.put(med);
+            resourceBundle.addResourceGroupValidity(rgFromResource(med, MED_GROUP), true);
+            Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
+            AnnotatedAttribute med_manufacturer = new AnnotatedAttribute(MANUFACTURER_PATH, MANUFACTURER_PATH, false, List.of(LINKED_ORG_GROUP_1));
+            AnnotatedAttributeGroup medAG = new AnnotatedAttributeGroup(AG_1, MEDICATION_TYPE,
+                    MEDICATION_PROFILE, List.of(med_manufacturer), List.of());
+            AnnotatedAttributeGroup linkedOrgAG_1 = new AnnotatedAttributeGroup(AG_2, ORGANIZATION_TYPE,
+                    ORGANIZATION_PROFILE, List.of(), List.of());
+            groupMap.put(MED_GROUP, medAG);
+            groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
+
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap).block();
+
+            assertThat(resultBundle).isNotNull();
+            assertThat(resultBundle.resourceGroupValidity().get(rgFromResource(med, MED_GROUP))).isTrue();
+            var org1Rg = new ResourceGroup(ORG_ID_1, LINKED_ORG_GROUP_1);
+            assertThat(resultBundle.resourceGroupValidity().get(org1Rg)).isFalse();
+        }
     }
 
     @Nested
@@ -337,8 +434,8 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedEncAG_1);
             groupMap.put(LINKED_GROUP_2, linkedEncAG_2);
 
-
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
 
 
             assertThat(resultBatch).isNotNull();
@@ -392,7 +489,8 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedCondAG);
 
 
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
 
 
             assertThat(resultBatch).isNotNull();

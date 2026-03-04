@@ -24,6 +24,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -32,11 +33,28 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class JobTest {
 
+    public static Job job(UUID id, JobStatus status, WorkUnitState cohortState,
+                          Map<UUID, BatchState> batches, WorkUnitState coreState) {
+        Instant now = Instant.now();
+        return new Job(id, status, cohortState, 0, batches, now, now,
+                Optional.empty(), List.of(),
+                new JobParameters(
+                        new de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl(
+                                new com.fasterxml.jackson.databind.node.JsonNodeFactory(false).objectNode(),
+                                new de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction(List.of()),
+                                Optional.empty()
+                        ),
+                        List.of()
+                ),
+                JobPriority.NORMAL, coreState, 0L);
+    }
+
     private static BatchResult finishedBatch(Job job, BatchState state) {
         return new BatchResult(
                 job.id(),
                 state.batchId(),
                 state.finishNow(WorkUnitStatus.FINISHED),
+                Optional.empty(),
                 Optional.empty(),
                 List.of()
         );

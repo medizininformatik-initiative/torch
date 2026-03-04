@@ -384,9 +384,15 @@ public class FhirController {
      *
      * <p>Includes NDJSON output URLs and embeds the {@link Job} as a custom extension.</p>
      */
+    /**
+     * Builds the completed-job response JSON.
+     *
+     * <p>Includes output file URLs and embeds the {@link Job} as a custom extension.</p>
+     */
     public JsonNode loadCompletedJobJSON(Job job,
                                          String requestUrl,
-                                         String transactionTime, String fileServerName) {
+                                         String transactionTime,
+                                         String fileServerName) {
         ObjectNode root = mapper.createObjectNode();
         root.put("transactionTime", transactionTime);
         root.put("request", requestUrl);
@@ -405,6 +411,12 @@ public class FhirController {
             outputArr.add(mapper.createObjectNode()
                     .put("url", fileServerName + "/" + job.id() + "/core.ndjson")
                     .put("type", "NDJSON Bundle"));
+        }
+
+        if (persistence.jobDiagnosticsExists(job.id())) {
+            outputArr.add(mapper.createObjectNode()
+                    .put("url", fileServerName + "/" + job.id() + "/reports/job-summary.json")
+                    .put("type", "Job diagnostics report"));
         }
 
         root.set("output", outputArr);

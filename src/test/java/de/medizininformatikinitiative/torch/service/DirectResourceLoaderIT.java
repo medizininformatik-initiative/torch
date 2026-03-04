@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -32,42 +33,72 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
 
 @ActiveProfiles("test")
-@SpringBootTest(properties = {"spring.main.allow-bean-definition-overriding=true"}, classes = Torch.class, webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
+@SpringBootTest(
+        properties = {"spring.main.allow-bean-definition-overriding=true"},
+        classes = Torch.class,
+        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT
+)
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class DirectResourceLoaderIT {
 
     @Autowired
     CrtdlValidatorService validator;
+
     @Autowired
     @Qualifier("fhirClient")
     private WebClient webClient;
+
     @Autowired
     private DirectResourceLoader dLoader;
+
     @Autowired
     private ObjectMapper objectMapper;
+
     @Value("${torch.fhir.testPopulation.path}")
     private String testPopulationPath;
+
     @Autowired
     private DseMappingTreeBase dseMappingTreeBase;
 
     @BeforeAll
     void init() throws IOException {
-        webClient.post().bodyValue(Files.readString(Path.of(testPopulationPath))).header("Content-Type", "application/fhir+json").retrieve().toBodilessEntity().block();
+        webClient.post()
+                .bodyValue(Files.readString(Path.of(testPopulationPath)))
+                .header("Content-Type", "application/fhir+json")
+                .retrieve()
+                .toBodilessEntity()
+                .block();
     }
 
-
+    /**
+     * CORRECTED VERSION (ACCUMULATOR-AWARE):
+     * <p>
+     * This assumes your DirectResourceLoader has the new overload:
+     * directLoadPatientCompartment(List<AnnotatedAttributeGroup>, PatientBatchWithConsent, BatchDiagnosticsAcc)
+     * <p>
+     * If you did NOT change the DirectResourceLoader signature, use the alternative class below.
+     */
     @Test
     void collectPatientsByResource() throws IOException, ValidationException, ConsentFormatException {
         AnnotatedCrtdl crtdl = readCrdtl("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
 
+        PatientBatchWithConsent bwc =
+                PatientBatchWithConsent.fromBatch(new PatientBatch(List.of("1", "2", "4", "VHF00006")));
+
+        // create a minimal acc for IT context
+        UUID jobId = UUID.randomUUID();
+        BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, bwc.id(), bwc.patientBatch().ids().size());
+
         Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
                 crtdl.dataExtraction().attributeGroups(),
-                PatientBatchWithConsent.fromBatch(new PatientBatch(List.of("1", "2", "4", "VHF00006")))
+                bwc,
+                acc
         );
 
         StepVerifier.create(result)
@@ -78,7 +109,7 @@ class DirectResourceLoaderIT {
     @Test
     void testExecuteQueryWithBatchAllPatients() {
         PatientBatch batch = PatientBatch.of("1", "2");
-        Query query = new Query("Patient", EMPTY); // Basic query setup
+        Query query = new Query("Patient", EMPTY);
 
         Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
 
@@ -91,7 +122,7 @@ class DirectResourceLoaderIT {
     @Test
     void testExecuteQueryWithObservation() {
         PatientBatch batch = PatientBatch.of("1", "2");
-        Query query = new Query("Observation", EMPTY); // Basic query setup
+        Query query = new Query("Observation", EMPTY);
 
         Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
 
@@ -106,8 +137,10 @@ class DirectResourceLoaderIT {
         AnnotatedCrtdl crtdl = readCrdtl("src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json");
 
         PatientBatch batch = PatientBatch.of("1", "2");
-
-        List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation");
+        List<Query> queries = crtdl.dataExtraction()
+                .attributeGroups()
+                .getFirst()
+                .queries(dseMappingTreeBase, "Observation");
 
         StepVerifier.create(dLoader.executeQueryWithBatch(batch, queries.getFirst()))
                 .expectNextMatches(Observation.class::isInstance)
