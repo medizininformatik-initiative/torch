@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -337,8 +338,8 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedEncAG_1);
             groupMap.put(LINKED_GROUP_2, linkedEncAG_2);
 
-
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
 
 
             assertThat(resultBatch).isNotNull();
@@ -392,7 +393,8 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedCondAG);
 
 
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
 
 
             assertThat(resultBatch).isNotNull();

@@ -2,6 +2,10 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionCounts;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionKey;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -72,6 +76,22 @@ public class JobPersistenceService {
     // TEST-ONLY. Package-private on purpose.
     void putJobForTest(Job job) {
         jobRegistry.put(job.id(), job);
+    }
+
+    private static final String REPORT_DIR_NAME = "reports";
+    private static final String REPORT_BATCH_DIR_NAME = "batches";
+    private static final String REPORT_JOB_FILE_NAME = "job-summary.json";
+
+    private Path reportDir(UUID jobId) {
+        return jobDir(jobId).resolve(REPORT_DIR_NAME);
+    }
+
+    private Path reportBatchDir(UUID jobId) {
+        return reportDir(jobId).resolve(REPORT_BATCH_DIR_NAME);
+    }
+
+    private Path jobReportFile(UUID jobId) {
+        return reportDir(jobId).resolve(REPORT_JOB_FILE_NAME);
     }
 
     /**
@@ -460,6 +480,66 @@ public class JobPersistenceService {
         }
     }
 
+    // -------------------------------------------------------------------------
+    // Diagnostics
+    //--------------------------------------------------------------------------
+
+    public void saveBatchDiagnostics(BatchDiagnostics report) throws IOException {
+        UUID jobId = report.jobId();
+        ensureDirectoryStructure(jobId); // now also creates reports dirs
+
+        Path file = reportBatchDir(jobId).resolve(report.batchId() + ".json");
+        Path tmp = file.resolveSibling(report.batchId() + ".json.tmp");
+
+        try (Writer writer = io.newBufferedWriter(tmp)) {
+            mapper.writeValue(writer, report);
+        }
+        io.atomicMove(tmp, file);
+    }
+
+    public List<BatchDiagnostics> loadAllBatchDiagnostics(UUID jobId) throws IOException {
+        Path dir = reportBatchDir(jobId);
+        if (!io.exists(dir)) return List.of();
+
+        try (Stream<Path> files = io.list(dir)) {
+            List<BatchDiagnostics> out = new ArrayList<>();
+            for (Path p : files.filter(f -> f.toString().endsWith(".json")).toList()) {
+                try (var reader = io.newBufferedReader(p)) {
+                    out.add(mapper.readValue(reader, BatchDiagnostics.class));
+                }
+            }
+            return out;
+        }
+    }
+
+    public JobDiagnostics buildAndSaveJobDiagnostics(UUID jobId) throws IOException {
+        List<BatchDiagnostics> parts = loadAllBatchDiagnostics(jobId);
+
+        int cohortTotal = 0;
+        int finalTotal = 0;
+        Map<CriterionKey, CriterionCounts> merged = new HashMap<>();
+
+        for (BatchDiagnostics b : parts) {
+            cohortTotal += b.cohortPatientsInBatch();
+            finalTotal += b.finalPatientsInBatch();
+            for (var e : b.criteria().entrySet()) {
+                merged.merge(e.getKey(), e.getValue(), CriterionCounts::add);
+            }
+        }
+
+        JobDiagnostics jobReport = new JobDiagnostics(jobId, cohortTotal, finalTotal, merged);
+
+        ensureDirectoryStructure(jobId);
+        Path file = jobReportFile(jobId);
+        Path tmp = file.resolveSibling(REPORT_JOB_FILE_NAME + ".tmp");
+
+        try (Writer writer = io.newBufferedWriter(tmp)) {
+            mapper.writeValue(writer, jobReport);
+        }
+        io.atomicMove(tmp, file);
+
+        return jobReport;
+    }
 
     // -------------------------------------------------------------------------
     // Persistence internals
@@ -515,6 +595,8 @@ public class JobPersistenceService {
         io.createDirectories(jobDir(jobId));
         io.createDirectories(batchDir(jobId));
         io.createDirectories(coreBatchDir(jobId));
+        io.createDirectories(reportDir(jobId));
+        io.createDirectories(reportBatchDir(jobId));
     }
 
     @FunctionalInterface
