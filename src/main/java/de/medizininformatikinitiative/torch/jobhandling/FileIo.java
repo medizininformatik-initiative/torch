@@ -36,6 +36,4 @@ public interface FileIo {
      * Move with explicit options (used by JobPersistenceService).
      */
     void atomicMove(Path source, Path target) throws IOException;
-
-    void setPosixPermissionsIfSupported(Path path, String perms) throws IOException;
 }
