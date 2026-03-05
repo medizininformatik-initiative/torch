@@ -19,6 +19,7 @@ import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * Resource Utils to extract referenceValidity and IDs from Resources
@@ -26,6 +27,10 @@ import java.util.List;
 public class ResourceUtils {
 
     private static final Logger logger = LoggerFactory.getLogger(ResourceUtils.class);
+    private static final Set<String> DATA_ABSENT_REASON_URLS = Set.of(
+            "http://hl7.org/fhir/StructureDefinition/data-absent-reason",          // canonical
+            "http://terminology.hl7.org/CodeSystem/data-absent-reason"            // seen in the wild (#740)
+    );
 
 
     public static String patientId(DomainResource resource) throws PatientIdNotFoundException {
@@ -200,4 +205,9 @@ public class ResourceUtils {
     }
 
 
+    public static boolean isDataAbsentReason(Extension extension) {
+        return extension != null
+                && extension.getUrl() != null
+                && DATA_ABSENT_REASON_URLS.contains(extension.getUrl());
+    }
 }

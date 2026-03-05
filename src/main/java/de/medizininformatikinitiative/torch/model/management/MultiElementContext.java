@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
+import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Extension;
@@ -44,7 +45,7 @@ public record MultiElementContext(List<ElementContext> contexts) {
     }
 
     public boolean shouldRedactExtension(Extension extension) {
-        return !isDataAbsentReason(extension) && !hasSlice(extension);
+        return !ResourceUtils.isDataAbsentReason(extension) && !hasSlice(extension);
     }
 
     /**
@@ -68,17 +69,6 @@ public record MultiElementContext(List<ElementContext> contexts) {
                         .flatMap(entry -> entry.getValue().stream())
                 )
                 .collect(Collectors.toSet());
-    }
-
-    private static final Set<String> DATA_ABSENT_REASON_URLS = Set.of(
-            "http://hl7.org/fhir/StructureDefinition/data-absent-reason",          // canonical
-            "http://terminology.hl7.org/CodeSystem/data-absent-reason"            // seen in the wild (#740)
-    );
-
-    private boolean isDataAbsentReason(Extension extension) {
-        return extension != null
-                && extension.getUrl() != null
-                && DATA_ABSENT_REASON_URLS.contains(extension.getUrl());
     }
 
     public MultiElementContext mergeWithSlices(List<ElementContext> slices) {
