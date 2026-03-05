@@ -7,7 +7,6 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
-import java.nio.file.attribute.PosixFilePermissions;
 import java.util.stream.Stream;
 
 /**
@@ -61,12 +60,6 @@ public class DefaultFileIO implements FileIo {
     @Override
     public boolean isDirectory(Path path) {
         return Files.isDirectory(path);
-    }
-
-
-    @Override
-    public void setPosixPermissionsIfSupported(Path path, String perms) throws IOException {
-        Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(perms));
     }
 
 }

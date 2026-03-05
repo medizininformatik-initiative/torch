@@ -104,7 +104,6 @@ public class ResultFileManager {
 
         Path resultDir = getJobDirectory(jobId);
         fileIo.createDirectories(resultDir);
-        fileIo.setPosixPermissionsIfSupported(resultDir, "rwxr-xr-x");
 
         if (bundle.isEmpty()) {
             logger.debug("Skipping core bundle for job {}, since it is empty", jobId);
