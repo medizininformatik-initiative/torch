@@ -58,7 +58,7 @@ public class JobTest {
                 List.of(),
                 EMPTY_PARAMETERS,
                 JobPriority.NORMAL,
-                coreState
+                coreState, 0L
         );
     }
 
@@ -67,6 +67,183 @@ public class JobTest {
                            Map<UUID, BatchState> batches,
                            WorkUnitState coreState) {
         return job(UUID.randomUUID(), status, cohortState, batches, coreState);
+    }
+
+    @Nested
+    class MachineStateGuardTests {
+
+        @Test
+        void canAcceptCohortSuccess_returnsTrue_onlyWhenNotFrozenAndRunningGetCohort() {
+            // true case
+            Job ok = job(
+                    JobStatus.RUNNING_GET_COHORT,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.initNow()
+            );
+            assertThat(ok.canAcceptCohortSuccess()).isTrue();
+
+            // non-frozen but wrong status => false
+            Job wrongStatus = job(
+                    JobStatus.RUNNING_PROCESS_BATCH,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.initNow()
+            );
+            assertThat(wrongStatus.canAcceptCohortSuccess()).isFalse();
+        }
+
+        @Test
+        void canAcceptCohortSuccess_returnsFalse_forAllFrozenStatuses() {
+            for (JobStatus s : JobStatus.values()) {
+                if (!s.isFrozen()) continue;
+
+                Job j = job(
+                        s,
+                        WorkUnitState.initNow(),
+                        Map.of(),
+                        WorkUnitState.initNow()
+                );
+
+                assertThat(j.canAcceptCohortSuccess())
+                        .as("expected false for frozen status %s", s)
+                        .isFalse();
+            }
+        }
+
+        @Test
+        void canAcceptBatchSuccess_coversFrozenMissingAndWrongBatchStates() {
+            UUID batchId = UUID.randomUUID();
+
+            // frozen => false (whatever "frozen" means in your enum)
+            for (JobStatus s : JobStatus.values()) {
+                if (!s.isFrozen()) continue;
+
+                Job frozen = job(
+                        s,
+                        WorkUnitState.initNow(),
+                        Map.of(batchId, new BatchState(batchId, WorkUnitState.startNow())),
+                        WorkUnitState.initNow()
+                );
+
+                assertThat(frozen.canAcceptBatchSuccess(batchId))
+                        .as("expected false for frozen status %s", s)
+                        .isFalse();
+            }
+
+            // not frozen, missing batch => false
+            Job missingBatch = job(
+                    JobStatus.RUNNING_PROCESS_BATCH,
+                    WorkUnitState.initNow(),
+                    Map.of(), // missing
+                    WorkUnitState.initNow()
+            );
+            assertThat(missingBatch.canAcceptBatchSuccess(batchId)).isFalse();
+
+            // not frozen, batch exists but not IN_PROGRESS => false
+            Job initBatch = job(
+                    JobStatus.RUNNING_PROCESS_BATCH,
+                    WorkUnitState.initNow(),
+                    Map.of(batchId, new BatchState(batchId, WorkUnitState.initNow())),
+                    WorkUnitState.initNow()
+            );
+            assertThat(initBatch.canAcceptBatchSuccess(batchId)).isFalse();
+
+            // not frozen, batch exists and IN_PROGRESS => true
+            Job inProgressBatch = job(
+                    JobStatus.RUNNING_PROCESS_BATCH,
+                    WorkUnitState.initNow(),
+                    Map.of(batchId, new BatchState(batchId, WorkUnitState.startNow())),
+                    WorkUnitState.initNow()
+            );
+            assertThat(inProgressBatch.canAcceptBatchSuccess(batchId)).isTrue();
+        }
+
+        @Test
+        void canAcceptCoreSuccess_coversFrozenWrongCoreState_andHappyPath() {
+            // happy path: not frozen and core IN_PROGRESS => true
+            Job ok = job(
+                    JobStatus.RUNNING_PROCESS_CORE,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.startNow()
+            );
+            assertThat(ok.canAcceptCoreSuccess()).isTrue();
+
+            // not frozen but core not IN_PROGRESS => false
+            Job coreInit = job(
+                    JobStatus.RUNNING_PROCESS_CORE,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.initNow()
+            );
+            assertThat(coreInit.canAcceptCoreSuccess()).isFalse();
+
+            // frozen => false
+            for (JobStatus s : JobStatus.values()) {
+                if (!s.isFrozen()) continue;
+
+                Job frozen = job(
+                        s,
+                        WorkUnitState.initNow(),
+                        Map.of(),
+                        WorkUnitState.startNow()
+                );
+
+                assertThat(frozen.canAcceptCoreSuccess())
+                        .as("expected false for frozen status %s", s)
+                        .isFalse();
+            }
+        }
+    }
+
+    @Nested
+    class CoreSuccessGuardTests {
+
+        @Test
+        void onCoreSuccess_whenCoreNotInProgress_isNoop_returnsSameJob() {
+            // coreState INIT => canAcceptCoreSuccess() should be false
+            Job j = job(
+                    JobStatus.RUNNING_PROCESS_CORE,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.initNow() // NOT IN_PROGRESS
+            );
+
+            CoreResult result = mock(CoreResult.class);
+            when(result.status()).thenReturn(WorkUnitStatus.FINISHED);
+            when(result.issues()).thenReturn(List.of(new Issue(Severity.INFO, "should not be applied", "")));
+
+            Job after = j.onCoreSuccess(result);
+
+            // IMPORTANT: you return `this`, so identity should match
+            assertThat(after).isSameAs(j);
+
+            // And nothing changed
+            assertThat(after.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(after.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
+            assertThat(after.issues()).isEmpty();
+        }
+
+        @Test
+        void onCoreSuccess_whenJobFrozen_isNoop_returnsSameJob() {
+            // pick any frozen status from your enum; COMPLETED is typically frozen/final
+            Job j = job(
+                    JobStatus.COMPLETED,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.startNow() // even IN_PROGRESS should not matter if frozen
+            );
+
+            CoreResult result = mock(CoreResult.class);
+            when(result.status()).thenReturn(WorkUnitStatus.FINISHED);
+            when(result.issues()).thenReturn(List.of(new Issue(Severity.INFO, "ignored", "")));
+
+            Job after = j.onCoreSuccess(result);
+
+            assertThat(after).isSameAs(j);
+            assertThat(after.status()).isEqualTo(JobStatus.COMPLETED);
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -263,6 +440,43 @@ public class JobTest {
 
     @Nested
     class ResetJob {
+
+        @Test
+        void resumeFromTransient_otherStates_areNoop() {
+            Job running = job(
+                    JobStatus.RUNNING_PROCESS_BATCH,
+                    WorkUnitState.initNow(),
+                    Map.of(),
+                    WorkUnitState.initNow()
+            );
+
+            Job after = running.resumeFromTransient();
+            assertThat(after).isSameAs(running);
+        }
+
+        @Test
+        void resumeFromTransient_tempFailed_delegatesToRollback() {
+            Job tempFailed = job(
+                    JobStatus.TEMP_FAILED,
+                    WorkUnitState.initNow().markTempFailed(),
+                    Map.of(),
+                    WorkUnitState.initNow()
+            );
+
+            Job viaResume = tempFailed.resumeFromTransient();
+            Job viaRollback = tempFailed.rollback();
+
+            assertThat(viaResume)
+                    .usingRecursiveComparison()
+                    .ignoringFields(
+                            "updatedAt",
+                            "cohortState.startedAt"
+                    )
+                    .isEqualTo(viaRollback);
+
+            assertThat(viaResume.status()).isEqualTo(JobStatus.PENDING);
+            assertThat(viaResume.cohortState().retry()).isEqualTo(1);
+        }
 
         @Test
         void runningGetCohortRollsBackToPending() {

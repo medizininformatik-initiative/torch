@@ -14,4 +14,8 @@ public enum JobStatus {
     public boolean isFinal() {
         return this == COMPLETED || this == FAILED || this == CANCELLED;
     }
+
+    public boolean isFrozen() {
+        return isFinal() || this == PAUSED;
+    }
 }

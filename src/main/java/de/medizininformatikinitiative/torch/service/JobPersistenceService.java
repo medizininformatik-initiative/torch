@@ -2,9 +2,11 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
+import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -19,6 +21,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceB
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import jakarta.annotation.PostConstruct;
+import org.hl7.fhir.r4.model.Task;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -221,24 +224,28 @@ public class JobPersistenceService {
         List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
 
         updateJobAndReturn(jobId, job -> {
-            Map<UUID, BatchState> stateMap = new HashMap<>();
-            for (PatientBatch b : batches) {
-                saveBatch(b, jobId);
-                stateMap.put(b.batchId(), new BatchState(b.batchId(), WorkUnitState.initNow()));
+            if (job.canAcceptCohortSuccess()) {
+                Map<UUID, BatchState> stateMap = new HashMap<>();
+                for (PatientBatch b : batches) {
+                    saveBatch(b, jobId);
+                    stateMap.put(b.batchId(), new BatchState(b.batchId(), WorkUnitState.initNow()));
+                }
+
+                Job updated = job.onBatchesCreated(stateMap, ids.size());
+
+                if (ids.isEmpty()) {
+                    updated = updated
+                            .withStatus(JobStatus.RUNNING_PROCESS_CORE).withIssuesAdded(List.of(new Issue(
+                                    Severity.WARNING,
+                                    "Empty cohort",
+                                    "Cohort size = 0. Skipping patient batches and continuing with core processing."
+                            )));
+                }
+
+                return new JobAndResult<>(updated, null);
+            } else {
+                return new JobAndResult<>(job, null);
             }
-
-            Job updated = job.onBatchesCreated(stateMap, ids.size());
-
-            if (ids.isEmpty()) {
-                updated = updated
-                        .withStatus(JobStatus.RUNNING_PROCESS_CORE).withIssuesAdded(List.of(new Issue(
-                                Severity.WARNING,
-                                "Empty cohort",
-                                "Cohort size = 0. Skipping patient batches and continuing with core processing."
-                        )));
-            }
-
-            return new JobAndResult<>(updated, null);
         });
     }
 
@@ -255,7 +262,8 @@ public class JobPersistenceService {
 
 
     /**
-     * Applies batch success transition and persists the core-batch part.
+     * Applies batch success patch and persists the core-batch part.
+     * No-op if state was frozen by another action e.g. Task APi.
      *
      * @param result batch result
      */
@@ -263,18 +271,22 @@ public class JobPersistenceService {
         UUID jobId = result.jobId();
 
         updateJobAndReturn(jobId, job -> {
-            if (result.resultCoreBundle().isPresent()) {
-                saveCoreBatch(
-                        jobId,
-                        result.batchState().batchId(),
-                        result.resultCoreBundle().get()
-                );
-            }
+            if (job.canAcceptBatchSuccess(result.batchId())) {
+                if (result.resultCoreBundle().isPresent()) {
+                    saveCoreBatch(
+                            jobId,
+                            result.batchState().batchId(),
+                            result.resultCoreBundle().get()
+                    );
+                }
 
-            return new JobAndResult<>(
-                    job.onBatchProcessingSuccess(result),
-                    null
-            );
+                return new JobAndResult<>(
+                        job.onBatchProcessingSuccess(result),
+                        null
+                );
+            } else {
+                return new JobAndResult<>(job, null);
+            }
         });
     }
 
@@ -291,7 +303,8 @@ public class JobPersistenceService {
     }
 
     /**
-     * Applies core success transition.
+     * Applies core success transition patch to job if possible.
+     * No-op if state was frozen by another action e.g. Task APi.
      *
      * @param result core result
      */
@@ -373,6 +386,56 @@ public class JobPersistenceService {
         io.atomicMove(tmp, file);
     }
 
+    public Optional<Job> applyTaskCommand(UUID jobId, Task incoming) {
+        return Optional.ofNullable(updateJobAndReturn(jobId, job -> {
+            if (incoming.hasMeta() && incoming.getMeta().hasVersionId()) {
+                long expected;
+                try {
+                    expected = Long.parseLong(incoming.getMeta().getVersionId());
+                } catch (NumberFormatException e) {
+                    throw new IllegalArgumentException("Task.meta.versionId must be numeric");
+                }
+
+                if (job.version() != expected) {
+                    throw new VersionConflictException(
+                            "Version mismatch. expected=" + expected + " actual=" + job.version()
+                    );
+                }
+            }
+
+            // ignore changes once final
+            if (job.status().isFinal()) {
+                return new JobAndResult<>(job, job);
+            }
+
+            Job updated = job;
+
+            // status command
+            if (incoming.hasStatus()) {
+                updated = switch (incoming.getStatus()) {
+                    case ONHOLD -> updated.withStatus(JobStatus.PAUSED);
+                    case READY, INPROGRESS -> updated.resumeFromTransient();
+                    case CANCELLED -> updated.withStatus(JobStatus.CANCELLED);
+                    default -> updated; // keep lenient
+                };
+            }
+
+            // priority command
+            if (incoming.hasPriority()) {
+                updated = updated.withPriority(mapPriority(incoming.getPriority()));
+            }
+
+            return new JobAndResult<>(updated, updated);
+        }));
+    }
+
+    private JobPriority mapPriority(Task.TaskPriority p) {
+        return switch (p) {
+            case ASAP, STAT, URGENT -> JobPriority.HIGH;
+            default -> JobPriority.NORMAL;
+        };
+    }
+
     // -------------------------------------------------------------------------
     // Atomic update primitive
     // -------------------------------------------------------------------------
@@ -412,7 +475,7 @@ public class JobPersistenceService {
                 return current;
             }
             try {
-                return saveJob(updatedJob);
+                return saveJob(updatedJob.incrementVersion());
             } catch (IOException e) {
                 logger.error("Failed to save job.json for {}: {}", id, e.getMessage(), e);
                 return current.onJobError(e, List.of());
@@ -517,10 +580,30 @@ public class JobPersistenceService {
         io.createDirectories(coreBatchDir(jobId));
     }
 
+    public void deleteJob(UUID jobId, Long expectedVersion) throws IOException {
+        if (expectedVersion != null) {
+            Job current = getJob(jobId).orElse(null);
+            if (current == null) return; // idempotent
+            if (!expectedVersion.equals(current.version())) {
+                throw new VersionConflictException(
+                        "Version mismatch. expected=" + expectedVersion + " actual=" + current.version()
+                );
+            }
+        }
+        deleteJob(jobId);
+    }
+
+    public void deleteJob(UUID id) throws IOException {
+        io.deleteDir(jobDir(id));
+        jobRegistry.remove(id);
+    }
+
+
     @FunctionalInterface
     interface JobUpdate<T> {
         JobAndResult<T> apply(Job job) throws IOException;
     }
+
 
     record JobAndResult<T>(Job job, T result) {
         JobAndResult {

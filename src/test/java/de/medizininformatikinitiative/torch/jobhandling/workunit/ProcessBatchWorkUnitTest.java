@@ -77,7 +77,7 @@ class ProcessBatchWorkUnitTest {
                 List.of(),
                 EMPTY_PARAMETERS,
                 JobPriority.NORMAL,
-                WorkUnitState.initNow()
+                WorkUnitState.initNow(), 0L
         );
     }
 

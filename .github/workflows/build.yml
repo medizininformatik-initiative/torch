@@ -273,6 +273,41 @@ jobs:
           EXPECTED_PATIENT_COUNT: ${{ matrix.expected_patients }}
           EXPECTED_OBSERVATION_COUNT: ${{ matrix.expected_observations }}
         run: bash .github/workflows/script-integration-test/integration-test.sh
+  script-pause-resume-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    name: script pause/resume test
+
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Install Blazectl
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-release-attachments
+          BLAZECTL_VERSION: v1.3.0
+          BLAZECTL_CHECKSUM: 2e75ddfb9b35d0e78b5dda4d7ae4d08c45037729f5a45affd59ddb7252b75aba
+        run: |
+          curl -fsSL https://raw.githubusercontent.com/samply/blaze/main/.github/scripts/install-blazectl.sh -o install-blazectl.sh
+          chmod +x install-blazectl.sh
+          ./install-blazectl.sh
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Start Docker Compose
+        working-directory: .github/workflows/resume-integration-test
+        run: docker compose up --wait -d
+
+      - name: Run pause/resume script
+        run: bash .github/workflows/resume-integration-test/pause-resume-test.sh
 
   script-resumeability-test:
     needs: build
@@ -351,6 +386,7 @@ jobs:
       - script-resumeability-test
       - env-var-check
       - performance-integration-test
+      - script-pause-resume-test
     runs-on: ubuntu-24.04
     permissions:
       packages: write  # Push to GitHub Container Registry

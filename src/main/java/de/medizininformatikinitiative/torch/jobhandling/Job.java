@@ -46,8 +46,8 @@ public record Job(
         List<Issue> issues,
         JobParameters parameters,
         JobPriority priority,
-        WorkUnitState coreState
-) {
+        WorkUnitState coreState,
+        Long version) {
 
     // -------------------- ctor invariants --------------------
 
@@ -66,6 +66,22 @@ public record Job(
 
         batches = Map.copyOf(batches);
         issues = List.copyOf(issues);
+    }
+
+    //--------------------Machine State Guard ------------
+
+    public boolean canAcceptCohortSuccess() {
+        return !status().isFrozen() && status() == JobStatus.RUNNING_GET_COHORT;
+    }
+
+    public boolean canAcceptBatchSuccess(UUID batchId) {
+        if (status().isFrozen()) return false;
+        BatchState bs = batches().get(batchId);
+        return bs != null && bs.status() == WorkUnitStatus.IN_PROGRESS;
+    }
+
+    public boolean canAcceptCoreSuccess() {
+        return !status().isFrozen() && coreState().status() == WorkUnitStatus.IN_PROGRESS;
     }
 
     // -------------------- factories --------------------
@@ -92,7 +108,8 @@ public record Job(
                 List.of(),
                 new JobParameters(crtdl, patientIds),
                 JobPriority.NORMAL,
-                WorkUnitState.initNow()
+                WorkUnitState.initNow(),
+                0L
         );
     }
 
@@ -131,15 +148,16 @@ public record Job(
     }
 
     /**
-     * Records successful core processing and completes the job.
+     * Records successful core processing and completes the job if job state allows.
      *
      * @param result the core processing result
      * @return updated job in {@link JobStatus#COMPLETED}
      */
     public Job onCoreSuccess(CoreResult result) {
-        return withStatus(JobStatus.COMPLETED)
+        if (canAcceptCoreSuccess()) return withStatus(JobStatus.COMPLETED)
                 .withIssuesAdded(result.issues())
                 .withCoreState(coreState.finishNow(result.status()));
+        return this;
     }
 
     // -------------------- domain transitions (error path) --------------------
@@ -424,6 +442,28 @@ public record Job(
         );
     }
 
+    /**
+     * Resumes a job from transient stop states back into a runnable stage.
+     *
+     * <p>
+     * - If {@link #status()} is {@link JobStatus#PAUSED}, it resumes by inferring the runnable stage
+     * from substates.
+     * - If {@link #status()} is {@link JobStatus#TEMP_FAILED}, it resumes via {@link #rollback()},
+     * which rerolls unstable substates and infers the correct stage.
+     * </p>
+     *
+     * <p>No-op for all other states.</p>
+     */
+    public Job resumeFromTransient() {
+        if (status == JobStatus.PAUSED) {
+            return withStatus(inferRunnableStatusFromSubstates());
+        }
+        if (status == JobStatus.TEMP_FAILED) {
+            return rollback();
+        }
+        return this;
+    }
+
 
     /**
      * Infers which runnable status the job should be in based purely on substates.
@@ -471,25 +511,26 @@ public record Job(
                 issues,
                 parameters,
                 priority,
-                coreState
+                coreState,
+                version
         );
     }
 
     public Job withBatchState(BatchState batch) {
         Map<UUID, BatchState> newBatches = new HashMap<>(batches);
         newBatches.put(batch.batchId(), batch);
-        return new Job(id, status, cohortState, cohortSize, newBatches, startedAt, Instant.now(), finishedAt, issues, parameters, priority, coreState
+        return new Job(id, status, cohortState, cohortSize, newBatches, startedAt, Instant.now(), finishedAt, issues, parameters, priority, coreState, version
         );
     }
 
     public Job withCoreState(WorkUnitState newState) {
         return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, issues, parameters, priority, newState);
+                finishedAt, issues, parameters, priority, newState, version);
     }
 
     public Job withCohortState(WorkUnitState newState) {
         return new Job(id, status, newState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, issues, parameters, priority, coreState);
+                finishedAt, issues, parameters, priority, coreState, version);
     }
 
     public Job withIssuesAdded(List<Issue> newIssues) {
@@ -497,7 +538,7 @@ public record Job(
         List<Issue> merged = new ArrayList<>(issues);
         merged.addAll(newIssues);
         return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, merged, parameters, priority, coreState);
+                finishedAt, merged, parameters, priority, coreState, version);
     }
 
     public Job withStatus(JobStatus newStatus) {
@@ -506,7 +547,7 @@ public record Job(
             newFinishedAt = Optional.of(Instant.now());
         }
         return new Job(id, newStatus, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                newFinishedAt, issues, parameters, priority, coreState);
+                newFinishedAt, issues, parameters, priority, coreState, version);
     }
 
     public double calculateBatchProgress() {
@@ -520,6 +561,13 @@ public record Job(
     }
 
     public Job withPriority(JobPriority jobPriority) {
-        return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(), finishedAt, issues, parameters, jobPriority, coreState);
+        return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(), finishedAt, issues, parameters, jobPriority, coreState, version);
+    }
+
+    public Job incrementVersion() {
+        return new Job(
+                id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
+                finishedAt, issues, parameters, priority, coreState, version + 1
+        );
     }
 }
