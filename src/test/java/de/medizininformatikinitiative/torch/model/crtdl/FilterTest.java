@@ -113,6 +113,39 @@ class FilterTest {
 
         }
 
+        @Test
+        void keepsOriginalCodeWhenExpansionIsEmpty() {
+            when(mappingTreeBase.expand(SYSTEM_A, CODE_A_NO_CHILDREN)).thenReturn(Stream.empty());
+
+            Code code = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
+            Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(code));
+
+            QueryParams result = filter.codeFilter(mappingTreeBase);
+
+            assertThat(result)
+                    .isEqualTo(QueryParams.EMPTY.appendParam(NAME, QueryParams.codeValue(code)));
+            assertThat(result.params()).hasSize(1);
+        }
+
+        @Test
+        void keepsAllOriginalCodesWhenAllExpansionsAreEmpty() {
+            when(mappingTreeBase.expand(SYSTEM_A, CODE_A_NO_CHILDREN)).thenReturn(Stream.empty());
+            when(mappingTreeBase.expand(SYSTEM_B, CODE_B_NO_CHILDREN)).thenReturn(Stream.empty());
+
+            Code codeA = new Code(SYSTEM_A, CODE_A_NO_CHILDREN);
+            Code codeB = new Code(SYSTEM_B, CODE_B_NO_CHILDREN);
+            Filter filter = new Filter(FILTER_TYPE_TOKEN, NAME, List.of(codeA, codeB));
+
+            QueryParams result = filter.codeFilter(mappingTreeBase);
+
+            assertThat(result).isEqualTo(
+                    QueryParams.EMPTY
+                            .appendParam(NAME, QueryParams.codeValue(codeA))
+                            .appendParam(NAME, QueryParams.codeValue(codeB))
+            );
+            assertThat(result.params()).hasSize(2);
+        }
+
     }
 
 
