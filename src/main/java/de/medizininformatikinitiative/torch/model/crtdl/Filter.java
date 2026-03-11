@@ -52,12 +52,14 @@ public record Filter(
 
         if ("token".equals(type)) {
             codeParams = codes.stream()
-                    .flatMap(code -> mappingBase
-                            .expand(code.system(), code.code())
-                            .map(c -> new Code(code.system(), c))
-                    )
+                    .flatMap(code -> java.util.stream.Stream.concat(
+                            java.util.stream.Stream.of(code),
+                            mappingBase.expand(code.system(), code.code())
+                                    .map(c -> new Code(code.system(), c))
+                    ))
+                    .distinct()
                     .reduce(codeParams,
-                            (params, expandedCode) -> params.appendParam(name, QueryParams.codeValue(expandedCode)),
+                            (params, resolvedCode) -> params.appendParam(name, QueryParams.codeValue(resolvedCode)),
                             QueryParams::appendParams
                     );
         }
