@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
@@ -34,6 +36,7 @@ import reactor.test.StepVerifier;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,6 +80,8 @@ class ExtractDataServiceTest {
     PatientBatchToCoreBundleWriter batchToCoreWriter;
     @Mock
     DataStore dataStore;
+    @Mock
+    PostCascadeMustHaveChecker postCascadeMustHaveChecker;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -110,7 +115,8 @@ class ExtractDataServiceTest {
                 cascadingDelete,
                 batchToCoreWriter,
                 consentHandler,
-                dataStore
+                dataStore,
+                postCascadeMustHaveChecker
         );
         spyService = Mockito.spy(service);
     }
@@ -121,6 +127,223 @@ class ExtractDataServiceTest {
 
     @Nested
     class ProcessBatchTests {
+
+        @Test
+        void processBatch_whenPostCascadeMustHaveFailsForOnePatient_filtersPatientAndStillFinishes() throws Exception {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+
+            List<de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup> directPatientGroups = List.of();
+            when(groups.directPatientCompartmentGroups()).thenReturn(directPatientGroups);
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState finishedState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(finishedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient1 =
+                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
+            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient2 =
+                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
+
+            ResourceBundle patientBundle1 = new ResourceBundle();
+            ResourceBundle patientBundle2 = new ResourceBundle();
+
+            when(patient1.bundle()).thenReturn(patientBundle1);
+            when(patient2.bundle()).thenReturn(patientBundle2);
+
+            Map<String, de.medizininformatikinitiative.torch.model.management.PatientResourceBundle> bundles =
+                    new LinkedHashMap<>();
+            bundles.put("p1", patient1);
+            bundles.put("p2", patient2);
+
+            PatientBatchWithConsent resolvedBatch = new PatientBatchWithConsent(
+                    bundles,
+                    false,
+                    new ResourceBundle(),
+                    batchId
+            );
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
+                    .thenReturn(Mono.just(resolvedBatch));
+            when(referenceResolver.resolvePatientBatch(eq(resolvedBatch), anyMap()))
+                    .thenReturn(Mono.just(resolvedBatch));
+            when(cascadingDelete.handlePatientBatch(eq(resolvedBatch), anyMap()))
+                    .thenReturn(resolvedBatch);
+
+            when(postCascadeMustHaveChecker.validate(any(ResourceBundle.class), any()))
+                    .thenAnswer(invocation -> {
+                        ResourceBundle bundle = invocation.getArgument(0);
+                        if (bundle == patientBundle1) {
+                            return patientBundle1;
+                        }
+                        if (bundle == patientBundle2) {
+                            throw new MustHaveViolatedException("missing direct group");
+                        }
+                        throw new AssertionError("Unexpected bundle passed to validate: " + bundle);
+                    });
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any())).thenAnswer(invocation -> {
+                    PatientBatchWithConsent filtered = invocation.getArgument(0);
+                    assertThat(filtered.patientIds()).containsExactly("p1");
+                    return ofResult;
+                });
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                        .thenReturn(extracted);
+
+                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> {
+                            assertThat(res.jobId()).isEqualTo(jobId);
+                            assertThat(res.batchId()).isEqualTo(batchId);
+                            assertThat(res.batchState()).isSameAs(finishedState);
+                            assertThat(res.resultCoreBundle()).containsSame(coreBundle);
+                            assertThat(res.issues())
+                                    .extracting(Issue::msg)
+                                    .containsExactly(
+                                            "Loaded patient compartment",
+                                            "Resolved references",
+                                            "Applied cascading delete",
+                                            "Applied post-cascade direct must-have check",
+                                            "Extraction finished",
+                                            "Wrote NDJSON bundle"
+                                    );
+                        })
+                        .verifyComplete();
+
+                mocked.verify(() -> ExtractionPatientBatch.of(any()));
+
+                ArgumentCaptor<ResourceBundle> bundleCaptor = ArgumentCaptor.forClass(ResourceBundle.class);
+                verify(postCascadeMustHaveChecker, Mockito.times(2))
+                        .validate(bundleCaptor.capture(), any());
+
+                assertThat(bundleCaptor.getAllValues())
+                        .containsExactly(patientBundle1, patientBundle2);
+
+                verify(spyService).writeBatch(jobId.toString(), extracted);
+            }
+        }
+
+        @Test
+        void processBatch_whenPostCascadeMustHaveFailsForAllPatients_skipsBatchAndDoesNotEmitCoreBundle() throws Exception {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+
+            List<de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup> directPatientGroups = List.of();
+            when(groups.directPatientCompartmentGroups()).thenReturn(directPatientGroups);
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState skippedState = mock(BatchState.class);
+            when(batchState.skip()).thenReturn(skippedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient1 =
+                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
+            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient2 =
+                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
+
+            ResourceBundle patientBundle1 = new ResourceBundle();
+            ResourceBundle patientBundle2 = new ResourceBundle();
+
+            when(patient1.bundle()).thenReturn(patientBundle1);
+            when(patient2.bundle()).thenReturn(patientBundle2);
+
+            Map<String, de.medizininformatikinitiative.torch.model.management.PatientResourceBundle> bundles =
+                    new LinkedHashMap<>();
+            bundles.put("p1", patient1);
+            bundles.put("p2", patient2);
+
+            PatientBatchWithConsent resolvedBatch = new PatientBatchWithConsent(
+                    bundles,
+                    false,
+                    new ResourceBundle(),
+                    batchId
+            );
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
+                    .thenReturn(Mono.just(resolvedBatch));
+            when(referenceResolver.resolvePatientBatch(eq(resolvedBatch), anyMap()))
+                    .thenReturn(Mono.just(resolvedBatch));
+            when(cascadingDelete.handlePatientBatch(eq(resolvedBatch), anyMap()))
+                    .thenReturn(resolvedBatch);
+
+            when(postCascadeMustHaveChecker.validate(any(ResourceBundle.class), any()))
+                    .thenThrow(new MustHaveViolatedException("missing direct group"));
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any())).thenAnswer(invocation -> {
+                    PatientBatchWithConsent filtered = invocation.getArgument(0);
+                    assertThat(filtered.patientIds()).isEmpty();
+                    return ofResult;
+                });
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                        .thenReturn(extracted);
+                when(extracted.isEmpty()).thenReturn(true);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> {
+                            assertThat(res.jobId()).isEqualTo(jobId);
+                            assertThat(res.batchId()).isEqualTo(batchId);
+                            assertThat(res.batchState()).isSameAs(skippedState);
+                            assertThat(res.resultCoreBundle()).isEmpty();
+                            assertThat(res.issues())
+                                    .extracting(Issue::msg)
+                                    .containsExactly(
+                                            "Loaded patient compartment",
+                                            "Resolved references",
+                                            "Applied cascading delete",
+                                            "Applied post-cascade direct must-have check",
+                                            "Extraction finished",
+                                            "Wrote NDJSON bundle"
+                                    );
+                        })
+                        .verifyComplete();
+
+                mocked.verify(() -> ExtractionPatientBatch.of(any()));
+                verify(postCascadeMustHaveChecker, Mockito.times(2)).validate(any(ResourceBundle.class), any());
+                verify(spyService).writeBatch(jobId.toString(), extracted);
+                verify(batchToCoreWriter, never()).toCoreBundle(any());
+            }
+        }
 
         @Test
         void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() {
@@ -181,6 +404,7 @@ class ExtractDataServiceTest {
                                             "Loaded patient compartment",
                                             "Resolved references",
                                             "Applied cascading delete",
+                                            "Applied post-cascade direct must-have check",
                                             "Extraction finished",
                                             "Wrote NDJSON bundle"
                                     );
@@ -451,6 +675,41 @@ class ExtractDataServiceTest {
                     .verifyComplete();
 
             verify(spyService).writeBundle(jobId.toString(), transformed);
+        }
+
+        @Test
+        void processCore_whenPostCascadeMustHaveFails_emitsError() throws Exception {
+            UUID jobId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            AnnotatedCrtdl crtdl = job.parameters().crtdl();
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(crtdl)).thenReturn(groups);
+
+            @SuppressWarnings("unchecked")
+            List directNoPatientGroups = List.of();
+            when(groups.directNoPatientGroups()).thenReturn(directNoPatientGroups);
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            ResourceBundle rb = new ResourceBundle();
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class)))
+                    .thenReturn(Mono.just(rb));
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap()))
+                    .thenReturn(Mono.just(rb));
+
+            doThrow(new MustHaveViolatedException("required direct core group missing"))
+                    .when(postCascadeMustHaveChecker).validate(rb, directNoPatientGroups);
+
+            StepVerifier.create(spyService.processCore(job, new ExtractionResourceBundle()))
+                    .verifyErrorSatisfies(e -> {
+                        assertThat(e).isInstanceOf(MustHaveViolatedException.class);
+                        assertThat(e).hasMessageContaining("required direct core group missing");
+                    });
+
+            verify(postCascadeMustHaveChecker).validate(rb, directNoPatientGroups);
+            verify(spyService, never()).writeBundle(anyString(), any());
+            verifyNoInteractions(dataStore);
         }
     }
 }

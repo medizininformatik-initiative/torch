@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.accumulators.Acc;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
@@ -12,6 +13,7 @@ import de.medizininformatikinitiative.torch.jobhandling.result.CoreResult;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
@@ -71,6 +73,7 @@ public class ExtractDataService {
     private final ConsentHandler consentHandler;
     private final PatientBatchToCoreBundleWriter batchToCoreWriter;
     private final DataStore dataStore;
+    private final PostCascadeMustHaveChecker postCascadeMustHaveChecker;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -80,7 +83,7 @@ public class ExtractDataService {
                               CascadingDelete cascadingDelete,
                               PatientBatchToCoreBundleWriter writer,
                               ConsentHandler consentHandler,
-                              DataStore dataStore) {
+                              DataStore dataStore, PostCascadeMustHaveChecker postCascadeMustHaveChecker) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -90,6 +93,7 @@ public class ExtractDataService {
         this.batchToCoreWriter = requireNonNull(writer);
         this.consentHandler = requireNonNull(consentHandler);
         this.dataStore = requireNonNull(dataStore);
+        this.postCascadeMustHaveChecker = postCascadeMustHaveChecker;
     }
 
     // -------------------------------------------------------------------------
@@ -246,6 +250,13 @@ public class ExtractDataService {
                         .map(b -> cascadingDelete.handlePatientBatch(b, groupsToProcess.allGroups()))
                         .addInfo("Applied cascading delete", BATCH + id)
                 )
+                // 5b) Post-cascade direct must-have check
+                .map(a -> a
+                        .map(b -> filterPostCascadeMustHaveViolations(
+                                b,
+                                groupsToProcess.directPatientCompartmentGroups()))
+                        .addInfo("Applied post-cascade direct must-have check", BATCH + id)
+                )
 
                 // 6) Copy + Redact — type boundary: Acc<PatientBatchWithConsent> → Acc<ExtractionPatientBatch>
                 .map(a -> a
@@ -267,8 +278,12 @@ public class ExtractDataService {
                 .map(a -> new BatchResult(
                         jobID,
                         acc.value().id(),
-                        batchState.finishNow(WorkUnitStatus.FINISHED),
-                        Optional.of(batchToCoreWriter.toCoreBundle(a.value())),
+                        a.value().isEmpty()
+                                ? batchState.skip()
+                                : batchState.finishNow(WorkUnitStatus.FINISHED),
+                        a.value().isEmpty()
+                                ? Optional.empty()
+                                : Optional.of(batchToCoreWriter.toCoreBundle(a.value())),
                         a.issues()
                 ));
     }
@@ -347,11 +362,20 @@ public class ExtractDataService {
                 )
 
                 // 2) Cascading delete — type boundary: ResourceBundle → ExtractionResourceBundle
-                .map(acc -> {
+                .flatMap(acc -> {
                     logger.debug("Running final cascading delete on core bundle");
-                    cascadingDelete.handleBundle(acc.value(), groupsToProcess.allGroups());
-                    return acc.map(ExtractionResourceBundle::of)
-                            .addInfo("Applied cascading delete", "job=" + job.id());
+                    ResourceBundle cascaded = acc.value();
+                    cascadingDelete.handleBundle(cascaded, groupsToProcess.allGroups());
+
+                    try {
+                        postCascadeMustHaveChecker.validate(cascaded, groupsToProcess.directNoPatientGroups());
+                        return Mono.just(
+                                acc.map(ExtractionResourceBundle::of)
+                                        .addInfo("Applied cascading delete", "job=" + job.id())
+                        );
+                    } catch (MustHaveViolatedException e) {
+                        return Mono.error(e);
+                    }
                 });
 
         return afterDelete
@@ -388,4 +412,25 @@ public class ExtractDataService {
                 })
                 .subscribeOn(Schedulers.boundedElastic());
     }
+
+    private PatientBatchWithConsent filterPostCascadeMustHaveViolations(
+            PatientBatchWithConsent batch,
+            List<AnnotatedAttributeGroup> directPatientGroups
+    ) {
+        Set<String> survivingPatientIds = batch.bundles().entrySet().stream()
+                .filter(entry -> {
+                    try {
+                        postCascadeMustHaveChecker.validate(entry.getValue().bundle(), directPatientGroups);
+                        return true;
+                    } catch (MustHaveViolatedException e) {
+                        return false;
+                    }
+                })
+                .map(Map.Entry::getKey)
+                .collect(java.util.stream.Collectors.toSet());
+
+        return batch.keep(survivingPatientIds);
+    }
+
+
 }
