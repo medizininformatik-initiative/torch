@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.18] - 2026-03-18
+
+### Added
+
+- Add Patient Params To Transfer To Dup Script [#584](https://github.com/medizininformatik-initiative/torch/issues/584)
+- Adding Diagnostic Monad for Collecting Operation Outcomes  [#666](https://github.com/medizininformatik-initiative/torch/issues/666)
+- Add Patient.identifier handling for traceability  [#772](https://github.com/medizininformatik-initiative/torch/issues/772)
+
+### Fixed
+
+- Fix Filter Expansion Defaulting To Empty When Not Expandable [#769](https://github.com/medizininformatik-initiative/torch/issues/769)
+- Fix: cascading delete not resolved correctly [#772](https://github.com/medizininformatik-initiative/torch/issues/772)
+
 ## [v1.0.0-alpha.17] - 2026-03-02
 
 ### Added
