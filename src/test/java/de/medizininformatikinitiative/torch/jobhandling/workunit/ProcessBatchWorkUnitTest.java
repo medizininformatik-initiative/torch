@@ -1,11 +1,10 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
-import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
-import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -22,9 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -63,24 +60,6 @@ class ProcessBatchWorkUnitTest {
     @Mock
     BatchResult batchResult;
 
-    private static Job newJob(UUID jobId) {
-        Instant now = Instant.now();
-        return new Job(
-                jobId,
-                JobStatus.RUNNING_PROCESS_BATCH,
-                WorkUnitState.initNow(),
-                0,
-                Map.of(),
-                now,
-                now,
-                Optional.empty(),
-                List.of(),
-                EMPTY_PARAMETERS,
-                JobPriority.NORMAL,
-                WorkUnitState.initNow()
-        );
-    }
-
     private JobExecutionContext ctx() {
         return new JobExecutionContext(
                 persistence,
@@ -96,7 +75,7 @@ class ProcessBatchWorkUnitTest {
     void execute_success_loadsBatch_loadsJob_processesBatch_andPersistsSuccess() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -128,7 +107,8 @@ class ProcessBatchWorkUnitTest {
     void execute_whenExtractFails_recordsBatchError_andCompletes() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -159,7 +139,7 @@ class ProcessBatchWorkUnitTest {
     void execute_whenNotClaimed_doesNothing_andCompletes() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -180,7 +160,7 @@ class ProcessBatchWorkUnitTest {
     void execute_whenExtractReturnsEmpty_doesNotPersistSuccess() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -200,7 +180,7 @@ class ProcessBatchWorkUnitTest {
     void missingJobThrows() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -220,7 +200,7 @@ class ProcessBatchWorkUnitTest {
     void execute_whenExtractEmitsRuntimeException_recordsBatchError_andCompletes() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 
@@ -245,7 +225,7 @@ class ProcessBatchWorkUnitTest {
     void persistingSuccessFailsThrows() throws IOException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
-        Job job = newJob(jobId);
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
         ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
 

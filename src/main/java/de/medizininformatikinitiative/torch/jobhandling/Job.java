@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -12,7 +13,6 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.ProcessCoreWork
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -46,8 +46,9 @@ public record Job(
         List<Issue> issues,
         JobParameters parameters,
         JobPriority priority,
-        WorkUnitState coreState
-) {
+        WorkUnitState coreState,
+        @JsonProperty(defaultValue = "0")
+        long version) {
 
     // -------------------- ctor invariants --------------------
 
@@ -55,30 +56,30 @@ public record Job(
         requireNonNull(id);
         requireNonNull(status);
         requireNonNull(cohortState);
-        requireNonNull(batches);
+        batches = Map.copyOf(batches);
         requireNonNull(startedAt);
         requireNonNull(updatedAt);
         requireNonNull(finishedAt);
-        requireNonNull(issues);
+        issues = List.copyOf(issues);
         requireNonNull(parameters);
         requireNonNull(priority);
         requireNonNull(coreState);
 
-        batches = Map.copyOf(batches);
-        issues = List.copyOf(issues);
+        if (version < 0) {
+            throw new IllegalArgumentException("version must not be negative");
+        }
     }
 
     // -------------------- factories --------------------
 
     /**
-     * Creates the initial job state for a new extraction run.
+     * Creates an initial job state for a new extraction run.
      *
-     * @param crtdl      the annotated CRTDL definition
-     * @param patientIds the initial cohort patient IDs
-     * @param jobId      the job identifier
+     * @param jobId         the job identifier
+     * @param jobParameters the JobParameters Object containing CRTDL and optional precalculated cohorts
      * @return a new job in {@link JobStatus#PENDING} state
      */
-    public static Job createInitialJob(AnnotatedCrtdl crtdl, List<String> patientIds, UUID jobId) {
+    public static Job init(UUID jobId, JobParameters jobParameters) {
         Instant now = Instant.now();
         return new Job(
                 jobId,
@@ -90,9 +91,10 @@ public record Job(
                 now,
                 Optional.empty(),
                 List.of(),
-                new JobParameters(crtdl, patientIds),
+                jobParameters,
                 JobPriority.NORMAL,
-                WorkUnitState.initNow()
+                WorkUnitState.initNow(),
+                0L
         );
     }
 
@@ -471,25 +473,26 @@ public record Job(
                 issues,
                 parameters,
                 priority,
-                coreState
+                coreState,
+                0L
         );
     }
 
     public Job withBatchState(BatchState batch) {
         Map<UUID, BatchState> newBatches = new HashMap<>(batches);
         newBatches.put(batch.batchId(), batch);
-        return new Job(id, status, cohortState, cohortSize, newBatches, startedAt, Instant.now(), finishedAt, issues, parameters, priority, coreState
-        );
+        return new Job(id, status, cohortState, cohortSize, newBatches, startedAt, Instant.now(), finishedAt, issues, parameters, priority, coreState,
+                version);
     }
 
     public Job withCoreState(WorkUnitState newState) {
         return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, issues, parameters, priority, newState);
+                finishedAt, issues, parameters, priority, newState, version);
     }
 
     public Job withCohortState(WorkUnitState newState) {
         return new Job(id, status, newState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, issues, parameters, priority, coreState);
+                finishedAt, issues, parameters, priority, coreState, version);
     }
 
     public Job withIssuesAdded(List<Issue> newIssues) {
@@ -497,7 +500,7 @@ public record Job(
         List<Issue> merged = new ArrayList<>(issues);
         merged.addAll(newIssues);
         return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                finishedAt, merged, parameters, priority, coreState);
+                finishedAt, merged, parameters, priority, coreState, version);
     }
 
     public Job withStatus(JobStatus newStatus) {
@@ -506,7 +509,7 @@ public record Job(
             newFinishedAt = Optional.of(Instant.now());
         }
         return new Job(id, newStatus, cohortState, cohortSize, batches, startedAt, Instant.now(),
-                newFinishedAt, issues, parameters, priority, coreState);
+                newFinishedAt, issues, parameters, priority, coreState, version);
     }
 
     public double calculateBatchProgress() {
@@ -520,6 +523,13 @@ public record Job(
     }
 
     public Job withPriority(JobPriority jobPriority) {
-        return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(), finishedAt, issues, parameters, jobPriority, coreState);
+        return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(), finishedAt, issues, parameters, jobPriority, coreState, version);
+    }
+
+    public Job incrementVersion() {
+        return new Job(
+                id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
+                finishedAt, issues, parameters, priority, coreState, version + 1
+        );
     }
 }

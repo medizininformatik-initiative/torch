@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
+import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -120,7 +121,7 @@ public class JobPersistenceService {
      */
     public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds) throws IOException {
         UUID jobId = UUID.randomUUID();
-        Job initial = Job.createInitialJob(crtdl, patientIds, jobId);
+        Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds));
         initJob(initial);
         return jobId;
     }
@@ -412,7 +413,7 @@ public class JobPersistenceService {
                 return current;
             }
             try {
-                return saveJob(updatedJob);
+                return saveJob(updatedJob.incrementVersion());
             } catch (IOException e) {
                 logger.error("Failed to save job.json for {}: {}", id, e.getMessage(), e);
                 return current.onJobError(e, List.of());

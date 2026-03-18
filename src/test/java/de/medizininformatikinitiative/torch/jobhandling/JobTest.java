@@ -1,6 +1,10 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -11,79 +15,65 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.ProcessCoreWork
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.time.Instant;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class JobTest {
 
-    static final JobParameters EMPTY_PARAMETERS =
-            new JobParameters(
-                    new AnnotatedCrtdl(
-                            JsonNodeFactory.instance.objectNode(),
-                            new AnnotatedDataExtraction(List.of()),
-                            Optional.empty()
-                    ),
-                    List.of()
-            );
+    @Test
+    void deserializingJobWithoutVersion() throws Exception {
+        ObjectMapper mapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module());
 
-    public static Job job(UUID jobId,
-                          JobStatus status,
-                          WorkUnitState cohortState,
-                          Map<UUID, BatchState> batches,
-                          WorkUnitState coreState) {
-        Instant now = Instant.now();
-        return new Job(
-                jobId,
-                status,
-                cohortState,
+        Job original = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+        ObjectNode tree = mapper.valueToTree(original);
+        tree.remove("version");
+
+        Job deserialized = mapper.treeToValue(tree, Job.class);
+
+        assertThat(deserialized.version()).isZero();
+    }
+
+    @Test
+    void negativeVersion_throwsIllegalArgumentException() {
+        assertThatThrownBy(() -> new Job(
+                UUID.randomUUID(),
+                JobStatus.PENDING,
+                WorkUnitState.initNow(),
                 0,
-                batches,
-                now,
-                now,
+                java.util.Map.of(),
+                Instant.now(),
+                Instant.now(),
                 Optional.empty(),
                 List.of(),
-                EMPTY_PARAMETERS,
+                TestUtils.emptyJobParams(),
                 JobPriority.NORMAL,
-                coreState
-        );
+                WorkUnitState.initNow(),
+                -1L
+        ))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessage("version must not be negative");
     }
-
-    private static Job job(JobStatus status,
-                           WorkUnitState cohortState,
-                           Map<UUID, BatchState> batches,
-                           WorkUnitState coreState) {
-        return job(UUID.randomUUID(), status, cohortState, batches, coreState);
-    }
-
-    // -------------------------------------------------------------------------
-    // State machine: selectNextWorkUnit()
-    // -------------------------------------------------------------------------
 
     @Nested
     class SelectNextWorkUnitTests {
 
         @Test
         void pending_returnsGetCohort_andStagesJobToRunningGetCohort() {
-            Job j = job(
-                    JobStatus.PENDING,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
 
             Optional<WorkUnit> wuOpt = j.selectNextWorkUnit();
 
@@ -100,19 +90,13 @@ public class JobTest {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
-            // Use LinkedHashMap so "first" is deterministic.
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, new BatchState(b1, WorkUnitState.initNow()));       // INIT => eligible
-            batches.put(b2, new BatchState(b2, WorkUnitState.startNow()));      // IN_PROGRESS => not eligible
-
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.initNow()))
+                    .withBatchState(new BatchState(b2, WorkUnitState.startNow()));
 
             assertThat(j.calculateBatchProgress()).isZero();
+
             Optional<WorkUnit> wuOpt = j.selectNextWorkUnit();
 
             assertThat(wuOpt).isPresent();
@@ -128,24 +112,17 @@ public class JobTest {
             UUID b1 = UUID.randomUUID();
             BatchState finished = new BatchState(b1, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
 
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    Map.of(b1, finished),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(finished);
 
             assertThat(j.selectNextWorkUnit()).isEmpty();
         }
 
         @Test
         void runningProcessCore_withCoreInit_returnsProcessCore_andStagesCoreToInProgress() {
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_CORE,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.initNow()  // INIT => eligible
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE);
 
             Optional<WorkUnit> wuOpt = j.selectNextWorkUnit();
 
@@ -159,12 +136,9 @@ public class JobTest {
 
         @Test
         void runningProcessCore_withCoreNotInit_returnsEmpty() {
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_CORE,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.startNow() // already IN_PROGRESS => no new unit
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
 
             assertThat(j.calculateBatchProgress()).isZero();
             assertThat(j.selectNextWorkUnit()).isEmpty();
@@ -172,19 +146,15 @@ public class JobTest {
 
         @Test
         void finalStates_returnEmpty() {
-            Job failed = job(JobStatus.FAILED, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
-            Job tempFailed = job(JobStatus.TEMP_FAILED, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
-            Job completed = job(JobStatus.COMPLETED, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job failed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.FAILED);
+            Job tempFailed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.TEMP_FAILED);
+            Job completed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.COMPLETED);
 
             assertThat(failed.selectNextWorkUnit()).isEmpty();
             assertThat(tempFailed.selectNextWorkUnit()).isEmpty();
             assertThat(completed.selectNextWorkUnit()).isEmpty();
         }
     }
-
-    // -------------------------------------------------------------------------
-    // Transition: onBatchProcessingSuccess()
-    // -------------------------------------------------------------------------
 
     @Nested
     class OnBatchProcessingSuccessTests {
@@ -197,19 +167,12 @@ public class JobTest {
             BatchState init1 = new BatchState(b1, WorkUnitState.initNow());
             BatchState init2 = new BatchState(b2, WorkUnitState.initNow());
 
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, init1);
-            batches.put(b2, init2);
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withCoreState(WorkUnitState.startNow())
+                    .withBatchState(init1)
+                    .withBatchState(init2);
 
-            // coreState intentionally non-INIT to ensure it gets reset on transition
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.startNow()
-            );
-
-            // finish b1 => not all done yet
             BatchResult r1 = mock(BatchResult.class);
             when(r1.batchState()).thenReturn(init1.finishNow(WorkUnitStatus.FINISHED));
             when(r1.issues()).thenReturn(List.of());
@@ -217,14 +180,12 @@ public class JobTest {
             Job after1 = j.onBatchProcessingSuccess(r1);
             assertThat(after1.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
 
-            // finish b2 => now all done => move to core
             BatchResult r2 = mock(BatchResult.class);
             when(r2.batchState()).thenReturn(init2.finishNow(WorkUnitStatus.FINISHED));
             when(r2.issues()).thenReturn(List.of());
 
             Job after2 = after1.onBatchProcessingSuccess(r2);
             assertThat(after2.calculateBatchProgress()).isEqualTo(100);
-
             assertThat(after2.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
             assertThat(after2.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
         }
@@ -237,18 +198,11 @@ public class JobTest {
             BatchState init1 = new BatchState(b1, WorkUnitState.initNow());
             BatchState init2 = new BatchState(b2, WorkUnitState.initNow());
 
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, init1);
-            batches.put(b2, init2);
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(init1)
+                    .withBatchState(init2);
 
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
-
-            // finish only b1
             BatchResult r1 = mock(BatchResult.class);
             when(r1.batchState()).thenReturn(init1.finishNow(WorkUnitStatus.FINISHED));
             when(r1.issues()).thenReturn(List.of());
@@ -266,28 +220,20 @@ public class JobTest {
 
         @Test
         void runningGetCohortRollsBackToPending() {
-            Job j = job(
-                    JobStatus.RUNNING_GET_COHORT,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT);
 
             Job rolled = j.rollback();
 
             assertThat(rolled.status()).isEqualTo(JobStatus.PENDING);
-            // cohortState should still be INIT (unless you change it)
             assertThat(rolled.cohortState().status()).isEqualTo(WorkUnitStatus.INIT);
         }
 
         @Test
         void rollback_runningGetCohort_withCohortInProgress_resetsCohortStateToInit_andStatusToPending() {
-            Job j = job(
-                    JobStatus.RUNNING_GET_COHORT,
-                    WorkUnitState.startNow(),     // IN_PROGRESS
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
 
             Job rolled = j.rollback();
 
@@ -297,16 +243,12 @@ public class JobTest {
 
         @Test
         void rollback_runningProcessCore_withCoreInProgress_resetsCoreToInit_butKeepsStage() {
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_CORE,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.startNow() // IN_PROGRESS
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
 
             Job rolled = j.rollback();
 
-            // stage stays core-processing so selectNextWorkUnit can re-emit core unit by INIT substate
             assertThat(rolled.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
             assertThat(rolled.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
         }
@@ -316,16 +258,10 @@ public class JobTest {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, new BatchState(b1, WorkUnitState.startNow())); // IN_PROGRESS
-            batches.put(b2, new BatchState(b2, WorkUnitState.initNow()));  // INIT
-
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.startNow()))
+                    .withBatchState(new BatchState(b2, WorkUnitState.initNow()));
 
             Job rolled = j.rollback();
 
@@ -338,16 +274,9 @@ public class JobTest {
         void rollback_doesNotChangeInitStates() {
             UUID b1 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = Map.of(
-                    b1, new BatchState(b1, WorkUnitState.initNow())
-            );
-
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.initNow()));
 
             Job rolled = j.rollback();
 
@@ -359,15 +288,9 @@ public class JobTest {
 
         @Test
         void rollback_thenSelectNextWorkUnit_reemitsCohortWorkUnit() {
-            // This is the key behavior you want:
-            // crash left you in RUNNING_GET_COHORT, rollback must put you into PENDING,
-            // because only PENDING emits ProcessCohortWorkUnit.
-            Job crashed = job(
-                    JobStatus.RUNNING_GET_COHORT,
-                    WorkUnitState.startNow(), // IN_PROGRESS
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job crashed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
 
             Job rolled = crashed.rollback();
             assertThat(rolled.status()).isEqualTo(JobStatus.PENDING);
@@ -379,12 +302,9 @@ public class JobTest {
 
         @Test
         void rollback_thenSelectNextWorkUnit_reemitsCoreWorkUnit_whenCoreWasInProgress() {
-            Job crashed = job(
-                    JobStatus.RUNNING_PROCESS_CORE,
-                    WorkUnitState.initNow(),
-                    Map.of(),
-                    WorkUnitState.startNow() // IN_PROGRESS
-            );
+            Job crashed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
 
             Job rolled = crashed.rollback();
             assertThat(rolled.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
@@ -399,20 +319,13 @@ public class JobTest {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, new BatchState(b1, WorkUnitState.startNow()));
-            batches.put(b2, new BatchState(b2, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)));
-
-            Job crashed = job(
-                    JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job crashed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.startNow()))
+                    .withBatchState(new BatchState(b2, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)));
 
             Job rolled = crashed.rollback();
 
-            // both INIT now; selection should pick first INIT (LinkedHashMap order)
             Optional<WorkUnit> wuOpt = rolled.selectNextWorkUnit();
             assertThat(wuOpt).isPresent();
             assertThat(wuOpt.get()).isInstanceOf(ProcessBatchWorkUnit.class);
@@ -437,12 +350,11 @@ public class JobTest {
         void infer_failedFromCohort() {
             UUID b1 = UUID.randomUUID();
 
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    failed(), // cohort terminal failure
-                    Map.of(b1, new BatchState(b1, done())), // batches done
-                    done() // core done
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(failed())
+                    .withCoreState(done())
+                    .withBatchState(new BatchState(b1, done()));
 
             Job rolled = j.rollback();
 
@@ -453,12 +365,11 @@ public class JobTest {
         void infer_failedFromCore() {
             UUID b1 = UUID.randomUUID();
 
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(), // cohort done
-                    Map.of(b1, new BatchState(b1, done())), // batches done
-                    failed() // core terminal failure
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(failed())
+                    .withBatchState(new BatchState(b1, done()));
 
             Job rolled = j.rollback();
 
@@ -469,12 +380,11 @@ public class JobTest {
         void infer_failedFromBatch() {
             UUID b1 = UUID.randomUUID();
 
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(), // cohort done
-                    Map.of(b1, new BatchState(b1, failed())), // batch terminal failure
-                    done() // core done
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(done())
+                    .withBatchState(new BatchState(b1, failed()));
 
             Job rolled = j.rollback();
 
@@ -483,12 +393,9 @@ public class JobTest {
 
         @Test
         void tempFailedToPending_cohortTempFailed_incrementsCohortRetry() {
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    WorkUnitState.initNow().markTempFailed(), // cohort TEMP_FAILED
-                    Map.of(),
-                    WorkUnitState.initNow()                   // core INIT
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(WorkUnitState.initNow().markTempFailed());
 
             assertThat(j.cohortState().retry()).isZero();
 
@@ -503,18 +410,14 @@ public class JobTest {
             WorkUnitState cohortTempFailedExhaustedSoon =
                     new WorkUnitState(WorkUnitStatus.TEMP_FAILED, Instant.now(), Optional.empty(), 4);
 
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    cohortTempFailedExhaustedSoon,
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(cohortTempFailedExhaustedSoon);
 
             Job rolled = j.rollback();
 
             assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
             assertThat(rolled.cohortState().status()).isEqualTo(WorkUnitStatus.FAILED);
-
             assertThat(rolled.issues())
                     .anyMatch(i -> i.msg().contains("Retries exhausted after reroll")
                             && i.msg().contains("cohort"));
@@ -525,18 +428,15 @@ public class JobTest {
             WorkUnitState coreTempFailedExhaustedSoon =
                     new WorkUnitState(WorkUnitStatus.TEMP_FAILED, Instant.now(), Optional.empty(), 4);
 
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),
-                    Map.of(),
-                    coreTempFailedExhaustedSoon
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(coreTempFailedExhaustedSoon);
 
             Job rolled = j.rollback();
 
             assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
             assertThat(rolled.coreState().status()).isEqualTo(WorkUnitStatus.FAILED);
-
             assertThat(rolled.issues())
                     .anyMatch(i -> i.msg().contains("Retries exhausted after reroll")
                             && i.msg().contains("core"));
@@ -545,26 +445,19 @@ public class JobTest {
         @Test
         void exhaustBatch() {
             UUID b1 = UUID.randomUUID();
-
             WorkUnitState batchTempFailedExhaustedSoon =
                     new WorkUnitState(WorkUnitStatus.TEMP_FAILED, Instant.now(), Optional.empty(), 4);
 
-            Map<UUID, BatchState> batches = Map.of(
-                    b1, new BatchState(b1, batchTempFailedExhaustedSoon)
-            );
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),
-                    batches,
-                    done()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(done())
+                    .withBatchState(new BatchState(b1, batchTempFailedExhaustedSoon));
 
             Job rolled = j.rollback();
 
             assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
             assertThat(rolled.batches().get(b1).status()).isEqualTo(WorkUnitStatus.FAILED);
-
             assertThat(rolled.issues())
                     .anyMatch(i -> i.msg().contains("Retries exhausted after reroll")
                             && i.msg().contains("batch " + b1));
@@ -575,16 +468,11 @@ public class JobTest {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = new LinkedHashMap<>();
-            batches.put(b1, new BatchState(b1, done()));              // done
-            batches.put(b2, new BatchState(b2, WorkUnitState.initNow())); // remaining
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),          // cohort done
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withBatchState(new BatchState(b1, done()))
+                    .withBatchState(new BatchState(b2, WorkUnitState.initNow()));
 
             Job rolled = j.rollback();
 
@@ -595,16 +483,10 @@ public class JobTest {
         void tempFailedToCore() {
             UUID b1 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = Map.of(
-                    b1, new BatchState(b1, done())
-            );
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),          // cohort done
-                    batches,         // batches done
-                    WorkUnitState.initNow() // core not done
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withBatchState(new BatchState(b1, done()));
 
             Job rolled = j.rollback();
 
@@ -615,16 +497,11 @@ public class JobTest {
         void tempFailedToCompleted() {
             UUID b1 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = Map.of(
-                    b1, new BatchState(b1, done())
-            );
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),
-                    batches,
-                    done()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(done())
+                    .withBatchState(new BatchState(b1, done()));
 
             Job rolled = j.rollback();
 
@@ -633,12 +510,9 @@ public class JobTest {
 
         @Test
         void cohortFailedToFailed() {
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    failed(), // terminal failure
-                    Map.of(),
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(failed());
 
             Job rolled = j.rollback();
 
@@ -647,12 +521,10 @@ public class JobTest {
 
         @Test
         void coreFailedToFailed() {
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),
-                    Map.of(),
-                    failed() // terminal failure
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withCoreState(failed());
 
             Job rolled = j.rollback();
 
@@ -663,16 +535,10 @@ public class JobTest {
         void batchFailedToFailed() {
             UUID b1 = UUID.randomUUID();
 
-            Map<UUID, BatchState> batches = Map.of(
-                    b1, new BatchState(b1, failed())
-            );
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    done(),
-                    batches,
-                    WorkUnitState.initNow()
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(done())
+                    .withBatchState(new BatchState(b1, failed()));
 
             Job rolled = j.rollback();
 
@@ -683,24 +549,17 @@ public class JobTest {
         void rerollUnitTempFailed() {
             UUID b1 = UUID.randomUUID();
 
-            WorkUnitState cohortTempFailed = WorkUnitState.initNow().markTempFailed();
-            WorkUnitState coreTempFailed = WorkUnitState.initNow().markTempFailed();
-            BatchState batchTempFailed = new BatchState(b1, WorkUnitState.initNow().markTempFailed());
-
-            Job j = job(
-                    JobStatus.TEMP_FAILED,
-                    cohortTempFailed,
-                    Map.of(b1, batchTempFailed),
-                    coreTempFailed
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(WorkUnitState.initNow().markTempFailed())
+                    .withCoreState(WorkUnitState.initNow().markTempFailed())
+                    .withBatchState(new BatchState(b1, WorkUnitState.initNow().markTempFailed()));
 
             Job rolled = j.rollback();
 
             assertThat(rolled.cohortState().status()).isEqualTo(WorkUnitStatus.INIT);
             assertThat(rolled.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
             assertThat(rolled.batches().get(b1).status()).isEqualTo(WorkUnitStatus.INIT);
-
-            // after reroll, cohort not done => pending
             assertThat(rolled.status()).isEqualTo(JobStatus.PENDING);
         }
     }
@@ -712,10 +571,11 @@ public class JobTest {
 
         @Test
         void onCohortError_retryable_transitionsToTempFailed() {
-            Job j = job(JobStatus.RUNNING_GET_COHORT, WorkUnitState.startNow(), Map.of(), WorkUnitState.initNow());
-            Exception retryableEx = new IOException("Retryable"); // Assuming default is retryable
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
 
-            Job updated = j.onCohortError(retryableEx, sampleIssues);
+            Job updated = j.onCohortError(new IOException("Retryable"), sampleIssues);
 
             assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
             assertThat(updated.cohortState().status()).isEqualTo(WorkUnitStatus.TEMP_FAILED);
@@ -725,19 +585,24 @@ public class JobTest {
         @Test
         void onBatchError_missingBatchId_returnsFailedWithNewIssue() {
             UUID unknownId = UUID.randomUUID();
-            Job j = job(JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
             Job updated = j.onBatchError(unknownId, new Exception("Boom"), List.of());
 
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
-            assertThat(updated.issues()).anyMatch(i -> i.msg().contains("Missing batch") && i.msg().contains(unknownId.toString()));
+            assertThat(updated.issues())
+                    .anyMatch(i -> i.msg().contains("Missing batch") && i.msg().contains(unknownId.toString()));
         }
 
         @Test
         void onBatchError_retryable_updatesBatchStateAndTempFails() {
             UUID b1 = UUID.randomUUID();
-            BatchState bs = new BatchState(b1, WorkUnitState.startNow());
-            Job j = job(JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(), Map.of(b1, bs), WorkUnitState.initNow());
+
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.startNow()));
 
             Job updated = j.onBatchError(b1, new IOException("Retryable"), sampleIssues);
 
@@ -748,22 +613,26 @@ public class JobTest {
 
         @Test
         void onCoreError_retryable_addsAutoGeneratedIssueAndTempFails() {
-            Job j = job(JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(), Map.of(), WorkUnitState.startNow());
             String errorMsg = "Core failed message";
-            Exception ex = new IOException(errorMsg);
 
-            Job updated = j.onCoreError(ex, sampleIssues);
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
+
+            Job updated = j.onCoreError(new IOException(errorMsg), sampleIssues);
 
             assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
             assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.TEMP_FAILED);
-            // Verify both passed issues and the one generated inside onCoreError are present
             assertThat(updated.issues()).hasSize(2);
             assertThat(updated.issues()).anyMatch(i -> i.msg().contains("CoreState failed: " + errorMsg));
         }
 
         @Test
         void onCoreError_nonRetryable_failsImmediately() {
-            Job j = job(JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(), Map.of(), WorkUnitState.startNow());
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
+
             Job updated = j.onCoreError(new Error("Fatal"), List.of());
 
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
@@ -772,26 +641,28 @@ public class JobTest {
 
         @Test
         void onJobError_retryable_addsIssueAndTempFails() {
-            Job j = job(JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
-            Exception infraEx = new IOException("DB Connection Timeout");
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
-            Job updated = j.onJobError(infraEx, List.of());
+            Job updated = j.onJobError(new IOException("DB Connection Timeout"), List.of());
 
             assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
-            assertThat(updated.issues()).anyMatch(i -> i.severity() == Severity.WARNING
-                    && i.msg().contains("Infrastructure/persistence error"));
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.WARNING
+                            && i.msg().contains("Infrastructure/persistence error"));
         }
 
         @Test
         void onJobError_nonRetryable_addsErrorIssueAndFails() {
-            Job j = job(JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
-            Error fatal = new Error("Disk Full");
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
-            Job updated = j.onJobError(fatal, List.of());
+            Job updated = j.onJobError(new Error("Disk Full"), List.of());
 
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
-            assertThat(updated.issues()).anyMatch(i -> i.severity() == Severity.ERROR
-                    && i.msg().contains("Infrastructure/persistence error"));
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.ERROR
+                            && i.msg().contains("Infrastructure/persistence error"));
         }
     }
 
@@ -800,29 +671,22 @@ public class JobTest {
 
         @Test
         void transitionsToCompleted() {
-            // Arrange
-            Job j = job(
-                    JobStatus.RUNNING_PROCESS_CORE,
-                    WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED), // Cohort done
-                    Map.of(),                                                  // No batches
-                    WorkUnitState.startNow()                                   // Core in progress
-            );
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.startNow());
 
             List<Issue> coreIssues = List.of(new Issue(Severity.INFO, "Core stats: 100 records processed", ""));
             CoreResult result = mock(CoreResult.class);
             when(result.status()).thenReturn(WorkUnitStatus.FINISHED);
             when(result.issues()).thenReturn(coreIssues);
 
-            // Act
             Job completedJob = j.onCoreSuccess(result);
 
-            // Assert
             assertThat(completedJob.status()).isEqualTo(JobStatus.COMPLETED);
             assertThat(completedJob.coreState().status()).isEqualTo(WorkUnitStatus.FINISHED);
             assertThat(completedJob.issues()).containsAll(coreIssues);
-            // Verify core state was actually updated via finishNow (timestamp should be present)
             assertThat(completedJob.coreState().finishedAt()).isPresent();
         }
     }
-
 }

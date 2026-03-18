@@ -4,8 +4,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
-import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
-import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
@@ -17,9 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -53,18 +49,7 @@ class ProcessCohortWorkUnitTest {
     private static Job jobWithParams(UUID jobId, List<String> paramBatch) {
         JobParameters params = new JobParameters(minimalCrtdl(), paramBatch);
 
-        return new Job(
-                jobId,
-                JobStatus.PENDING, WorkUnitState.initNow(),     // status doesn't matter for this work unit
-                0,
-                Map.of(),
-                Instant.now(),
-                Instant.now(),
-                Optional.empty(),
-                List.of(),
-                params,
-                JobPriority.NORMAL,
-                WorkUnitState.initNow());
+        return Job.init(jobId, params);
     }
 
     private JobExecutionContext ctx() {
