@@ -28,7 +28,7 @@ extract it.
 - **"Half-Open" Slicing**: With the strict structure definition adherence, Torch implements a "half-open" slicing
   approach.
   This means that if slicing is open in the profile, additional slices not defined in the profile are removed.
-  Exception is with multiple profiles per resource, where the first known profile is selected greedily.
+  **Exception** is the Patient.identifier field, which is always treated as open slicing.
 
 
 - **Data Absent Reason Setting**: If an element is removed due to redaction or extraction but is required by the

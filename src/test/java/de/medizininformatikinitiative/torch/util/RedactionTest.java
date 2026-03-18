@@ -170,15 +170,17 @@ public class RedactionTest {
         Patient patient = new Patient();
         patient.setId("patient-id");
         patient.setMeta(meta);
+        Identifier inputIdentifier = new Identifier();
+        inputIdentifier.setSystem("http://example.org/pid");
+        inputIdentifier.setValue("12345");
+        patient.setIdentifier(List.of(inputIdentifier.copy()));
 
         Patient expectedPatient = new Patient();
         expectedPatient.setId("patient-id");
         Meta metaModified = new Meta();
         metaModified.addProfile(PATIENT);
         expectedPatient.setMeta(metaModified);
-        Identifier identifier = new Identifier();
-        identifier.addExtension(createAbsentReasonExtension("masked"));
-        expectedPatient.setIdentifier(List.of(identifier));
+        expectedPatient.setIdentifier(List.of(inputIdentifier.copy()));
 
         ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(patient, Set.of(PATIENT), Map.of(), new CopyTreeNode("dummy"));
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
