@@ -47,6 +47,12 @@ public record MultiElementContext(List<ElementContext> contexts) {
         return !isDataAbsentReason(extension) && !hasSlice(extension);
     }
 
+    public boolean ignoreSlicingInRedaction() {
+        return contexts.stream()
+                .map(ElementContext::elementId)
+                .anyMatch("Patient.identifier"::equals);
+    }
+    
     /**
      * Checks if the given element is a sliced element.
      *

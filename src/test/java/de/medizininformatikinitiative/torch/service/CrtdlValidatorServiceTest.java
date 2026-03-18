@@ -1,6 +1,5 @@
 package de.medizininformatikinitiative.torch.service;
 
-import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -118,7 +117,8 @@ class CrtdlValidatorServiceTest {
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
-                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
+                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
+                        new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false)
                 ));
     }
 

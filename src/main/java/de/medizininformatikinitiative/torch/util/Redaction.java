@@ -200,7 +200,7 @@ public class Redaction {
      * @return updated ElementContexts if valid, otherwise Optional empty if element was removed due to slicing
      */
     private Optional<MultiElementContext> handleSlicing(Base dataElement, MultiElementContext context) {
-        if (dataElement instanceof Extension || !context.hasSlicing()) {
+        if (dataElement instanceof Extension || !context.hasSlicing() || context.ignoreSlicingInRedaction()) {
             return Optional.of(context);
         }
         return context.resolveSlices(dataElement, slices -> {
