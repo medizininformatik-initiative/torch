@@ -1,21 +1,15 @@
 package de.medizininformatikinitiative.torch.management;
 
-import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
-import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
-import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
-import java.time.Instant;
 import java.util.List;
-import java.util.Map;
-import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,31 +22,9 @@ class OperationOutcomeCreatorTest {
     // Helpers
     // -------------------------------------------------------------------------
 
-    private static Job job(UUID id, JobStatus status, int cohortSize, List<Issue> issues) {
-        // Stuff we don’t test here → mocks / empty.
-        WorkUnitState cohortState = mock(WorkUnitState.class);
-        WorkUnitState coreState = mock(WorkUnitState.class);
-        Map<UUID, BatchState> batches = Map.of();
-
+    private static Job job(UUID id, JobStatus status, List<Issue> issues) {
         JobParameters params = mock(JobParameters.class);
-        JobPriority priority = mock(JobPriority.class);
-
-        Instant now = Instant.now();
-
-        return new Job(
-                id,
-                status,
-                cohortState,
-                cohortSize,
-                batches,
-                now,
-                now,
-                Optional.empty(),
-                issues,
-                params,
-                priority,
-                coreState
-        );
+        return Job.init(id, params).withStatus(status).withIssuesAdded(issues);
     }
 
     private static Issue issue(Severity severity, String msg, String diagnostics) {
@@ -123,7 +95,7 @@ class OperationOutcomeCreatorTest {
                     issue(Severity.FATAL, "fatal", "")
             );
 
-            Job j = job(id, JobStatus.FAILED, 123, issues);
+            Job j = job(id, JobStatus.FAILED, issues);
 
             OperationOutcome oo = OperationOutcomeCreator.fromJob(j);
 
@@ -158,7 +130,7 @@ class OperationOutcomeCreatorTest {
                     .contains("Job " + id)
                     .contains("status: " + JobStatus.FAILED)
                     .contains("batch progress: ")
-                    .contains("cohort Size: 123");
+                    .contains("cohort Size: 0");
         }
 
         @Test
@@ -168,7 +140,6 @@ class OperationOutcomeCreatorTest {
             Job withDetails = job(
                     id,
                     JobStatus.PENDING,
-                    0,
                     List.of(issue(Severity.ERROR, "Something failed", "details"))
             );
             OperationOutcome oo1 = OperationOutcomeCreator.fromJob(withDetails);
@@ -179,7 +150,6 @@ class OperationOutcomeCreatorTest {
             Job withoutDetails = job(
                     id,
                     JobStatus.PENDING,
-                    0,
                     List.of(issue(Severity.ERROR, "Something failed", ""))
             );
             OperationOutcome oo2 = OperationOutcomeCreator.fromJob(withoutDetails);

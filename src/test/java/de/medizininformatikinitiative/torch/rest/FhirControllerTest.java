@@ -2,13 +2,13 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
-import de.medizininformatikinitiative.torch.jobhandling.JobTest;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
@@ -144,8 +144,7 @@ class FhirControllerTest {
         void runningJobReturnsAcceptedWithOperationOutcome() {
             UUID jobId = UUID.randomUUID();
             // Create a job in RUNNING state using your factory method
-            Job runningJob = JobTest.job(jobId, JobStatus.RUNNING_PROCESS_BATCH,
-                    WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job runningJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
             when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(runningJob));
 
@@ -165,9 +164,9 @@ class FhirControllerTest {
             Map<UUID, BatchState> batches = Map.of(
                     batchId, new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
             );
-            Job completedJob = JobTest.job(jobId, JobStatus.COMPLETED,
-                    WorkUnitState.initNow(), batches,
-                    WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+            Job completedJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.COMPLETED)
+                    .withBatchState(new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
 
             when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
 
@@ -183,8 +182,7 @@ class FhirControllerTest {
         @Test
         void failedJobReturnsInternalServerError() {
             UUID jobId = UUID.randomUUID();
-            Job failedJob = JobTest.job(jobId, JobStatus.FAILED,
-                    WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job failedJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.FAILED);
 
             when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(failedJob));
 

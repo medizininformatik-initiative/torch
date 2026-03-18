@@ -2,9 +2,9 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -17,8 +17,6 @@ import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
@@ -66,33 +64,13 @@ class JobPersistenceServiceTest {
             .registerModule(new Jdk8Module())
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    static final JobParameters EMPTY_PARAMETERS =
-            new JobParameters(
-                    new AnnotatedCrtdl(
-                            JsonNodeFactory.instance.objectNode(),
-                            new AnnotatedDataExtraction(List.of()),
-                            Optional.empty()
-                    ),
-                    List.of()
-            );
+    static final JobParameters EMPTY_PARAMETERS = TestUtils.emptyJobParams();
 
 
-    static Job createJob(UUID jobId) {
+    static Job createJobWithBatches(UUID jobId) {
         BatchState s1 = BatchState.init();
         BatchState s2 = BatchState.init();
-
-        return new Job(
-                jobId,
-                JobStatus.RUNNING_GET_COHORT, WorkUnitState.initNow(),
-                10,
-                Map.of(s1.batchId(), s1, s2.batchId(), s2),
-                Instant.now(),
-                Instant.now(),
-                Optional.empty(),
-                List.of(),
-                EMPTY_PARAMETERS,
-                JobPriority.NORMAL,
-                WorkUnitState.initNow());
+        return Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.RUNNING_GET_COHORT).withBatchState(s1).withBatchState(s2);
     }
 
 
@@ -237,11 +215,11 @@ class JobPersistenceServiceTest {
 
             Files.writeString(
                     baseDir.resolve(j1.toString()).resolve("job.json"),
-                    MAPPER.writeValueAsString(createJob(j1))
+                    MAPPER.writeValueAsString(createJobWithBatches(j1))
             );
             Files.writeString(
                     baseDir.resolve(j2.toString()).resolve("job.json"),
-                    MAPPER.writeValueAsString(createJob(j2))
+                    MAPPER.writeValueAsString(createJobWithBatches(j2))
             );
             persistenceService.init();
             assertThat(persistenceService.getJob(j1)).isPresent();
@@ -399,19 +377,9 @@ class JobPersistenceServiceTest {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            Job crashed = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(),
-                    10,
-                    Map.of(),
-                    clock.instant(),
-                    clock.instant(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    // IN_PROGRESS
-                    WorkUnitState.startNow());
+            Job crashed = Job.init(jobId, EMPTY_PARAMETERS)
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -444,18 +412,7 @@ class JobPersistenceServiceTest {
                     batchId, WorkUnitState.startNow()
             );
 
-            Job crashed = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
-                    10,
-                    Map.of(batchId, inProgress),
-                    clock.instant(),
-                    clock.instant(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+            Job crashed = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(inProgress).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -483,19 +440,7 @@ class JobPersistenceServiceTest {
             BatchState init = new BatchState(
                     batchId, WorkUnitState.initNow()
             );
-
-            Job job = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
-                    10,
-                    Map.of(batchId, init),
-                    clock.instant(),
-                    clock.instant(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(init).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(job));
 
@@ -513,20 +458,8 @@ class JobPersistenceServiceTest {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            // This assumes COMPLETED is "final". Adjust if your enum differs.
-            Job completedButHasCore = new Job(
-                    jobId,
-                    JobStatus.COMPLETED, WorkUnitState.initNow(),
-                    10,
-                    Map.of(),
-                    clock.instant(),
-                    clock.instant(),
-                    Optional.of(clock.instant()),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    // even if persisted wrongly, final job should not resume
-                    WorkUnitState.startNow());
+            Job completedButHasCore = Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.COMPLETED);
+
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(completedButHasCore));
 
@@ -541,19 +474,7 @@ class JobPersistenceServiceTest {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            Job noCoreState = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(),
-                    10,
-                    Map.of(),
-                    clock.instant(),
-                    clock.instant(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    // coreState missing
-                    WorkUnitState.initNow());
+            Job noCoreState = Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.RUNNING_PROCESS_CORE);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(noCoreState));
 
@@ -605,21 +526,11 @@ class JobPersistenceServiceTest {
             Path jobDir = prepareJobDir(jobId);
 
             BatchState tempFailed = new BatchState(
-                    batchId, WorkUnitState.startNow().markFailed()
+                    batchId, WorkUnitState.startNow().markTempFailed()
             );
 
-            Job job = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
-                    10,
-                    Map.of(batchId, tempFailed),
-                    Instant.now(),
-                    Instant.now(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    WorkUnitState.initNow());
+            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(tempFailed).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+
 
             persistJob(jobDir, job);
 
@@ -647,21 +558,8 @@ class JobPersistenceServiceTest {
             Path jobDir = prepareJobDir(jobId);
 
             BatchState init = new BatchState(batchId, WorkUnitState.initNow());
-            // or if you have it: BatchState.init(batchId)
 
-            Job job = new Job(
-                    jobId,
-                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
-                    10,
-                    Map.of(batchId, init),
-                    Instant.now(),
-                    Instant.now(),
-                    Optional.empty(),
-                    List.of(),
-                    EMPTY_PARAMETERS,
-                    JobPriority.NORMAL,
-                    WorkUnitState.initNow()
-            );
+            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(init).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
             persistJob(jobDir, job);
 
@@ -728,14 +626,14 @@ class JobPersistenceServiceTest {
         @Test
         void selectNextWorkUnit_OrdersByPriority() throws IOException {
             // Job 1: Normal Priority
-            service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID firstJob = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
             // Job 2: High Priority
             UUID j2 = UUID.randomUUID();
-            Job highPrio = createJob(j2).withPriority(JobPriority.HIGH).withStatus(JobStatus.PENDING);
+            Job highPrio = Job.init(j2, EMPTY_PARAMETERS).withPriority(JobPriority.HIGH);
             service.putJobForTest(highPrio);
 
             Optional<WorkUnit> wu = service.selectNextWorkUnit();
-
+            System.out.println(firstJob);
             assertThat(wu).isPresent();
             assertThat(wu.get().job().id()).isEqualTo(j2);
         }
@@ -810,7 +708,7 @@ class JobPersistenceServiceTest {
         void updateJobAndReturn_HandlesPersistenceFailure() throws IOException {
             // GIVEN: A job exists in the registry
             UUID jobId = UUID.randomUUID();
-            Job job = createJob(jobId);
+            Job job = createJobWithBatches(jobId);
             service.putJobForTest(job);
 
             // Simulate a failure during the atomic move / write
@@ -860,7 +758,7 @@ class JobPersistenceServiceTest {
             UUID batchId = UUID.randomUUID();
             // Create a job where the batch is already IN_PROGRESS
             BatchState inProgress = new BatchState(batchId, WorkUnitState.startNow());
-            Job job = createJob(jobId).withBatchState(inProgress);
+            Job job = createJobWithBatches(jobId).withBatchState(inProgress);
             service.putJobForTest(job);
 
             // Branch: bs.status() != WorkUnitStatus.INIT
@@ -871,7 +769,7 @@ class JobPersistenceServiceTest {
         @Test
         void tryMarkCoreInProgress_ReturnsFalse_WhenAlreadyStarted() {
             UUID jobId = UUID.randomUUID();
-            Job job = createJob(jobId).withCoreState(WorkUnitState.startNow());
+            Job job = createJobWithBatches(jobId).withCoreState(WorkUnitState.startNow());
             service.putJobForTest(job);
 
             // Branch: job.coreState().status() != WorkUnitStatus.INIT
@@ -883,7 +781,7 @@ class JobPersistenceServiceTest {
         void selectNextWorkUnit_ReturnsEmpty_WhenNoSchedulableJobs() {
             // Either registry is empty, or all jobs are COMPLETED (final)
             UUID jobId = UUID.randomUUID();
-            Job completedJob = createJob(jobId).withStatus(JobStatus.COMPLETED);
+            Job completedJob = createJobWithBatches(jobId).withStatus(JobStatus.COMPLETED);
             service.putJobForTest(completedJob);
 
             // Branch: filter(job -> !job.status().isFinal()) results in empty stream
@@ -911,7 +809,7 @@ class JobPersistenceServiceTest {
             UUID j1 = UUID.randomUUID();
             Path j1Dir = tempDir.resolve(j1.toString());
             Files.createDirectories(j1Dir);
-            Job job = createJob(j1);
+            Job job = createJobWithBatches(j1);
             Files.writeString(j1Dir.resolve("job.json"), MAPPER.writeValueAsString(job));
 
             // Use a Spy of the real implementation so we can use real logic for loading

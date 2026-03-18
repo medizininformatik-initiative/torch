@@ -1,17 +1,15 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
-import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
-import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
-import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -35,7 +33,6 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,7 +40,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-import static de.medizininformatikinitiative.torch.jobhandling.JobTest.job;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -86,24 +82,6 @@ class ExtractDataServiceTest {
     ExtractDataService service;
     ExtractDataService spyService;
 
-    private static Job jobWithParameters(UUID jobId, JobStatus status, JobParameters params) {
-        Instant now = Instant.now();
-        return new Job(
-                jobId,
-                status,
-                WorkUnitState.initNow(),
-                0,
-                Map.of(),
-                now,
-                now,
-                Optional.empty(),
-                List.of(),
-                params,
-                JobPriority.NORMAL,
-                WorkUnitState.initNow()
-        );
-    }
-
     @BeforeEach
     void setUp() {
         service = new ExtractDataService(
@@ -132,8 +110,8 @@ class ExtractDataServiceTest {
         void processBatch_whenPostCascadeMustHaveFailsForOnePatient_filtersPatientAndStillFinishes() throws Exception {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(any())).thenReturn(groups);
@@ -249,8 +227,7 @@ class ExtractDataServiceTest {
         void processBatch_whenPostCascadeMustHaveFailsForAllPatients_skipsBatchAndDoesNotEmitCoreBundle() throws Exception {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
-
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(any())).thenReturn(groups);
@@ -349,9 +326,7 @@ class ExtractDataServiceTest {
         void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
-
-            // Reuse your fixture job (consentCodes = Optional.empty inside EMPTY_PARAMETERS)
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(any())).thenReturn(groups);
@@ -424,6 +399,7 @@ class ExtractDataServiceTest {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
+
             // Mock crtdl to have consent code
             AnnotatedCrtdl crtdl = mock(AnnotatedCrtdl.class);
             TermCode termcode = new TermCode("sys", "val");
@@ -432,7 +408,7 @@ class ExtractDataServiceTest {
             JobParameters params = mock(JobParameters.class);
             when(params.crtdl()).thenReturn(crtdl);
 
-            Job job = jobWithParameters(jobId, JobStatus.PENDING, params);
+            Job job = Job.init(jobId, params);
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(crtdl)).thenReturn(groups);
@@ -502,7 +478,8 @@ class ExtractDataServiceTest {
             JobParameters params = mock(JobParameters.class);
             when(params.crtdl()).thenReturn(crtdl);
 
-            Job job = jobWithParameters(jobId, JobStatus.PENDING, params);
+            Job job = Job.init(jobId, params);
+
 
             when(processedGroupFactory.create(crtdl)).thenReturn(mock(GroupsToProcess.class));
 
@@ -602,9 +579,8 @@ class ExtractDataServiceTest {
         @Test
         void processCore_whenTransformedEmpty_returnsSkipped_andDoesNotWrite() {
             UUID jobId = UUID.randomUUID();
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
-            // Reuse fixture job with EMPTY_PARAMETERS (crtdl exists, consent not relevant here)
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
 
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
@@ -642,8 +618,8 @@ class ExtractDataServiceTest {
         @Test
         void processCore_whenTransformedNonEmpty_writesAndReturnsFinished() {
             UUID jobId = UUID.randomUUID();
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
@@ -679,9 +655,7 @@ class ExtractDataServiceTest {
 
         @Test
         void processCore_whenPostCascadeMustHaveFails_emitsError() throws Exception {
-            UUID jobId = UUID.randomUUID();
-
-            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
