@@ -101,19 +101,53 @@ public record Job(
     // -------------------- domain transitions (happy path) --------------------
 
     /**
-     * Initializes batch states and transitions the job into batch processing.
+     * Records successful cohort processing and initializes follow-up work.
+     * <p>
+     * Applies a  cohort query success only if the job is still in the
+     * {@link JobStatus#RUNNING_GET_COHORT} phase.
+     * <p>
+     * This method acts as a concurrency/staleness guard for asynchronous results.
+     * If the job has already transitioned to a different state (e.g. failed, paused,
+     * or moved to core processing), the result is considered stale and ignored.
      *
-     * @param initialStates initial batch states
-     * @param cohortSize    size of the cohort
-     * @return updated job in {@link JobStatus#RUNNING_PROCESS_BATCH}
+     * <p>If the cohort contains patient ids, batch states are initialized and the
+     * job transitions to {@link JobStatus#RUNNING_PROCESS_BATCH}.</p>
+     * <p>
+     * <p>If the cohort is empty, no patient batches are created. Instead, the job
+     * skips directly to {@link JobStatus#RUNNING_PROCESS_CORE} and a warning issue
+     * *is attached.</p>
+     *
+     * @param initialStates the patient batches generates by the cohort step
+     * @param cohortSize    the size of the cohort after the feasibility query
+     * @return updated job state if applied, or the current job unchanged if stale
      */
-    public Job onBatchesCreated(Map<UUID, BatchState> initialStates, int cohortSize) {
-        return initBatches(initialStates, cohortSize)
-                .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+    public Job onCohortSuccess(Map<UUID, BatchState> initialStates, int cohortSize) {
+        if (status != JobStatus.RUNNING_GET_COHORT) {
+            return this;
+        }
+        Job updated = initBatches(initialStates, cohortSize);
+
+        if (cohortSize == 0) {
+            return updated.withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withIssuesAdded(List.of(new Issue(
+                            Severity.WARNING,
+                            "Empty cohort",
+                            "Cohort size = 0. Skipping patient batches and continuing with core processing."
+                    )));
+        }
+
+        return updated.withStatus(JobStatus.RUNNING_PROCESS_BATCH);
     }
+
 
     /**
      * Records a successful batch processing result.
+     * Applies a batch processing success only if the job is still in the
+     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase.
+     * <p>
+     * This method acts as a concurrency/staleness guard for asynchronous results.
+     * If the job has already transitioned to a different state (e.g. failed, paused,
+     * or moved to core processing), the result is considered stale and ignored.
      *
      * <p>If all batches are finished or skipped, the job transitions to
      * {@link JobStatus#RUNNING_PROCESS_CORE}.</p>
@@ -122,6 +156,9 @@ public record Job(
      * @return updated job state
      */
     public Job onBatchProcessingSuccess(BatchResult result) {
+        if (status != JobStatus.RUNNING_PROCESS_BATCH) {
+            return this;
+        }
         Job updated = withBatchState(result.batchState())
                 .withIssuesAdded(result.issues());
 
@@ -132,13 +169,22 @@ public record Job(
         return updated;
     }
 
+
     /**
-     * Records successful core processing and completes the job.
+     * Applies a core processing success only if the job is still in the
+     * {@link JobStatus#RUNNING_PROCESS_CORE} phase.
+     * <p>
+     * This method acts as a concurrency/staleness guard for asynchronous results.
+     * If the job has already transitioned to a different state (e.g. failed, paused,
+     * or moved to core processing), the result is considered stale and ignored.
      *
      * @param result the core processing result
-     * @return updated job in {@link JobStatus#COMPLETED}
+     * @return updated job state if applied, or the current job unchanged if stale
      */
     public Job onCoreSuccess(CoreResult result) {
+        if (status != JobStatus.RUNNING_PROCESS_CORE) {
+            return this;
+        }
         return withStatus(JobStatus.COMPLETED)
                 .withIssuesAdded(result.issues())
                 .withCoreState(coreState.finishNow(result.status()));
@@ -148,6 +194,11 @@ public record Job(
 
     /**
      * Records a cohort-level failure and updates cohort and job state accordingly.
+     * <p>
+     * Applies a cohort-level error only if the job is still in the
+     * {@link JobStatus#RUNNING_GET_COHORT} phase.
+     * This guards against late or duplicate batch errors that may arrive after
+     * the job has already transitioned due to other failures or retries.
      *
      * <p>Non-retryable errors fail the job immediately. Retryable errors
      * transition the batch state via {@link WorkUnitState#onFailure(boolean)}.
@@ -158,6 +209,9 @@ public record Job(
      * @return updated job state
      */
     public Job onCohortError(Exception e, List<Issue> issues) {
+        if (status != JobStatus.RUNNING_GET_COHORT) {
+            return this;
+        }
         boolean retryable = RetryabilityUtil.isRetryable(e);
         WorkUnitState out = cohortState.onFailure(retryable);
         Job updated = withCohortState(out)
@@ -166,9 +220,12 @@ public record Job(
         return updated.withStatus(JobStatus.TEMP_FAILED);
     }
 
-
     /**
-     * Records a batch-level failure and updates batch and job state accordingly.
+     * Applies a batch-level error only if the job is still in the
+     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase.
+     * <p>
+     * This guards against late or duplicate batch errors that may arrive after
+     * the job has already transitioned due to other failures or retries.
      *
      * <p>Non-retryable errors fail the job immediately. Retryable errors
      * transition the batch state via {@link WorkUnitState#onFailure(boolean)}.
@@ -180,6 +237,9 @@ public record Job(
      * @return updated job state
      */
     public Job onBatchError(UUID batchId, Throwable e, List<Issue> issues) {
+        if (status != JobStatus.RUNNING_PROCESS_BATCH) {
+            return this;
+        }
         Job updated = withIssuesAdded(issues);
 
         BatchState bs = updated.batches().get(batchId);
@@ -205,7 +265,11 @@ public record Job(
     }
 
     /**
-     * Records a core-level failure.
+     * Applies a core-level error only if the job is still in the
+     * {@link JobStatus#RUNNING_PROCESS_CORE} phase.
+     * <p>
+     * This guards against late or duplicate batch errors that may arrive after
+     * the job has already transitioned due to other failures or retries.
      *
      * <p>Non-retryable errors fail the job immediately. Retryable errors may
      * escalate the job to {@link JobStatus#TEMP_FAILED} when retries are exhausted.</p>
@@ -215,6 +279,9 @@ public record Job(
      * @return updated job state
      */
     public Job onCoreError(Throwable e, List<Issue> issues) {
+        if (status != JobStatus.RUNNING_PROCESS_CORE) {
+            return this;
+        }
         boolean retryable = RetryabilityUtil.isRetryable(e);
 
         WorkUnitState out = coreState.onFailure(retryable);

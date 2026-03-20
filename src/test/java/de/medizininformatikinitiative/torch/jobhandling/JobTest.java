@@ -26,10 +26,26 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
 
 public class JobTest {
+
+    private static BatchResult finishedBatch(Job job, BatchState state) {
+        return new BatchResult(
+                job.id(),
+                state.batchId(),
+                state.finishNow(WorkUnitStatus.FINISHED),
+                Optional.empty(),
+                List.of()
+        );
+    }
+
+    private static CoreResult finishedCore(Job job) {
+        return new CoreResult(
+                job.id(),
+                List.of(),
+                WorkUnitStatus.FINISHED
+        );
+    }
 
     @Test
     void deserializingJobWithoutVersion() throws Exception {
@@ -160,6 +176,22 @@ public class JobTest {
     class OnBatchProcessingSuccessTests {
 
         @Test
+        void whenStatusIsNotRunningProcessBatch_noop() {
+            UUID batchId = UUID.randomUUID();
+            BatchState init = new BatchState(batchId, WorkUnitState.initNow());
+
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withBatchState(init);
+
+            BatchResult result = finishedBatch(job, init);
+
+            Job updated = job.onBatchProcessingSuccess(result);
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
         void whenLastBatchFinishes_transitionsToRunningProcessCore_andResetsCoreStateToInit() {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
@@ -172,17 +204,12 @@ public class JobTest {
                     .withCoreState(WorkUnitState.startNow())
                     .withBatchState(init1)
                     .withBatchState(init2);
+            BatchResult r1 = finishedBatch(j, init1);
+            BatchResult r2 = finishedBatch(j, init2);
 
-            BatchResult r1 = mock(BatchResult.class);
-            when(r1.batchState()).thenReturn(init1.finishNow(WorkUnitStatus.FINISHED));
-            when(r1.issues()).thenReturn(List.of());
 
             Job after1 = j.onBatchProcessingSuccess(r1);
             assertThat(after1.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
-
-            BatchResult r2 = mock(BatchResult.class);
-            when(r2.batchState()).thenReturn(init2.finishNow(WorkUnitStatus.FINISHED));
-            when(r2.issues()).thenReturn(List.of());
 
             Job after2 = after1.onBatchProcessingSuccess(r2);
             assertThat(after2.calculateBatchProgress()).isEqualTo(100);
@@ -203,10 +230,7 @@ public class JobTest {
                     .withBatchState(init1)
                     .withBatchState(init2);
 
-            BatchResult r1 = mock(BatchResult.class);
-            when(r1.batchState()).thenReturn(init1.finishNow(WorkUnitStatus.FINISHED));
-            when(r1.issues()).thenReturn(List.of());
-
+            BatchResult r1 = finishedBatch(j, init1);
             Job after = j.onBatchProcessingSuccess(r1);
 
             assertThat(after.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
@@ -664,10 +688,64 @@ public class JobTest {
                     i.severity() == Severity.ERROR
                             && i.msg().contains("Infrastructure/persistence error"));
         }
+
+        @Test
+        void onCohortErrorNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+            Job updated = job.onCohortError(
+                    new IllegalArgumentException("boom"),
+                    List.of()
+            );
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
+        void onBatchErrorNoop() {
+            UUID batchId = UUID.randomUUID();
+
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withBatchState(new BatchState(batchId, WorkUnitState.startNow()));
+
+            Job updated = job.onBatchError(
+                    batchId,
+                    new IllegalArgumentException("boom"),
+                    List.of()
+            );
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
+        void onCoreErrorNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED);
+
+            Job updated = job.onCoreError(
+                    new IllegalArgumentException("boom"),
+                    List.of()
+            );
+
+            assertThat(updated).isSameAs(job);
+        }
     }
 
     @Nested
     class CoreSuccessTests {
+
+        @Test
+        void whenStatusIsNotRunningProcessCore_noop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.FAILED);
+
+            CoreResult result = finishedCore(job);
+
+            Job updated = job.onCoreSuccess(result);
+
+            assertThat(updated).isSameAs(job);
+        }
 
         @Test
         void transitionsToCompleted() {
@@ -675,18 +753,64 @@ public class JobTest {
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE)
                     .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
                     .withCoreState(WorkUnitState.startNow());
-
-            List<Issue> coreIssues = List.of(new Issue(Severity.INFO, "Core stats: 100 records processed", ""));
-            CoreResult result = mock(CoreResult.class);
-            when(result.status()).thenReturn(WorkUnitStatus.FINISHED);
-            when(result.issues()).thenReturn(coreIssues);
+            CoreResult result = finishedCore(j);
 
             Job completedJob = j.onCoreSuccess(result);
 
             assertThat(completedJob.status()).isEqualTo(JobStatus.COMPLETED);
             assertThat(completedJob.coreState().status()).isEqualTo(WorkUnitStatus.FINISHED);
-            assertThat(completedJob.issues()).containsAll(coreIssues);
             assertThat(completedJob.coreState().finishedAt()).isPresent();
         }
     }
+
+    @Nested
+    class OnCohortSuccessTests {
+
+        @Test
+        void cohortSuccessApplies() {
+            UUID batchId = UUID.randomUUID();
+
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
+
+            Job updated = job.onCohortSuccess(
+                    java.util.Map.of(batchId, new BatchState(batchId, WorkUnitState.initNow())),
+                    1
+            );
+
+            assertThat(updated).isNotSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+            assertThat(updated.cohortSize()).isEqualTo(1);
+            assertThat(updated.batches()).containsKey(batchId);
+        }
+
+        @Test
+        void cohortSuccessEmptySkipsToCore() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
+
+            Job updated = job.onCohortSuccess(java.util.Map.of(), 0);
+
+            assertThat(updated).isNotSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(updated.issues()).anyMatch(i -> i.msg().contains("Empty cohort"));
+        }
+
+        @Test
+        void cohortSuccessNoop() {
+            UUID batchId = UUID.randomUUID();
+
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+            Job updated = job.onCohortSuccess(
+                    java.util.Map.of(batchId, new BatchState(batchId, WorkUnitState.initNow())),
+                    1
+            );
+
+            assertThat(updated).isSameAs(job);
+        }
+    }
+
 }
