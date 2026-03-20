@@ -6,7 +6,6 @@ import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
-import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -228,16 +227,7 @@ public class JobPersistenceService {
                 stateMap.put(b.batchId(), new BatchState(b.batchId(), WorkUnitState.initNow()));
             }
 
-            Job updated = job.onBatchesCreated(stateMap, ids.size());
-
-            if (ids.isEmpty()) {
-                updated = updated
-                        .withStatus(JobStatus.RUNNING_PROCESS_CORE).withIssuesAdded(List.of(new Issue(
-                                Severity.WARNING,
-                                "Empty cohort",
-                                "Cohort size = 0. Skipping patient batches and continuing with core processing."
-                        )));
-            }
+            Job updated = job.onCohortSuccess(stateMap, ids.size());
 
             return new JobAndResult<>(updated, null);
         });
