@@ -846,4 +846,132 @@ class JobPersistenceServiceTest {
             assertThat(serviceWithSpy.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.TEMP_FAILED);
         }
     }
+
+    @Nested
+    class DeleteJobTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void deleteJob_removesJobFromRegistry_andDeletesDirectory() throws IOException {
+            assertThat(service.getJob(jobId)).isPresent();
+            assertThat(baseDir.resolve(jobId.toString())).exists();
+
+            service.deleteJob(jobId);
+
+            assertThat(service.getJob(jobId)).isEmpty();
+            assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
+        }
+    }
+
+    @Nested
+    class PauseJobTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void pauseJob_updatesJobStatusToPaused_andPersists() throws IOException {
+            Job runningJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+
+            service.putJobForTest(runningJob);
+
+            service.pauseJob(jobId);
+
+            Job updated = service.getJob(jobId).orElseThrow();
+            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
+
+            Job persisted = MAPPER.readValue(
+                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
+                    Job.class
+            );
+            assertThat(persisted.status()).isEqualTo(JobStatus.PAUSED);
+        }
+
+        @Test
+        void pauseJob_finalJob_noop() {
+            Job completedJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.COMPLETED);
+
+            service.putJobForTest(completedJob);
+
+            service.pauseJob(jobId);
+
+            Job updated = service.getJob(jobId).orElseThrow();
+            assertThat(updated).isSameAs(completedJob);
+            assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+        }
+    }
+
+    @Nested
+    class CancelJobTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void cancelJob_updatesJobStatusToCancelled_andPersists() throws IOException {
+            Job runningJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE);
+
+            service.putJobForTest(runningJob);
+
+            service.cancelJob(jobId);
+
+            Job updated = service.getJob(jobId).orElseThrow();
+            assertThat(updated.status()).isEqualTo(JobStatus.CANCELLED);
+
+            Job persisted = MAPPER.readValue(
+                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
+                    Job.class
+            );
+            assertThat(persisted.status()).isEqualTo(JobStatus.CANCELLED);
+        }
+
+        @Test
+        void cancelJob_finalJob_noop() {
+            Job failedJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.FAILED);
+
+            service.putJobForTest(failedJob);
+
+            service.cancelJob(jobId);
+
+            Job updated = service.getJob(jobId).orElseThrow();
+            assertThat(updated).isSameAs(failedJob);
+            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+        }
+    }
 }

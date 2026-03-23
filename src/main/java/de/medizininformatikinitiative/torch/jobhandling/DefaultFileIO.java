@@ -62,4 +62,16 @@ public class DefaultFileIO implements FileIo {
         return Files.isDirectory(path);
     }
 
+    @Override
+    public void deleteDir(Path dir) throws IOException {
+        if (dir == null || !Files.exists(dir)) {
+            return;
+        }
+
+        try (Stream<Path> walk = Files.walk(dir)) {
+            for (Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+                Files.deleteIfExists(path);
+            }
+        }
+    }
 }
