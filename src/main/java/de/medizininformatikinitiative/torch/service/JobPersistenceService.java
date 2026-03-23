@@ -135,6 +135,41 @@ public class JobPersistenceService {
         return Optional.ofNullable(jobRegistry.get(jobId));
     }
 
+
+    /**
+     * Deletes a job and its persisted state.
+     *
+     * @param jobId job id
+     * @throws IOException if deleting the persisted job data fails
+     */
+    public void deleteJob(UUID jobId) throws IOException {
+        io.deleteDir(jobDir(jobId));
+        jobRegistry.remove(jobId);
+        logger.info("Removed job {}", jobId);
+    }
+
+    /**
+     * Pauses a job.
+     *
+     * <p>If the job is already in a final state, the request has no effect.</p>
+     *
+     * @param jobId job id
+     */
+    public void pauseJob(UUID jobId) {
+        updateJobAndReturn(jobId, job -> new JobAndResult<>(job.pause(), null));
+    }
+
+    /**
+     * Cancels a job.
+     *
+     * <p>If the job is already in a final state, the request has no effect.</p>
+     *
+     * @param jobId job id
+     */
+    public void cancelJob(UUID jobId) {
+        updateJobAndReturn(jobId, job -> new JobAndResult<>(job.cancel(), null));
+    }
+
     /**
      * Selects the next schedulable work unit across all non-final jobs.
      *

@@ -599,4 +599,24 @@ public record Job(
                 finishedAt, issues, parameters, priority, coreState, version + 1
         );
     }
+
+    /**
+     * @return a paused job, or {@code this} if the job is already in a final state
+     */
+    public Job pause() {
+        if (this.status.isFinal()) {
+            return this;
+        }
+        return this.withStatus(JobStatus.PAUSED);
+    }
+
+    /**
+     * @return a cancelled job, or {@code this} if the job is already in a final state
+     */
+    public Job cancel() {
+        if (this.status.isFinal()) {
+            return this;
+        }
+        return this.withStatus(JobStatus.CANCELLED);
+    }
 }

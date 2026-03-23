@@ -240,7 +240,15 @@ public class JobTest {
     }
 
     @Nested
-    class ResetJob {
+    class Rollback {
+
+        private static WorkUnitState done() {
+            return WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED);
+        }
+
+        private static WorkUnitState failed() {
+            return WorkUnitState.initNow().markFailed();
+        }
 
         @Test
         void runningGetCohortRollsBackToPending() {
@@ -254,7 +262,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_runningGetCohort_withCohortInProgress_resetsCohortStateToInit_andStatusToPending() {
+        void resetsCohortStateToInitAndStatusToPending() {
             Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.RUNNING_GET_COHORT)
                     .withCohortState(WorkUnitState.startNow());
@@ -266,7 +274,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_runningProcessCore_withCoreInProgress_resetsCoreToInit_butKeepsStage() {
+        void resetsCoreToInitButKeepsStage() {
             Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE)
                     .withCoreState(WorkUnitState.startNow());
@@ -278,7 +286,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_runningProcessBatch_rerollsAllInProgressBatchesToInit_andKeepsStage() {
+        void rerollsAllInProgressBatchesToInitAndKeepsStage() {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
@@ -295,7 +303,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_doesNotChangeInitStates() {
+        void doesNotChangeInitStates() {
             UUID b1 = UUID.randomUUID();
 
             Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
@@ -311,7 +319,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_thenSelectNextWorkUnit_reemitsCohortWorkUnit() {
+        void reemitsCohortWorkUnit() {
             Job crashed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.RUNNING_GET_COHORT)
                     .withCohortState(WorkUnitState.startNow());
@@ -325,7 +333,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_thenSelectNextWorkUnit_reemitsCoreWorkUnit_whenCoreWasInProgress() {
+        void reemitsCoreWorkUnitwhenCoreWasInProgress() {
             Job crashed = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE)
                     .withCoreState(WorkUnitState.startNow());
@@ -339,7 +347,7 @@ public class JobTest {
         }
 
         @Test
-        void rollback_thenSelectNextWorkUnit_reemitsBatchWorkUnit_whenBatchWasInProgress() {
+        void reemitsBatchWorkUnitWhenBatchWasInProgress() {
             UUID b1 = UUID.randomUUID();
             UUID b2 = UUID.randomUUID();
 
@@ -357,66 +365,9 @@ public class JobTest {
             ProcessBatchWorkUnit wu = (ProcessBatchWorkUnit) wuOpt.get();
             assertThat(wu.batchId()).isEqualTo(b1);
         }
-    }
-
-    @Nested
-    class RollbackInferenceTests {
-
-        private static WorkUnitState done() {
-            return WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED);
-        }
-
-        private static WorkUnitState failed() {
-            return WorkUnitState.initNow().markFailed();
-        }
 
         @Test
-        void infer_failedFromCohort() {
-            UUID b1 = UUID.randomUUID();
-
-            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.TEMP_FAILED)
-                    .withCohortState(failed())
-                    .withCoreState(done())
-                    .withBatchState(new BatchState(b1, done()));
-
-            Job rolled = j.rollback();
-
-            assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
-        }
-
-        @Test
-        void infer_failedFromCore() {
-            UUID b1 = UUID.randomUUID();
-
-            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.TEMP_FAILED)
-                    .withCohortState(done())
-                    .withCoreState(failed())
-                    .withBatchState(new BatchState(b1, done()));
-
-            Job rolled = j.rollback();
-
-            assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
-        }
-
-        @Test
-        void infer_failedFromBatch() {
-            UUID b1 = UUID.randomUUID();
-
-            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.TEMP_FAILED)
-                    .withCohortState(done())
-                    .withCoreState(done())
-                    .withBatchState(new BatchState(b1, failed()));
-
-            Job rolled = j.rollback();
-
-            assertThat(rolled.status()).isEqualTo(JobStatus.FAILED);
-        }
-
-        @Test
-        void tempFailedToPending_cohortTempFailed_incrementsCohortRetry() {
+        void cohortTempFailedIncrementsCohortRetry() {
             Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.TEMP_FAILED)
                     .withCohortState(WorkUnitState.initNow().markTempFailed());
@@ -810,6 +761,58 @@ public class JobTest {
             );
 
             assertThat(updated).isSameAs(job);
+        }
+    }
+
+    @Nested
+    class Pause {
+
+        @Test
+        void transitionsToPaused() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+
+            Job updated = job.pause();
+
+            assertThat(updated).isNotSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
+        }
+
+        @Test
+        void finalJobNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED);
+
+            Job updated = job.pause();
+
+            assertThat(updated).isSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+        }
+    }
+
+    @Nested
+    class Cancel {
+
+        @Test
+        void transitionsToCancelled() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE);
+
+            Job updated = job.cancel();
+
+            assertThat(updated).isNotSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.CANCELLED);
+        }
+
+        @Test
+        void finalJobNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.FAILED);
+
+            Job updated = job.cancel();
+
+            assertThat(updated).isSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
         }
     }
 
