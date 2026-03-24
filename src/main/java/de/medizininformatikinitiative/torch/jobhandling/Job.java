@@ -619,4 +619,23 @@ public record Job(
         }
         return this.withStatus(JobStatus.CANCELLED);
     }
+
+    /**
+     * Resumes a frozen job.
+     * <p>
+     * If the status is {@link JobStatus#PAUSED}, the next runnable status is inferred from the
+     * current substates. If the status is {@link JobStatus#TEMP_FAILED}, this delegates to
+     * {@link #rollback()}.
+     * <p>
+     * Otherwise, this is a no-op.
+     *
+     * @return a resumed job if the current status supports resuming, otherwise {@code this}
+     */
+    public Job resume() {
+        return switch (status) {
+            case PAUSED -> withStatus(inferRunnableStatusFromSubstates());
+            case TEMP_FAILED -> rollback();
+            default -> this;
+        };
+    }
 }

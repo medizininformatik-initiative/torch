@@ -816,4 +816,50 @@ public class JobTest {
         }
     }
 
+    @Nested
+    class Resume {
+
+        @Test
+        void pausedJobResumesUsingRollback() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            Job updated = job.resume();
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @Test
+        void tempFailedJobResumesUsingRollback() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            Job updated = job.resume();
+
+            assertThat(updated).isNotSameAs(job);
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @Test
+        void nonFrozenJobNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+
+            Job updated = job.resume();
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
+        void finalJobNoop() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED);
+
+            Job updated = job.resume();
+
+            assertThat(updated).isSameAs(job);
+        }
+    }
+
 }

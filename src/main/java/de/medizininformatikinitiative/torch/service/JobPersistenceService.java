@@ -2,10 +2,12 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
+import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -168,6 +170,51 @@ public class JobPersistenceService {
      */
     public void cancelJob(UUID jobId) {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.cancel(), null));
+    }
+
+
+    /**
+     * Resumes a job if possible.
+     *
+     * @throws IllegalStateException if the job cannot be resumed
+     */
+    public Job resume(UUID jobId) {
+        return updateJobAndReturn(jobId, job -> {
+            Job next = job.resume();
+
+            if (next.equals(job)) {
+                throw new IllegalStateException(
+                        "Cannot resume job in status " + job.status()
+                );
+            }
+
+            return new JobAndResult<>(next, next);
+        });
+    }
+
+    /**
+     *
+     * @param id       id of the job to be manipulated
+     * @param version  version of the job to be manipulated
+     * @param priority patch to be applied
+     * @return the updated persisted job
+     * @throws VersionConflictException if the expected version does not match the current job version
+     * @throws IllegalArgumentException if no job with the given id exists
+     */
+    public Job setPriority(UUID id, long version, JobPriority priority) {
+        Job updated = updateJobAndReturn(id, job -> {
+            if (job.version() != version) {
+                throw new VersionConflictException(
+                        "Version mismatch for job " + id
+                                + ": expected " + version
+                                + " but was " + job.version()
+                );
+            }
+
+            Job next = job.withPriority(priority);
+            return new JobAndResult<>(next, next);
+        });
+        return updated;
     }
 
     /**

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -35,9 +36,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -300,8 +299,6 @@ class JobPersistenceServiceTest {
 
         @TempDir
         Path baseDir;
-
-        Clock clock = Clock.fixed(Instant.parse("2026-01-22T12:00:00Z"), ZoneId.of("UTC"));
 
         private JobPersistenceService restart() throws IOException {
             JobPersistenceService s = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
@@ -972,6 +969,113 @@ class JobPersistenceServiceTest {
             Job updated = service.getJob(jobId).orElseThrow();
             assertThat(updated).isSameAs(failedJob);
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+        }
+    }
+
+    @Nested
+    class ResumeJob {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void resumesPausedJob() throws IOException {
+            Job pausedJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.initNow());
+
+            service.putJobForTest(pausedJob);
+
+            Job updated = service.resume(jobId);
+
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+
+            Job persisted = MAPPER.readValue(
+                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
+                    Job.class
+            );
+            assertThat(persisted.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @Test
+        void resumesTempFailedJob() throws IOException {
+            Job tempFailedJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCoreState(WorkUnitState.startNow().markTempFailed())
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            service.putJobForTest(tempFailedJob);
+
+            Job updated = service.resume(jobId);
+
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
+
+            Job persisted = MAPPER.readValue(
+                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
+                    Job.class
+            );
+            assertThat(persisted.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(persisted.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
+        }
+
+        @Test
+        void throwsWhenNotResumable() {
+            Job runningJob = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+
+            service.putJobForTest(runningJob);
+
+            assertThatThrownBy(() -> service.resume(jobId))
+                    .isInstanceOf(IllegalStateException.class)
+                    .hasMessageContaining("Cannot resume job");
+
+            Job unchanged = service.getJob(jobId).orElseThrow();
+            assertThat(unchanged.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+        }
+    }
+
+    @Nested
+    class setPriority {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void appliesPriorityOnly() {
+            Job job = service.getJob(jobId).orElseThrow();
+            Job updated = service.setPriority(jobId, job.version(), JobPriority.HIGH);
+
+            assertThat(updated.priority()).isEqualTo(JobPriority.HIGH);
+            assertThat(updated.status()).isEqualTo(job.status());
+        }
+
+        @Test
+        void throwsOnVersionMismatch() {
+            Job job = service.getJob(jobId).orElseThrow();
+            assertThatThrownBy(() -> service.setPriority(jobId, job.version() + 1, JobPriority.HIGH))
+                    .isInstanceOf(VersionConflictException.class);
         }
     }
 }
