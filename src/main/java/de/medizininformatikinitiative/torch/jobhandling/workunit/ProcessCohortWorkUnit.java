@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import org.slf4j.Logger;
@@ -31,16 +32,29 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
 
         return patientIdsMono
                 .flatMap(ids ->
-                        Mono.fromRunnable(() -> ctx.persistence().onCohortSuccess(job.id(), ids))
-                                .subscribeOn(Schedulers.boundedElastic())
-                )
-                .onErrorResume(t ->
-                        Mono.fromRunnable(() -> {
-                                    Exception ex = (t instanceof Exception e) ? e : new RuntimeException(t);
-                                    ctx.persistence().onCohortError(job.id(), List.of(), ex);
+                        Mono.fromCallable(() -> {
+                                    ctx.persistence().onCohortSuccess(job.id(), ids);
+                                    return 0;
                                 })
                                 .subscribeOn(Schedulers.boundedElastic())
+                                .then()
                 )
-                .then();
+                .onErrorResume(JobNotFoundException.class, e -> {
+                    logger.debug("Ignoring cohort result for deleted job {}", job.id());
+                    return Mono.empty();
+                })
+                .onErrorResume(t ->
+                        Mono.fromCallable(() -> {
+                                    Exception ex = (t instanceof Exception e) ? e : new RuntimeException(t);
+                                    ctx.persistence().onCohortError(job.id(), List.of(), ex);
+                                    return 0;
+                                })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .onErrorResume(JobNotFoundException.class, e -> {
+                                    logger.debug("Ignoring cohort error for deleted job {}", job.id());
+                                    return Mono.empty();
+                                })
+                                .then()
+                );
     }
 }

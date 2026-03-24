@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.result.CoreResult;
@@ -19,6 +20,7 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -82,5 +84,57 @@ class ProcessCoreWorkUnitTest {
 
         verify(persistence, never()).onCoreSuccess(any());
         verify(persistence).onCoreError(eq(jobId), eq(List.of()), any(Exception.class));
+    }
+
+    @Test
+    void execute_whenJobDeletedWhilePersistingSuccess_completes() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        Job job = mock(Job.class);
+        when(job.id()).thenReturn(jobId);
+
+        ExtractionResourceBundle coreInfo = new ExtractionResourceBundle();
+        CoreResult result = mock(CoreResult.class);
+
+        when(ctx.persistence()).thenReturn(persistence);
+        when(ctx.extract()).thenReturn(extract);
+        when(persistence.loadCoreInfo(jobId)).thenReturn(coreInfo);
+        when(extract.processCore(job, coreInfo)).thenReturn(Mono.just(result));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onCoreSuccess(result);
+
+        ProcessCoreWorkUnit wu = new ProcessCoreWorkUnit(job);
+
+        StepVerifier.create(wu.execute(ctx)).verifyComplete();
+
+        verify(persistence).loadCoreInfo(jobId);
+        verify(extract).processCore(job, coreInfo);
+        verify(persistence).onCoreSuccess(result);
+        verify(persistence, never()).onCoreError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobDeletedWhileRecordingError_completes() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        Job job = mock(Job.class);
+        when(job.id()).thenReturn(jobId);
+
+        ExtractionResourceBundle coreInfo = new ExtractionResourceBundle();
+        IOException boom = new IOException("boom");
+
+        when(ctx.persistence()).thenReturn(persistence);
+        when(ctx.extract()).thenReturn(extract);
+        when(persistence.loadCoreInfo(jobId)).thenReturn(coreInfo);
+        when(extract.processCore(job, coreInfo)).thenReturn(Mono.error(boom));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onCoreError(eq(jobId), eq(List.of()), eq(boom));
+
+        ProcessCoreWorkUnit wu = new ProcessCoreWorkUnit(job);
+
+        StepVerifier.create(wu.execute(ctx)).verifyComplete();
+
+        verify(persistence, never()).onCoreSuccess(any());
+        verify(persistence).onCoreError(eq(jobId), eq(List.of()), eq(boom));
     }
 }

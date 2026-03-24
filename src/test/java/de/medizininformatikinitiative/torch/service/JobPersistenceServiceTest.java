@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -35,9 +36,7 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -301,8 +300,6 @@ class JobPersistenceServiceTest {
         @TempDir
         Path baseDir;
 
-        Clock clock = Clock.fixed(Instant.parse("2026-01-22T12:00:00Z"), ZoneId.of("UTC"));
-
         private JobPersistenceService restart() throws IOException {
             JobPersistenceService s = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             s.init();
@@ -318,7 +315,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void resumeAfterRestart_coreOnly_rollsBackAndPersists_thenCanAcquire() throws IOException {
+        void resumeAfterRestart_coreOnly_rollsBackAndPersists_thenCanAcquire() throws IOException, JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
@@ -408,7 +405,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void resumeAfterRestart_missingCoreState_behavesLikeInitForAcquire() throws IOException {
+        void resumeAfterRestart_missingCoreState_behavesLikeInitForAcquire() throws IOException, JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
@@ -452,7 +449,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onBatchErrorTempFailedEscalatesJob() throws IOException {
+        void onBatchErrorTempFailedEscalatesJob() throws IOException, JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
@@ -482,7 +479,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onBatchErrorNonRetryableEscalatesJobImmediately() throws IOException {
+        void onBatchErrorNonRetryableEscalatesJobImmediately() throws IOException, JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
@@ -521,7 +518,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onCohortSuccess_CreatesBatchesAndUpdatesState() {
+        void onCohortSuccess_CreatesBatchesAndUpdatesState() throws JobNotFoundException {
             service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
 
             List<String> patientIds = List.of("P1", "P2", "P3");
@@ -535,7 +532,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onCohortSuccess_EmptyCohort_TransitionsToCore() {
+        void onCohortSuccess_EmptyCohort_TransitionsToCore() throws JobNotFoundException {
             service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
 
             service.onCohortSuccess(jobId, List.of());
@@ -546,7 +543,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryStartBatch_TransitionsStatus() {
+        void tryStartBatch_TransitionsStatus() throws JobNotFoundException {
             service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
 
             service.onCohortSuccess(jobId, List.of("P1"));
@@ -574,7 +571,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onBatchError_PersistsIssues() {
+        void onBatchError_PersistsIssues() throws JobNotFoundException {
             service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
 
             service.onCohortSuccess(jobId, List.of("P1"));
@@ -590,7 +587,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onCoreErrorFailsCore() throws IOException {
+        void onCoreErrorFailsCore() throws IOException, JobNotFoundException {
             UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
 
             Job runningCore = service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_PROCESS_CORE).withCoreState(WorkUnitState.startNow());
@@ -607,7 +604,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updateJobAndReturn_HandlesExceptionsGracefully() {
+        void updateJobAndReturn_HandlesExceptionsGracefully() throws JobNotFoundException {
             service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
 
             service.onCohortError(jobId, List.of(), new RuntimeException("Unexpected crash"));
@@ -658,7 +655,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updateJobAndReturn_HandlesPersistenceFailure() throws IOException {
+        void updateJobAndReturn_HandlesPersistenceFailure() throws IOException, JobNotFoundException {
             // GIVEN: A job exists in the registry
             UUID jobId = UUID.randomUUID();
             Job job = createJobWithBatches(jobId);
@@ -704,7 +701,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryStartBatch_ReturnsFalse_WhenStatusNotInit() {
+        void tryStartBatch_ReturnsFalse_WhenStatusNotInit() throws JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             // Create a job where the batch is already IN_PROGRESS
@@ -718,7 +715,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryMarkCoreInProgress_ReturnsFalse_WhenAlreadyStarted() {
+        void tryMarkCoreInProgress_ReturnsFalse_WhenAlreadyStarted() throws JobNotFoundException {
             UUID jobId = UUID.randomUUID();
             Job job = createJobWithBatches(jobId).withCoreState(WorkUnitState.startNow());
             service.putJobForTest(job);
@@ -741,11 +738,12 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updateJobAndReturn_ReturnsNull_WhenJobMissing() {
-            // Branch: jobRegistry.computeIfPresent does nothing if ID is missing
+        void updateJobAndReturnThrowsWhenJobMissing() {
             UUID missingId = UUID.randomUUID();
-            Boolean result = service.tryStartBatch(missingId, UUID.randomUUID());
-            assertThat(result).isFalse();
+
+            assertThatThrownBy(() -> service.tryStartBatch(missingId, UUID.randomUUID()))
+                    .isInstanceOf(JobNotFoundException.class)
+                    .hasMessageContaining(missingId.toString());
         }
     }
 
@@ -807,7 +805,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_IOExceptionInLogic() {
+        void testUpdateJobAndReturn_Branch_IOExceptionInLogic() throws JobNotFoundException {
             String result = persistenceService.updateJobAndReturn(jobId, job -> {
                 throw new IOException("Simulated logic-level IO failure");
             });
@@ -825,7 +823,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_NoChangeDetected() {
+        void testUpdateJobAndReturn_Branch_NoChangeDetected() throws JobNotFoundException {
             Job currentJob = persistenceService.getJob(jobId).orElseThrow();
 
             String result = persistenceService.updateJobAndReturn(jobId, job -> new JobPersistenceService.JobAndResult<>(currentJob, "identities-match"));
@@ -834,7 +832,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException {
+        void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException, JobNotFoundException {
             FileIo spyIo = org.mockito.Mockito.spy(new DefaultFileIO());
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
             serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).get().withStatus(JobStatus.RUNNING_GET_COHORT));
@@ -864,7 +862,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void deleteJob_removesJobFromRegistry_andDeletesDirectory() throws IOException {
+        void removesJobFromRegistryAndDeletesDirectory() throws IOException, JobNotFoundException {
             assertThat(service.getJob(jobId)).isPresent();
             assertThat(baseDir.resolve(jobId.toString())).exists();
 
@@ -872,6 +870,78 @@ class JobPersistenceServiceTest {
 
             assertThat(service.getJob(jobId)).isEmpty();
             assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
+        }
+
+        @Test
+        void deleteJob_unknownJob_throwsJobNotFoundException() {
+            UUID unknownJobId = UUID.randomUUID();
+
+            assertThatThrownBy(() -> service.deleteJob(unknownJobId))
+                    .isInstanceOf(JobNotFoundException.class)
+                    .hasMessageContaining(unknownJobId.toString());
+        }
+
+    }
+
+    @Nested
+    class SelectNextWorkUnitTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+        }
+
+        @Test
+        void emptyWhenNoJobCanBeSelected() {
+            assertThat(service.selectNextWorkUnit()).isEmpty();
+        }
+    }
+
+    @Nested
+    class SelectNextInternalTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+        }
+
+        @Test
+        void returnsEmptyWhenJobMissing() {
+            UUID missingJobId = UUID.randomUUID();
+
+            assertThat(service.selectNextInternal(missingJobId)).isEmpty();
+        }
+
+        @Test
+        void returnsEmptyWhenJobHasNoNextWorkUnit() {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, EMPTY_PARAMETERS)
+                    .withStatus(JobStatus.COMPLETED);
+
+            service.putJobForTest(completedJob);
+
+            assertThat(service.selectNextInternal(jobId)).isEmpty();
+        }
+
+        @Test
+        void returnsWorkUnitWhenJobSchedulable() throws IOException {
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+
+            Optional<WorkUnit> result = service.selectNextInternal(jobId);
+
+            assertThat(result).isPresent();
         }
     }
 
@@ -892,7 +962,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void pauseJob_updatesJobStatusToPaused_andPersists() throws IOException {
+        void updatesJobStatusToPausedAndPersists() throws IOException, JobNotFoundException {
             Job runningJob = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
 
@@ -911,7 +981,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void pauseJob_finalJob_noop() {
+        void finalJobNoop() throws JobNotFoundException {
             Job completedJob = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.COMPLETED);
 
@@ -922,6 +992,11 @@ class JobPersistenceServiceTest {
             Job updated = service.getJob(jobId).orElseThrow();
             assertThat(updated).isSameAs(completedJob);
             assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+        }
+
+        @Test
+        void throwsUnknownJobException() {
+            assertThatThrownBy(() -> service.pauseJob(UUID.randomUUID())).isInstanceOf(JobNotFoundException.class);
         }
     }
 
@@ -942,7 +1017,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void cancelJob_updatesJobStatusToCancelled_andPersists() throws IOException {
+        void updatesJobStatusToCancelledAndPersists() throws IOException, JobNotFoundException {
             Job runningJob = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE);
 
@@ -961,7 +1036,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void cancelJob_finalJob_noop() {
+        void finalJobNoop() throws JobNotFoundException {
             Job failedJob = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.FAILED);
 
@@ -972,6 +1047,11 @@ class JobPersistenceServiceTest {
             Job updated = service.getJob(jobId).orElseThrow();
             assertThat(updated).isSameAs(failedJob);
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+        }
+
+        @Test
+        void throwsUnknownJobException() {
+            assertThatThrownBy(() -> service.cancelJob(UUID.randomUUID())).isInstanceOf(JobNotFoundException.class);
         }
     }
 }

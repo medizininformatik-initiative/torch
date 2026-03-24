@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -13,7 +14,6 @@ import java.util.UUID;
 
 public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
 
-
     @Override
     public Mono<Void> execute(JobExecutionContext ctx) {
         return tryClaim(ctx)
@@ -26,6 +26,7 @@ public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
     private Mono<Boolean> tryClaim(JobExecutionContext ctx) {
         return Mono.fromCallable(() -> ctx.persistence().tryStartBatch(job.id(), batchId))
                 .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(JobNotFoundException.class, e -> Mono.just(false))
                 .map(Boolean.TRUE::equals);
     }
 
@@ -33,10 +34,13 @@ public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
         return loadSelection(ctx)
                 .flatMap(selection ->
                         ctx.extract().processBatch(selection)
-                                // domain failure => record batch error, then stop this unit
+                                // domain failure => record batch error
                                 .onErrorResume(t -> onBatchError(ctx, t).then(Mono.empty()))
                 )
                 .flatMap(result -> persistBatchSuccess(ctx, result))
+                // job deleted during execution → silently stop
+                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
+                .onErrorResume(NoSuchElementException.class, e -> Mono.empty())
                 .then();
     }
 
@@ -47,26 +51,29 @@ public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
                         new NoSuchElementException("Job " + job.id() + " not found")));
 
         return jobMono.flatMap(j ->
-                Mono.fromCallable(() -> ctx.persistence().loadBatch(job.id(), batchId))
+                Mono.fromCallable(() -> ctx.persistence().loadBatch(j.id(), batchId))
                         .subscribeOn(Schedulers.boundedElastic())
                         .map(batch -> new BatchSelection(j, batch))
         );
     }
 
     private Mono<Void> persistBatchSuccess(JobExecutionContext ctx, BatchResult result) {
-        // let persistence errors bubble up -> worker loop will call onJobError(...)
         return Mono.fromCallable(() -> {
                     ctx.persistence().onBatchProcessingSuccess(result);
                     return true;
                 })
                 .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
                 .then();
     }
 
     private Mono<Void> onBatchError(JobExecutionContext ctx, Throwable t) {
-        return Mono.fromRunnable(() ->
-                        ctx.persistence().onBatchError(job.id(), batchId, List.of(), t))
+        return Mono.fromCallable(() -> {
+                    ctx.persistence().onBatchError(job.id(), batchId, List.of(), t);
+                    return 0;
+                })
                 .subscribeOn(Schedulers.boundedElastic())
+                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
                 .then();
     }
 }

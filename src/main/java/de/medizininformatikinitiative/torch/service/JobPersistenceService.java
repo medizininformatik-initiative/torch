@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -140,11 +141,15 @@ public class JobPersistenceService {
      * Deletes a job and its persisted state.
      *
      * @param jobId job id
-     * @throws IOException if deleting the persisted job data fails
+     * @throws IOException          if deleting the persisted job data fails
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void deleteJob(UUID jobId) throws IOException {
+    public void deleteJob(UUID jobId) throws IOException, JobNotFoundException {
+        Job removed = jobRegistry.remove(jobId);
+        if (removed == null) {
+            throw new JobNotFoundException(jobId);
+        }
         io.deleteDir(jobDir(jobId));
-        jobRegistry.remove(jobId);
         logger.info("Removed job {}", jobId);
     }
 
@@ -154,8 +159,9 @@ public class JobPersistenceService {
      * <p>If the job is already in a final state, the request has no effect.</p>
      *
      * @param jobId job id
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void pauseJob(UUID jobId) {
+    public void pauseJob(UUID jobId) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.pause(), null));
     }
 
@@ -165,8 +171,9 @@ public class JobPersistenceService {
      * <p>If the job is already in a final state, the request has no effect.</p>
      *
      * @param jobId job id
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void cancelJob(UUID jobId) {
+    public void cancelJob(UUID jobId) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.cancel(), null));
     }
 
@@ -191,8 +198,9 @@ public class JobPersistenceService {
      * @param jobId   job id
      * @param batchId batch id
      * @return true if claimed; false otherwise
+     * @throws JobNotFoundException when job is not unknown
      */
-    public boolean tryStartBatch(UUID jobId, UUID batchId) {
+    public boolean tryStartBatch(UUID jobId, UUID batchId) throws JobNotFoundException {
         return Boolean.TRUE.equals(updateJobAndReturn(jobId, job -> {
             BatchState bs = job.batches().get(batchId);
             if (bs == null) {
@@ -251,8 +259,9 @@ public class JobPersistenceService {
      *
      * @param jobId job id
      * @param ids   cohort ids
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCohortSuccess(UUID jobId, List<String> ids) {
+    public void onCohortSuccess(UUID jobId, List<String> ids) throws JobNotFoundException {
         List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
 
         updateJobAndReturn(jobId, job -> {
@@ -274,8 +283,9 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param e      cause
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCohortError(UUID jobId, List<Issue> issues, Exception e) {
+    public void onCohortError(UUID jobId, List<Issue> issues, Exception e) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onCohortError(e, issues), null));
     }
 
@@ -284,8 +294,9 @@ public class JobPersistenceService {
      * Applies batch success transition and persists the core-batch part.
      *
      * @param result batch result
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onBatchProcessingSuccess(BatchResult result) {
+    public void onBatchProcessingSuccess(BatchResult result) throws JobNotFoundException {
         UUID jobId = result.jobId();
 
         updateJobAndReturn(jobId, job -> {
@@ -311,8 +322,9 @@ public class JobPersistenceService {
      * @param batchId batch id
      * @param issues  issues to attach
      * @param e       cause
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onBatchError(UUID jobId, UUID batchId, List<Issue> issues, Throwable e) {
+    public void onBatchError(UUID jobId, UUID batchId, List<Issue> issues, Throwable e) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onBatchError(batchId, e, issues), null));
     }
 
@@ -320,8 +332,9 @@ public class JobPersistenceService {
      * Applies core success transition.
      *
      * @param result core result
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCoreSuccess(CoreResult result) {
+    public void onCoreSuccess(CoreResult result) throws JobNotFoundException {
         updateJobAndReturn(result.jobId(), job -> new JobAndResult<>(job.onCoreSuccess(result), null));
     }
 
@@ -331,8 +344,9 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param e      cause
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCoreError(UUID jobId, List<Issue> issues, Throwable e) {
+    public void onCoreError(UUID jobId, List<Issue> issues, Throwable e) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onCoreError(e, issues), null));
     }
 
@@ -342,8 +356,9 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param t      cause
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onJobError(UUID jobId, List<Issue> issues, Throwable t) {
+    public void onJobError(UUID jobId, List<Issue> issues, Throwable t) throws JobNotFoundException {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onJobError(t, issues), null));
     }
 
@@ -352,8 +367,9 @@ public class JobPersistenceService {
      *
      * @param jobId job id
      * @return true if claimed; false otherwise
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public boolean tryMarkCoreInProgress(UUID jobId) {
+    public boolean tryMarkCoreInProgress(UUID jobId) throws JobNotFoundException {
         return Boolean.TRUE.equals(updateJobAndReturn(jobId, job -> {
             if (job.coreState().status() != WorkUnitStatus.INIT) {
                 return new JobAndResult<>(job, false);
@@ -413,14 +429,16 @@ public class JobPersistenceService {
      * @param fn    update function
      * @param <T>   result type
      * @return result or {@code null} if update/persist failed
+     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    <T> T updateJobAndReturn(UUID jobId, JobUpdate<T> fn) {
+    <T> T updateJobAndReturn(UUID jobId, JobUpdate<T> fn) throws JobNotFoundException {
         requireNonNull(jobId);
         requireNonNull(fn);
 
         AtomicReference<T> resultRef = new AtomicReference<>();
 
-        jobRegistry.computeIfPresent(jobId, (id, current) -> {
+        Job result = jobRegistry.computeIfPresent(jobId, (id, current) -> {
+
             Job updatedJob;
             try {
                 JobAndResult<T> jr = fn.apply(current);
@@ -444,7 +462,9 @@ public class JobPersistenceService {
                 return current.onJobError(e, List.of());
             }
         });
-
+        if (result == null) {
+            throw new JobNotFoundException(jobId);
+        }
         return resultRef.get();
     }
 
@@ -486,20 +506,23 @@ public class JobPersistenceService {
         }
     }
 
-
     // -------------------------------------------------------------------------
     // Persistence internals
     // -------------------------------------------------------------------------
 
-    private Optional<WorkUnit> selectNextInternal(UUID jobId) {
-        return Optional.ofNullable(updateJobAndReturn(jobId, job -> {
-            Optional<WorkUnit> maybeWU = job.selectNextWorkUnit();
-            if (maybeWU.isEmpty()) {
-                return new JobAndResult<>(job, null);
-            }
-            WorkUnit wu = maybeWU.get();
-            return new JobAndResult<>(wu.job(), wu);
-        }));
+    Optional<WorkUnit> selectNextInternal(UUID jobId) {
+        try {
+            return Optional.ofNullable(updateJobAndReturn(jobId, job -> {
+                Optional<WorkUnit> maybeWU = job.selectNextWorkUnit();
+                if (maybeWU.isEmpty()) {
+                    return new JobAndResult<>(job, null);
+                }
+                WorkUnit wu = maybeWU.get();
+                return new JobAndResult<>(wu.job(), wu);
+            }));
+        } catch (JobNotFoundException e) {
+            return Optional.empty();
+        }
     }
 
     private Path jobDir(UUID jobId) {

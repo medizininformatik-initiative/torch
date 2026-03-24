@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.ProcessBatchWorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
@@ -68,11 +69,6 @@ class JobSchedulerTest {
     }
 
 
-    /**
-     * Fix 1: Selection Exception.
-     * In your new logic, selectNextWorkUnit throwing an exception is FATAL.
-     * We run this in a thread because it might trigger System.exit(1).
-     */
     @Test
     void workerLoop_terminatesOnSelectionException() throws Exception {
         JobScheduler scheduler = spy(newScheduler(newCtx()));
@@ -152,10 +148,44 @@ class JobSchedulerTest {
         verify(persistence, timeout(1000)).onJobError(eq(jobId), eq(List.of()), eq(testError));
     }
 
-    /**
-     * Fix 4: Infrastructure Failure (Fatal).
-     * Tests when the error-reporting mechanism itself fails.
-     */
+    @Test
+    void executeBlocking_ignoresDeletedJob() throws Exception {
+        JobScheduler scheduler = newScheduler(newCtx());
+        ProcessBatchWorkUnit mockWu = mock(ProcessBatchWorkUnit.class);
+        UUID jobId = UUID.randomUUID();
+        when(mockWu.execute(any())).thenReturn(Mono.error(new JobNotFoundException(jobId)));
+
+        Method executeBlocking = JobScheduler.class.getDeclaredMethod("executeBlocking", WorkUnit.class);
+        executeBlocking.setAccessible(true);
+
+        executeBlocking.invoke(scheduler, mockWu);
+
+        verify(persistence, times(0)).onJobError(any(), any(), any());
+    }
+
+    @Test
+    void executeBlocking_ignoresDeletedJobWhileReportingError() throws Exception {
+        JobScheduler scheduler = newScheduler(newCtx());
+        ProcessBatchWorkUnit mockWu = mock(ProcessBatchWorkUnit.class);
+        Job mockJob = mock(Job.class);
+        UUID jobId = UUID.randomUUID();
+        RuntimeException executionError = new RuntimeException("Execution failed");
+
+        when(mockWu.job()).thenReturn(mockJob);
+        when(mockJob.id()).thenReturn(jobId);
+        when(mockWu.execute(any())).thenReturn(Mono.error(executionError));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onJobError(eq(jobId), eq(List.of()), eq(executionError));
+
+        Method executeBlocking = JobScheduler.class.getDeclaredMethod("executeBlocking", WorkUnit.class);
+        executeBlocking.setAccessible(true);
+
+        executeBlocking.invoke(scheduler, mockWu);
+
+        verify(persistence, times(1)).onJobError(eq(jobId), eq(List.of()), eq(executionError));
+    }
+
     @Test
     void executeBlocking_crashesThread_whenPersistenceFailsToSaveError() throws Exception {
         JobScheduler scheduler = newScheduler(newCtx());

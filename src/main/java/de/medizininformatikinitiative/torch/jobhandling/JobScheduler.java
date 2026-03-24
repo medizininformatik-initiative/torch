@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.jobhandling;
 
 
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import jakarta.annotation.PreDestroy;
@@ -148,11 +149,17 @@ public class JobScheduler {
 
     void executeBlocking(WorkUnit wu) throws IOException {
         wu.execute(ctx)
+                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
                 .onErrorResume(t ->
-                        Mono.fromRunnable(() -> ctx.persistence().onJobError(wu.job().id(), List.of(), t))
+                        Mono.fromCallable(() -> {
+                                    ctx.persistence().onJobError(wu.job().id(), List.of(), t);
+                                    return 0;
+                                })
                                 .subscribeOn(Schedulers.boundedElastic())
+                                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
                                 .then()
-                ).block();
+                )
+                .block();
     }
 
 }

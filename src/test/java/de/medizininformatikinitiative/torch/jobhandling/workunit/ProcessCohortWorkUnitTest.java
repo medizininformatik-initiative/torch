@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
@@ -22,6 +23,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.anyList;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -57,7 +59,46 @@ class ProcessCohortWorkUnitTest {
     }
 
     @Test
-    void execute_whenParamBatchProvided_skipsCohortQuery_andPersistsCohortSuccess() {
+    void execute_whenJobDeletedWhilePersistingSuccess_completes() throws JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        List<String> paramBatch = List.of("Patient/A", "Patient/B");
+        Job job = jobWithParams(jobId, paramBatch);
+
+        ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onCohortSuccess(jobId, paramBatch);
+
+        assertThatCode(() -> wu.execute(ctx()).block())
+                .doesNotThrowAnyException();
+
+        verifyNoInteractions(cohortQueryService);
+        verify(persistence).onCohortSuccess(jobId, paramBatch);
+        verify(persistence, never()).onCohortError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobDeletedWhileRecordingError_completes() throws JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        Job job = jobWithParams(jobId, List.of());
+
+        ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
+
+        RuntimeException boom = new RuntimeException("boom");
+        when(cohortQueryService.runCohortQuery(any())).thenReturn(Mono.error(boom));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
+
+        assertThatCode(() -> wu.execute(ctx()).block())
+                .doesNotThrowAnyException();
+
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
+    }
+
+    @Test
+    void execute_whenParamBatchProvided_skipsCohortQuery_andPersistsCohortSuccess() throws JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         List<String> paramBatch = List.of("Patient/A", "Patient/B");
         Job job = jobWithParams(jobId, paramBatch);
@@ -74,7 +115,7 @@ class ProcessCohortWorkUnitTest {
     }
 
     @Test
-    void execute_whenParamBatchEmpty_runsCohortQuery_andPersistsCohortSuccess() {
+    void execute_whenParamBatchEmpty_runsCohortQuery_andPersistsCohortSuccess() throws JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         Job job = jobWithParams(jobId, List.of());
 
@@ -92,7 +133,7 @@ class ProcessCohortWorkUnitTest {
     }
 
     @Test
-    void execute_whenCohortQueryFails_recordsJobError_andCompletes() {
+    void execute_whenCohortQueryFails_recordsJobError_andCompletes() throws JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         Job job = jobWithParams(jobId, List.of());
 
@@ -110,7 +151,7 @@ class ProcessCohortWorkUnitTest {
     }
 
     @Test
-    void cohortQueryFailsWithErrorandCompletes() {
+    void cohortQueryFailsWithErrorandCompletes() throws JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         Job job = jobWithParams(jobId, List.of());
         ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
