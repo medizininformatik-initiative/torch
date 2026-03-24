@@ -1,8 +1,5 @@
-package de.medizininformatikinitiative.torch.rest;
+package de.medizininformatikinitiative.torch.rest.schema;
 
-import de.medizininformatikinitiative.torch.rest.schema.ExtractDataKickoffRequestSchema;
-import de.medizininformatikinitiative.torch.rest.schema.JobManifestSchema;
-import de.medizininformatikinitiative.torch.rest.schema.OperationOutcomeSchema;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
