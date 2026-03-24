@@ -1,14 +1,11 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
-import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
-import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
@@ -39,16 +36,6 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ProcessBatchWorkUnitTest {
 
-    static final JobParameters EMPTY_PARAMETERS =
-            new JobParameters(
-                    new AnnotatedCrtdl(
-                            JsonNodeFactory.instance.objectNode(),
-                            new AnnotatedDataExtraction(List.of()),
-                            Optional.empty()
-                    ),
-                    List.of()
-            );
-
     @Mock
     JobPersistenceService persistence;
     @Mock
@@ -72,7 +59,7 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void execute_success_loadsBatch_loadsJob_processesBatch_andPersistsSuccess() throws IOException {
+    void execute_success_loadsBatch_loadsJob_processesBatch_andPersistsSuccess() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -104,7 +91,7 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void execute_whenExtractFails_recordsBatchError_andCompletes() throws IOException {
+    void execute_whenExtractFails_recordsBatchError_andCompletes() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -136,7 +123,7 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void execute_whenNotClaimed_doesNothing_andCompletes() throws IOException {
+    void execute_whenNotClaimed_doesNothing_andCompletes() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -157,7 +144,7 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void execute_whenExtractReturnsEmpty_doesNotPersistSuccess() throws IOException {
+    void execute_whenExtractReturnsEmpty_doesNotPersistSuccess() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -177,7 +164,28 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void missingJobThrows() throws IOException {
+    void execute_whenJobDeletedBeforeClaim_completes() throws IOException, JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
+        ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
+
+        when(persistence.tryStartBatch(jobId, batchId))
+                .thenThrow(new JobNotFoundException(jobId));
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
+
+        verify(persistence, never()).getJob(any());
+        verify(persistence, never()).loadBatch(any(), any());
+        verify(extract, never()).processBatch(any());
+        verify(persistence, never()).onBatchProcessingSuccess(any());
+        verify(persistence, never()).onBatchError(any(), any(), anyList(), any());
+        verify(persistence, never()).onJobError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobDeletedDuringLoadSelection_completes() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -187,8 +195,76 @@ class ProcessBatchWorkUnitTest {
         when(persistence.tryStartBatch(jobId, batchId)).thenReturn(true);
         when(persistence.getJob(jobId)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> wu.execute(ctx()).block())
-                .isInstanceOf(RuntimeException.class);
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
+
+        verify(persistence).getJob(jobId);
+        verify(persistence, never()).loadBatch(any(), any());
+        verify(extract, never()).processBatch(any());
+        verify(persistence, never()).onBatchProcessingSuccess(any());
+        verify(persistence, never()).onBatchError(any(), any(), anyList(), any());
+        verify(persistence, never()).onJobError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobDeletedWhilePersistingSuccess_completes() throws IOException, JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
+        ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
+
+        when(persistence.tryStartBatch(jobId, batchId)).thenReturn(true);
+        when(persistence.loadBatch(jobId, batchId)).thenReturn(batch);
+        when(persistence.getJob(jobId)).thenReturn(Optional.of(job));
+        when(extract.processBatch(any(BatchSelection.class))).thenReturn(Mono.just(batchResult));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onBatchProcessingSuccess(batchResult);
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
+
+        verify(persistence).onBatchProcessingSuccess(batchResult);
+        verify(persistence, never()).onBatchError(any(), any(), anyList(), any());
+        verify(persistence, never()).onJobError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobDeletedWhileRecordingBatchError_completes() throws IOException, JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
+        ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
+
+        when(persistence.tryStartBatch(jobId, batchId)).thenReturn(true);
+        when(persistence.loadBatch(jobId, batchId)).thenReturn(batch);
+        when(persistence.getJob(jobId)).thenReturn(Optional.of(job));
+
+        RuntimeException boom = new RuntimeException("boom");
+        when(extract.processBatch(any(BatchSelection.class))).thenReturn(Mono.error(boom));
+
+        doThrow(new JobNotFoundException(jobId))
+                .when(persistence).onBatchError(eq(jobId), eq(batchId), eq(List.of()), eq(boom));
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
+
+        verify(persistence).onBatchError(eq(jobId), eq(batchId), eq(List.of()), eq(boom));
+        verify(persistence, never()).onBatchProcessingSuccess(any());
+        verify(persistence, never()).onJobError(any(), anyList(), any());
+    }
+
+    @Test
+    void execute_whenJobMissing_completes() throws IOException, JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
+        ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
+
+        when(persistence.tryStartBatch(jobId, batchId)).thenReturn(true);
+        when(persistence.getJob(jobId)).thenReturn(Optional.empty());
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
 
         verify(persistence, never()).loadBatch(any(), any());
         verify(persistence, never()).onJobError(any(), anyList(), any());
@@ -197,7 +273,7 @@ class ProcessBatchWorkUnitTest {
     }
 
     @Test
-    void execute_whenExtractEmitsRuntimeException_recordsBatchError_andCompletes() throws IOException {
+    void execute_whenExtractEmitsRuntimeException_recordsBatchError_andCompletes() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
@@ -222,7 +298,7 @@ class ProcessBatchWorkUnitTest {
 
 
     @Test
-    void persistingSuccessFailsThrows() throws IOException {
+    void persistingSuccessFailsThrows() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();
         Job job = Job.init(jobId, TestUtils.emptyJobParams());
