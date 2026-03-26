@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -17,6 +18,8 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 
 import java.io.IOException;
 import java.time.Instant;
@@ -767,53 +770,186 @@ public class JobTest {
     @Nested
     class Pause {
 
-        @Test
-        void transitionsToPaused() {
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "PENDING",
+                "RUNNING_GET_COHORT",
+                "RUNNING_PROCESS_BATCH",
+                "RUNNING_PROCESS_CORE",
+                "TEMP_FAILED"
+        })
+        void changed(JobStatus before) throws StateConflictException {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+                    .withStatus(before);
 
-            Job updated = job.pause();
+            Job result = job.pause();
 
-            assertThat(updated).isNotSameAs(job);
-            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(result).isNotSameAs(job);
+            assertThat(result.status()).isEqualTo(JobStatus.PAUSED);
         }
 
         @Test
-        void finalJobNoop() {
+        void noop() throws StateConflictException {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.COMPLETED);
+                    .withStatus(JobStatus.PAUSED);
 
-            Job updated = job.pause();
+            Job result = job.pause();
 
-            assertThat(updated).isSameAs(job);
-            assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+            assertThat(result).isSameAs(job);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED"
+        })
+        void conflict(JobStatus before) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(before);
+
+            assertThatThrownBy(job::pause)
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(before.display());
+
+            assertThat(job.status()).isEqualTo(before);
         }
     }
 
     @Nested
     class Cancel {
 
-        @Test
-        void transitionsToCancelled() {
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "PENDING",
+                "RUNNING_GET_COHORT",
+                "RUNNING_PROCESS_BATCH",
+                "RUNNING_PROCESS_CORE",
+                "TEMP_FAILED",
+                "PAUSED"
+        })
+        void changed(JobStatus before) {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.RUNNING_PROCESS_CORE);
+                    .withStatus(before);
 
-            Job updated = job.cancel();
-
-            assertThat(updated).isNotSameAs(job);
-            assertThat(updated.status()).isEqualTo(JobStatus.CANCELLED);
+            Job result = job.cancel();
+            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
         }
 
         @Test
-        void finalJobNoop() {
+        void noop() {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
-                    .withStatus(JobStatus.FAILED);
+                    .withStatus(JobStatus.CANCELLED);
 
-            Job updated = job.cancel();
+            Job result = job.cancel();
 
-            assertThat(updated).isSameAs(job);
-            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "COMPLETED",
+                "FAILED"
+        })
+        void conflict(JobStatus before) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(before);
+
+            assertThatThrownBy(job::cancel)
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(job.status().display());
         }
     }
 
+    @Nested
+    class Resume {
+
+        @Test
+        void changedFromPausedToPending() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED);
+
+            Job result = job.resume();
+
+            assertThat(result.status()).isEqualTo(JobStatus.PENDING);
+        }
+
+        @Test
+        void changedFromPausedToBatch() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withBatchState(new BatchState(UUID.randomUUID(), WorkUnitState.initNow()));
+
+            Job result = job.resume();
+
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+        }
+
+        @Test
+        void changedFromPausedToCore() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            Job result = job.resume();
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @Test
+        void changedFromPausedToCompleted() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            Job result = job.resume();
+
+            assertThat(result.status()).isEqualTo(JobStatus.COMPLETED);
+        }
+
+        @Test
+        void changedFromTempFailed() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            Job result = job.resume();
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "PENDING",
+                "RUNNING_GET_COHORT",
+                "RUNNING_PROCESS_BATCH",
+                "RUNNING_PROCESS_CORE"
+        })
+        void noop(JobStatus before) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(before);
+
+            Job result = job.resume();
+
+            assertThat(result.status()).isEqualTo(before);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED"
+        })
+        void conflict(JobStatus before) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(before);
+
+            assertThatThrownBy(job::resume)
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(job.status().display());
+        }
+    }
 }

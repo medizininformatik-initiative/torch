@@ -159,10 +159,14 @@ public class JobPersistenceService {
      * <p>If the job is already in a final state, the request has no effect.</p>
      *
      * @param jobId job id
+     * @return result containing the updated job and previous status
      * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void pauseJob(UUID jobId) throws JobNotFoundException {
-        updateJobAndReturn(jobId, job -> new JobAndResult<>(job.pause(), null));
+    public Job pauseJob(UUID jobId) throws JobNotFoundException {
+        return updateJobAndReturn(jobId, job -> {
+            Job result = job.pause();
+            return new JobAndResult<>(result, result);
+        });
     }
 
     /**
@@ -171,10 +175,30 @@ public class JobPersistenceService {
      * <p>If the job is already in a final state, the request has no effect.</p>
      *
      * @param jobId job id
+     * @return result containing the updated job and previous status
      * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void cancelJob(UUID jobId) throws JobNotFoundException {
-        updateJobAndReturn(jobId, job -> new JobAndResult<>(job.cancel(), null));
+    public Job cancelJob(UUID jobId) throws JobNotFoundException {
+        return updateJobAndReturn(jobId, job -> {
+            Job result = job.cancel();
+            return new JobAndResult<>(result, result);
+        });
+    }
+
+    /**
+     * Resumes a job.
+     *
+     * <p>If the job is not in a resumable state, the request has no effect.</p>
+     *
+     * @param jobId job id
+     * @return result containing the updated job and previous status
+     * @throws JobNotFoundException if Job is unknown to the registry
+     */
+    public Job resumeJob(UUID jobId) throws JobNotFoundException {
+        return updateJobAndReturn(jobId, job -> {
+            Job result = job.resume();
+            return new JobAndResult<>(result, result);
+        });
     }
 
     /**

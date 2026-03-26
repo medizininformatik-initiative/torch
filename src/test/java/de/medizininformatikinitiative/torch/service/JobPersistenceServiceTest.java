@@ -6,6 +6,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -962,41 +963,41 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updatesJobStatusToPausedAndPersists() throws IOException, JobNotFoundException {
-            Job runningJob = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+        void changed() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            service.putJobForTest(job);
 
-            service.putJobForTest(runningJob);
+            Job result = service.pauseJob(jobId);
 
-            service.pauseJob(jobId);
-
-            Job updated = service.getJob(jobId).orElseThrow();
-            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
-
-            Job persisted = MAPPER.readValue(
-                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
-                    Job.class
-            );
-            assertThat(persisted.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(result.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
         }
 
         @Test
-        void finalJobNoop() throws JobNotFoundException {
-            Job completedJob = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.COMPLETED);
+        void noOp() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.PAUSED);
+            service.putJobForTest(job);
 
-            service.putJobForTest(completedJob);
+            Job result = service.pauseJob(jobId);
 
-            service.pauseJob(jobId);
+            assertThat(result.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
+        }
 
-            Job updated = service.getJob(jobId).orElseThrow();
-            assertThat(updated).isSameAs(completedJob);
-            assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+        @Test
+        void conflict() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.COMPLETED);
+            service.putJobForTest(job);
+
+            assertThatThrownBy(() -> service.pauseJob(jobId))
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(job.status().display());
         }
 
         @Test
         void throwsUnknownJobException() {
-            assertThatThrownBy(() -> service.pauseJob(UUID.randomUUID())).isInstanceOf(JobNotFoundException.class);
+            assertThatThrownBy(() -> service.pauseJob(UUID.randomUUID()))
+                    .isInstanceOf(JobNotFoundException.class);
         }
     }
 
@@ -1017,41 +1018,124 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updatesJobStatusToCancelledAndPersists() throws IOException, JobNotFoundException {
-            Job runningJob = service.getJob(jobId).orElseThrow()
+        void changed() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE);
+            service.putJobForTest(job);
 
-            service.putJobForTest(runningJob);
+            Job result = service.cancelJob(jobId);
 
-            service.cancelJob(jobId);
-
-            Job updated = service.getJob(jobId).orElseThrow();
-            assertThat(updated.status()).isEqualTo(JobStatus.CANCELLED);
-
-            Job persisted = MAPPER.readValue(
-                    Files.readString(baseDir.resolve(jobId.toString()).resolve("job.json")),
-                    Job.class
-            );
-            assertThat(persisted.status()).isEqualTo(JobStatus.CANCELLED);
+            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.CANCELLED);
         }
 
         @Test
-        void finalJobNoop() throws JobNotFoundException {
-            Job failedJob = service.getJob(jobId).orElseThrow()
+        void noOp() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.CANCELLED);
+            service.putJobForTest(job);
+
+            Job result = service.cancelJob(jobId);
+
+            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.CANCELLED);
+        }
+
+        @Test
+        void conflict() {
+            Job job = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.FAILED);
+            service.putJobForTest(job);
 
-            service.putJobForTest(failedJob);
-
-            service.cancelJob(jobId);
-
-            Job updated = service.getJob(jobId).orElseThrow();
-            assertThat(updated).isSameAs(failedJob);
-            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            assertThatThrownBy(() -> service.cancelJob(jobId))
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(job.status().display());
         }
 
         @Test
         void throwsUnknownJobException() {
-            assertThatThrownBy(() -> service.cancelJob(UUID.randomUUID())).isInstanceOf(JobNotFoundException.class);
+            assertThatThrownBy(() -> service.cancelJob(UUID.randomUUID()))
+                    .isInstanceOf(JobNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class ResumeJobTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void changedFromPaused() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.initNow());
+            service.putJobForTest(job);
+
+            Job result = service.resumeJob(jobId);
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+        }
+
+        @Test
+        void changedFromTempFailed() throws JobNotFoundException {
+            UUID batchId = UUID.randomUUID();
+
+            Job job = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.TEMP_FAILED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withBatchState(new BatchState(batchId, WorkUnitState.startNow().markTempFailed()));
+            service.putJobForTest(job);
+
+            Job result = service.resumeJob(jobId);
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+            assertThat(result.batches().get(batchId).status()).isEqualTo(WorkUnitStatus.INIT);
+
+            Job updated = service.getJob(jobId).orElseThrow();
+            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+            assertThat(updated.batches().get(batchId).status()).isEqualTo(WorkUnitStatus.INIT);
+        }
+
+        @Test
+        void noOp() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            service.putJobForTest(job);
+
+            Job result = service.resumeJob(jobId);
+
+            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
+        }
+
+        @Test
+        void conflict() throws JobNotFoundException {
+            Job job = service.getJob(jobId).orElseThrow()
+                    .withStatus(JobStatus.FAILED);
+            service.putJobForTest(job);
+
+            assertThatThrownBy(() -> service.resumeJob(jobId))
+                    .isInstanceOf(StateConflictException.class)
+                    .hasMessageContaining(job.status().display());
+        }
+
+        @Test
+        void throwsUnknownJobException() {
+            assertThatThrownBy(() -> service.resumeJob(UUID.randomUUID()))
+                    .isInstanceOf(JobNotFoundException.class);
         }
     }
 }
