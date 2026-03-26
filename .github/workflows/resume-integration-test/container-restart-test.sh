@@ -18,7 +18,7 @@ while ! grep -q "TORCH_EXPORT_ID=" "$LOG"; do sleep 1; done
 EXPORT_ID=$(grep "TORCH_EXPORT_ID=" "$LOG" | cut -d= -f2 | tr -d '[:space:]')
 sleep $RESTART_AFTER_SECONDS
 
-COMPOSE_FILE="$ROOT_DIR/.github/workflows/resume-integration-test/docker-compose.yml"
+COMPOSE_FILE="$ROOT_DIR/.github/workflows/infra/docker-compose.yml"
 kill "$PID" || true
 docker compose -f "$COMPOSE_FILE" stop torch nginx
 echo "Interrupted job: $EXPORT_ID. Restarting services..."

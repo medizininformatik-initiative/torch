@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.jobhandling;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -602,21 +603,50 @@ public record Job(
 
     /**
      * @return a paused job, or {@code this} if the job is already in a final state
+     * @throws StateConflictException on final states
      */
     public Job pause() {
-        if (this.status.isFinal()) {
+        if (status == JobStatus.PAUSED) {
             return this;
         }
-        return this.withStatus(JobStatus.PAUSED);
+        if (status.isFinal()) {
+            throw new StateConflictException("Final state " + status.display() + " cannot be paused");
+        }
+        return withStatus(JobStatus.PAUSED);
     }
 
     /**
      * @return a cancelled job, or {@code this} if the job is already in a final state
+     * @throws StateConflictException on final states
      */
     public Job cancel() {
-        if (this.status.isFinal()) {
+        if (status == JobStatus.CANCELLED) {
             return this;
         }
-        return this.withStatus(JobStatus.CANCELLED);
+        if (status.isFinal()) {
+            throw new StateConflictException("Final state " + status.display() + " cannot be cancelled");
+        }
+        return withStatus(JobStatus.CANCELLED);
+    }
+
+    /**
+     * Resumes a frozen job.
+     * <p>
+     * If the status is {@link JobStatus#PAUSED}, the next runnable status is inferred from the
+     * current substates. If the status is {@link JobStatus#TEMP_FAILED}, this delegates to
+     * {@link #rollback()}.
+     * <p>
+     * Otherwise, this is a no-op.
+     *
+     * @return a resumed job if the current status supports resuming, otherwise {@code this}
+     * @throws StateConflictException on final states
+     */
+    public Job resume() {
+        return switch (status) {
+            case PAUSED -> withStatus(inferRunnableStatusFromSubstates());
+            case TEMP_FAILED -> rollback();
+            case PENDING, RUNNING_GET_COHORT, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE -> this;
+            default -> throw new StateConflictException("Final state " + status.display() + " cannot be resumed");
+        };
     }
 }
