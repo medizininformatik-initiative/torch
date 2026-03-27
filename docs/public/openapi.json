@@ -24,7 +24,11 @@
           "200": {
             "description": "FHIR CapabilityStatement",
             "content": {
-              "application/fhir+json": {}
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
             }
           }
         }
@@ -86,7 +90,9 @@
               "Content-Location": {
                 "description": "URL to poll job status",
                 "style": "simple",
-                "schema": {}
+                "schema": {
+                  "type": "string"
+                }
               }
             }
           },
@@ -189,6 +195,832 @@
               "application/fhir+json": {
                 "schema": {
                   "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/Task": {
+      "get": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "GET /fhir/Task — Search Tasks",
+        "description": "Returns a FHIR Bundle (searchset) of Tasks matching the given parameters.\nSupports filtering by job ID and/or status. Use the `Prefer: handling=strict`\nheader to reject unsupported or invalid parameters with a 400 instead of\nsilently ignoring them.\n",
+        "operationId": "searchTasks",
+        "parameters": [
+          {
+            "name": "_id",
+            "in": "query",
+            "description": "Comma-separated list of job UUIDs to filter by",
+            "schema": {
+              "type": "string",
+              "example": "550e8400-e29b-41d4-a716-446655440000"
+            }
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "description": "Comma-separated list of job statuses to filter by",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "PENDING",
+                "RUNNING_GET_COHORT",
+                "RUNNING_PROCESS_BATCH",
+                "RUNNING_PROCESS_CORE",
+                "PAUSED",
+                "TEMP_FAILED",
+                "COMPLETED",
+                "FAILED",
+                "CANCELLED"
+              ]
+            }
+          },
+          {
+            "name": "Prefer",
+            "in": "header",
+            "description": "Set to `handling=strict` to reject unsupported parameters",
+            "schema": {
+              "type": "string",
+              "example": "handling=strict"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR Bundle (searchset) of matching Tasks",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Running job": {
+                    "description": "Running job",
+                    "value": {
+                      "resourceType": "Bundle",
+                      "type": "searchset",
+                      "total": 1,
+                      "entry": [
+                        {
+                          "resource": {
+                            "resourceType": "Task",
+                            "id": "550e8400-e29b-41d4-a716-446655440000",
+                            "meta": {
+                              "versionId": "3",
+                              "lastUpdated": "2024-01-15T10:30:00.000+00:00"
+                            },
+                            "status": "in-progress",
+                            "intent": "order",
+                            "businessStatus": {
+                              "coding": [
+                                {
+                                  "system": "https://medizininformatik-initiative.de/torch/job-status",
+                                  "code": "RUNNING_PROCESS_BATCH",
+                                  "display": "Processing batches"
+                                }
+                              ]
+                            },
+                            "priority": "routine",
+                            "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                            "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                            "executionPeriod": {
+                              "start": "2024-01-15T10:29:55.000+00:00"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request — unsupported or invalid parameters (strict mode only)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Invalid parameter": {
+                    "description": "Invalid parameter",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "invalid",
+                          "diagnostics": "Unsupported search parameters: [foo]; Invalid _id values: [not-a-uuid]"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/Task/{id}": {
+      "get": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "GET /fhir/Task/{id} — Read Task",
+        "description": "Returns the FHIR Task for the given job UUID.",
+        "operationId": "getTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "FHIR Task resource",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Running job": {
+                    "description": "Running job",
+                    "value": {
+                      "resourceType": "Task",
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "meta": {
+                        "versionId": "3",
+                        "lastUpdated": "2024-01-15T10:30:00.000+00:00"
+                      },
+                      "status": "in-progress",
+                      "intent": "order",
+                      "businessStatus": {
+                        "coding": [
+                          {
+                            "system": "https://medizininformatik-initiative.de/torch/job-status",
+                            "code": "RUNNING_PROCESS_BATCH",
+                            "display": "Processing batches"
+                          }
+                        ]
+                      },
+                      "priority": "routine",
+                      "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                      "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                      "executionPeriod": {
+                        "start": "2024-01-15T10:29:55.000+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "PUT /fhir/Task/{id} — Update Task Priority",
+        "description": "Updates the priority of an existing task. The request body must be a FHIR Task resource.\nOptimistic locking is enforced via the `If-Match: W/\"<version>\"` header.\n",
+        "operationId": "updateTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "description": "ETag of the resource version being updated, e.g. `W/\"3\"`",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "example": "W/\"3\""
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/fhir+json": {
+              "schema": {
+                "type": "object"
+              },
+              "examples": {
+                "Raise priority to ASAP": {
+                  "description": "Raise priority to ASAP",
+                  "value": {
+                    "resourceType": "Task",
+                    "id": "550e8400-e29b-41d4-a716-446655440000",
+                    "status": "in-progress",
+                    "intent": "order",
+                    "priority": "asap"
+                  }
+                }
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Updated FHIR Task",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Updated to ASAP priority": {
+                    "description": "Updated to ASAP priority",
+                    "value": {
+                      "resourceType": "Task",
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "meta": {
+                        "versionId": "4",
+                        "lastUpdated": "2024-01-15T10:31:00.000+00:00"
+                      },
+                      "status": "in-progress",
+                      "intent": "order",
+                      "businessStatus": {
+                        "coding": [
+                          {
+                            "system": "https://medizininformatik-initiative.de/torch/job-status",
+                            "code": "RUNNING_PROCESS_BATCH",
+                            "display": "Processing batches"
+                          }
+                        ]
+                      },
+                      "priority": "asap",
+                      "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                      "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                      "executionPeriod": {
+                        "start": "2024-01-15T10:29:55.000+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request — invalid Task body",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Parse error": {
+                    "description": "Parse error",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "invalid",
+                          "diagnostics": "Could not parse Task resource: unexpected token"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — version mismatch",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Version conflict": {
+                    "description": "Version conflict",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "conflict",
+                          "diagnostics": "Version mismatch: expected 3, got 2"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required — If-Match header missing",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Missing If-Match": {
+                    "description": "Missing If-Match",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "required",
+                          "diagnostics": "If-Match header is required for PUT /fhir/Task/{id}"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "DELETE /fhir/Task/{id} — Delete Task",
+        "description": "Deletes a task and all its associated result data.",
+        "operationId": "deleteTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "No Content — task deleted successfully"
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error — could not delete result files",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "IO error": {
+                    "description": "IO error",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "exception",
+                          "diagnostics": "Failed to delete result files for job 550e8400-e29b-41d4-a716-446655440000"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/Task/{id}/$cancel": {
+      "post": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "POST /fhir/Task/{id}/$cancel — Cancel Task",
+        "description": "Cancels a task. Valid from any non-terminal state.",
+        "operationId": "cancelTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated FHIR Task (now CANCELLED)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Task cancelled": {
+                    "description": "Task cancelled",
+                    "value": {
+                      "resourceType": "Task",
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "meta": {
+                        "versionId": "5",
+                        "lastUpdated": "2024-01-15T10:31:30.000+00:00"
+                      },
+                      "status": "cancelled",
+                      "intent": "order",
+                      "businessStatus": {
+                        "coding": [
+                          {
+                            "system": "https://medizininformatik-initiative.de/torch/job-status",
+                            "code": "CANCELLED",
+                            "display": "Cancelled"
+                          }
+                        ]
+                      },
+                      "priority": "routine",
+                      "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                      "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                      "executionPeriod": {
+                        "start": "2024-01-15T10:29:55.000+00:00",
+                        "end": "2024-01-15T10:31:30.000+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — task cannot be cancelled from its current state",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Invalid state": {
+                    "description": "Invalid state",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "conflict",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 cannot be $cancel: already completed"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/Task/{id}/$pause": {
+      "post": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "POST /fhir/Task/{id}/$pause — Pause Task",
+        "description": "Pauses a running task. Only valid from RUNNING_* states.",
+        "operationId": "pauseTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated FHIR Task (now PAUSED)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Task paused": {
+                    "description": "Task paused",
+                    "value": {
+                      "resourceType": "Task",
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "meta": {
+                        "versionId": "4",
+                        "lastUpdated": "2024-01-15T10:31:00.000+00:00"
+                      },
+                      "status": "on-hold",
+                      "intent": "order",
+                      "businessStatus": {
+                        "coding": [
+                          {
+                            "system": "https://medizininformatik-initiative.de/torch/job-status",
+                            "code": "PAUSED",
+                            "display": "Paused"
+                          }
+                        ]
+                      },
+                      "priority": "routine",
+                      "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                      "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                      "executionPeriod": {
+                        "start": "2024-01-15T10:29:55.000+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — task is not in a pausable state",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Invalid state": {
+                    "description": "Invalid state",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "conflict",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 cannot be $pause: already completed"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/Task/{id}/$resume": {
+      "post": {
+        "tags": [
+          "task-controller"
+        ],
+        "summary": "POST /fhir/Task/{id}/$resume — Resume Task",
+        "description": "Resumes a paused task. Only valid from PAUSED state.",
+        "operationId": "resumeTask",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "description": "Job identifier (UUID)",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Updated FHIR Task (now running)",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "type": "object"
+                },
+                "examples": {
+                  "Task resumed": {
+                    "description": "Task resumed",
+                    "value": {
+                      "resourceType": "Task",
+                      "id": "550e8400-e29b-41d4-a716-446655440000",
+                      "meta": {
+                        "versionId": "5",
+                        "lastUpdated": "2024-01-15T10:32:00.000+00:00"
+                      },
+                      "status": "in-progress",
+                      "intent": "order",
+                      "businessStatus": {
+                        "coding": [
+                          {
+                            "system": "https://medizininformatik-initiative.de/torch/job-status",
+                            "code": "RUNNING_PROCESS_BATCH",
+                            "display": "Processing batches"
+                          }
+                        ]
+                      },
+                      "priority": "routine",
+                      "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
+                      "authoredOn": "2024-01-15T10:29:55.000+00:00",
+                      "executionPeriod": {
+                        "start": "2024-01-15T10:29:55.000+00:00"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Task not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Not found": {
+                    "description": "Not found",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "not-found",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 not found"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict — task is not in a resumable state",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                },
+                "examples": {
+                  "Invalid state": {
+                    "description": "Invalid state",
+                    "value": {
+                      "resourceType": "OperationOutcome",
+                      "issue": [
+                        {
+                          "severity": "error",
+                          "code": "conflict",
+                          "diagnostics": "Task/550e8400-e29b-41d4-a716-446655440000 cannot be $resume: not paused"
+                        }
+                      ]
+                    }
+                  }
                 }
               }
             }
@@ -335,14 +1167,14 @@
             "description": "Overall job status.\n\nFinal states: COMPLETED, FAILED, CANCELLED.\nNon-final states: PENDING, RUNNING_GET_COHORT, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, PAUSED, TEMP_FAILED.\n",
             "enum": [
               "PENDING",
+              "PAUSED",
+              "TEMP_FAILED",
               "RUNNING_GET_COHORT",
               "RUNNING_PROCESS_BATCH",
               "RUNNING_PROCESS_CORE",
-              "PAUSED",
-              "FAILED",
               "COMPLETED",
-              "CANCELLED",
-              "TEMP_FAILED"
+              "FAILED",
+              "CANCELLED"
             ]
           },
           "batches": {
