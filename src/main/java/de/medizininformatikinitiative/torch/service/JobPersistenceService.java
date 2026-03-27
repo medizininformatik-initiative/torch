@@ -3,10 +3,13 @@ package de.medizininformatikinitiative.torch.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
+import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
+import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
@@ -39,6 +42,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -199,6 +203,47 @@ public class JobPersistenceService {
             Job result = job.resume();
             return new JobAndResult<>(result, result);
         });
+    }
+
+    /**
+     * Changes the priority of a job.
+     *
+     * <p>The {@code expectedVersion} is used for optimistic concurrency: if the job's
+     * current version differs, a {@link VersionConflictException} is thrown.</p>
+     *
+     * @param jobId           job id
+     * @param priority        the new priority
+     * @param expectedVersion version the caller last observed
+     * @return the updated job
+     * @throws JobNotFoundException    if the job is unknown to the registry
+     * @throws VersionConflictException if the current version does not match {@code expectedVersion}
+     */
+    public Job changePriority(UUID jobId, JobPriority priority, long expectedVersion) throws JobNotFoundException {
+        return updateJobAndReturn(jobId, job -> {
+            if (job.version() != expectedVersion) {
+                throw new VersionConflictException(jobId, expectedVersion, job.version());
+            }
+            Job result = job.withPriority(priority);
+            return new JobAndResult<>(result, result);
+        });
+    }
+
+    /**
+     * Returns all jobs matching the given filters.
+     *
+     * <p>Both filters are optional: an empty {@code ids} set means "any id";
+     * an empty {@code statuses} set means "any status".</p>
+     *
+     * @param ids      job IDs to include (empty = all)
+     * @param statuses job statuses to include (empty = all)
+     * @return matching jobs, ordered by start time descending
+     */
+    public List<Job> findJobs(Set<UUID> ids, Set<JobStatus> statuses) {
+        return jobRegistry.values().stream()
+                .filter(job -> ids.isEmpty() || ids.contains(job.id()))
+                .filter(job -> statuses.isEmpty() || statuses.contains(job.status()))
+                .sorted(Comparator.comparing(Job::startedAt).reversed())
+                .toList();
     }
 
     /**
@@ -480,7 +525,14 @@ public class JobPersistenceService {
                 return current;
             }
             try {
-                return saveJob(updatedJob.incrementVersion());
+                Job saved = saveJob(updatedJob.incrementVersion());
+                // If the caller set result == job, replace it with the version-incremented saved job
+                if (resultRef.get() == updatedJob) {
+                    @SuppressWarnings("unchecked")
+                    T savedAsT = (T) saved;
+                    resultRef.set(savedAsT);
+                }
+                return saved;
             } catch (IOException e) {
                 logger.error("Failed to save job.json for {}: {}", id, e.getMessage(), e);
                 return current.onJobError(e, List.of());

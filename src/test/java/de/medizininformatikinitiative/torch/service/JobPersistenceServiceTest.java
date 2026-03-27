@@ -38,6 +38,7 @@ import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -1136,6 +1137,138 @@ class JobPersistenceServiceTest {
         void throwsUnknownJobException() {
             assertThatThrownBy(() -> service.resumeJob(UUID.randomUUID()))
                     .isInstanceOf(JobNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class ChangePriorityTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void changesFromNormalToHigh() throws JobNotFoundException {
+            Job before = service.getJob(jobId).orElseThrow();
+            assertThat(before.priority()).isEqualTo(JobPriority.NORMAL);
+
+            Job result = service.changePriority(jobId, JobPriority.HIGH, before.version());
+
+            assertThat(result.priority()).isEqualTo(JobPriority.HIGH);
+            assertThat(service.getJob(jobId).orElseThrow().priority()).isEqualTo(JobPriority.HIGH);
+        }
+
+        @Test
+        void versionIsIncrementedAfterChange() throws JobNotFoundException {
+            Job before = service.getJob(jobId).orElseThrow();
+            long versionBefore = before.version();
+
+            Job result = service.changePriority(jobId, JobPriority.HIGH, versionBefore);
+
+            assertThat(result.version()).isGreaterThan(versionBefore);
+        }
+
+        @Test
+        void versionConflictThrows() {
+            Job before = service.getJob(jobId).orElseThrow();
+            long staleVersion = before.version() + 99;
+
+            assertThatThrownBy(() -> service.changePriority(jobId, JobPriority.HIGH, staleVersion))
+                    .isInstanceOf(de.medizininformatikinitiative.torch.exceptions.VersionConflictException.class);
+        }
+
+        @Test
+        void throwsUnknownJobException() {
+            assertThatThrownBy(() -> service.changePriority(UUID.randomUUID(), JobPriority.HIGH, 0L))
+                    .isInstanceOf(JobNotFoundException.class);
+        }
+    }
+
+    @Nested
+    class FindJobsTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId1;
+        UUID jobId2;
+        UUID jobId3;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId3 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+
+            service.putJobForTest(service.getJob(jobId2).orElseThrow().withStatus(JobStatus.COMPLETED));
+            service.putJobForTest(service.getJob(jobId3).orElseThrow().withStatus(JobStatus.FAILED));
+        }
+
+        @Test
+        void noFiltersReturnsAll() {
+            List<Job> result = service.findJobs(Set.of(), Set.of());
+
+            assertThat(result).hasSize(3);
+        }
+
+        @Test
+        void filterByIdReturnsOnlyMatchingJob() {
+            List<Job> result = service.findJobs(Set.of(jobId1), Set.of());
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().id()).isEqualTo(jobId1);
+        }
+
+        @Test
+        void filterByMultipleIdsReturnsAll() {
+            List<Job> result = service.findJobs(Set.of(jobId1, jobId2), Set.of());
+
+            assertThat(result).hasSize(2);
+            assertThat(result).extracting(Job::id).containsExactlyInAnyOrder(jobId1, jobId2);
+        }
+
+        @Test
+        void filterByStatusReturnsMatchingJobs() {
+            List<Job> result = service.findJobs(Set.of(), Set.of(JobStatus.COMPLETED));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().id()).isEqualTo(jobId2);
+        }
+
+        @Test
+        void filterByIdAndStatusCombined() {
+            List<Job> result = service.findJobs(Set.of(jobId2, jobId3), Set.of(JobStatus.COMPLETED));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().id()).isEqualTo(jobId2);
+        }
+
+        @Test
+        void unknownIdReturnsEmpty() {
+            List<Job> result = service.findJobs(Set.of(UUID.randomUUID()), Set.of());
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void resultsAreOrderedByStartedAtDescending() {
+            List<Job> result = service.findJobs(Set.of(), Set.of());
+
+            assertThat(result).isSortedAccordingTo(
+                    Comparator.comparing(Job::startedAt).reversed()
+            );
         }
     }
 }

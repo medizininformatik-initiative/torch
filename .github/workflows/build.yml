@@ -63,6 +63,7 @@ jobs:
           context: .
           tags: torch:latest
           outputs: type=docker,dest=/tmp/torch.tar
+                
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4
 
@@ -352,6 +353,7 @@ jobs:
           - pause-resume-test.sh
           - cancel-test.sh
           - delete-test.sh
+          - get-put-search-test.sh
 
     name: task-api-test (${{ matrix.script }})
     steps:

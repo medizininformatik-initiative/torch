@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.rest;
 import ca.uhn.fhir.context.FhirContext;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.Enumerations;
@@ -28,7 +29,8 @@ public class CapabilityStatementController {
                             responseCode = "200",
                             description = "FHIR CapabilityStatement",
                             content = @Content(
-                                    mediaType = "application/fhir+json"
+                                    mediaType = "application/fhir+json",
+                                    schema = @Schema(type = "object")
                             )
                     )
             }
