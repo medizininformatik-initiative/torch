@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 
@@ -15,8 +16,8 @@ import java.util.UUID;
  * @param batchId unique ID of the batch
  * @param state
  */
-public record BatchState(UUID batchId,
-                         WorkUnitState state) {
+public record BatchState(@JsonProperty UUID batchId,
+                         @JsonProperty WorkUnitState state) {
 
     public static BatchState init() {
         return new BatchState(UUID.randomUUID(), WorkUnitState.initNow());

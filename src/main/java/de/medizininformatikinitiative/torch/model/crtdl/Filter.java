@@ -13,9 +13,9 @@ import static java.util.Objects.requireNonNull;
 public record Filter(
         @JsonProperty(required = true) String type,
         @JsonProperty(required = true) String name,
-        List<Code> codes,
-        LocalDate start,
-        LocalDate end
+        @JsonProperty List<Code> codes,
+        @JsonProperty LocalDate start,
+        @JsonProperty LocalDate end
 ) {
 
     public Filter {

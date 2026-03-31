@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.crtdl.FieldCondition;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -40,13 +41,14 @@ import static java.util.Objects.requireNonNull;
  * after deserialization.
  */
 public record AnnotatedAttributeGroup(
-        String name,
-        String id,
-        String resourceType, String groupReference,
-        List<AnnotatedAttribute> attributes,
-        List<Filter> filter,
-        boolean includeReferenceOnly, @JsonIgnore
-        Optional<CopyTreeNode> copyTree) {
+        @JsonProperty String name,
+        @JsonProperty String id,
+        @JsonProperty String resourceType,
+        @JsonProperty String groupReference,
+        @JsonProperty List<AnnotatedAttribute> attributes,
+        @JsonProperty List<Filter> filter,
+        @JsonProperty boolean includeReferenceOnly,
+        @JsonIgnore Optional<CopyTreeNode> copyTree) {
 
 
     /**
