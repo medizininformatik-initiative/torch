@@ -1,13 +1,10 @@
 name: Docs
-
 on:
   push:
     paths:
       - 'docs/**'
     branches:
       - main
-    tags:
-      - 'v*.*.*'
   pull_request:
     paths:
       - 'docs/**'
@@ -29,24 +26,22 @@ jobs:
     steps:
       - name: Check out Git repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
-
       - name: Setup Node
         uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: 'docs/package-lock.json'
-
       - name: Build
         working-directory: docs
         env:
           DOCS_BASE: "/${{ github.event.repository.name }}/"
         run: make build
-
       - name: Setup Pages
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
-
       - name: Upload artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4
         with:
           path: docs/.vitepress/dist
@@ -54,14 +49,14 @@ jobs:
   deploy-pages:
     runs-on: ubuntu-24.04
     needs: [ build-pages ]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       pages: write
       id-token: write
     environment:
-      name: ${{ github.ref == 'refs/heads/main' && 'github-pages' || format('preview-{0}', github.ref_name) }}
+      name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
-
