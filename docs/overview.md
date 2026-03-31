@@ -63,9 +63,10 @@ TORCH provides a range of features to support standardized and consent-aware dat
   Since TORCH does not have its own terminology service, it does not support slicing by value set bindings.
 - **FHIR Version Support**: TORCH currently supports only
   **FHIR R4**. Other versions (e.g., DSTU2, R5) are not supported.
-- **On the fly profile support**: TORCH only supports a
-  **set of FHIR profiles** 
-given at program startup via config by mounting all valid Structure Definitions (see [Configuration](configuration.md)).
+- **Configured profile support**: TORCH supports the
+  **set of FHIR profiles**
+  provided at startup through configuration.
+  In practice, TORCH uses a claim-based profile model and works with canonical profile URLs and resource profile annotations rather than fully inferring profiles from resource content at runtime (see [Configuration](configuration.md)).
 - **Nested Resources**: TORCH does not handle
   **deeply nested resources**; they are currently treated as a single field rather than fully resolved structures.
 - **Performance Constraints**: Large-scale extraction is bound by the
@@ -79,5 +80,4 @@ given at program startup via config by mounting all valid Structure Definitions 
 ## License
 
 TORCH is licensed under the Apache License, Version 2.0. See the [LICENSE](https://github.com/medizininformatik-initiative/torch/tree/main/LICENSE) file for details.
-
 

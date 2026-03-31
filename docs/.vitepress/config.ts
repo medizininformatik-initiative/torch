@@ -68,6 +68,7 @@ export default withMermaid({
                         text: 'Implementation',
                         link: '/implementation/implementation-overview',
                         items: [
+                            {text: 'Limitations', link: '/implementation/limitations'},
                             {text: 'Error Codes', link: '/implementation/error-codes'},
                             {text: 'Consent', link: '/implementation/consent'},
                             {text: 'Direct Loading', link: '/implementation/direct-load'},
