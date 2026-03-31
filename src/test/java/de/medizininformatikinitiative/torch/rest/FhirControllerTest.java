@@ -31,6 +31,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -177,6 +179,30 @@ class FhirControllerTest {
                     // Verify the URL construction logic from your controller
                     .jsonPath("$.output[?(@.type=='NDJSON Bundle')].url").exists()
                     .jsonPath("$.extension[0].url").isEqualTo("https://torch.mii.de/fhir/StructureDefinition/torch-job");
+        }
+
+        @Test
+        void completedJobWithSerializationErrorReturnsInternalServerError() throws Exception {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+            Job completedJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.COMPLETED)
+                    .withBatchState(new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+
+            ObjectMapper failingMapper = spy(objectMapper);
+            doThrow(new com.fasterxml.jackson.core.JsonProcessingException("simulated") {
+            })
+                    .when(failingMapper).writeValueAsString(any());
+
+            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper);
+            WebTestClient.bindToRouterFunction(controller.queryRouter()).build()
+                    .get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
         }
 
         @Test

@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling.failure;
 
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /**
@@ -8,7 +9,7 @@ import java.util.List;
  *
  * <p>An {@code Issue} represents warnings or errors without embedding stack traces.</p>
  */
-public record Issue(Severity severity, String msg, String diagnostics) {
+public record Issue(@JsonProperty Severity severity, @JsonProperty String msg, @JsonProperty String diagnostics) {
 
     public Issue {
         if (diagnostics == null) diagnostics = "";

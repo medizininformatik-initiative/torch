@@ -18,7 +18,7 @@ public record AttributeGroup(
         String groupReference,
         @JsonProperty(required = true)
         List<Attribute> attributes,
-        List<Filter> filter,
+        @JsonProperty List<Filter> filter,
         @JsonProperty()
         Boolean includeReferenceOnly) {
 

@@ -36,20 +36,19 @@ import static java.util.Objects.requireNonNull;
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Job(
-        UUID id,
-        JobStatus status,
-        WorkUnitState cohortState,
-        int cohortSize,
-        Map<UUID, BatchState> batches,
-        Instant startedAt,
-        Instant updatedAt,
-        Optional<Instant> finishedAt,
-        List<Issue> issues,
-        JobParameters parameters,
-        JobPriority priority,
-        WorkUnitState coreState,
-        @JsonProperty(defaultValue = "0")
-        long version) {
+        @JsonProperty UUID id,
+        @JsonProperty JobStatus status,
+        @JsonProperty WorkUnitState cohortState,
+        @JsonProperty int cohortSize,
+        @JsonProperty Map<UUID, BatchState> batches,
+        @JsonProperty Instant startedAt,
+        @JsonProperty Instant updatedAt,
+        @JsonProperty Optional<Instant> finishedAt,
+        @JsonProperty List<Issue> issues,
+        @JsonProperty JobParameters parameters,
+        @JsonProperty JobPriority priority,
+        @JsonProperty WorkUnitState coreState,
+        @JsonProperty(defaultValue = "0") long version) {
 
     // -------------------- ctor invariants --------------------
 

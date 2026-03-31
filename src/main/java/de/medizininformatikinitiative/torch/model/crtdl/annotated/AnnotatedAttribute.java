@@ -1,15 +1,17 @@
 package de.medizininformatikinitiative.torch.model.crtdl.annotated;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record AnnotatedAttribute(String attributeRef, String fhirPath,
-                                 boolean mustHave,
-                                 List<String> linkedGroups) {
+public record AnnotatedAttribute(@JsonProperty String attributeRef,
+                                 @JsonProperty String fhirPath,
+                                 @JsonProperty boolean mustHave,
+                                 @JsonProperty List<String> linkedGroups) {
 
     public AnnotatedAttribute {
         requireNonNull(attributeRef);

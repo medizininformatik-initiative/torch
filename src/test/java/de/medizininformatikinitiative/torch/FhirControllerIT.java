@@ -30,8 +30,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.resttestclient.TestRestTemplate;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.web.client.TestRestTemplate;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -102,7 +102,7 @@ class FhirControllerIT {
     @Test
     void testCapability() {
         TestRestTemplate restTemplate = new TestRestTemplate();
-        HttpEntity<String> entity = new HttpEntity<>(null, null);
+        HttpEntity<String> entity = new HttpEntity<>(null, (HttpHeaders) null);
 
         ResponseEntity<String> response = restTemplate.exchange("http://localhost:" + port + "/fhir/metadata", HttpMethod.GET, entity, String.class);
         assertThat(response.getStatusCode().value()).isEqualTo(200);

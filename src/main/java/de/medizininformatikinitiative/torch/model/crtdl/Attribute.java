@@ -10,7 +10,7 @@ import static java.util.Objects.requireNonNull;
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record Attribute(@JsonProperty(required = true) String attributeRef,
                         @JsonProperty(required = true) boolean mustHave,
-                        List<String> linkedGroups) {
+                        @JsonProperty List<String> linkedGroups) {
 
     public Attribute {
         requireNonNull(attributeRef);

@@ -1,13 +1,14 @@
 package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.Instant;
 import java.util.Optional;
 
 public record WorkUnitState(
-        WorkUnitStatus status,
-        Instant startedAt,
-        Optional<Instant> finishedAt,
-        int retry) {
+        @JsonProperty WorkUnitStatus status,
+        @JsonProperty Instant startedAt,
+        @JsonProperty Optional<Instant> finishedAt,
+        @JsonProperty int retry) {
 
     private final static int MAX_RETRIES = 5;
 

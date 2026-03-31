@@ -8,17 +8,18 @@ public record StatusResponse(List<FileEntry> output) {
 
     Optional<URI> coreBundleUrl() {
         return output.stream()
-                .filter(entry -> entry.url.getPath().endsWith("core.ndjson"))
+                .filter(entry -> entry.url().getPath().endsWith("core.ndjson"))
                 .map(FileEntry::url)
                 .findFirst();
     }
 
     List<URI> patientBundleUrls() {
-        return output.stream().filter(entry -> !entry.url.getPath().endsWith("core.ndjson"))
+        return output.stream()
+                .filter(entry -> !entry.url().getPath().endsWith("core.ndjson"))
                 .map(FileEntry::url)
                 .toList();
     }
 
-    record FileEntry (String type, URI url) {
+    record FileEntry(String type, URI url) {
     }
 }

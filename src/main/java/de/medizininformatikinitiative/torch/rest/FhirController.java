@@ -352,10 +352,16 @@ public class FhirController {
         logger.trace("Status of queried jobID {} is {}", jobId, job.status());
         return switch (job.status()) {
             case COMPLETED -> {
-                JsonNode json = loadCompletedJobJSON(job, requestUrl, transactionTime, fileServerName);
-                yield ServerResponse.ok()
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .bodyValue(json);
+                try {
+                    String json = mapper.writeValueAsString(loadCompletedJobJSON(job, requestUrl, transactionTime, fileServerName));
+                    yield ServerResponse.ok()
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(json);
+                } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                    yield ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .contentType(MEDIA_TYPE_FHIR_JSON)
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(createOperationOutcome(e)));
+                }
             }
             case PAUSED, PENDING, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, RUNNING_GET_COHORT ->
                     accepted().contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
