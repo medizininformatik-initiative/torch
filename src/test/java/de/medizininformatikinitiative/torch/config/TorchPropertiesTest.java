@@ -12,7 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @RunWith(Enclosed.class)
 public class TorchPropertiesTest {
-    
+
     @Nested
     class FlareValidation {
 
@@ -24,7 +24,7 @@ public class TorchPropertiesTest {
                     new TorchProperties.Profile("/profile-dir"),
                     new TorchProperties.Mapping("consent", "typeToConsent"),
                     null,
-                    new TorchProperties.Results("/dir", "persistence"),
+                    new TorchProperties.Results("/dir"),
                     10,
                     5,
                     100,
@@ -47,7 +47,7 @@ public class TorchPropertiesTest {
                     new TorchProperties.Profile("/profile-dir"),
                     new TorchProperties.Mapping("consent", "typeToConsent"),
                     flare,
-                    new TorchProperties.Results("/dir", "persistence"),
+                    new TorchProperties.Results("/dir"),
                     10,
                     5,
                     100,
@@ -70,7 +70,7 @@ public class TorchPropertiesTest {
                     new TorchProperties.Profile("/profile-dir"),
                     new TorchProperties.Mapping("consent", "typeToConsent"),
                     flare,
-                    new TorchProperties.Results("/dir", "persistence"),
+                    new TorchProperties.Results("/dir"),
                     10,
                     5,
                     100,
@@ -93,7 +93,7 @@ public class TorchPropertiesTest {
                     new TorchProperties.Profile("/profile-dir"),
                     new TorchProperties.Mapping("consent", "typeToConsent"),
                     flare,
-                    new TorchProperties.Results("/dir", "persistence"),
+                    new TorchProperties.Results("/dir"),
                     10,
                     5,
                     100,
@@ -115,7 +115,7 @@ public class TorchPropertiesTest {
                     new TorchProperties.Profile("/profile-dir"),
                     new TorchProperties.Mapping("consent", "typeToConsent"),
                     flare,
-                    new TorchProperties.Results("/dir", "persistence"),
+                    new TorchProperties.Results("/dir"),
                     10,
                     5,
                     100,

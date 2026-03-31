@@ -142,11 +142,11 @@ Directory path where results are stored.
 
 ---
 
-#### `TORCH_RESULTS_PERSISTENCE` <Badge type="warning" text="Since 1.0.0-alpha"/>
+#### `TORCH_RESULTS_PERSISTENCE` <Badge type="danger" text="Removed iSince 1.0.0-alpha.19"/>
 
-ISO 8601 duration indicating how long result files are persisted (e.g., `PT2160H` means 90 days).
+This setting is no longer supported and will be ignored.
 
-**Default:** `PT2160H`
+Use TASK API instead to delete jobs.
 
 ---
 

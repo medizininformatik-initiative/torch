@@ -59,7 +59,7 @@ class FhirControllerTest {
             new TorchProperties.Profile("/profile-dir"),
             new TorchProperties.Mapping("consent", "typeToConsent"),
             new TorchProperties.Flare(null),
-            new TorchProperties.Results("BASE_DIR", "persistence"),
+            new TorchProperties.Results("BASE_DIR"),
             10, 5, 100,
             "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
             "search-parameters.json",

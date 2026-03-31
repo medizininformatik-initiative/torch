@@ -33,7 +33,6 @@ torch:
     url:
   results:
     dir: output/
-    persistence: PT2160H # Time Block in ISO 8601 format
   batchsize: 500
   maxconcurrency: 4
   mappingsFile: ontology/mapping_cql.json
