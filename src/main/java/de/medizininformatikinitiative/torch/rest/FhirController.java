@@ -387,12 +387,13 @@ public class FhirController {
         root.put("requiresAccessToken", false);
 
         ArrayNode outputArr = mapper.createArrayNode();
-        // Job already contains the filenames — just generate URLs
-        job.batches().keySet().forEach(f ->
+        job.batches().forEach((batchId, batchState) -> {
+            if (batchState.status() == WorkUnitStatus.FINISHED) {
                 outputArr.add(mapper.createObjectNode()
-                        .put("url", fileServerName + "/" + job.id() + "/" + f + ".ndjson")
-                        .put("type", "NDJSON Bundle"))
-        );
+                        .put("url", fileServerName + "/" + job.id() + "/" + batchId + ".ndjson")
+                        .put("type", "NDJSON Bundle"));
+            }
+        });
 
         if (job.coreState().status() == WorkUnitStatus.FINISHED) {
             outputArr.add(mapper.createObjectNode()
