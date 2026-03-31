@@ -192,4 +192,32 @@ class FhirControllerTest {
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
         }
     }
+
+    @Test
+    void completedJobOmitsSkippedBatchOutputs() {
+        UUID jobId = UUID.randomUUID();
+        UUID finishedBatchId = UUID.randomUUID();
+        UUID skippedBatchId = UUID.randomUUID();
+
+        Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                .withStatus(JobStatus.COMPLETED)
+                .withBatchState(new BatchState(
+                        finishedBatchId,
+                        WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
+                .withBatchState(new BatchState(
+                        skippedBatchId,
+                        WorkUnitState.initNow().finishNow(WorkUnitStatus.SKIPPED)))
+                .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+        when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+
+        client.get().uri("/fhir/__status/" + jobId).exchange()
+                .expectStatus().isOk()
+                .expectBody()
+                .jsonPath("$.output").isArray()
+                .jsonPath("$.output.length()").isEqualTo(2)
+                .jsonPath("$.output[?(@.url=='http://server-url/" + jobId + "/" + finishedBatchId + ".ndjson')]").exists()
+                .jsonPath("$.output[?(@.url=='http://server-url/" + jobId + "/" + skippedBatchId + ".ndjson')]").doesNotExist()
+                .jsonPath("$.output[?(@.url=='http://server-url/" + jobId + "/core.ndjson')]").exists();
+    }
 }
