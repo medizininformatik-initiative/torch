@@ -74,7 +74,7 @@ public record TorchProperties(
     }
 
     public record Results(
-            @NotBlank(message = "Results directory is required") String dir,
-            @NotBlank(message = "Results persistence configuration is required") String persistence) {
+            @NotBlank(message = "Results directory is required") String dir
+    ) {
     }
 }

@@ -80,7 +80,7 @@ class WebConfigTest {
 
 
         var flare = new TorchProperties.Flare("http://flare-url");
-        var results = new TorchProperties.Results("results-dir", "persistence");
+        var results = new TorchProperties.Results("results-dir");
 
         return new TorchProperties(
                 base,
