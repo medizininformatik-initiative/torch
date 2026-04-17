@@ -21,6 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.8.1</Hapi.version>
+        <hapi-fhir-core.version>6.9.0</hapi-fhir-core.version>
         <ontology-tag>v4.0.0</ontology-tag>
     </properties>
 
@@ -86,6 +87,24 @@
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-caching-caffeine</artifactId>
             <version>${Hapi.version}</version>
+        </dependency>
+
+        <!-- Overriding org.hl7.fhir.core modules that come from hapi-fhir-structures-r4/validation
+             and are affected by CVE-2026-33180 (information disclosure via HTTP redirects) -->
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.r4</artifactId>
+            <version>${hapi-fhir-core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.r5</artifactId>
+            <version>${hapi-fhir-core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.utilities</artifactId>
+            <version>${hapi-fhir-core.version}</version>
         </dependency>
 
         <!-- Overriding apache commons compress that comes from the maven dependency tree and causes a vulnerability in the older version -->
