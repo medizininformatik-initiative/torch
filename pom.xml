@@ -21,7 +21,7 @@
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.8.1</Hapi.version>
-        <hapi-fhir-core.version>6.9.0</hapi-fhir-core.version>
+        <hapi-fhir-core.version>6.9.4</hapi-fhir-core.version>
         <ontology-tag>v4.0.0</ontology-tag>
     </properties>
 
