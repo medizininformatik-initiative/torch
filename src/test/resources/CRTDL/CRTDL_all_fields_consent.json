@@ -15,9 +15,49 @@
           },
           "termCodes": [
             {
-              "code": "yes-yes-no-yes",
-              "display": "Verteilte, EU-DSGVO konforme Analyse, ohne Krankenassendaten, und mit Rekontaktierung",
-              "system": "fdpg.consent.combined"
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+              "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
+              "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.37",
+              "display": "Rekontaktierung Ergebnisse erheblicher Bedeutung",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.26",
+              "display": "Rekontaktierung Ergänzungen",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.27",
+              "display": "Rekontaktierung Verknüpfung Datenbanken",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.28",
+              "display": "Rekontaktierung weitere Erhebung",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.29",
+              "display": "Rekontaktierung weitere Studien",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.31",
+              "display": "Rekontaktierung Zusatzbefund",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
+            },
+            {
+              "code": "2.16.840.1.113883.3.1937.777.24.5.3.30",
+              "display": "Rekontaktierung Zusatzbefund",
+              "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3"
             }
           ]
         }

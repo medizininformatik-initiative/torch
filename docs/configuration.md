@@ -38,9 +38,11 @@ The directory path where profile definitions are stored.
 
 ---
 
-#### `TORCH_MAPPING_CONSENT` <Badge type="warning" text="Since 1.0.0-alpha"/>
+#### `TORCH_MAPPING_CONSENT` <Badge type="warning" text="Since 1.0.0-alpha.19"/> <Badge type="danger" text="Removed"/>
 
-Path to the JSON file containing consent mappings formatted for FHIR.
+> **Removed:**
+> Combined consents are no longer supported. Previously, this file was used to map combined consent keys (e.g.
+`yes-yes-yes-yes`) to their individual MII provision codes. Callers must now provide individual MII consent codes directly in the CRTDL.
 
 **Default:** `mappings/consent-mappings_fhir.json`
 

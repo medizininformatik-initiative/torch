@@ -6,7 +6,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.FileInputStream;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -42,22 +41,4 @@ public class CrtdlTest {
         }
     }
 
-    @Test
-    public void consentKeyEmpty() throws Exception {
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_observation.json")) {
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-
-            assertThat(crtdl.consentKey()).isEqualTo(Optional.empty());
-        }
-    }
-
-/*
-    @Test
-    public void consentKeyPopulated() throws Exception {
-        try (FileInputStream fis = new FileInputStream("src/test/resources/CRTDL/CRTDL_all_fields_consent.json")) {
-            Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
-            assertThat(crtdl.consentKey()).isEqualTo(Optional.of("yes-yes-no-yes"));
-        }
-    }
-*/
 }

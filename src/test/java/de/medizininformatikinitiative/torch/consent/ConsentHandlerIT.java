@@ -32,6 +32,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ConsentHandlerIT {
 
+    static final String MII_CONSENT_SYSTEM = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3";
+    static final Set<TermCode> MII_CONSENT_CODES = Set.of(
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.8"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.46"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.10"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.37"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.26"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.27"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.28"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.29"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.31"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.30")
+    );
+
     public static final String PATIENT_ID = "VHF00006";
     public static final PatientBatch BATCH = PatientBatch.of(PATIENT_ID);
     @Autowired
@@ -66,7 +80,7 @@ class ConsentHandlerIT {
 
     @Test
     void successAfterEncounterUpdatesProvisions() {
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo(Set.of(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes")), BATCH);
+        var resultBatch = consentHandler.fetchAndBuildConsentInfo(MII_CONSENT_CODES, BATCH);
 
         StepVerifier.create(resultBatch)
                 .assertNext(batch -> {
