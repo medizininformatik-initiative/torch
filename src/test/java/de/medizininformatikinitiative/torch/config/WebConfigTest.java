@@ -76,7 +76,7 @@ class WebConfigTest {
         var base = new TorchProperties.Base("http://base-url");
         var output = new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://output-server")));
         var profile = new TorchProperties.Profile("profile-dir");
-        var mapping = new TorchProperties.Mapping("consent-mapping.json", "type-to-consent.json");
+        var mapping = new TorchProperties.Mapping("type-to-consent.json");
 
 
         var flare = new TorchProperties.Flare("http://flare-url");

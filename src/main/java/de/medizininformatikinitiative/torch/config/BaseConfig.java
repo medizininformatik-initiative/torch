@@ -6,7 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.cql.FhirHelper;
@@ -96,10 +95,6 @@ public class BaseConfig {
     // CONSENT
     // ----------------------------------------------------------------------
 
-    @Bean
-    public ConsentCodeMapper consentCodeMapper(ObjectMapper objectMapper, TorchProperties torchProperties) throws IOException {
-        return new ConsentCodeMapper(torchProperties.mapping().consent(), objectMapper);
-    }
 
     @Bean
     public ConsentValidator consentValidator(FhirContext ctx,

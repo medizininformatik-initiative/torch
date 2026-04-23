@@ -60,7 +60,6 @@ public record TorchProperties(
     }
 
     public record Mapping(
-            @NotBlank(message = "Consent mapping is required") String consent,
             @NotBlank(message = "Type to consent mapping is required") String typeToConsent) {
     }
 

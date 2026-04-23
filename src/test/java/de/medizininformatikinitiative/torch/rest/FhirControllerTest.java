@@ -26,7 +26,6 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import java.util.Collections;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -57,7 +56,7 @@ class FhirControllerTest {
             new TorchProperties.Base("http://base-url"),
             new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://server-url"))),
             new TorchProperties.Profile("/profile-dir"),
-            new TorchProperties.Mapping("consent", "typeToConsent"),
+            new TorchProperties.Mapping("typeToConsent"),
             new TorchProperties.Flare(null),
             new TorchProperties.Results("BASE_DIR"),
             10, 5, 100,
@@ -163,9 +162,6 @@ class FhirControllerTest {
             UUID batchId = UUID.randomUUID();
 
             // Setup a completed job with one batch
-            Map<UUID, BatchState> batches = Map.of(
-                    batchId, new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
-            );
             Job completedJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.COMPLETED)
                     .withBatchState(new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
                     .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));

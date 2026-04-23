@@ -1,7 +1,5 @@
 package de.medizininformatikinitiative.torch.util;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import de.medizininformatikinitiative.torch.consent.ConsentCodeMapper;
 import de.medizininformatikinitiative.torch.consent.ProvisionExtractor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
@@ -32,21 +30,34 @@ import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 class ProvisionExtractorIT {
 
+    static final String MII_CONSENT_SYSTEM = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3";
+    static final TermCode MDAT_WISSENSCHAFTLICH_NUTZEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.8");
+    static final TermCode MDAT_RETROSPEKTIV_WISSENSCHAFTLICH_NUTZEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.46");
+    static final TermCode KRANKENKASSENDATEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.10");
+    static final TermCode REKONTAKTIERUNG_ERGEBNISSE = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.37");
+    static final TermCode REKONTAKTIERUNG_ERGAENZUNGEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.26");
+    static final TermCode REKONTAKTIERUNG_VERKNUEPFUNG_DATENBANKEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.27");
+    static final TermCode REKONTAKTIERUNG_WEITERE_ERHEBUNG = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.28");
+    static final TermCode REKONTAKTIERUNG_WEITERE_STUDIEN = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.29");
+    static final TermCode REKONTAKTIERUNG_ZUSATZBEFUND_31 = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.31");
+    static final TermCode REKONTAKTIERUNG_ZUSATZBEFUND_30 = new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.30");
+    static final Set<TermCode> MII_CONSENT_CODES = Set.of(
+            MDAT_WISSENSCHAFTLICH_NUTZEN, MDAT_RETROSPEKTIV_WISSENSCHAFTLICH_NUTZEN, KRANKENKASSENDATEN,
+            REKONTAKTIERUNG_ERGEBNISSE, REKONTAKTIERUNG_ERGAENZUNGEN, REKONTAKTIERUNG_VERKNUEPFUNG_DATENBANKEN,
+            REKONTAKTIERUNG_WEITERE_ERHEBUNG, REKONTAKTIERUNG_WEITERE_STUDIEN,
+            REKONTAKTIERUNG_ZUSATZBEFUND_31, REKONTAKTIERUNG_ZUSATZBEFUND_30
+    );
+
     protected static final Logger logger = LoggerFactory.getLogger(ProvisionExtractorIT.class);
 
     private final IntegrationTestSetup integrationTestSetup = new IntegrationTestSetup();
-    private final ConsentCodeMapper consentCodeMapper;
 
-    public ProvisionExtractorIT() throws IOException {
-        // Initialize the ConsentCodeMapper as before
-        consentCodeMapper = new ConsentCodeMapper("src/test/resources/mappings/consent-mappings.json", new ObjectMapper());
+    ProvisionExtractorIT() throws IOException {
     }
-
 
     @Test
     void irrelevantCodesSkipped() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -58,7 +69,7 @@ class ProvisionExtractorIT {
                 .setEndElement(new org.hl7.fhir.r4.model.DateTimeType("2025-12-31")));
         consent.setProvision(provision);
 
-        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, expectedCodes);
+        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, MII_CONSENT_CODES);
 
         assertThat(consentProvisions.provisions().isEmpty());
     }
@@ -67,7 +78,6 @@ class ProvisionExtractorIT {
     @Test
     void deniesExtracted() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -84,7 +94,7 @@ class ProvisionExtractorIT {
         provision.setProvision(List.of(nestedProvision));
         consent.setProvision(provision);
 
-        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, expectedCodes);
+        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, MII_CONSENT_CODES);
 
         Provision expected = new Provision(
                 new TermCode(
@@ -103,7 +113,7 @@ class ProvisionExtractorIT {
     @ValueSource(strings = {"VHF006_Consent.json"})
     void extractsPermits(String resource) throws IOException, ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> consentCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
+        Set<TermCode> consentCodes = MII_CONSENT_CODES;
         Consent consent = (Consent) integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
 
         ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, consentCodes);
@@ -126,7 +136,6 @@ class ProvisionExtractorIT {
     @Test
     void throwsConsentViolatedException_whenConsentHasNoDateTime() {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setId("consent-no-date");
@@ -134,7 +143,7 @@ class ProvisionExtractorIT {
         consent.setStatus(Consent.ConsentState.ACTIVE);
         consent.setDateTimeElement(null); // triggers the branch
 
-        assertThatThrownBy(() -> processor.extractProvisionsPeriodByCode(consent, expectedCodes))
+        assertThatThrownBy(() -> processor.extractProvisionsPeriodByCode(consent, MII_CONSENT_CODES))
                 .isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-no-date has no valid consent date");
     }
@@ -142,7 +151,6 @@ class ProvisionExtractorIT {
     @Test
     void throwsConsentViolatedException_whenConsentDateTimeIsEmpty() {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setId("consent-empty-date");
@@ -150,7 +158,7 @@ class ProvisionExtractorIT {
         consent.setStatus(Consent.ConsentState.ACTIVE);
         consent.setDateTimeElement(new DateTimeType()); // empty date triggers the branch
 
-        assertThatThrownBy(() -> processor.extractProvisionsPeriodByCode(consent, expectedCodes))
+        assertThatThrownBy(() -> processor.extractProvisionsPeriodByCode(consent, MII_CONSENT_CODES))
                 .isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("consent-empty-date has no valid consent date");
     }
@@ -158,7 +166,6 @@ class ProvisionExtractorIT {
     @Test
     void skipsProvisionsWithoutStartOrEnd() throws ConsentViolatedException, PatientIdNotFoundException {
         ProvisionExtractor processor = new ProvisionExtractor();
-        Set<TermCode> expectedCodes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
 
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
@@ -172,7 +179,7 @@ class ProvisionExtractorIT {
         // No start and end set → should be skipped
         consent.setProvision(provision);
 
-        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, expectedCodes);
+        ConsentProvisions consentProvisions = processor.extractProvisionsPeriodByCode(consent, MII_CONSENT_CODES);
 
         // Should be empty because the provision is skipped
         assertThat(consentProvisions.provisions().isEmpty());

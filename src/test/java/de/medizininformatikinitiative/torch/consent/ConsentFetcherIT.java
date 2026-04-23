@@ -19,6 +19,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -29,6 +30,20 @@ import static org.assertj.core.api.Assertions.assertThat;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class ConsentFetcherIT {
 
+    static final String MII_CONSENT_SYSTEM = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3";
+    static final Set<TermCode> MII_CONSENT_CODES = Set.of(
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.8"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.46"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.10"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.37"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.26"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.27"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.28"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.29"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.31"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.30")
+    );
+
     public static final String PATIENT_ID = "VHF00006";
     public static final String UNKNOWN_PATIENT_ID = "Unknown";
     public static final PatientBatch BATCH = PatientBatch.of(PATIENT_ID);
@@ -38,9 +53,6 @@ class ConsentFetcherIT {
     WebClient webClient;
     @Autowired
     ConsentFetcher consentFetcher;
-    @Autowired
-    ConsentCodeMapper consentCodeMapper;
-    @Autowired
     @Value("${torch.fhir.testPopulation.path}")
     String testPopulationPath;
 
@@ -53,8 +65,7 @@ class ConsentFetcherIT {
 
     @Test
     void failsOnUnknownPatientBuildingConsent() {
-        var codes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
-        var result = consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN);
+        var result = consentFetcher.fetchConsentInfo(MII_CONSENT_CODES, BATCH_UNKNOWN);
 
         StepVerifier.create(result)
                 .expectErrorSatisfies(error -> assertThat(error)
@@ -66,8 +77,7 @@ class ConsentFetcherIT {
     @Test
     void successBuildingConsent() {
 
-        var codes = consentCodeMapper.getCombinedCodes(new TermCode("fdpg.mii.cds", "yes-yes-yes-yes"));
-        var result = consentFetcher.fetchConsentInfo(codes, BATCH);
+        var result = consentFetcher.fetchConsentInfo(MII_CONSENT_CODES, BATCH);
 
         StepVerifier.create(result)
                 .assertNext(provisionsMap -> {

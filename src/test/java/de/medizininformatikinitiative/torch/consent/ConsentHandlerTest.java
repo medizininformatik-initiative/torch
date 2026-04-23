@@ -34,8 +34,6 @@ public class ConsentHandlerTest {
 
     @Mock
     ConsentCalculator consentCalculationFailed;
-    @Mock
-    ConsentCodeMapper consentCodeMapper;
 
     @InjectMocks
     ConsentHandler consentHandler;
@@ -45,7 +43,6 @@ public class ConsentHandlerTest {
         var codes = CODES;
         when(consentFetcher.fetchConsentInfo(codes, BATCH))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));
-        when(consentCodeMapper.addCombinedCodes(codes)).thenReturn(codes);
 
         var resultBatch = consentHandler.fetchAndBuildConsentInfo(codes, BATCH);
 
@@ -62,7 +59,6 @@ public class ConsentHandlerTest {
         var codes = CODES;
         when(consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));
-        when(consentCodeMapper.addCombinedCodes(codes)).thenReturn(codes);
 
         var resultBatch = consentHandler.fetchAndBuildConsentInfo(codes, BATCH_UNKNOWN);
 
