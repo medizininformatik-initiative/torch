@@ -34,6 +34,7 @@ class ConsentCalculatorTest {
     public static final TermCode PROSPECTIVE = new TermCode("s1", "prospective");
     public static final TermCode RETRO = new TermCode("s1", "retro");
     private static final int LOOKBACK_YEARS = 200;
+    private static final int DATA_PERIOD_OFFSET = 5;
 
     private ConsentCalculator calculator;
 
@@ -48,6 +49,18 @@ class ConsentCalculatorTest {
     private static ConsentCodeConfig retroConfig() {
         return new ConsentCodeConfig(List.of(
                 new ProspectiveEntry(PROSPECTIVE, new RetroModifier(RETRO, LOOKBACK_YEARS))
+        ));
+    }
+
+    private static ConsentCodeConfig offsetConfig() {
+        return new ConsentCodeConfig(List.of(
+                new ProspectiveEntry(PROSPECTIVE, null, DATA_PERIOD_OFFSET)
+        ));
+    }
+
+    private static ConsentCodeConfig retroAndOffsetConfig() {
+        return new ConsentCodeConfig(List.of(
+                new ProspectiveEntry(PROSPECTIVE, new RetroModifier(RETRO, LOOKBACK_YEARS), DATA_PERIOD_OFFSET)
         ));
     }
 
@@ -207,7 +220,8 @@ class ConsentCalculatorTest {
         }
 
         @Test
-        void prospectiveDenyNotModifiedByRetro() {
+        void denyDoesNotPunchHoleInRetroExtendedPermit() {
+            // The prospective permit overlaps the retro permit → retro-shifted, immune to denies
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
             Provision prospectiveDeny = new Provision(PROSPECTIVE, p("2022-01-01", "2022-12-31"), false);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
@@ -218,12 +232,89 @@ class ConsentCalculatorTest {
                     List.of(cp), Set.of(PROSPECTIVE)
             );
 
-            // The permit is shifted back but the deny still punches a hole
             LocalDate expectedStart = LocalDate.parse("2020-01-01").minusYears(LOOKBACK_YEARS);
             assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
-                    p(expectedStart.toString(), "2021-12-31"),
+                    p(expectedStart.toString(), "2025-12-31")
+            );
+        }
+
+        @Test
+        void denyPunchesHoleInNonRetroPermit() {
+            // Prospective permit does not overlap retro permit → regular permit, deny applies
+            Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
+            Provision prospectiveDeny = new Provision(PROSPECTIVE, p("2022-01-01", "2022-12-31"), false);
+            Provision retroPermit = new Provision(RETRO, p("2030-01-01", "2035-12-31"), true);
+            ConsentProvisions cp = new ConsentProvisions("patient1", null,
+                    List.of(prospectivePermit, prospectiveDeny, retroPermit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("2020-01-01", "2021-12-31"),
                     p("2023-01-01", "2025-12-31")
             );
+        }
+    }
+
+    @Nested
+    class DataPeriodOffsetTests {
+
+        @Test
+        void offsetSubtractsFromEndDate() {
+            calculator = new ConsentCalculator(offsetConfig());
+            Provision permit = new Provision(PROSPECTIVE, p("2020-01-01", "2030-12-31"), true);
+            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(permit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2020-01-01", "2025-12-31"));
+        }
+
+        @Test
+        void offsetAppliedTogetherWithRetroModifier() {
+            calculator = new ConsentCalculator(retroAndOffsetConfig());
+            Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2030-12-31"), true);
+            Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2030-12-31"), true);
+            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(prospectivePermit, retroPermit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            LocalDate expectedStart = LocalDate.parse("2020-01-01").minusYears(LOOKBACK_YEARS);
+            assertThat(result.get(PROSPECTIVE).get(0).start()).isEqualTo(expectedStart);
+            assertThat(result.get(PROSPECTIVE).get(0).end()).isEqualTo(LocalDate.parse("2025-12-31"));
+        }
+
+        @Test
+        void zeroOffsetLeavesEndUnchanged() {
+            calculator = new ConsentCalculator(retroConfig()); // retroConfig has offset=0
+            Provision permit = new Provision(PROSPECTIVE, p("2020-01-01", "2030-12-31"), true);
+            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(permit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2020-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void offsetLargerThanPeriodDurationSkipsProvision() {
+            // Period spans only 2 years but offset is 5 — shifted end would precede start, so drop it
+            calculator = new ConsentCalculator(offsetConfig());
+            Provision permit = new Provision(PROSPECTIVE, p("2020-01-01", "2022-12-31"), true);
+            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(permit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result).isEmpty();
         }
     }
 

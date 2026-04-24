@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
-import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.Test;

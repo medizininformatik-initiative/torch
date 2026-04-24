@@ -21,7 +21,7 @@ import static java.util.Objects.requireNonNull;
  * provision starting 2020 yields 1820; a 5-year lookback yields 2015.
  *
  * @param code          the FHIR provision code identifying this retrospective modifier
- * @param lookbackYears number of years to subtract from today when computing the shifted start date
+ * @param lookbackYears number of years to subtract from the prospective provision's own start date when computing the shifted start date
  * @see ProspectiveEntry
  * @see ConsentCodeConfig
  */

@@ -8,6 +8,8 @@ import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.ProspectiveEntry;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.HashMap;
@@ -22,6 +24,8 @@ import static java.util.Objects.requireNonNull;
 @Component
 public class ConsentCalculator {
 
+    private static final Logger logger = LoggerFactory.getLogger(ConsentCalculator.class);
+
     private final ConsentCodeConfig consentCodeConfig;
 
     public ConsentCalculator(ConsentCodeConfig consentCodeConfig) {
@@ -29,11 +33,47 @@ public class ConsentCalculator {
     }
 
     /**
+     * Applies the {@code dataPeriodOffsetYears} from {@link ConsentCodeConfig} to all permitted prospective
+     * provisions, regardless of whether a retrospective modifier is configured.
+     * <p>
+     * Provisions whose end date would precede the start date after subtraction are discarded with a warning.
+     * Deny provisions and provisions without a matching config entry pass through unchanged.
+     */
+    private List<Provision> applyOffsets(List<Provision> provisions) {
+        boolean hasOffsets = consentCodeConfig.entries().stream().anyMatch(e -> e.dataPeriodOffsetYears() > 0);
+        if (!hasOffsets) {
+            return provisions;
+        }
+        return provisions.stream()
+                .flatMap(p -> {
+                    if (!p.permit()) {
+                        return Stream.of(p);
+                    }
+                    ProspectiveEntry entry = consentCodeConfig.entries().stream()
+                            .filter(e -> e.code().equals(p.code()))
+                            .findFirst()
+                            .orElse(null);
+                    if (entry == null || entry.dataPeriodOffsetYears() == 0) {
+                        return Stream.of(p);
+                    }
+                    var newEnd = p.period().end().minusYears(entry.dataPeriodOffsetYears());
+                    if (newEnd.isBefore(p.period().start())) {
+                        logger.warn("Skipping provision for code {} — period [{}, {}] became negative after applying offset of {} years",
+                                p.code(), p.period().start(), p.period().end(), entry.dataPeriodOffsetYears());
+                        return Stream.empty();
+                    }
+                    return Stream.of(new Provision(p.code(), new Period(p.period().start(), newEnd), true));
+                })
+                .toList();
+    }
+
+    /**
      * Applies retrospective modifiers from {@link ConsentCodeConfig} to a flat list of provisions.
      * <p>
-     * For each permitted retro modifier provision: any permitted prospective provision whose period
-     * overlaps the retro period has its start shifted to {@link de.medizininformatikinitiative.torch.model.consent.RetroModifier#lookbackStart(java.time.LocalDate)}.
-     * Deny provisions are never modified. Retro modifier provisions are dropped from the output.
+     * For each permitted prospective provision whose offset-adjusted period overlaps a permitted retro
+     * modifier provision, the start date is shifted to
+     * {@link de.medizininformatikinitiative.torch.model.consent.RetroModifier#lookbackStart(java.time.LocalDate)}.
+     * Deny provisions and retro modifier provisions are dropped from the output.
      */
     private List<Provision> applyRetroModifiers(List<Provision> provisions) {
         Map<TermCode, ProspectiveEntry> retroMap = consentCodeConfig.retroToProspective();
@@ -41,7 +81,6 @@ public class ConsentCalculator {
             return provisions;
         }
 
-        // Group permitted retro periods by the prospective code they modify
         Map<TermCode, List<Period>> retroPermitsByProspective = provisions.stream()
                 .filter(Provision::permit)
                 .filter(p -> retroMap.containsKey(p.code()))
@@ -52,23 +91,23 @@ public class ConsentCalculator {
 
         return provisions.stream()
                 .filter(p -> !retroMap.containsKey(p.code()))
-                .map(p -> {
+                .flatMap(p -> {
                     if (!p.permit()) {
-                        return p;
+                        return Stream.of(p);
                     }
                     ProspectiveEntry entry = consentCodeConfig.entries().stream()
                             .filter(e -> e.code().equals(p.code()))
                             .findFirst()
                             .orElse(null);
                     if (entry == null || !entry.hasRetroModifier()) {
-                        return p;
+                        return Stream.of(p);
                     }
                     List<Period> retroPeriods = retroPermitsByProspective.getOrDefault(p.code(), List.of());
-                    boolean overlapsRetro = retroPeriods.stream().anyMatch(r -> p.period().intersect(r) != null);
-                    if (overlapsRetro) {
-                        return new Provision(p.code(), new Period(entry.retroModifier().lookbackStart(p.period().start()), p.period().end()), true);
+                    if (retroPeriods.stream().noneMatch(r -> p.period().intersect(r) != null)) {
+                        return Stream.of(p);
                     }
-                    return p;
+                    var newStart = entry.retroModifier().lookbackStart(p.period().start());
+                    return Stream.of(new Provision(p.code(), new Period(newStart, p.period().end()), true, true));
                 })
                 .toList();
     }
@@ -93,29 +132,44 @@ public class ConsentCalculator {
                 .flatMap(cp -> cp.provisions().stream())
                 .toList();
 
-        List<Provision> relevantProvisions = applyRetroModifiers(allProvisions).stream()
+        List<Provision> relevantProvisions = applyRetroModifiers(applyOffsets(allProvisions)).stream()
                 .filter(p -> consentCodes.contains(p.code()))
                 .toList();
 
-        List<Provision> permits = relevantProvisions.stream()
+        List<Provision> retroPermits = relevantProvisions.stream()
                 .filter(Provision::permit)
+                .filter(Provision::retroExtended)
+                .toList();
+
+        List<Provision> regularPermits = relevantProvisions.stream()
+                .filter(Provision::permit)
+                .filter(p -> !p.retroExtended())
                 .toList();
 
         List<Provision> denies = relevantProvisions.stream()
                 .filter(p -> !p.permit())
                 .toList();
 
+        // Retro-extended permits are immune to denies — the retro grant supersedes prior revocations
         Map<TermCode, NonContinuousPeriod> result = new HashMap<>();
-
-        for (Provision p : permits) {
-            NonContinuousPeriod existing = result.getOrDefault(p.code(), NonContinuousPeriod.of());
-            result.put(p.code(), existing.merge(NonContinuousPeriod.of(p.period())));
+        for (Provision p : retroPermits) {
+            result.merge(p.code(), NonContinuousPeriod.of(p.period()), NonContinuousPeriod::merge);
         }
 
+        // Regular permits have denies applied
+        Map<TermCode, NonContinuousPeriod> regularResult = new HashMap<>();
+        for (Provision p : regularPermits) {
+            regularResult.merge(p.code(), NonContinuousPeriod.of(p.period()), NonContinuousPeriod::merge);
+        }
         for (Provision p : denies) {
-            NonContinuousPeriod existing = result.getOrDefault(p.code(), NonContinuousPeriod.of());
-            result.put(p.code(), existing.substract(p.period()));
+            regularResult.computeIfPresent(p.code(), (k, v) -> v.substract(p.period()));
         }
+
+        regularResult.forEach((code, period) -> {
+            if (!period.isEmpty()) {
+                result.merge(code, period, NonContinuousPeriod::merge);
+            }
+        });
 
         Map<TermCode, NonContinuousPeriod> filtered = result.entrySet().stream()
                 .filter(e -> !e.getValue().isEmpty())
