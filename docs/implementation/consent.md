@@ -17,56 +17,113 @@ permissions and applicable regulations.
 
 ---
 
-## 2. Consent Evaluation
+## 2. Supported Consent Codes
+
+TORCH only processes consent provision codes listed in
+[
+`mappings/consent-code-config.json`](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/consent-code-config.json).
+This file can be edited manually to adjust the supported codes for a deployment. The codes shipped with TORCH
+represent the recommended MII default.
+
+Each entry describes a **prospective code** (required for consent to be valid) and an optional
+**retrospective modifier code** that can extend its valid period backwards in time.
+
+**Shipped default:**
+
+| Code                                                      | OID                                      | Role                              |
+|-----------------------------------------------------------|------------------------------------------|-----------------------------------|
+| MDAT wissenschaftlich nutzen EU DSGVO NIVEAU              | `2.16.840.1.113883.3.1937.777.24.5.3.8`  | Prospective (required)            |
+| MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU | `2.16.840.1.113883.3.1937.777.24.5.3.46` | Retrospective modifier (optional) |
+
+All other codes from a combined consent key (e.g. Rekontaktierung codes) are silently ignored.
+
+---
+
+## 3. Consent Evaluation Pipeline
 
 Before any data extraction:
 
-1. TORCH retrieves a consent key from the CRTDL
-2. For a batch all **Consent** resources are fetched per patient from the FHIR server.
-3. For the current extraction request the valid consent records are identified based on:
-    - Patient ID
-    - Status
-    - Provision codes
+1. **Extract consent codes from CRTDL** — codes are read from the `cohortDefinition` inclusion criteria.
+2. **Expand combined keys** — combined consent keys (e.g. `yes-yes-no-yes`) are expanded to individual MII OID codes.
+3. **Filter to supported codes** — only prospective codes defined in `consent-code-config.json` are retained.
+4. **Fetch from FHIR
+   ** — Consent resources are fetched for the supported codes plus their configured retrospective modifier codes.
+5. **Adjust by Encounter
+   ** — The start of each consent provision is shifted to the start of the earliest overlapping Encounter, if that Encounter start is earlier than the provision start.
+6. **Apply retrospective modifiers
+   ** — For each permitted prospective provision that overlaps with a permitted retrospective modifier provision, the prospective provision's start date is shifted to
+   `today − lookbackYears` (200 years for
+   `.46`, placing it before 1900). Deny provisions are never modified by a retrospective code.
+7. **Merge and subtract** — Permitted provision periods are merged; denied provision periods are subtracted.
+8. **Require all prospective codes
+   ** — A patient's consent is valid only if every required prospective code has at least one non-empty allowed period.
+9. **Intersect
+   ** — The allowed periods of all required prospective codes are intersected to produce the patient's final consent window.
+10. **Enforce during extraction
+    ** — Resources whose relevant date field falls outside the consent window are excluded from the result.
 
-4. Shift start of Consent by related Encounter if applicable:
-    - The assumption is that a consent can be valid beginning at the start of an **encounter** when the start of the consent
-      lies within the encounter period.
-5. Calculate the Consent Periods:
-    - order them oldest to newest (by Consent.dateTime)
-    - for each:
-        - add periods of permitted provisions to the current consent period
-        - if denied (i.e. non-permitted) provisions are present, subtract them from the current consent period
-6. During extraction TORCH determines:
-    - Whether the requested resources lie within the consent period per patient as calculated based on the CRTDL.
-    - If any resources dates are outside the period, they are excluded from the result set.
+---
 
-## 3. Enforcement in Data Processing
+## 4. Retrospective Modifier Semantics
 
-- Data outside the specified consent period are excluded from the result set
+The retrospective modifier (`.46`) acts as a **period extender** for its associated prospective code (`.8`):
+
+- `.46` is only applied if `.8` is also in the requested codes.
+- `.46` only modifies a permitted `.8` provision if their periods **overlap**.
+- If a patient has no permitted `.8` provisions at all, `.46` has no effect.
+- The resulting consent is still expressed as a single period for `.8`;
+  `.46` does not appear independently in the result.
+
+**Example** (from ticket [#853](https://github.com/medizininformatik-initiative/torch/issues/853)):
+
+```
+Input provisions:
+  .8  2020–2025  permit
+  .8  2027–2030  deny
+  .8  2030–2035  permit
+  .46 2030–2035  permit
+
+After applying retrospective modifier:
+  .8  2020–2025  permit          (no overlap with .46 2030–2035 → unchanged)
+  .8  2027–2030  deny            (deny → never modified)
+  .8  <lookback>–2035  permit   (overlaps .46 2030–2035 → start shifted)
+
+After merge and subtract:
+  Allowed: <lookback>–2026, 2031–2035
+```
+
+---
+
+## 5. Enforcement in Data Processing
+
+- Data outside the patient's consent window are excluded from the result set.
 - All enforcement happens **before** results are packaged into NDJSON bundles.
 
 ---
 
-## 4. Integration with CRTDL
+## 6. Integration with CRTDL
 
-- CRTDL definitions can reference consent rules directly via the consent key in the cohort selection.
-- This allows **per-patient, per-resource** consent enforcement during structured extraction.
+- CRTDL definitions reference consent via the
+  `cohortDefinition` inclusion criteria (see [Consent Key](../crtdl/consent-key.md)).
+- TORCH accepts MII combined consent keys; unsupported individual codes within those keys are ignored.
+- The consent check uses a specific date field per FHIR resource type. If no field is configured for a resource type, all resources of that type are considered consented (see
+  [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
 
 ---
 
-## 5. Limitations and Considerations
+## 7. Limitations and Considerations
 
 - Consent records must be **up-to-date** and accurately reflect patient permissions.
-- TORCH only supports the use of consent keys that are defined in the mapping configurations ( see [Configuration](../configuration.md)).
-- The consent check is always defined for a specific field for each FHIR resource type. If no consent field is defined for a resource type, all resources of this type are considered as consented.
-  (see the specified
-  fields [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
+- Only the codes listed in `consent-code-config.json` are evaluated — all others are ignored.
+- The file can be edited manually; the shipped default contains only
+  `2.16.840.1.113883.3.1937.777.24.5.3.8` and its retrospective modifier `.46`.
 
 ---
+
 ## Summary
 
 Consent handling in TORCH is:
 
-- **Standards-based** (FHIR Consent)
-- Per Patient and per Resource
-- Only checks specific fields of the patient compartment resource
+- **Standards-based** (FHIR Consent, MII KDS profile)
+- Per-patient and per-resource
+- Limited to the MII MDAT scientific use provision and its retrospective modifier in V1

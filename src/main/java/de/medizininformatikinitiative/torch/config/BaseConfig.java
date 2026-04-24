@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.util.BundleBuilder;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
@@ -14,6 +15,8 @@ import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
+import de.medizininformatikinitiative.torch.model.consent.ProspectiveEntry;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
@@ -38,6 +41,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import java.io.File;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -95,6 +99,15 @@ public class BaseConfig {
     // CONSENT
     // ----------------------------------------------------------------------
 
+
+    @Bean
+    public ConsentCodeConfig consentCodeConfig(ObjectMapper objectMapper) throws IOException {
+        List<ProspectiveEntry> entries = objectMapper.readValue(
+                new File("mappings/consent-code-config.json"),
+                new TypeReference<>() {
+                });
+        return new ConsentCodeConfig(entries);
+    }
 
     @Bean
     public ConsentValidator consentValidator(FhirContext ctx,
