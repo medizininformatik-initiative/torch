@@ -26,7 +26,8 @@ This file can be edited manually to adjust the supported codes for a deployment.
 represent the recommended MII default.
 
 Each entry describes a **prospective code** (required for consent to be valid) and an optional
-**retrospective modifier code** that can extend its valid period backwards in time.
+**retrospective modifier code** that can extend its valid period backwards in time, and an optional
+**data period offset** that shifts the effective end of the permitted window.
 
 **Shipped default:**
 
@@ -35,7 +36,7 @@ Each entry describes a **prospective code** (required for consent to be valid) a
 | MDAT wissenschaftlich nutzen EU DSGVO NIVEAU              | `2.16.840.1.113883.3.1937.777.24.5.3.8`  | Prospective (required)            |
 | MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU | `2.16.840.1.113883.3.1937.777.24.5.3.46` | Retrospective modifier (optional) |
 
-All other codes from a combined consent key (e.g. Rekontaktierung codes) are silently ignored.
+Codes not listed in `consent-code-config.json` are silently ignored.
 
 ---
 
@@ -44,16 +45,18 @@ All other codes from a combined consent key (e.g. Rekontaktierung codes) are sil
 Before any data extraction:
 
 1. **Extract consent codes from CRTDL** — codes are read from the `cohortDefinition` inclusion criteria.
-2. **Expand combined keys** — combined consent keys (e.g. `yes-yes-no-yes`) are expanded to individual MII OID codes.
-3. **Filter to supported codes** — only prospective codes defined in `consent-code-config.json` are retained.
-4. **Fetch from FHIR
+2. **Filter to supported codes** — only prospective codes defined in `consent-code-config.json` are retained.
+3. **Fetch from FHIR
    ** — Consent resources are fetched for the supported codes plus their configured retrospective modifier codes.
-5. **Adjust by Encounter
+4. **Adjust by Encounter
    ** — The start of each consent provision is shifted to the start of the earliest overlapping Encounter, if that Encounter start is earlier than the provision start.
+5. **Apply data period offset
+   ** — For each permitted prospective provision,
+   `dataPeriodOffsetYears` is subtracted from its end date. Provisions whose shifted end date precedes their start date are discarded with a warning (this can occur when a short provision is paired with a large offset, which is an artifact of the specific MII consent modelling).
 6. **Apply retrospective modifiers
    ** — For each permitted prospective provision that overlaps with a permitted retrospective modifier provision, the prospective provision's start date is shifted to
-   `today − lookbackYears` (200 years for
-   `.46`, placing it before 1900). Deny provisions are never modified by a retrospective code.
+   `provisionStart − lookbackYears` (200 years for `.46`, e.g. a provision starting 2020 shifts to 1820).
+   Deny provisions are never modified by a retrospective code.
 7. **Merge and subtract** — Permitted provision periods are merged; denied provision periods are subtracted.
 8. **Require all prospective codes
    ** — A patient's consent is valid only if every required prospective code has at least one non-empty allowed period.
@@ -86,7 +89,7 @@ Input provisions:
 After applying retrospective modifier:
   .8  2020–2025  permit          (no overlap with .46 2030–2035 → unchanged)
   .8  2027–2030  deny            (deny → never modified)
-  .8  <lookback>–2035  permit   (overlaps .46 2030–2035 → start shifted)
+  .8  <lookback>–2035  permit   (overlaps .46 2030–2035 → start shifted to 2030 − 200y = 1830)
 
 After merge and subtract:
   Allowed: <lookback>–2026, 2031–2035
@@ -104,8 +107,7 @@ After merge and subtract:
 ## 6. Integration with CRTDL
 
 - CRTDL definitions reference consent via the
-  `cohortDefinition` inclusion criteria (see [Consent Key](../crtdl/consent-key.md)).
-- TORCH accepts MII combined consent keys; unsupported individual codes within those keys are ignored.
+  `cohortDefinition` inclusion criteria.
 - The consent check uses a specific date field per FHIR resource type. If no field is configured for a resource type, all resources of that type are considered consented (see
   [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
 

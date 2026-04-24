@@ -17,26 +17,36 @@ import static java.util.Objects.requireNonNull;
  * If a {@link RetroModifier} is configured, any permitted prospective provision whose period overlaps a
  * permitted modifier provision will have its start date shifted backwards to the modifier's
  * {@link RetroModifier#lookbackStart(java.time.LocalDate)}.
+ * <p>
+ * {@code dataPeriodOffsetYears} is subtracted from the provision's end date before the consent window is
+ * evaluated. A value of 25 on a provision valid until 2050-12-31 yields an effective data-access end of
+ * 2025-12-31. Use 0 (the default) to apply no offset.
  *
- * @param code          the FHIR provision code for this prospective consent code
- * @param retroModifier the optional retrospective modifier; {@code null} for standalone prospective codes
+ * @param code                  the FHIR provision code for this prospective consent code
+ * @param retroModifier         the optional retrospective modifier; {@code null} for standalone prospective codes
+ * @param dataPeriodOffsetYears years to subtract from the provision end date (≥ 0)
  * @see RetroModifier
  * @see ConsentCodeConfig
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record ProspectiveEntry(TermCode code, RetroModifier retroModifier) {
+public record ProspectiveEntry(TermCode code, RetroModifier retroModifier, int dataPeriodOffsetYears) {
 
     public ProspectiveEntry {
         requireNonNull(code);
-        // retroModifier is nullable — absence means standalone prospective code
+        if (dataPeriodOffsetYears < 0) throw new IllegalArgumentException("dataPeriodOffsetYears must be non-negative");
+    }
+
+    public ProspectiveEntry(TermCode code, RetroModifier retroModifier) {
+        this(code, retroModifier, 0);
     }
 
     @JsonCreator
     public static ProspectiveEntry fromJson(
             @JsonProperty("system") String system,
             @JsonProperty("code") String code,
-            @JsonProperty("retroModifier") RetroModifier retroModifier) {
-        return new ProspectiveEntry(new TermCode(system, code), retroModifier);
+            @JsonProperty("retroModifier") RetroModifier retroModifier,
+            @JsonProperty("dataPeriodOffsetYears") Integer dataPeriodOffsetYears) {
+        return new ProspectiveEntry(new TermCode(system, code), retroModifier, dataPeriodOffsetYears != null ? dataPeriodOffsetYears : 0);
     }
 
     /**

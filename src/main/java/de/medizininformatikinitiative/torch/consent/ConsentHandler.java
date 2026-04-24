@@ -26,10 +26,8 @@ public class ConsentHandler {
     private final ConsentFetcher consentFetcher;
     private final ConsentAdjuster consentAdjuster;
     private final ConsentCalculator consentCalculator;
-    private final ConsentCodeMapper consentCodeMapper;
     private final ConsentCodeConfig consentCodeConfig;
 
-    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeMapper consentCodeMapper, ConsentCodeConfig consentCodeConfig) {
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
@@ -37,10 +35,11 @@ public class ConsentHandler {
      * @param consentAdjuster   The {@link ConsentAdjuster} for adjusting consent periods by encounter periods
      * @param consentCalculator The {@link ConsentCalculator} for calculating effective consent periods
      */
-    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator) {
+    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeConfig consentCodeConfig) {
         this.consentFetcher = requireNonNull(consentFetcher);
         this.consentAdjuster = requireNonNull(consentAdjuster);
         this.consentCalculator = requireNonNull(consentCalculator);
+        this.consentCodeConfig = requireNonNull(consentCodeConfig);
     }
 
     /**
@@ -62,8 +61,7 @@ public class ConsentHandler {
      * @return a {@link Mono} emitting a {@link PatientBatchWithConsent} containing patients with valid consent periods
      */
     public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(Set<TermCode> consentCodes, PatientBatch batch) {
-        Set<TermCode> expandedCodes = consentCodeMapper.addCombinedCodes(consentCodes);
-        Set<TermCode> supportedCodes = consentCodeConfig.filterToSupported(expandedCodes);
+        Set<TermCode> supportedCodes = consentCodeConfig.filterToSupported(consentCodes);
         Set<TermCode> fetchCodes = consentCodeConfig.withRetroModifiers(supportedCodes);
 
         return consentFetcher.fetchConsentInfo(fetchCodes, batch)
