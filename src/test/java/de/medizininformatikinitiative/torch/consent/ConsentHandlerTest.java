@@ -1,6 +1,8 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import org.junit.jupiter.api.Test;
@@ -35,18 +37,21 @@ public class ConsentHandlerTest {
     @Mock
     ConsentCalculator consentCalculationFailed;
 
+    @Mock
+    ConsentCodeConfig consentCodeConfig;
+
     @InjectMocks
     ConsentHandler consentHandler;
 
     @Test
     void failsOnNoPatientMatchesConsentKeyBuildingConsent() {
         var codes = CODES;
+        when(consentCodeConfig.filterToSupported(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes)).thenReturn(codes);
         when(consentFetcher.fetchConsentInfo(codes, BATCH))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));
 
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo(codes, BATCH);
-
-        StepVerifier.create(resultBatch)
+        StepVerifier.create(consentHandler.fetchAndBuildConsentInfo(codes, BATCH))
                 .expectErrorSatisfies(error -> assertThat(error)
                         .isInstanceOf(ConsentViolatedException.class)
                         .hasMessageContaining("No valid consentPeriods found for any patients in batch"))
@@ -57,12 +62,13 @@ public class ConsentHandlerTest {
     void failsOnUnknownPatientBuildingConsent() {
 
         var codes = CODES;
+        when(consentCodeConfig.filterToSupported(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes)).thenReturn(codes);
+
         when(consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));
 
-        var resultBatch = consentHandler.fetchAndBuildConsentInfo(codes, BATCH_UNKNOWN);
-
-        StepVerifier.create(resultBatch)
+        StepVerifier.create(consentHandler.fetchAndBuildConsentInfo(codes, BATCH_UNKNOWN))
                 .expectErrorSatisfies(error -> assertThat(error)
                         .isInstanceOf(ConsentViolatedException.class)
                         .hasMessageContaining("No valid consentPeriods found for any patients in batch"))

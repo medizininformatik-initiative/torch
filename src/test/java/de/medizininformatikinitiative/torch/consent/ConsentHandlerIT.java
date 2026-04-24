@@ -71,10 +71,10 @@ class ConsentHandlerIT {
         assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
     }
 
-    private void assertConsentFalse(PatientBatchWithConsent batch) {
+    private void assertConsentFalse(PatientBatchWithConsent batch, String date) {
         Observation observation = new Observation();
         observation.setSubject(new Reference("Patient/" + PATIENT_ID));
-        observation.setEffective(new DateTimeType("2019-01-01T00:00:00+01:00"));
+        observation.setEffective(new DateTimeType(date));
         assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
     }
 
@@ -88,7 +88,10 @@ class ConsentHandlerIT {
                     assertThat(batch.bundles().get(PATIENT_ID).consentPeriods().periods()).isNotEmpty();
                     assertConsentTrue(batch, "2021-01-02T00:00:00+01:00");
                     assertConsentTrue(batch, "2020-01-01T00:00:00+01:00");
-                    assertConsentFalse(batch);
+                    // Encounter shifts .8 start from 2021-01-01 to 2019-01-01; retro modifier (.46)
+                    // then shifts it further to 1819-01-01 — so 2019-01-01 is now within the window
+                    assertConsentTrue(batch, "2019-01-01T00:00:00+01:00");
+                    assertConsentFalse(batch, "2026-01-01T00:00:00+01:00");
                 }).verifyComplete();
     }
 }

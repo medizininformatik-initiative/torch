@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
@@ -25,7 +26,10 @@ public class ConsentHandler {
     private final ConsentFetcher consentFetcher;
     private final ConsentAdjuster consentAdjuster;
     private final ConsentCalculator consentCalculator;
+    private final ConsentCodeMapper consentCodeMapper;
+    private final ConsentCodeConfig consentCodeConfig;
 
+    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeMapper consentCodeMapper, ConsentCodeConfig consentCodeConfig) {
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
@@ -44,7 +48,7 @@ public class ConsentHandler {
      * <p>
      * This method performs the following steps in a reactive pipeline:
      * <ol>
-     *     <li>Fetches consent provisions from a FHIR server for the given {@code consentCodes} and patient batch.</li>
+     *     <li>Fetches consent provisions from a FHIR server for the given {@code consentKey} and patient batch.</li>
      *     <li>Adjusts the fetched consent periods based on patient encounters.</li>
      *     <li>Calculates the effective consent periods per patient.</li>
      *     <li>Filters the batch to include only patients with valid consent periods.</li>
@@ -58,11 +62,15 @@ public class ConsentHandler {
      * @return a {@link Mono} emitting a {@link PatientBatchWithConsent} containing patients with valid consent periods
      */
     public Mono<PatientBatchWithConsent> fetchAndBuildConsentInfo(Set<TermCode> consentCodes, PatientBatch batch) {
-        return consentFetcher.fetchConsentInfo(consentCodes, batch)
+        Set<TermCode> expandedCodes = consentCodeMapper.addCombinedCodes(consentCodes);
+        Set<TermCode> supportedCodes = consentCodeConfig.filterToSupported(expandedCodes);
+        Set<TermCode> fetchCodes = consentCodeConfig.withRetroModifiers(supportedCodes);
+
+        return consentFetcher.fetchConsentInfo(fetchCodes, batch)
                 .flatMap(consentProvisions ->
                         consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions)
                 )
-                .map(consentProvisions -> consentCalculator.calculateConsent(consentCodes, consentProvisions))
+                .map(consentProvisions -> consentCalculator.calculateConsent(supportedCodes, consentProvisions))
                 .flatMap(consentPeriodsMap ->
                         Mono.fromCallable(() -> PatientBatchWithConsent.fromBatchAndConsent(batch, consentPeriodsMap))
                 );
