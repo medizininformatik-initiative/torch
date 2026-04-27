@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.19] - 2026-04-27
+
+### Added
+
+- Implement Job Handling Concept [#464](https://github.com/medizininformatik-initiative/torch/issues/464)
+- Implement Task API [#703](https://github.com/medizininformatik-initiative/torch/issues/703)
+- Implement Task Controller With FHIR Operations [#786](https://github.com/medizininformatik-initiative/torch/issues/786)
+- Add Job Versioning [#777](https://github.com/medizininformatik-initiative/torch/issues/777)
+- Add PAUSE CANCEL DELETE Operations in Persistence [#783](https://github.com/medizininformatik-initiative/torch/issues/783)
+- Add No Op For Status Mismatch [#778](https://github.com/medizininformatik-initiative/torch/issues/778)
+- Add TaskPatch To Persistence [#789](https://github.com/medizininformatik-initiative/torch/issues/789)
+- Add Exception for Unknown JobId [#800](https://github.com/medizininformatik-initiative/torch/issues/800)
+- Add Patient.identifier handling for traceability [#775](https://github.com/medizininformatik-initiative/torch/issues/775)
+
+### Changed
+
+- Re-Work Consent Calculation [#853](https://github.com/medizininformatik-initiative/torch/issues/853)
+- Consent: Only handle consent for scientific use of mdat [#852](https://github.com/medizininformatik-initiative/torch/issues/852)
+- Update HAPI FHIR Core to 6.9.0 [#846](https://github.com/medizininformatik-initiative/torch/issues/846)
+- Update HAPI to 8.8.1 [#781](https://github.com/medizininformatik-initiative/torch/issues/781)
+
+### Removed
+
+- Remove Job Persistence Setting [#622](https://github.com/medizininformatik-initiative/torch/issues/622)
+
+### Fixed
+
+- Fix Skipped Batches Point To Non Existing Files [#819](https://github.com/medizininformatik-initiative/torch/issues/819)
+
+### Breaking Changes
+
+- **Job persistence setting removed** — deployments that previously configured this setting must remove it from
+  their configuration.
+- **Consent calculation results will differ** for patients with retrospective modifier provisions (`.46`).
+  The effective data period is now correctly calculated per the MII V1 consent specification:
+  - A `dataPeriodOffsetYears` (default: 25 years) is subtracted from the end of each permitted prospective
+    provision to determine the actual data access window.
+  - The retrospective modifier (`.46`) extends a prospective provision's start date by `lookbackYears`
+    (default: 200 years) relative to the provision's own start date, not relative to today.
+  - Retro-extended permits are immune to deny provisions — a retroactive grant supersedes prior revocations.
+  - Provisions whose end date falls before their start date after offset application are discarded (with a
+    warning in the logs). This can occur when a short provision is paired with a large offset.
+- **Combined consent keys are no longer supported** in the CRTDL. Consent keys must reference individual MII
+  OID provision codes directly (e.g. `2.16.840.1.113883.3.1937.777.24.5.3.8`). Combined keys such as
+  `yes-yes-no-yes` from the `fdpg.consent.combined` system are no longer expanded.
+
 ## [v1.0.0-alpha.18] - 2026-03-18
 
 ### Added
