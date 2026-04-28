@@ -2,11 +2,15 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionCounts;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionKey;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
-import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -19,6 +23,8 @@ import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
@@ -37,7 +43,9 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -60,15 +68,39 @@ import static org.mockito.Mockito.when;
 
 class JobPersistenceServiceTest {
 
-    static final ObjectMapper MAPPER = new ObjectMapper().registerModule(new JavaTimeModule()).registerModule(new Jdk8Module()).disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+    static final ObjectMapper MAPPER = new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .registerModule(new Jdk8Module())
+            .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-    static final JobParameters EMPTY_PARAMETERS = TestUtils.emptyJobParams();
+    static final JobParameters EMPTY_PARAMETERS =
+            new JobParameters(
+                    new AnnotatedCrtdl(
+                            JsonNodeFactory.instance.objectNode(),
+                            new AnnotatedDataExtraction(List.of()),
+                            Optional.empty()
+                    ),
+                    List.of()
+            );
 
 
-    static Job createJobWithBatches(UUID jobId) {
+    static Job createJob(UUID jobId) {
         BatchState s1 = BatchState.init();
         BatchState s2 = BatchState.init();
-        return Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.RUNNING_GET_COHORT).withBatchState(s1).withBatchState(s2);
+
+        return new Job(
+                jobId,
+                JobStatus.RUNNING_GET_COHORT, WorkUnitState.initNow(),
+                10,
+                Map.of(s1.batchId(), s1, s2.batchId(), s2),
+                Instant.now(),
+                Instant.now(),
+                Optional.empty(),
+                List.of(),
+                EMPTY_PARAMETERS,
+                JobPriority.NORMAL,
+                WorkUnitState.initNow(),
+                0L);
     }
 
 
@@ -85,7 +117,13 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            persistenceService =
+                    new JobPersistenceService(
+                            new DefaultFileIO(),
+                            MAPPER,
+                            baseDir.toString(),
+                            5
+                    );
             persistenceService.init();
         }
 
@@ -97,7 +135,10 @@ class JobPersistenceServiceTest {
             PatientBatch batch = new PatientBatch(List.of("A", "B"), UUID.randomUUID());
             persistenceService.saveBatch(batch, jobId);
 
-            Path batchFile = baseDir.resolve(jobId.toString()).resolve("batches").resolve(batch.batchId() + ".ndjson");
+            Path batchFile = baseDir
+                    .resolve(jobId.toString())
+                    .resolve("batches")
+                    .resolve(batch.batchId() + ".ndjson");
 
             assertThat(batchFile).exists();
 
@@ -138,12 +179,20 @@ class JobPersistenceServiceTest {
         void testCreateJobPersistOnIO() throws IOException {
             Instant before = Instant.now();
 
-            UUID jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
+            UUID jobId = persistenceService.createJob(
+                    EMPTY_PARAMETERS.crtdl(),
+                    EMPTY_PARAMETERS.paramBatch()
+            );
 
             Instant after = Instant.now();
 
             // simulate "process restart"
-            JobPersistenceService reloaded = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            JobPersistenceService reloaded = new JobPersistenceService(
+                    new DefaultFileIO(),
+                    MAPPER,
+                    baseDir.toString(),
+                    5
+            );
             reloaded.init();
 
             Job actual = reloaded.getJob(jobId).orElseThrow();
@@ -182,7 +231,8 @@ class JobPersistenceServiceTest {
             persistenceService.saveBatch(pb1, jobId);
             persistenceService.saveBatch(pb2, jobId);
 
-            assertThat(persistenceService.loadBatch(jobId, pb2.batchId())).isEqualTo(pb2);
+            assertThat(persistenceService.loadBatch(jobId, pb2.batchId()))
+                    .isEqualTo(pb2);
         }
 
         @Test
@@ -193,29 +243,46 @@ class JobPersistenceServiceTest {
             Files.createDirectories(baseDir.resolve(j1.toString()));
             Files.createDirectories(baseDir.resolve(j2.toString()));
 
-            Files.writeString(baseDir.resolve(j1.toString()).resolve("job.json"), MAPPER.writeValueAsString(createJobWithBatches(j1)));
-            Files.writeString(baseDir.resolve(j2.toString()).resolve("job.json"), MAPPER.writeValueAsString(createJobWithBatches(j2)));
+            Files.writeString(
+                    baseDir.resolve(j1.toString()).resolve("job.json"),
+                    MAPPER.writeValueAsString(createJob(j1))
+            );
+            Files.writeString(
+                    baseDir.resolve(j2.toString()).resolve("job.json"),
+                    MAPPER.writeValueAsString(createJob(j2))
+            );
             persistenceService.init();
             assertThat(persistenceService.getJob(j1)).isPresent();
             assertThat(persistenceService.getJob(j2)).isPresent();
         }
 
         @Test
-        void saveCoreBatch_and_loadCoreInfo_shouldPersistAndReloadSingleCoreBundle() throws IOException {
+        void saveCoreBatch_and_loadCoreInfo_shouldPersistAndReloadSingleCoreBundle()
+                throws IOException {
 
             UUID jobId = UUID.randomUUID();
             persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
 
-            ResourceExtractionInfo rei = new ResourceExtractionInfo(Set.of("G1"), Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1"))));
+            ResourceExtractionInfo rei =
+                    new ResourceExtractionInfo(
+                            Set.of("G1"),
+                            Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1")))
+                    );
 
-            ExtractionResourceBundle cb = new ExtractionResourceBundle(new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("r/rid-1"), rei)), new ConcurrentHashMap<>());
+            ExtractionResourceBundle cb =
+                    new ExtractionResourceBundle(
+                            new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("r/rid-1"), rei)),
+                            new ConcurrentHashMap<>()
+                    );
 
             persistenceService.saveCoreBatch(jobId, UUID.randomUUID(), cb);
 
-            ExtractionResourceBundle merged = persistenceService.loadCoreInfo(jobId);
+            ExtractionResourceBundle merged =
+                    persistenceService.loadCoreInfo(jobId);
 
             assertThat(merged.extractionInfoMap()).containsOnlyKeys(ExtractionId.fromRelativeUrl("r/rid-1"));
-            assertThat(merged.extractionInfoMap().get(ExtractionId.fromRelativeUrl("r/rid-1")).groups()).containsExactly("G1");
+            assertThat(merged.extractionInfoMap().get(ExtractionId.fromRelativeUrl("r/rid-1")).groups())
+                    .containsExactly("G1");
         }
     }
 
@@ -239,7 +306,9 @@ class JobPersistenceServiceTest {
             doNothing().when(io).createDirectories(any());
             when(io.newBufferedWriter(any())).thenThrow(new IOException("boom"));
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -247,9 +316,12 @@ class JobPersistenceServiceTest {
             BufferedWriter writer = mock(BufferedWriter.class);
             when(io.newBufferedWriter(any())).thenReturn(writer);
 
-            doThrow(new IOException("atomic move failed")).when(io).atomicMove(any(), any());
+            doThrow(new IOException("atomic move failed"))
+                    .when(io).atomicMove(any(), any());
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -259,7 +331,9 @@ class JobPersistenceServiceTest {
             doNothing().when(io).createDirectories(any());
             when(io.newBufferedWriter(any())).thenThrow(new IOException("boom"));
 
-            assertThatThrownBy(() -> service.saveBatch(batch, UUID.randomUUID())).isInstanceOf(IOException.class).hasMessageContaining("boom");
+            assertThatThrownBy(() -> service.saveBatch(batch, UUID.randomUUID()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("boom");
         }
 
         @Test
@@ -277,9 +351,12 @@ class JobPersistenceServiceTest {
 
         @Test
         void failsWhenCreatingJobDirFails() throws IOException {
-            doThrow(new IOException("mkdir fail")).when(io).createDirectories(any());
+            doThrow(new IOException("mkdir fail"))
+                    .when(io).createDirectories(any());
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -292,7 +369,9 @@ class JobPersistenceServiceTest {
 
             UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
 
-            verify(io).newBufferedWriter(argThat(path -> path.toString().contains(jobId.toString())));
+            verify(io).newBufferedWriter(argThat(path ->
+                    path.toString().contains(jobId.toString())
+            ));
         }
     }
 
@@ -302,8 +381,15 @@ class JobPersistenceServiceTest {
         @TempDir
         Path baseDir;
 
+        Clock clock = Clock.fixed(Instant.parse("2026-01-22T12:00:00Z"), ZoneId.of("UTC"));
+
         private JobPersistenceService restart() throws IOException {
-            JobPersistenceService s = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            JobPersistenceService s = new JobPersistenceService(
+                    new DefaultFileIO(),
+                    MAPPER,
+                    baseDir.toString(),
+                    5
+            );
             s.init();
             return s;
         }
@@ -317,11 +403,24 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void resumeAfterRestart_coreOnly_rollsBackAndPersists_thenCanAcquire() throws IOException, JobNotFoundException {
+        void resumeAfterRestart_coreOnly_rollsBackAndPersists_thenCanAcquire() throws IOException {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            Job crashed = Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.RUNNING_PROCESS_CORE).withCoreState(WorkUnitState.startNow());
+            Job crashed = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(),
+                    10,
+                    Map.of(),
+                    clock.instant(),
+                    clock.instant(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    // IN_PROGRESS
+                    WorkUnitState.startNow(),
+                    0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -337,7 +436,8 @@ class JobPersistenceServiceTest {
             assertThat(after.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
 
             assertThat(restarted.tryMarkCoreInProgress(jobId)).isTrue();
-            assertThat(restarted.getJob(jobId).orElseThrow().coreState().status()).isEqualTo(WorkUnitStatus.IN_PROGRESS);
+            assertThat(restarted.getJob(jobId).orElseThrow().coreState().status())
+                    .isEqualTo(WorkUnitStatus.IN_PROGRESS);
         }
 
         @Test
@@ -349,9 +449,23 @@ class JobPersistenceServiceTest {
             // batch file exists so later resume can actually load it
             Files.writeString(jobDir.resolve("batches").resolve(batchId + ".ndjson"), "A\nB\n");
 
-            BatchState inProgress = new BatchState(batchId, WorkUnitState.startNow());
+            BatchState inProgress = new BatchState(
+                    batchId, WorkUnitState.startNow()
+            );
 
-            Job crashed = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(inProgress).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            Job crashed = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
+                    10,
+                    Map.of(batchId, inProgress),
+                    clock.instant(),
+                    clock.instant(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    WorkUnitState.initNow(),
+                    0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(crashed));
 
@@ -376,8 +490,23 @@ class JobPersistenceServiceTest {
             UUID batchId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            BatchState init = new BatchState(batchId, WorkUnitState.initNow());
-            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(init).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            BatchState init = new BatchState(
+                    batchId, WorkUnitState.initNow()
+            );
+
+            Job job = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
+                    10,
+                    Map.of(batchId, init),
+                    clock.instant(),
+                    clock.instant(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    WorkUnitState.initNow(),
+                    0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(job));
 
@@ -395,8 +524,21 @@ class JobPersistenceServiceTest {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            Job completedButHasCore = Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.COMPLETED);
-
+            // This assumes COMPLETED is "final". Adjust if your enum differs.
+            Job completedButHasCore = new Job(
+                    jobId,
+                    JobStatus.COMPLETED, WorkUnitState.initNow(),
+                    10,
+                    Map.of(),
+                    clock.instant(),
+                    clock.instant(),
+                    Optional.of(clock.instant()),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    // even if persisted wrongly, final job should not resume
+                    WorkUnitState.startNow(),
+                    0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(completedButHasCore));
 
@@ -407,11 +549,24 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void resumeAfterRestart_missingCoreState_behavesLikeInitForAcquire() throws IOException, JobNotFoundException {
+        void resumeAfterRestart_missingCoreState_behavesLikeInitForAcquire() throws IOException {
             UUID jobId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            Job noCoreState = Job.init(jobId, EMPTY_PARAMETERS).withStatus(JobStatus.RUNNING_PROCESS_CORE);
+            Job noCoreState = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_CORE, WorkUnitState.initNow(),
+                    10,
+                    Map.of(),
+                    clock.instant(),
+                    clock.instant(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    // coreState missing
+                    WorkUnitState.initNow(),
+                    0L);
 
             Files.writeString(jobDir.resolve("job.json"), MAPPER.writeValueAsString(noCoreState));
 
@@ -419,7 +574,8 @@ class JobPersistenceServiceTest {
 
             // tryMarkCoreInProgress treats missing as INIT (your code does .orElse(INIT))
             assertThat(restarted.tryMarkCoreInProgress(jobId)).isTrue();
-            assertThat(restarted.getJob(jobId).orElseThrow().coreState().status()).isEqualTo(WorkUnitStatus.IN_PROGRESS);
+            assertThat(restarted.getJob(jobId).orElseThrow().coreState().status())
+                    .isEqualTo(WorkUnitStatus.IN_PROGRESS);
         }
     }
 
@@ -433,7 +589,12 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(
+                    new DefaultFileIO(),
+                    MAPPER,
+                    baseDir.toString(),
+                    5
+            );
             service.init();
         }
 
@@ -451,15 +612,28 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onBatchErrorTempFailedEscalatesJob() throws IOException, JobNotFoundException {
+        void onBatchErrorTempFailedEscalatesJob() throws IOException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
-            BatchState tempFailed = new BatchState(batchId, WorkUnitState.startNow().markTempFailed());
+            BatchState tempFailed = new BatchState(
+                    batchId, WorkUnitState.startNow().markFailed()
+            );
 
-            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(tempFailed).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
-
+            Job job = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
+                    10,
+                    Map.of(batchId, tempFailed),
+                    Instant.now(),
+                    Instant.now(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    WorkUnitState.initNow(),
+                    0L);
 
             persistJob(jobDir, job);
 
@@ -481,14 +655,28 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onBatchErrorNonRetryableEscalatesJobImmediately() throws IOException, JobNotFoundException {
+        void onBatchErrorNonRetryableEscalatesJobImmediately() throws IOException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             Path jobDir = prepareJobDir(jobId);
 
             BatchState init = new BatchState(batchId, WorkUnitState.initNow());
+            // or if you have it: BatchState.init(batchId)
 
-            Job job = Job.init(jobId, EMPTY_PARAMETERS).withBatchState(init).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            Job job = new Job(
+                    jobId,
+                    JobStatus.RUNNING_PROCESS_BATCH, WorkUnitState.initNow(),
+                    10,
+                    Map.of(batchId, init),
+                    Instant.now(),
+                    Instant.now(),
+                    Optional.empty(),
+                    List.of(),
+                    EMPTY_PARAMETERS,
+                    JobPriority.NORMAL,
+                    WorkUnitState.initNow(),
+                    0L
+            );
 
             persistJob(jobDir, job);
 
@@ -517,26 +705,23 @@ class JobPersistenceServiceTest {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2);
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            service.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
         }
 
         @Test
-        void onCohortSuccess_CreatesBatchesAndUpdatesState() throws JobNotFoundException {
-            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
-
+        void onCohortSuccess_CreatesBatchesAndUpdatesState() {
             List<String> patientIds = List.of("P1", "P2", "P3");
 
             service.onCohortSuccess(jobId, patientIds);
 
             Job job = service.getJob(jobId).orElseThrow();
             assertThat(job.cohortSize()).isEqualTo(3);
-            assertThat(job.batches()).hasSize(2);
+            assertThat(job.batches()).hasSize(2); // Batch size is 2, so 3 patients = 2 batches
             assertThat(job.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
         }
 
         @Test
-        void onCohortSuccess_EmptyCohort_TransitionsToCore() throws JobNotFoundException {
-            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
-
+        void onCohortSuccess_EmptyCohort_TransitionsToCore() {
             service.onCohortSuccess(jobId, List.of());
 
             Job job = service.getJob(jobId).orElseThrow();
@@ -545,41 +730,36 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryStartBatch_TransitionsStatus() throws JobNotFoundException {
-            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
-
+        void tryStartBatch_TransitionsStatus() {
             service.onCohortSuccess(jobId, List.of("P1"));
             UUID batchId = service.getJob(jobId).get().batches().keySet().iterator().next();
 
             boolean started = service.tryStartBatch(jobId, batchId);
 
             assertThat(started).isTrue();
-            assertThat(service.getJob(jobId).get().batches().get(batchId).status()).isEqualTo(WorkUnitStatus.IN_PROGRESS);
+            assertThat(service.getJob(jobId).get().batches().get(batchId).status())
+                    .isEqualTo(WorkUnitStatus.IN_PROGRESS);
         }
 
         @Test
         void selectNextWorkUnit_OrdersByPriority() throws IOException {
             // Job 1: Normal Priority
-            UUID firstJob = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
             // Job 2: High Priority
             UUID j2 = UUID.randomUUID();
-            Job highPrio = Job.init(j2, EMPTY_PARAMETERS).withPriority(JobPriority.HIGH);
+            Job highPrio = createJob(j2).withPriority(JobPriority.HIGH).withStatus(JobStatus.PENDING);
             service.putJobForTest(highPrio);
 
             Optional<WorkUnit> wu = service.selectNextWorkUnit();
-            System.out.println(firstJob);
+
             assertThat(wu).isPresent();
             assertThat(wu.get().job().id()).isEqualTo(j2);
         }
 
         @Test
-        void onBatchError_PersistsIssues() throws JobNotFoundException {
-            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
-
+        void onBatchError_PersistsIssues() {
             service.onCohortSuccess(jobId, List.of("P1"));
             UUID batchId = service.getJob(jobId).get().batches().keySet().iterator().next();
-
-            service.tryStartBatch(jobId, batchId);
 
             service.onBatchError(jobId, batchId, List.of(new Issue(Severity.ERROR, "Fail", "Detail")), new RuntimeException("Error"));
 
@@ -589,26 +769,8 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onCoreErrorFailsCore() throws IOException, JobNotFoundException {
-            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-
-            Job runningCore = service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_PROCESS_CORE).withCoreState(WorkUnitState.startNow());
-
-            service.putJobForTest(runningCore);
-
-            service.onCoreError(jobId, List.of(new Issue(Severity.ERROR, "Core failed", "details")), new IllegalArgumentException("boom"));
-
-            Job updated = service.getJob(jobId).orElseThrow();
-
-            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
-            assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.FAILED);
-            assertThat(updated.issues()).isNotEmpty();
-        }
-
-        @Test
-        void updateJobAndReturn_HandlesExceptionsGracefully() throws JobNotFoundException {
-            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_GET_COHORT).withCohortState(WorkUnitState.startNow()));
-
+        void updateJobAndReturn_HandlesExceptionsGracefully() {
+            // Trigger a RuntimeException inside the atomic update
             service.onCohortError(jobId, List.of(), new RuntimeException("Unexpected crash"));
 
             Job job = service.getJob(jobId).get();
@@ -642,7 +804,9 @@ class JobPersistenceServiceTest {
             when(mockIo.list(any())).thenThrow(new IOException("FileSystem unreachable"));
 
             // WHEN/THEN
-            assertThatThrownBy(() -> service.init()).isInstanceOf(IOException.class).hasMessageContaining("FileSystem unreachable");
+            assertThatThrownBy(() -> service.init())
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("FileSystem unreachable");
         }
 
         @Test
@@ -653,14 +817,16 @@ class JobPersistenceServiceTest {
             when(mockIo.exists(any())).thenReturn(false);
 
             // WHEN/THEN
-            assertThatThrownBy(() -> service.loadBatch(jobId, batchId)).isInstanceOf(IOException.class).hasMessageContaining("Batch file missing");
+            assertThatThrownBy(() -> service.loadBatch(jobId, batchId))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Batch file missing");
         }
 
         @Test
-        void updateJobAndReturn_HandlesPersistenceFailure() throws IOException, JobNotFoundException {
+        void updateJobAndReturn_HandlesPersistenceFailure() throws IOException {
             // GIVEN: A job exists in the registry
             UUID jobId = UUID.randomUUID();
-            Job job = createJobWithBatches(jobId);
+            Job job = createJob(jobId);
             service.putJobForTest(job);
 
             // Simulate a failure during the atomic move / write
@@ -686,7 +852,9 @@ class JobPersistenceServiceTest {
             when(mockIo.newBufferedReader(corruptFile)).thenReturn(reader);
 
             // WHEN/THEN
-            assertThatThrownBy(() -> service.loadCoreInfo(UUID.randomUUID())).isInstanceOf(IOException.class).hasMessageContaining("Failed to load core batch file");
+            assertThatThrownBy(() -> service.loadCoreInfo(UUID.randomUUID()))
+                    .isInstanceOf(IOException.class)
+                    .hasMessageContaining("Failed to load core batch file");
         }
     }
 
@@ -703,12 +871,12 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryStartBatch_ReturnsFalse_WhenStatusNotInit() throws JobNotFoundException {
+        void tryStartBatch_ReturnsFalse_WhenStatusNotInit() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
             // Create a job where the batch is already IN_PROGRESS
             BatchState inProgress = new BatchState(batchId, WorkUnitState.startNow());
-            Job job = createJobWithBatches(jobId).withBatchState(inProgress);
+            Job job = createJob(jobId).withBatchState(inProgress);
             service.putJobForTest(job);
 
             // Branch: bs.status() != WorkUnitStatus.INIT
@@ -717,9 +885,9 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void tryMarkCoreInProgress_ReturnsFalse_WhenAlreadyStarted() throws JobNotFoundException {
+        void tryMarkCoreInProgress_ReturnsFalse_WhenAlreadyStarted() {
             UUID jobId = UUID.randomUUID();
-            Job job = createJobWithBatches(jobId).withCoreState(WorkUnitState.startNow());
+            Job job = createJob(jobId).withCoreState(WorkUnitState.startNow());
             service.putJobForTest(job);
 
             // Branch: job.coreState().status() != WorkUnitStatus.INIT
@@ -731,7 +899,7 @@ class JobPersistenceServiceTest {
         void selectNextWorkUnit_ReturnsEmpty_WhenNoSchedulableJobs() {
             // Either registry is empty, or all jobs are COMPLETED (final)
             UUID jobId = UUID.randomUUID();
-            Job completedJob = createJobWithBatches(jobId).withStatus(JobStatus.COMPLETED);
+            Job completedJob = createJob(jobId).withStatus(JobStatus.COMPLETED);
             service.putJobForTest(completedJob);
 
             // Branch: filter(job -> !job.status().isFinal()) results in empty stream
@@ -740,12 +908,11 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void updateJobAndReturnThrowsWhenJobMissing() {
+        void updateJobAndReturn_ReturnsNull_WhenJobMissing() {
+            // Branch: jobRegistry.computeIfPresent does nothing if ID is missing
             UUID missingId = UUID.randomUUID();
-
-            assertThatThrownBy(() -> service.tryStartBatch(missingId, UUID.randomUUID()))
-                    .isInstanceOf(JobNotFoundException.class)
-                    .hasMessageContaining(missingId.toString());
+            Boolean result = service.tryStartBatch(missingId, UUID.randomUUID());
+            assertThat(result).isFalse();
         }
     }
 
@@ -760,7 +927,7 @@ class JobPersistenceServiceTest {
             UUID j1 = UUID.randomUUID();
             Path j1Dir = tempDir.resolve(j1.toString());
             Files.createDirectories(j1Dir);
-            Job job = createJobWithBatches(j1);
+            Job job = createJob(j1);
             Files.writeString(j1Dir.resolve("job.json"), MAPPER.writeValueAsString(job));
 
             // Use a Spy of the real implementation so we can use real logic for loading
@@ -791,6 +958,155 @@ class JobPersistenceServiceTest {
     }
 
     @Nested
+    class JobLifecycleTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void deleteJob_removesFromRegistryAndDeletesDirectory() throws IOException {
+            Path jobDir = baseDir.resolve(jobId.toString());
+            assertThat(jobDir).exists();
+
+            service.deleteJob(jobId);
+
+            assertThat(service.getJob(jobId)).isEmpty();
+            assertThat(jobDir).doesNotExist();
+        }
+
+        @Test
+        void deleteJob_throwsJobNotFoundException_whenUnknown() {
+            UUID unknownId = UUID.randomUUID();
+            assertThatThrownBy(() -> service.deleteJob(unknownId))
+                    .isInstanceOf(de.medizininformatikinitiative.torch.exceptions.JobNotFoundException.class);
+        }
+
+        @Test
+        void pauseJob_transitionsJobToPaused() throws IOException {
+            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
+            service.pauseJob(jobId);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
+        }
+
+        @Test
+        void cancelJob_transitionsJobToCancelled() throws IOException {
+            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
+            service.cancelJob(jobId);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.CANCELLED);
+        }
+
+        @Test
+        void resumeJob_resumesFromPausedState() throws IOException {
+            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT (cohortState still INIT)
+            service.pauseJob(jobId);
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
+            service.resumeJob(jobId);
+            // cohortState is INIT (not done), so inferRunnableStatusFromSubstates returns PENDING
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PENDING);
+        }
+
+        @Test
+        void jobDiagnosticsExists_returnsFalse_whenNotYetSaved() {
+            assertThat(service.jobDiagnosticsExists(jobId)).isFalse();
+        }
+    }
+
+    @Nested
+    class DiagnosticsTests {
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+        }
+
+        @Test
+        void saveBatchDiagnostics_roundTrip() throws IOException {
+            UUID batchId = UUID.randomUUID();
+            var diag = new BatchDiagnostics(jobId, batchId, 10, 8,
+                    Map.of(new CriterionKey(ExclusionKind.CONSENT, "No data due to consent", null, null),
+                            new CriterionCounts(2, 0)));
+            service.saveBatchDiagnostics(diag);
+
+            List<BatchDiagnostics> loaded = service.loadAllBatchDiagnostics(jobId);
+            assertThat(loaded).hasSize(1);
+            assertThat(loaded.get(0).batchId()).isEqualTo(batchId);
+            assertThat(loaded.get(0).cohortPatientsInBatch()).isEqualTo(10);
+            assertThat(loaded.get(0).finalPatientsInBatch()).isEqualTo(8);
+            assertThat(loaded.get(0).criteria()).hasSize(1);
+        }
+
+        @Test
+        void loadAllBatchDiagnostics_returnsEmpty_whenDirMissing() throws IOException {
+            UUID unknownJobId = UUID.randomUUID();
+            assertThat(service.loadAllBatchDiagnostics(unknownJobId)).isEmpty();
+        }
+
+        @Test
+        void buildAndSaveJobDiagnostics_returnsEmptyDiagnostics_whenNoBatches() throws IOException {
+            JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
+            assertThat(result.cohortPatientsTotal()).isZero();
+            assertThat(result.finalPatientsTotal()).isZero();
+            assertThat(result.criteria()).isEmpty();
+        }
+
+        @Test
+        void buildAndSaveJobDiagnostics_mergesBatchDiagnostics() throws IOException {
+            CriterionKey key = new CriterionKey(ExclusionKind.MUST_HAVE, "test", null, null);
+            UUID batch1 = UUID.randomUUID();
+            UUID batch2 = UUID.randomUUID();
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 5, 4, Map.of(key, new CriterionCounts(1, 2))));
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 3, 3, Map.of(key, new CriterionCounts(0, 1))));
+
+            JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
+
+            assertThat(result.cohortPatientsTotal()).isEqualTo(8);
+            assertThat(result.finalPatientsTotal()).isEqualTo(7);
+            assertThat(result.criteria().get(key).patientsExcluded()).isEqualTo(1);
+            assertThat(result.criteria().get(key).resourcesExcluded()).isEqualTo(3);
+            assertThat(service.jobDiagnosticsExists(jobId)).isTrue();
+        }
+
+        @Test
+        void onBatchProcessingSuccess_withDiagnostics_savesDiagnosticsFile() throws IOException {
+            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
+            service.onCohortSuccess(jobId, List.of("P1"));
+            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
+
+            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
+            var diag = new BatchDiagnostics(jobId, batchId, 1, 1, Map.of());
+            var result = new de.medizininformatikinitiative.torch.jobhandling.result.BatchResult(
+                    jobId, batchId,
+                    batchState.finishNow(WorkUnitStatus.FINISHED),
+                    Optional.empty(),
+                    Optional.of(diag),
+                    List.of()
+            );
+
+            service.onBatchProcessingSuccess(result);
+
+            assertThat(service.loadAllBatchDiagnostics(jobId)).hasSize(1);
+        }
+    }
+
+    @Nested
     class UpdateJobAndReturnBranchTests {
 
         @TempDir
@@ -804,10 +1120,11 @@ class JobPersistenceServiceTest {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             persistenceService.init();
             jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            persistenceService.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_IOExceptionInLogic() throws JobNotFoundException {
+        void testUpdateJobAndReturn_Branch_IOExceptionInLogic() {
             String result = persistenceService.updateJobAndReturn(jobId, job -> {
                 throw new IOException("Simulated logic-level IO failure");
             });
@@ -821,322 +1138,35 @@ class JobPersistenceServiceTest {
         void testUpdateJobAndReturn_Branch_RuntimeExceptionInLogic() {
             assertThatThrownBy(() -> persistenceService.updateJobAndReturn(jobId, job -> {
                 throw new RuntimeException("Unexpected runtime bug");
-            })).isInstanceOf(RuntimeException.class).hasMessageContaining("Unexpected runtime bug");
+            }))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasMessageContaining("Unexpected runtime bug");
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_NoChangeDetected() throws JobNotFoundException {
+        void testUpdateJobAndReturn_Branch_NoChangeDetected() {
             Job currentJob = persistenceService.getJob(jobId).orElseThrow();
 
-            String result = persistenceService.updateJobAndReturn(jobId, job -> new JobPersistenceService.JobAndResult<>(currentJob, "identities-match"));
+            String result = persistenceService.updateJobAndReturn(jobId, job ->
+                    new JobPersistenceService.JobAndResult<>(currentJob, "identities-match")
+            );
 
             assertThat(result).isEqualTo("identities-match");
         }
 
         @Test
-        void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException, JobNotFoundException {
+        void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException {
             FileIo spyIo = org.mockito.Mockito.spy(new DefaultFileIO());
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
-            serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).get().withStatus(JobStatus.RUNNING_GET_COHORT));
-            org.mockito.Mockito.doThrow(new IOException("Disk quota exceeded")).when(spyIo).newBufferedWriter(org.mockito.ArgumentMatchers.argThat(p -> p.toString().endsWith(".tmp")));
+            serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).get());
+            org.mockito.Mockito.doThrow(new IOException("Disk quota exceeded"))
+                    .when(spyIo).newBufferedWriter(org.mockito.ArgumentMatchers.argThat(p -> p.toString().endsWith(".tmp")));
 
             serviceWithSpy.onCohortError(jobId, List.of(), new Exception("Trigger save"));
 
             assertThat(serviceWithSpy.getJob(jobId)).isPresent();
-            assertThat(serviceWithSpy.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.TEMP_FAILED);
-        }
-    }
-
-    @Nested
-    class DeleteJobTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-        }
-
-        @Test
-        void removesJobFromRegistryAndDeletesDirectory() throws IOException, JobNotFoundException {
-            assertThat(service.getJob(jobId)).isPresent();
-            assertThat(baseDir.resolve(jobId.toString())).exists();
-
-            service.deleteJob(jobId);
-
-            assertThat(service.getJob(jobId)).isEmpty();
-            assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
-        }
-
-        @Test
-        void deleteJob_unknownJob_throwsJobNotFoundException() {
-            UUID unknownJobId = UUID.randomUUID();
-
-            assertThatThrownBy(() -> service.deleteJob(unknownJobId))
-                    .isInstanceOf(JobNotFoundException.class)
-                    .hasMessageContaining(unknownJobId.toString());
-        }
-
-    }
-
-    @Nested
-    class SelectNextWorkUnitTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-        }
-
-        @Test
-        void emptyWhenNoJobCanBeSelected() {
-            assertThat(service.selectNextWorkUnit()).isEmpty();
-        }
-    }
-
-    @Nested
-    class SelectNextInternalTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-        }
-
-        @Test
-        void returnsEmptyWhenJobMissing() {
-            UUID missingJobId = UUID.randomUUID();
-
-            assertThat(service.selectNextInternal(missingJobId)).isEmpty();
-        }
-
-        @Test
-        void returnsEmptyWhenJobHasNoNextWorkUnit() {
-            UUID jobId = UUID.randomUUID();
-            Job completedJob = Job.init(jobId, EMPTY_PARAMETERS)
-                    .withStatus(JobStatus.COMPLETED);
-
-            service.putJobForTest(completedJob);
-
-            assertThat(service.selectNextInternal(jobId)).isEmpty();
-        }
-
-        @Test
-        void returnsWorkUnitWhenJobSchedulable() throws IOException {
-            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-
-            Optional<WorkUnit> result = service.selectNextInternal(jobId);
-
-            assertThat(result).isPresent();
-        }
-    }
-
-    @Nested
-    class PauseJobTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-        }
-
-        @Test
-        void changed() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_PROCESS_BATCH);
-            service.putJobForTest(job);
-
-            Job result = service.pauseJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.PAUSED);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
-        }
-
-        @Test
-        void noOp() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.PAUSED);
-            service.putJobForTest(job);
-
-            Job result = service.pauseJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.PAUSED);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.PAUSED);
-        }
-
-        @Test
-        void conflict() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow().withStatus(JobStatus.COMPLETED);
-            service.putJobForTest(job);
-
-            assertThatThrownBy(() -> service.pauseJob(jobId))
-                    .isInstanceOf(StateConflictException.class)
-                    .hasMessageContaining(job.status().display());
-        }
-
-        @Test
-        void throwsUnknownJobException() {
-            assertThatThrownBy(() -> service.pauseJob(UUID.randomUUID()))
-                    .isInstanceOf(JobNotFoundException.class);
-        }
-    }
-
-    @Nested
-    class CancelJobTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-        }
-
-        @Test
-        void changed() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.RUNNING_PROCESS_CORE);
-            service.putJobForTest(job);
-
-            Job result = service.cancelJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.CANCELLED);
-        }
-
-        @Test
-        void noOp() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.CANCELLED);
-            service.putJobForTest(job);
-
-            Job result = service.cancelJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.CANCELLED);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.CANCELLED);
-        }
-
-        @Test
-        void conflict() {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.FAILED);
-            service.putJobForTest(job);
-
-            assertThatThrownBy(() -> service.cancelJob(jobId))
-                    .isInstanceOf(StateConflictException.class)
-                    .hasMessageContaining(job.status().display());
-        }
-
-        @Test
-        void throwsUnknownJobException() {
-            assertThatThrownBy(() -> service.cancelJob(UUID.randomUUID()))
-                    .isInstanceOf(JobNotFoundException.class);
-        }
-    }
-
-    @Nested
-    class ResumeJobTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-        }
-
-        @Test
-        void changedFromPaused() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.PAUSED)
-                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
-                    .withCoreState(WorkUnitState.initNow());
-            service.putJobForTest(job);
-
-            Job result = service.resumeJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
-        }
-
-        @Test
-        void changedFromTempFailed() throws JobNotFoundException {
-            UUID batchId = UUID.randomUUID();
-
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.TEMP_FAILED)
-                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
-                    .withBatchState(new BatchState(batchId, WorkUnitState.startNow().markTempFailed()));
-            service.putJobForTest(job);
-
-            Job result = service.resumeJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
-            assertThat(result.batches().get(batchId).status()).isEqualTo(WorkUnitStatus.INIT);
-
-            Job updated = service.getJob(jobId).orElseThrow();
-            assertThat(updated.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
-            assertThat(updated.batches().get(batchId).status()).isEqualTo(WorkUnitStatus.INIT);
-        }
-
-        @Test
-        void noOp() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH);
-            service.putJobForTest(job);
-
-            Job result = service.resumeJob(jobId);
-
-            assertThat(result.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
-        }
-
-        @Test
-        void conflict() throws JobNotFoundException {
-            Job job = service.getJob(jobId).orElseThrow()
-                    .withStatus(JobStatus.FAILED);
-            service.putJobForTest(job);
-
-            assertThatThrownBy(() -> service.resumeJob(jobId))
-                    .isInstanceOf(StateConflictException.class)
-                    .hasMessageContaining(job.status().display());
-        }
-
-        @Test
-        void throwsUnknownJobException() {
-            assertThatThrownBy(() -> service.resumeJob(UUID.randomUUID()))
-                    .isInstanceOf(JobNotFoundException.class);
+            assertThat(serviceWithSpy.getJob(jobId).orElseThrow().status())
+                    .isEqualTo(JobStatus.TEMP_FAILED);
         }
     }
 

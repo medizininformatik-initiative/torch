@@ -1,12 +1,15 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.accumulators.Acc;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
+import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
+import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
 import de.medizininformatikinitiative.torch.jobhandling.result.CoreResult;
@@ -34,35 +37,29 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * Extraction pipeline for TORCH.
  *
- * <p>Provides:
- * <ul>
- *   <li>batch processing ({@link #processBatch(BatchSelection)})</li>
- *   <li>core processing ({@link #processCore(Job, ExtractionResourceBundle)})</li>
- * </ul>
+ * <p>Provides batch processing via {@link #processBatch(BatchSelection)} and core processing
+ * via {@link #processCore(Job, ExtractionResourceBundle)}.
  *
- * <p>Uses {@link Acc} to thread {@link Issue}s through the reactive pipeline on the
- * happy path only. Errors are never caught inside the pipeline — they always bubble up
- * as {@link Mono#error} so the work unit's {@code onErrorResume} can route them to the
- * appropriate persistence method, and
- * {@link de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil}
- * decides whether to retry or fail permanently.</p>
+ * <p>Diagnostics are collected through {@link BatchDiagnosticsAcc} on the happy path.
+ * Unexpected failures are not swallowed and bubble up as {@link Mono#error} so callers can
+ * route them through the job failure handling logic.
  *
- * <p>The only exception is {@link ConsentViolatedException}, which is not an error but
- * an intentional skip — it is caught and converted to a skipped {@link BatchResult}.</p>
+ * <p>{@link ConsentViolatedException} is treated specially for batch processing: it is not
+ * considered a hard error, but converted into a skipped {@link BatchResult}.
  *
- * <p>Persists results as NDJSON via {@link ResultFileManager}.</p>
+ * <p>Results are persisted as NDJSON via {@link ResultFileManager}.
  */
 @Service
 public class ExtractDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ExtractDataService.class);
-    public static final String BATCH = "batch=";
 
     private final ResultFileManager resultFileManager;
     private final ProcessedGroupFactory processedGroupFactory;
@@ -83,7 +80,8 @@ public class ExtractDataService {
                               CascadingDelete cascadingDelete,
                               PatientBatchToCoreBundleWriter writer,
                               ConsentHandler consentHandler,
-                              DataStore dataStore, PostCascadeMustHaveChecker postCascadeMustHaveChecker) {
+                              DataStore dataStore,
+                              PostCascadeMustHaveChecker postCascadeMustHaveChecker) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -93,12 +91,8 @@ public class ExtractDataService {
         this.batchToCoreWriter = requireNonNull(writer);
         this.consentHandler = requireNonNull(consentHandler);
         this.dataStore = requireNonNull(dataStore);
-        this.postCascadeMustHaveChecker = postCascadeMustHaveChecker;
+        this.postCascadeMustHaveChecker = requireNonNull(postCascadeMustHaveChecker);
     }
-
-    // -------------------------------------------------------------------------
-    // Batch processing
-    // -------------------------------------------------------------------------
 
     private static void logMemory(UUID id) {
         Runtime runtime = Runtime.getRuntime();
@@ -120,182 +114,176 @@ public class ExtractDataService {
     /**
      * Processes a single batch of a job.
      *
-     * <p>The {@link Acc} accumulator is initialised here and carried through the entire
-     * pipeline as a happy-path diagnostic thread. Two possible outcomes:
-     * <ul>
-     *   <li><b>Skipped</b> — {@link ConsentViolatedException} was raised; no consenting
-     *       patients. A warning is attached and a skipped {@link BatchResult} is returned
-     *       immediately.</li>
-     *   <li><b>Finished</b> — all steps completed; {@link BatchResult} carries all
-     *       accumulated INFO/WARNING issues.</li>
-     * </ul>
-     *
-     * <p>Any other error bubbles up as {@link Mono#error} to the work unit.
+     * <p>If consent resolution raises {@link ConsentViolatedException}, the batch is converted
+     * into a skipped result with diagnostics and a warning issue. Any other error bubbles up.
      *
      * @param selection identifies the job and batch to process
-     * @return mono emitting the resulting {@link BatchResult}, or error on failure
+     * @return mono emitting the resulting {@link BatchResult}, or an error
      */
     public Mono<BatchResult> processBatch(BatchSelection selection) {
         AnnotatedCrtdl crtdl = selection.job().parameters().crtdl();
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
         BatchState batchState = selection.batchState();
         PatientBatch batch = selection.batch();
-        UUID jobID = selection.job().id();
+        UUID jobId = selection.job().id();
 
-        return Mono.just(Acc.ok(batch))
+        Mono<PatientBatchWithConsent> batchWithConsent =
+                crtdl.consentCodes()
+                        .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
+                        .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
+                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty());
 
-                // 1) Consent resolution
-                .flatMap(acc -> {
-                    Mono<PatientBatchWithConsent> batchWithConsent =
-                            crtdl.consentCodes()
-                                    .map(code -> consentHandler.fetchAndBuildConsentInfo(code, acc.value()))
-                                    .orElse(Mono.just(PatientBatchWithConsent.fromBatch(acc.value())));
+        return batchWithConsent
+                .flatMap(bwc -> processBatchAfterConsent(bwc, jobId, groupsToProcess, batchState))
+                .switchIfEmpty(Mono.fromSupplier(() -> {
+                    BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batch.batchId(), batch.ids().size());
+                    acc.incPatientsExcluded(CriterionKeys.consentNoData(), batch.ids().size());
+                    acc.setFinalPatientsInBatch(0);
 
-                    return batchWithConsent
-                            .map(bwc -> Acc.ok(bwc).mergeIssuesFrom(acc))
-                            // ConsentViolatedException is not an error — batch is intentionally skipped
-                            .onErrorResume(ConsentViolatedException.class, e ->
-                                    Mono.just(acc
-                                            .addWarning(
-                                                    "Batch " + batchState.batchId() + " skipped",
-                                                    "No consenting patients")
-                                            .map(v -> null))
-                            );
-                    // all other errors bubble up to the work unit
-                })
+                    BatchDiagnostics diag = acc.snapshot();
 
-                // 2) Route: skipped or continue pipeline
-                .flatMap(acc -> {
-                    if (acc.value() == null) {
-                        // consent violated — return skipped BatchResult immediately
-                        return Mono.just(new BatchResult(
-                                jobID,
-                                batch.batchId(),
-                                batchState.skip(),
-                                Optional.empty(),
-                                acc.issues()
-                        ));
-                    }
-                    return processBatchAfterConsent(acc, jobID, groupsToProcess, batchState);
-                });
+                    return new BatchResult(
+                            jobId,
+                            batch.batchId(),
+                            batchState.skip(),
+                            Optional.empty(),
+                            Optional.of(diag),
+                            List.of(Issue.simple(
+                                    Severity.WARNING,
+                                    "Batch " + selection.batchState().batchId() + " skipped because of no consenting patients"
+                            ))
+                    );
+                }));
     }
-
-    // -------------------------------------------------------------------------
-    // Core processing
-    // -------------------------------------------------------------------------
 
     /**
      * Continues batch processing once consent has been resolved.
      *
-     * <p>Receives an {@link Acc} already carrying any issues from consent resolution,
-     * and threads it through the remaining extraction steps:
-     * <ol>
-     *   <li>Load patient compartment</li>
-     *   <li>Reference resolution</li>
-     *   <li>Cascading delete</li>
-     *   <li>Copy + Redact</li>
-     *   <li>Write NDJSON</li>
-     * </ol>
-     *
-     * <p>Errors at any step bubble up as {@link Mono#error} — no catching or accumulation.
-     * {@link Acc} only collects INFO/WARNING diagnostics on the happy path.
-     *
-     * @param acc             accumulator carrying the consented batch and any prior issues
-     * @param jobID           owning job id
+     * @param batch           consent-filtered batch
+     * @param jobId           owning job id
      * @param groupsToProcess processed group set derived from the CRTDL
      * @param batchState      state snapshot to update in the returned {@link BatchResult}
      * @return mono emitting a finished {@link BatchResult}, or error on failure
      */
-    private Mono<BatchResult> processBatchAfterConsent(
-            Acc<PatientBatchWithConsent> acc,
-            UUID jobID,
-            GroupsToProcess groupsToProcess,
-            BatchState batchState) {
+    private Mono<BatchResult> processBatchAfterConsent(PatientBatchWithConsent batch,
+                                                       UUID jobId,
+                                                       GroupsToProcess groupsToProcess,
+                                                       BatchState batchState) {
+        UUID batchId = batch.id();
+        logMemory(batchId);
 
-        UUID id = acc.value().id();
-        logMemory(id);
+        BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, batch.patientBatch().ids().size());
 
-        // Steps 3-6 stay as Acc<PatientBatchWithConsent> until the type boundary at Copy+Redact
-        Mono<Acc<ExtractionPatientBatch>> afterRedact = Mono.just(acc)
-
-                // 3) Load patient compartment
-                .flatMap(a ->
-                        directResourceLoader
-                                .directLoadPatientCompartment(
-                                        groupsToProcess.directPatientCompartmentGroups(), a.value())
-                                .map(loaded -> {
-                                    logger.debug("Directly loaded patient compartment for batch {} with {} patients",
-                                            id, loaded.patientIds().size());
-                                    return Acc.ok(loaded)
-                                            .mergeIssuesFrom(a)
-                                            .addInfo("Loaded patient compartment", BATCH + id);
-                                })
+        return directResourceLoader
+                .directLoadPatientCompartment(
+                        groupsToProcess.directPatientCompartmentGroups(),
+                        batch,
+                        acc
                 )
-
-                // 4) Reference resolution
-                .flatMap(a ->
-                        referenceResolver
-                                .resolvePatientBatch(a.value(), groupsToProcess.allGroups())
-                                .map(resolved -> {
-                                    logger.debug("Batch resolved references {} with {} patients",
-                                            id, resolved.patientIds().size());
-                                    return Acc.ok(resolved)
-                                            .mergeIssuesFrom(a)
-                                            .addInfo("Resolved references", BATCH + id);
-                                })
-                )
-
-                // 5) Cascading delete
-                .map(a -> a
-                        .map(b -> cascadingDelete.handlePatientBatch(b, groupsToProcess.allGroups()))
-                        .addInfo("Applied cascading delete", BATCH + id)
-                )
-                // 5b) Post-cascade direct must-have check
-                .map(a -> a
-                        .map(b -> filterPostCascadeMustHaveViolations(
-                                b,
-                                groupsToProcess.directPatientCompartmentGroups()))
-                        .addInfo("Applied post-cascade direct must-have check", BATCH + id)
-                )
-
-                // 6) Copy + Redact — type boundary: Acc<PatientBatchWithConsent> → Acc<ExtractionPatientBatch>
-                .map(a -> a
-                        .map(b -> batchCopierRedacter.transformBatch(
-                                ExtractionPatientBatch.of(b), groupsToProcess.allGroups()))
-                        .addInfo("Extraction finished", BATCH + id)
-                );
-
-        return afterRedact
-
-                // 7) Write NDJSON
-                .flatMap(a ->
-                        writeBatch(jobID.toString(), a.value())
+                .doOnNext(loadedBatch ->
+                        logger.debug("Directly loaded patient compartment for batch {} with {} patients",
+                                batchId, loadedBatch.patientIds().size()))
+                .flatMap(patientBatch ->
+                        referenceResolver.resolvePatientBatch(patientBatch, groupsToProcess.allGroups(), acc))
+                .map(patientBatch ->
+                        cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()))
+                .map(patientBatch ->
+                        filterPostCascadeMustHaveViolations(
+                                patientBatch,
+                                groupsToProcess.directPatientCompartmentGroups()
+                        ))
+                .doOnNext(loadedBatch ->
+                        logger.debug("Batch resolved references {} with {} patients",
+                                batchId, loadedBatch.patientIds().size()))
+                .map(patientBatch ->
+                        batchCopierRedacter.transformBatch(
+                                ExtractionPatientBatch.of(patientBatch),
+                                groupsToProcess.allGroups()
+                        ))
+                .doOnNext(__ -> logger.debug("Batch finished extraction {}", batchId))
+                .flatMap(extractedBatch ->
+                        writeBatch(jobId.toString(), extractedBatch)
                                 .subscribeOn(Schedulers.boundedElastic())
-                                .thenReturn(a.addInfo("Wrote NDJSON bundle", BATCH + id))
+                                .thenReturn(extractedBatch)
                 )
+                .map(extractedBatch -> {
+                    acc.setFinalPatientsInBatch(extractedBatch.bundles().size());
+                    BatchDiagnostics diag = acc.snapshot();
 
-                // 8) Drain Acc → BatchResult
-                .map(a -> new BatchResult(
-                        jobID,
-                        acc.value().id(),
-                        a.value().isEmpty()
-                                ? batchState.skip()
-                                : batchState.finishNow(WorkUnitStatus.FINISHED),
-                        a.value().isEmpty()
-                                ? Optional.empty()
-                                : Optional.of(batchToCoreWriter.toCoreBundle(a.value())),
-                        a.issues()
-                ));
+                    return new BatchResult(
+                            jobId,
+                            batchId,
+                            batchState.finishNow(WorkUnitStatus.FINISHED),
+                            Optional.of(batchToCoreWriter.toCoreBundle(extractedBatch)),
+                            Optional.of(diag),
+                            List.of()
+                    );
+                });
     }
 
-    // -------------------------------------------------------------------------
-    // Persistence helpers
-    // -------------------------------------------------------------------------
+    /**
+     * Processes the job's core (non-batch) resources and persists the resulting core bundle.
+     *
+     * @param job                   job to process
+     * @param preComputedCoreBundle already available core bundle content to merge in
+     * @return mono emitting the {@link CoreResult} (skipped if empty, finished otherwise),
+     * or error on failure
+     */
+    public Mono<CoreResult> processCore(Job job, ExtractionResourceBundle preComputedCoreBundle) {
+        AnnotatedCrtdl crtdl = job.parameters().crtdl();
+        GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
+
+        BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(job.id(), job.id(), 0);
+
+        return directResourceLoader
+                .processCoreAttributeGroups(
+                        groupsToProcess.directNoPatientGroups(),
+                        new ResourceBundle(),
+                        acc
+                )
+                .flatMap(cb -> referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups(), acc))
+                .flatMap(cb -> {
+                    logger.debug("Running final cascading delete on core bundle");
+                    cascadingDelete.handleBundle(cb, groupsToProcess.allGroups());
+                    try {
+                        postCascadeMustHaveChecker.validate(cb, groupsToProcess.directNoPatientGroups());
+                        return Mono.just(cb);
+                    } catch (MustHaveViolatedException e) {
+                        return Mono.error(e);
+                    }
+                })
+                .map(ExtractionResourceBundle::of)
+                .flatMap(cb -> {
+                    ExtractionResourceBundle merged = cb.merge(preComputedCoreBundle);
+
+                    List<Map<String, Set<String>>> missingChunks =
+                            dataStore.groupReferencesByTypeInChunks(merged.missingCacheEntries());
+
+                    return Flux.fromIterable(missingChunks)
+                            .map(DataStoreHelper::createBatchBundleForReferences)
+                            .concatMap(dataStore::executeBundle)
+                            .flatMapIterable(list -> list)
+                            .doOnNext(merged::put)
+                            .then(Mono.just(merged));
+                })
+                .flatMap(cb -> {
+                    ExtractionResourceBundle transformed =
+                            batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups());
+
+                    if (transformed.isEmpty()) {
+                        return Mono.just(new CoreResult(job.id(), List.of(), WorkUnitStatus.SKIPPED));
+                    }
+
+                    return writeBundle(job.id().toString(), transformed)
+                            .thenReturn(new CoreResult(job.id(), List.of(), WorkUnitStatus.FINISHED));
+                })
+                .subscribeOn(Schedulers.boundedElastic());
+    }
 
     /**
      * Persists a single batch as NDJSON.
      *
-     * @param jobID owning job id (directory key)
+     * @param jobID owning job id
      * @param batch extracted batch content
      * @return completion signal; emits error if writing fails
      */
@@ -313,7 +301,7 @@ public class ExtractDataService {
     /**
      * Persists the core bundle as NDJSON.
      *
-     * @param jobID  owning job id (directory key)
+     * @param jobID  owning job id
      * @param bundle extracted and transformed core bundle
      * @return completion signal; emits error if writing fails
      */
@@ -326,91 +314,6 @@ public class ExtractDataService {
                 return Mono.error(e);
             }
         });
-    }
-
-    // -------------------------------------------------------------------------
-    // Internal helpers
-    // -------------------------------------------------------------------------
-
-    /**
-     * Processes the job's core (non-batch) resources and persists the resulting core bundle.
-     *
-     * <p>Uses {@link Acc} to thread {@link Issue}s through the pipeline on the happy path.
-     * Errors bubble up as {@link Mono#error} to the work unit — no catching inside the pipeline.
-     *
-     * @param job                   job to process
-     * @param preComputedCoreBundle already available core bundle content to merge in
-     * @return mono emitting the {@link CoreResult} (skipped if empty, finished otherwise),
-     * or error on failure
-     */
-    public Mono<CoreResult> processCore(Job job, ExtractionResourceBundle preComputedCoreBundle) {
-
-        AnnotatedCrtdl crtdl = job.parameters().crtdl();
-        GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
-
-        // Steps 1-2 produce Acc<ResourceBundle>, split at type boundary before step 3
-        Mono<Acc<ExtractionResourceBundle>> afterDelete = directResourceLoader
-                .processCoreAttributeGroups(groupsToProcess.directNoPatientGroups(), new ResourceBundle())
-                .map(Acc::ok)
-
-                // 1) Reference resolution
-                .flatMap(acc ->
-                        referenceResolver.resolveCoreBundle(acc.value(), groupsToProcess.allGroups())
-                                .map(resolved -> Acc.ok(resolved)
-                                        .mergeIssuesFrom(acc)
-                                        .addInfo("Resolved core references", "job=" + job.id()))
-                )
-
-                // 2) Cascading delete — type boundary: ResourceBundle → ExtractionResourceBundle
-                .flatMap(acc -> {
-                    logger.debug("Running final cascading delete on core bundle");
-                    ResourceBundle cascaded = acc.value();
-                    cascadingDelete.handleBundle(cascaded, groupsToProcess.allGroups());
-
-                    try {
-                        postCascadeMustHaveChecker.validate(cascaded, groupsToProcess.directNoPatientGroups());
-                        return Mono.just(
-                                acc.map(ExtractionResourceBundle::of)
-                                        .addInfo("Applied cascading delete", "job=" + job.id())
-                        );
-                    } catch (MustHaveViolatedException e) {
-                        return Mono.error(e);
-                    }
-                });
-
-        return afterDelete
-
-                // 3) Merge precomputed + fill missing cache entries
-                .flatMap(acc -> {
-                    ExtractionResourceBundle merged = acc.value().merge(preComputedCoreBundle);
-                    List<Map<String, Set<String>>> missingChunks =
-                            dataStore.groupReferencesByTypeInChunks(merged.missingCacheEntries());
-
-                    return Flux.fromIterable(missingChunks)
-                            .map(DataStoreHelper::createBatchBundleForReferences)
-                            .concatMap(dataStore::executeBundle)
-                            .flatMapIterable(list -> list)
-                            .doOnNext(merged::put)
-                            .then(Mono.just(acc.map(v -> merged)
-                                    .addInfo("Filled missing cache entries", "job=" + job.id())));
-                })
-
-                // 4) Transform + Write
-                .flatMap(acc -> {
-                    ExtractionResourceBundle transformed =
-                            batchCopierRedacter.transformBundle(acc.value(), groupsToProcess.allGroups());
-
-                    if (transformed.isEmpty()) {
-                        return Mono.just(new CoreResult(job.id(), acc.issues(), WorkUnitStatus.SKIPPED));
-                    }
-
-                    return writeBundle(job.id().toString(), transformed)
-                            .thenReturn(new CoreResult(
-                                    job.id(),
-                                    acc.addInfo("Wrote core NDJSON", "job=" + job.id()).issues(),
-                                    WorkUnitStatus.FINISHED));
-                })
-                .subscribeOn(Schedulers.boundedElastic());
     }
 
     private PatientBatchWithConsent filterPostCascadeMustHaveViolations(
@@ -427,10 +330,8 @@ public class ExtractDataService {
                     }
                 })
                 .map(Map.Entry::getKey)
-                .collect(java.util.stream.Collectors.toSet());
+                .collect(Collectors.toSet());
 
         return batch.keep(survivingPatientIds);
     }
-
-
 }
