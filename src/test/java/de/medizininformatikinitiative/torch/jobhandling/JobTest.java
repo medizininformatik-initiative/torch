@@ -802,7 +802,8 @@ public class JobTest {
         @EnumSource(value = JobStatus.class, names = {
                 "COMPLETED",
                 "FAILED",
-                "CANCELLED"
+                "CANCELLED",
+                "DELETED"
         })
         void conflict(JobStatus before) {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
@@ -849,7 +850,8 @@ public class JobTest {
         @ParameterizedTest
         @EnumSource(value = JobStatus.class, names = {
                 "COMPLETED",
-                "FAILED"
+                "FAILED",
+                "DELETED"
         })
         void conflict(JobStatus before) {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
@@ -858,6 +860,27 @@ public class JobTest {
             assertThatThrownBy(job::cancel)
                     .isInstanceOf(StateConflictException.class)
                     .hasMessageContaining(job.status().display());
+        }
+    }
+
+    @Nested
+    class Delete {
+
+        @Test
+        void setsStatusToDeleted() {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+            Job result = job.delete();
+
+            assertThat(result.status()).isEqualTo(JobStatus.DELETED);
+        }
+
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class)
+        void canDeleteFromAnyStatus(JobStatus before) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(before);
+
+            assertThat(job.delete().status()).isEqualTo(JobStatus.DELETED);
         }
     }
 
@@ -941,7 +964,8 @@ public class JobTest {
         @EnumSource(value = JobStatus.class, names = {
                 "COMPLETED",
                 "FAILED",
-                "CANCELLED"
+                "CANCELLED",
+                "DELETED"
         })
         void conflict(JobStatus before) {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())

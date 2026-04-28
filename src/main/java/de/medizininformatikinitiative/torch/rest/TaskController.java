@@ -37,7 +37,6 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
-import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -758,11 +757,7 @@ public class TaskController {
                             return jobId;
                         })
                         .subscribeOn(Schedulers.boundedElastic())
-                        .flatMap(ignored -> ServerResponse.noContent().build())
-                        .onErrorResume(IOException.class, e -> operationOutcome(
-                                HttpStatus.INTERNAL_SERVER_ERROR,
-                                OperationOutcomeCreator.createOperationOutcome(e)
-                        )))
+                        .flatMap(ignored -> ServerResponse.noContent().build()))
                 .onErrorResume(JobNotFoundException.class, e -> notFound(e.getMessage()));
     }
 

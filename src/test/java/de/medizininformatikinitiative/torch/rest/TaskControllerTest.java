@@ -23,7 +23,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -369,25 +368,6 @@ class TaskControllerTest {
             assertThat(outcome.getIssueFirstRep().getCode()).isEqualTo(OperationOutcome.IssueType.NOTFOUND);
         }
 
-        @Test
-        void internalServerErrorOnIoException() throws Exception {
-            UUID jobId = UUID.randomUUID();
-
-            doThrow(new IOException("disk failure")).when(persistence).deleteJob(jobId);
-
-            String response = client.delete()
-                    .uri("/fhir/Task/{id}", jobId)
-                    .exchange()
-                    .expectStatus().isEqualTo(500)
-                    .expectHeader().contentType("application/fhir+json")
-                    .expectBody(String.class)
-                    .returnResult()
-                    .getResponseBody();
-
-            OperationOutcome outcome = parseOutcome(response);
-            assertThat(outcome.getIssueFirstRep().getSeverity())
-                    .isEqualTo(OperationOutcome.IssueSeverity.FATAL);
-        }
     }
 
     @Nested
