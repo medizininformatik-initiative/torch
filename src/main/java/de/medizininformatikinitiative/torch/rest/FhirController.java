@@ -199,7 +199,7 @@ public class FhirController {
     public Mono<ServerResponse> handleExtractData(ServerRequest request) {
 
         return request.bodyToMono(String.class)
-                .filter(body -> body != null && !body.isBlank())
+                .filter(body -> !body.isBlank())
                 .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
                 .map(extractDataParametersParser::parseParameters)
                 .flatMap(parameters -> {
@@ -270,7 +270,7 @@ public class FhirController {
                     ),
                     @ApiResponse(
                             responseCode = "404",
-                            description = "Job Not Found",
+                            description = "Job Not Found Or Deleted",
                             content = @Content(
                                     mediaType = "application/fhir+json",
                                     schema = @Schema(implementation = OperationOutcomeSchema.class)
@@ -374,6 +374,9 @@ public class FhirController {
                             OperationOutcomeCreator.fromJob(job)));
             case CANCELLED ->
                     ServerResponse.status(410).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
+                            OperationOutcomeCreator.fromJob(job)));
+            case DELETED ->
+                    ServerResponse.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
                             OperationOutcomeCreator.fromJob(job)));
         };
     }

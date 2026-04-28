@@ -10,7 +10,8 @@ public enum JobStatus {
     RUNNING_PROCESS_CORE("Processing core data"),
     COMPLETED("Completed"),
     FAILED("Failed"),
-    CANCELLED("Cancelled");
+    CANCELLED("Cancelled"),
+    DELETED("Deleted");
 
     private final String display;
 
@@ -23,6 +24,6 @@ public enum JobStatus {
     }
 
     public boolean isFinal() {
-        return this == COMPLETED || this == FAILED || this == CANCELLED;
+        return this == COMPLETED || this == FAILED || this == CANCELLED || this == DELETED;
     }
 }

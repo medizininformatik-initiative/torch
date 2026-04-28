@@ -864,14 +864,11 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void removesJobFromRegistryAndDeletesDirectory() throws IOException, JobNotFoundException {
-            assertThat(service.getJob(jobId)).isPresent();
-            assertThat(baseDir.resolve(jobId.toString())).exists();
-
+        void deleteJobdWritesDeletedMarker() throws JobNotFoundException {
             service.deleteJob(jobId);
 
-            assertThat(service.getJob(jobId)).isEmpty();
-            assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
+            assertThat(service.getJob(jobId).get().status()).isEqualTo(JobStatus.DELETED);
+            assertThat(baseDir.resolve(jobId.toString())).exists();
         }
 
         @Test
@@ -881,6 +878,71 @@ class JobPersistenceServiceTest {
             assertThatThrownBy(() -> service.deleteJob(unknownJobId))
                     .isInstanceOf(JobNotFoundException.class)
                     .hasMessageContaining(unknownJobId.toString());
+        }
+
+        @Test
+        void deleteJobSaveFailure() throws IOException, JobNotFoundException {
+            FileIo spyIo = spy(new DefaultFileIO());
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            spyService.init();
+            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+
+            doThrow(new IOException("disk full")).when(spyIo).newBufferedWriter(argThat(p -> p.toString().endsWith(".tmp")));
+
+            spyService.deleteJob(id);
+            assertThat(spyService.getJob(id)).isNotEmpty();
+        }
+
+        @Test
+        void gcDeletedJobs_removesDeletedDirectories() throws IOException, JobNotFoundException {
+            service.deleteJob(jobId);
+            assertThat(baseDir.resolve(jobId.toString())).exists();
+
+            service.gcDeletedJobs();
+
+            assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
+        }
+
+        @Test
+        void gcDeletedJobs_deleteDirFailure_doesNotThrow() throws IOException, JobNotFoundException {
+            FileIo spyIo = spy(new DefaultFileIO());
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            spyService.init();
+            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            spyService.deleteJob(id);
+
+            doThrow(new IOException("permission denied")).when(spyIo).deleteDir(any());
+
+            spyService.gcDeletedJobs();
+        }
+
+        @Test
+        void gcDeletedJobs_loadAllJobsFailure_doesNotThrow() throws IOException {
+            FileIo spyIo = spy(new DefaultFileIO());
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            spyService.init();
+
+            doThrow(new IOException("list failed")).when(spyIo).list(any());
+
+            spyService.gcDeletedJobs();
+        }
+
+        @Test
+        void findJobs_excludesDeletedJobsInRegistry() {
+            Job deleted = service.getJob(jobId).orElseThrow().withStatus(JobStatus.DELETED);
+            service.putJobForTest(deleted);
+
+            assertThat(service.findJobs(Set.of(), Set.of())).noneMatch(j -> j.id().equals(jobId));
+        }
+
+        @Test
+        void init_doesNotLoadDeletedJobs() throws IOException, JobNotFoundException {
+            service.deleteJob(jobId);
+
+            JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            freshService.init();
+
+            assertThat(freshService.getJob(jobId)).isEmpty();
         }
 
     }
@@ -1123,7 +1185,7 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void conflict() throws JobNotFoundException {
+        void conflict() {
             Job job = service.getJob(jobId).orElseThrow()
                     .withStatus(JobStatus.FAILED);
             service.putJobForTest(job);

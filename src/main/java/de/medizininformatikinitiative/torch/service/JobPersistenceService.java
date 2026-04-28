@@ -26,6 +26,7 @@ import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.BufferedWriter;
@@ -39,10 +40,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.Set;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -94,6 +95,10 @@ public class JobPersistenceService {
         }
 
         for (Job loaded : loadAllJobs()) {
+            if (loaded.status() == JobStatus.DELETED) {
+                continue;
+            }
+
             Job reconciled = loaded.status().isFinal()
                     ? loaded
                     : loaded.rollback();
@@ -142,19 +147,51 @@ public class JobPersistenceService {
 
 
     /**
-     * Deletes a job and its persisted state.
+     * Marks a job as deleted to be removed from the registry by GC.
+     *
+     * <p>The {@link JobStatus#DELETED} marker is written to disk before the job is removed
+     * from the in-memory registry. This ensures that a concurrent job update cannot resurrect
+     * the job after deletion, and that the job is not reloaded on the next TORCH startup even
+     * if the GC sweep has not yet run. The actual removal of the job directory is handled
+     * asynchronously by {@link #gcDeletedJobs()}.</p>
      *
      * @param jobId job id
-     * @throws IOException          if deleting the persisted job data fails
      * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void deleteJob(UUID jobId) throws IOException, JobNotFoundException {
-        Job removed = jobRegistry.remove(jobId);
-        if (removed == null) {
-            throw new JobNotFoundException(jobId);
+    public void deleteJob(UUID jobId) throws JobNotFoundException {
+        updateJobAndReturn(jobId, job -> {
+            Job deleted = job.delete();
+            return new JobAndResult<>(deleted, deleted);
+        });
+        logger.info("Marked job {} as deleted – directory will be removed by GC", jobId);
+    }
+
+    /**
+     * Removes directories of deleted jobs from disk.
+     *
+     * <p>Runs on a fixed delay. Directories of jobs marked {@link JobStatus#DELETED}
+     * are removed; failures are logged and retried on the next sweep.</p>
+     */
+    @Scheduled(fixedDelayString = "${torch.gc.job-deletion-delay-ms:86400000}")
+    void gcDeletedJobs() {
+        List<Job> jobs;
+        try {
+            jobs = loadAllJobs();
+        } catch (IOException e) {
+            logger.warn("GC: failed to list job directories: {}", e.getMessage(), e);
+            return;
         }
-        io.deleteDir(jobDir(jobId));
-        logger.info("Removed job {}", jobId);
+        for (Job job : jobs) {
+            if (job.status() == JobStatus.DELETED) {
+                try {
+                    io.deleteDir(jobDir(job.id()));
+                    logger.info("GC: removed job directory from file system {}", job.id());
+                    jobRegistry.remove(job.id());
+                } catch (IOException e) {
+                    logger.warn("GC: failed to delete job directory {}: {}", job.id(), e.getMessage(), e);
+                }
+            }
+        }
     }
 
     /**
@@ -215,7 +252,7 @@ public class JobPersistenceService {
      * @param priority        the new priority
      * @param expectedVersion version the caller last observed
      * @return the updated job
-     * @throws JobNotFoundException    if the job is unknown to the registry
+     * @throws JobNotFoundException     if the job is unknown to the registry
      * @throws VersionConflictException if the current version does not match {@code expectedVersion}
      */
     public Job changePriority(UUID jobId, JobPriority priority, long expectedVersion) throws JobNotFoundException {
@@ -240,6 +277,7 @@ public class JobPersistenceService {
      */
     public List<Job> findJobs(Set<UUID> ids, Set<JobStatus> statuses) {
         return jobRegistry.values().stream()
+                .filter(job -> job.status() != JobStatus.DELETED)
                 .filter(job -> ids.isEmpty() || ids.contains(job.id()))
                 .filter(job -> statuses.isEmpty() || statuses.contains(job.status()))
                 .sorted(Comparator.comparing(Job::startedAt).reversed())

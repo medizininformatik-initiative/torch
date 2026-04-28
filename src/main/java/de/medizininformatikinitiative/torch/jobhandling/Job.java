@@ -629,6 +629,17 @@ public record Job(
     }
 
     /**
+     * Marks this job as deleted.
+     *
+     * <p>The actual directory removal is handled asynchronously by a GC process.</p>
+     *
+     * @return a deleted job
+     */
+    public Job delete() {
+        return withStatus(JobStatus.DELETED);
+    }
+
+    /**
      * Resumes a frozen job.
      * <p>
      * If the status is {@link JobStatus#PAUSED}, the next runnable status is inferred from the

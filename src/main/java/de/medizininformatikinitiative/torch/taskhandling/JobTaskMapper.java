@@ -61,7 +61,7 @@ public class JobTaskMapper {
                  RUNNING_PROCESS_CORE -> Task.TaskStatus.INPROGRESS;
             case COMPLETED -> Task.TaskStatus.COMPLETED;
             case FAILED -> Task.TaskStatus.FAILED;
-            case CANCELLED -> Task.TaskStatus.CANCELLED;
+            case CANCELLED, DELETED -> Task.TaskStatus.CANCELLED;
         };
     }
 
