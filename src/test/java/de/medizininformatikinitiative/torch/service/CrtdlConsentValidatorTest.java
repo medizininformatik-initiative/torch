@@ -158,7 +158,39 @@ class CrtdlConsentValidatorTest {
     }
 
     @Test
-    void skipsInvalidTermCodes() {
+    void collectsMultipleEinwilligungBlocksInOneGroup() throws Exception {
+        String json = """
+                {
+                  "inclusionCriteria": [
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "code": "2.16.840.1.113883.3.1937.777.24.5.3.8" }
+                        ]
+                      },
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "code": "2.16.840.1.113883.3.1937.777.24.5.3.46" }
+                        ]
+                      }
+                    ]
+                  ]
+                }
+                """;
+
+        Optional<Set<TermCode>> codes = getTermCodes(json);
+
+        assertThat(codes).isPresent();
+        assertThat(codes.get()).containsExactlyInAnyOrder(
+                new TermCode("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "2.16.840.1.113883.3.1937.777.24.5.3.8"),
+                new TermCode("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "2.16.840.1.113883.3.1937.777.24.5.3.46")
+        );
+    }
+
+    @Test
+    void skipsInvalidTermCodes() throws Exception {
         String json = """
                 {
                   "inclusionCriteria": [
@@ -180,9 +212,10 @@ class CrtdlConsentValidatorTest {
                 }
                 """;
 
-        assertThatThrownBy(() -> getTermCodes(json))
-                .isInstanceOf(ConsentFormatException.class)
-                .hasMessageContaining("Invalid inclusion criteria: multiple Einwilligung contexts found in the same group.");
+        Optional<Set<TermCode>> codes = getTermCodes(json);
+
+        assertThat(codes).isPresent();
+        assertThat(codes.get()).containsExactly(new TermCode("s1", "VALID"));
     }
 
     @Test
