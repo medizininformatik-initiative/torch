@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-alpha.20] - 2026-04-30
+
+### Fixed
+
+- Fix Consistency Problem in Job Deletion [#792](https://github.com/medizininformatik-initiative/torch/issues/792)
+- Consent: Handle Multiple Consent Blocks in CCDL [#864](https://github.com/medizininformatik-initiative/torch/issues/864)
+
+
+- Fix Skipped Batches Point To Non Existing Files [#819](https://github.com/medizininformatik-initiative/torch/issues/819)
+
 ## [v1.0.0-alpha.19] - 2026-04-27
 
 ### Added

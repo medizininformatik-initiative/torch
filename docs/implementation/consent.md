@@ -115,6 +115,8 @@ After merge and subtract:
 
 ## 7. Limitations and Considerations
 
+- TORCH allows multiple consent blocks in the cohort definition (CCDL), which in the feasibility evaluate to or,
+  but internally the stricter logic described in 4. is applied.
 - Consent records must be **up-to-date** and accurately reflect patient permissions.
 - Only the codes listed in `consent-code-config.json` are evaluated — all others are ignored.
 - The file can be edited manually; the shipped default contains only
