@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 
@@ -135,26 +136,10 @@ public record AnnotatedAttributeGroup(
                 .toList();
     }
 
-    private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
-        List<QueryParams> codeParams = filter.stream()
-                .filter(f -> "token".equals(f.type()))
-                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
-                .toList();
-
-        QueryParams dateParams = PATIENT.equals(resourceType()) ? EMPTY : filter.stream()
-                .filter(f -> "date".equals(f.type()))
-                .findFirst()
-                .map(Filter::dateFilter)
-                .orElse(EMPTY);
-
-        if (codeParams.isEmpty()) {
-            // Add a single QueryParams with the date filter (if available) and profile parameter
-            return List.of(dateParams.appendParam("_profile:below", stringValue(groupReference)));
-        } else {
-            return codeParams.stream()
-                    .map(p -> p.appendParams(dateParams).appendParam("_profile:below", stringValue(groupReference)))
-                    .toList();
-        }
+    private static boolean sameAttributeIdentity(AnnotatedAttribute a, AnnotatedAttribute b) {
+        return a.attributeRef().equals(b.attributeRef())
+                && new LinkedHashSet<>(a.linkedGroups())
+                .equals(new LinkedHashSet<>(b.linkedGroups()));
     }
 
     public static CopyTreeNode buildTree(List<AnnotatedAttribute> attributes, String resourceType) {
@@ -170,11 +155,100 @@ public record AnnotatedAttributeGroup(
         return root;
     }
 
-    public AnnotatedAttributeGroup addAttributes(List<AnnotatedAttribute> newAttributes) {
+    private List<QueryParams> queryParams(DseMappingTreeBase mappingTreeBase) {
+        List<QueryParams> codeParams = filter.stream()
+                .filter(f -> "token".equals(f.type()))
+                .flatMap(f -> f.codeFilter(mappingTreeBase).split())
+                .toList();
 
-        List<AnnotatedAttribute> tempAttributes = new ArrayList<>(attributes);
-        tempAttributes.addAll(newAttributes);
-        return new AnnotatedAttributeGroup(name, id, resourceType, groupReference, tempAttributes, filter, includeReferenceOnly);
+        QueryParams dateParams = PATIENT.equals(resourceType()) ? EMPTY : filter.stream()
+                                                                          .filter(f -> "date".equals(f.type()))
+                                                                          .findFirst()
+                                                                          .map(Filter::dateFilter)
+                                                                          .orElse(EMPTY);
+
+        if (codeParams.isEmpty()) {
+            // Add a single QueryParams with the date filter (if available) and profile parameter
+            return List.of(dateParams.appendParam("_profile:below", stringValue(groupReference)));
+        } else {
+            return codeParams.stream()
+                    .map(p -> p.appendParams(dateParams).appendParam("_profile:below", stringValue(groupReference)))
+                    .toList();
+        }
+    }
+
+    /**
+     * Returns a new group whose attribute list is the merge of this group's existing attributes
+     * and {@code newAttributes}.
+     *
+     * <h2>Merge semantics</h2>
+     * <ul>
+     *   <li>Two attributes are considered identical if both their
+     *       {@link AnnotatedAttribute#attributeRef()} and their {@link AnnotatedAttribute#linkedGroups()}
+     *       (as sets) are equal.</li>
+     *   <li>Only identical attributes are merged.</li>
+     *   <li>Attributes with the same {@code attributeRef} but different {@code linkedGroups}
+     *       are treated as distinct entries and are <b>not merged</b>.</li>
+     * </ul>
+     *
+     * <h2>Merge behavior</h2>
+     * <ul>
+     *   <li>{@code mustHave} — combined using logical OR
+     *       ({@code existing.mustHave() || incoming.mustHave()})</li>
+     *   <li>{@code fhirPath} — taken from the incoming attribute</li>
+     *   <li>{@code linkedGroups} — unchanged (no union is performed)</li>
+     * </ul>
+     *
+     * <h2>Rationale</h2>
+     * <p>{@code linkedGroups} represent reference contexts and must not be merged implicitly.
+     * This avoids mixing distinct reference semantics. The method therefore minimizes duplicates
+     * while preserving context separation.</p>
+     *
+     * <h2>Examples</h2>
+     * <pre>
+     * Same attributeRef + same linkedGroups:
+     *   A([], mustHave=true) + A([], mustHave=false)
+     *   → A([], mustHave=true)
+     *
+     * Same attributeRef + different linkedGroups:
+     *   A([], mustHave=true) + A(["X"], mustHave=false)
+     *   → two separate entries
+     * </pre>
+     *
+     * @param newAttributes attributes to add or merge into this group
+     * @return a new {@code AnnotatedAttributeGroup} with the merged attribute list
+     */
+    public AnnotatedAttributeGroup addAttributes(List<AnnotatedAttribute> newAttributes) {
+        List<AnnotatedAttribute> result = new ArrayList<>(attributes);
+
+        for (AnnotatedAttribute incoming : newAttributes) {
+            int matchIndex = -1;
+
+            for (int i = 0; i < result.size(); i++) {
+                AnnotatedAttribute candidate = result.get(i);
+
+                if (sameAttributeIdentity(candidate, incoming)) {
+                    matchIndex = i;
+                    break;
+                }
+            }
+
+            if (matchIndex < 0) {
+                result.add(incoming);
+            } else {
+                AnnotatedAttribute existing = result.get(matchIndex);
+                result.set(matchIndex, new AnnotatedAttribute(
+                        existing.attributeRef(),
+                        incoming.fhirPath(),
+                        existing.mustHave() || incoming.mustHave(),
+                        existing.linkedGroups()
+                ));
+            }
+        }
+
+        return new AnnotatedAttributeGroup(
+                name, id, resourceType, groupReference, result, filter, includeReferenceOnly
+        );
     }
 
     public boolean hasMustHave() {

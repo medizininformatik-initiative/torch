@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class StandardAttributeGeneratorTest {
 
@@ -22,12 +23,20 @@ class StandardAttributeGeneratorTest {
     void setUp() throws IOException {
         var compartmentManager = new CompartmentManager("compartmentdefinition-patient.json");
         var integrationTestSetup = new IntegrationTestSetup();
-        standardAttributeGenerator = new StandardAttributeGenerator(compartmentManager, integrationTestSetup.structureDefinitionHandler());
+        standardAttributeGenerator = new StandardAttributeGenerator(
+                compartmentManager,
+                integrationTestSetup.structureDefinitionHandler()
+        );
     }
 
     @Test
     void patient() throws ValidationException {
-        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(new Attribute("Patient.name", false)), List.of());
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                List.of(new Attribute("Patient.name", false)),
+                List.of()
+        );
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
@@ -35,13 +44,43 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Patient.id", "Patient.id", false),
                 new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
-                new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false)
+                new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false),
+                new AnnotatedAttribute("Patient.name", "Patient.name", false)
+        );
+    }
+
+    @Test
+    void patientReferenceWithDifferentMustHaveIsKeptSeparate() throws ValidationException {
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                List.of(new Attribute(
+                        "Observation.subject",
+                        true,
+                        List.of("SpecialPatient")
+                )),
+                List.of()
+        );
+
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
+
+        assertThat(standardAddedGroup.hasMustHave()).isTrue();
+        assertThat(standardAddedGroup.attributes()).containsExactly(
+                new AnnotatedAttribute("Observation.id", "Observation.id", false),
+                new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", false),
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("patientGroup")),
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", true, List.of("SpecialPatient"))
         );
     }
 
     @Test
     void consent() throws ValidationException {
-        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung", List.of(new Attribute("Consent.identifier", false)), List.of());
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung",
+                List.of(new Attribute("Consent.identifier", false)),
+                List.of()
+        );
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
@@ -49,13 +88,19 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Consent.id", "Consent.id", false),
                 new AnnotatedAttribute("Consent.meta.profile", "Consent.meta.profile", false),
-                new AnnotatedAttribute("Consent.patient", "Consent.patient", false, List.of("patientGroup"))
+                new AnnotatedAttribute("Consent.patient", "Consent.patient", false, List.of("patientGroup")),
+                new AnnotatedAttribute("Consent.identifier", "Consent.identifier", false)
         );
     }
 
     @Test
     void observation() throws ValidationException {
-        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.identifier", false)), List.of());
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                List.of(new Attribute("Observation.identifier", false)),
+                List.of()
+        );
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "group1");
 
@@ -63,13 +108,19 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Observation.id", "Observation.id", false),
                 new AnnotatedAttribute("Observation.meta.profile", "Observation.meta.profile", false),
-                new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("group1"))
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("group1")),
+                new AnnotatedAttribute("Observation.identifier", "Observation.identifier", false)
         );
     }
 
     @Test
     void coreCase() throws ValidationException {
-        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication", List.of(), List.of());
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication",
+                List.of(),
+                List.of()
+        );
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
@@ -82,7 +133,12 @@ class StandardAttributeGeneratorTest {
 
     @Test
     void defaultCase() throws ValidationException {
-        var attributeGroup = new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose", List.of(new Attribute("Condition.code", false)), List.of());
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-diagnose/StructureDefinition/Diagnose",
+                List.of(new Attribute("Condition.code", false)),
+                List.of()
+        );
 
         var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
 
@@ -90,7 +146,41 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Condition.id", "Condition.id", false),
                 new AnnotatedAttribute("Condition.meta.profile", "Condition.meta.profile", false),
-                new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("patientGroup"))
+                new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("patientGroup")),
+                new AnnotatedAttribute("Condition.code", "Condition.code", false)
+        );
+    }
+
+    @Test
+    void unknownProfile() {
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "unknown.profile",
+                List.of(),
+                List.of()
+        );
+
+        assertThatThrownBy(() -> standardAttributeGenerator.generate(attributeGroup, "patientGroup"))
+                .isInstanceOf(ValidationException.class)
+                .hasMessageContaining("No StructureDefinition found for: unknown.profile");
+    }
+
+    @Test
+    void duplicateStandardAttributeIsNotAddedTwice() throws ValidationException {
+        var attributeGroup = new AttributeGroup(
+                "test",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                List.of(new Attribute("Patient.identifier", false)),
+                List.of()
+        );
+
+        var standardAddedGroup = standardAttributeGenerator.generate(attributeGroup, "patientGroup");
+
+        assertThat(standardAddedGroup.hasMustHave()).isFalse();
+        assertThat(standardAddedGroup.attributes()).containsExactly(
+                new AnnotatedAttribute("Patient.id", "Patient.id", false),
+                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
+                new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false)
         );
     }
 }
