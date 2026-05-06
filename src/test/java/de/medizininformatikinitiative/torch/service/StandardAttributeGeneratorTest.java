@@ -34,8 +34,7 @@ class StandardAttributeGeneratorTest {
         assertThat(standardAddedGroup.hasMustHave()).isFalse();
         assertThat(standardAddedGroup.attributes()).containsExactly(
                 new AnnotatedAttribute("Patient.id", "Patient.id", false),
-                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
-                new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false)
+                new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
         );
     }
 
