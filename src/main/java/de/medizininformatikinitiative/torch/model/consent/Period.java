@@ -126,6 +126,10 @@ public record Period(
                 period.end().isAfter(start);
     }
 
+    public boolean contains(LocalDate date) {
+        return !date.isBefore(start) && !date.isAfter(end);
+    }
+
     public Period intersect(Period other) {
         LocalDate maxStart = start.isAfter(other.start) ? start : other.start;
         LocalDate minEnd = end.isBefore(other.end) ? end : other.end;

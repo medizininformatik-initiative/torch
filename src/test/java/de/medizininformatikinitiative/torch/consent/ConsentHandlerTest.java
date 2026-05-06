@@ -45,8 +45,8 @@ public class ConsentHandlerTest {
     @Test
     void failsOnNoPatientMatchesConsentKeyBuildingConsent() {
         var codes = CODES;
-        when(consentCodeConfig.filterToSupported(codes)).thenReturn(codes);
-        when(consentCodeConfig.withRetroModifiers(codes)).thenReturn(codes);
+        when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
         when(consentFetcher.fetchConsentInfo(codes, BATCH))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));
 
@@ -61,8 +61,8 @@ public class ConsentHandlerTest {
     void failsOnUnknownPatientBuildingConsent() {
 
         var codes = CODES;
-        when(consentCodeConfig.filterToSupported(codes)).thenReturn(codes);
-        when(consentCodeConfig.withRetroModifiers(codes)).thenReturn(codes);
+        when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
 
         when(consentFetcher.fetchConsentInfo(codes, BATCH_UNKNOWN))
                 .thenReturn(Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch")));

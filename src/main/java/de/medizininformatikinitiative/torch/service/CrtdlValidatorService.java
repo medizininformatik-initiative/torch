@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
@@ -14,7 +15,6 @@ import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
-import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -25,20 +25,20 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 
 @Component
 public class CrtdlValidatorService {
     private static final Logger logger = LoggerFactory.getLogger(CrtdlValidatorService.class);
 
     private final StructureDefinitionHandler profileHandler;
-
     private final StandardAttributeGenerator attributeGenerator;
     private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
+    private final ConsentCodeConfig consentCodeConfig;
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
+        this.consentCodeConfig = consentCodeConfig;
     }
 
     /**
@@ -49,6 +49,9 @@ public class CrtdlValidatorService {
      */
     public AnnotatedCrtdl validateAndAnnotate(Crtdl crtdl) throws ValidationException, ConsentFormatException {
         Optional<Set<TermCode>> consentCodes = crtdlConsentValidator.extractConsentCodes(crtdl);
+        if (consentCodes.isPresent()) {
+            consentCodeConfig.validateCodeCoOccurrence(consentCodes.get());
+        }
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();
         Set<String> successfullyAnnotatedGroups = new HashSet<>();
@@ -113,11 +116,9 @@ public class CrtdlValidatorService {
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], attribute.mustHave(), attribute.linkedGroups()));
         }
 
-        AnnotatedAttributeGroup group = attributeGenerator
+        return attributeGenerator
                 .generate(attributeGroup, patientGroupId)
                 .addAttributes(annotatedAttributes);
-
-        return group;
     }
 }
 

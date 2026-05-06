@@ -21,6 +21,7 @@ import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -60,7 +61,8 @@ class ConsentAdjusterUnitTest {
 
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
-                Map.of()
+                Map.of(),
+                Set.of(new TermCode("s1", "code1"))
         );
 
         assertThat(updated).containsKey("patient1");
@@ -83,7 +85,7 @@ class ConsentAdjusterUnitTest {
         when(dataStore.search(any(Query.class), eq(Encounter.class)))
                 .thenReturn(Flux.just(invalidEncounter, validEncounter));
 
-        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent))))
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1"))))
                 .assertNext(updated -> {
                     // Only the valid encounter affects the provision
                     ConsentProvisions adjusted = updated.get("patient1").getFirst();
@@ -102,7 +104,8 @@ class ConsentAdjusterUnitTest {
 
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
-                Map.of("patient1", List.of(e1))
+                Map.of("patient1", List.of(e1)),
+                Set.of(new TermCode("s1", "code1"))
         );
 
         ConsentProvisions u = updated.get("patient1").getFirst();
@@ -120,7 +123,8 @@ class ConsentAdjusterUnitTest {
 
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
-                Map.of("patient1", List.of(e1, e2))
+                Map.of("patient1", List.of(e1, e2)),
+                Set.of(new TermCode("s1", "code1"))
         );
 
         ConsentProvisions u = updated.get("patient1").getFirst();
@@ -143,7 +147,7 @@ class ConsentAdjusterUnitTest {
         when(dataStore.search(any(Query.class), eq(Encounter.class)))
                 .thenReturn(Flux.just(e1, e2));
 
-        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent1), "patient2", List.of(consent2))))
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent1), "patient2", List.of(consent2)), Set.of(new TermCode("s1", "code1"), new TermCode("s1", "code2"))))
                 .assertNext(updated -> {
                     assertThat(updated.get("patient1").getFirst().provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5));
                     assertThat(updated.get("patient2").getFirst().provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 28));

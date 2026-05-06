@@ -17,6 +17,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class CrtdlConsentValidatorTest {
 
+    private static final String MII_OID_SYSTEM = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3";
+    private static final TermCode MDAT_NUTZEN       = new TermCode(MII_OID_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.8");
+    private static final TermCode MDAT_ERHEBEN      = new TermCode(MII_OID_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.6");
+    private static final TermCode MDAT_RETRO_NUTZEN = new TermCode(MII_OID_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.46");
+    private static final TermCode MDAT_RETRO_SPEICH = new TermCode(MII_OID_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.45");
+
     private final ObjectMapper mapper = new ObjectMapper();
     private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
 
@@ -320,6 +326,154 @@ class CrtdlConsentValidatorTest {
         Optional<Set<TermCode>> codes = getTermCodes(json);
 
         assertThat(codes).isEmpty();
+    }
+
+    // --- issue #851 examples ---
+
+    @Test
+    void noRetroExampleExtractsBothMiiCodes() throws Exception {
+        // mirrors cohort-consent-no-retro.json: .8 and .6 in separate inclusion groups
+        String json = """
+                {
+                  "inclusionCriteria": [
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+                            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU" }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+                            "display": "MDAT erheben" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
+
+        Optional<Set<TermCode>> codes = getTermCodes(json);
+
+        assertThat(codes).isPresent();
+        assertThat(codes.get()).containsExactlyInAnyOrder(MDAT_NUTZEN, MDAT_ERHEBEN);
+    }
+
+    @Test
+    void retroExampleExtractsAllFourMiiCodes() throws Exception {
+        // mirrors cohort-consent-retro.json: .46/.45/.6 in group 1, .8 in group 2, .6 again in group 3
+        // .6 is duplicated across groups but deduplicates in the returned Set
+        String json = """
+                {
+                  "inclusionCriteria": [
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
+                            "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU" }
+                        ]
+                      },
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.45",
+                            "display": "MDAT retrospektiv speichern verarbeiten" }
+                        ]
+                      },
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+                            "display": "MDAT erheben" }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+                            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU" }
+                        ]
+                      }
+                    ],
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+                            "display": "MDAT erheben" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
+
+        Optional<Set<TermCode>> codes = getTermCodes(json);
+
+        assertThat(codes).isPresent();
+        assertThat(codes.get()).containsExactlyInAnyOrder(
+                MDAT_NUTZEN, MDAT_ERHEBEN, MDAT_RETRO_NUTZEN, MDAT_RETRO_SPEICH);
+    }
+
+    @Test
+    void failsWhenGateCodeUsedAsExclusionCriterion() {
+        // placing .8 (MDAT wissenschaftlich nutzen) in exclusion criteria is not allowed
+        String json = """
+                {
+                  "exclusionCriteria": [
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+                            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
+
+        assertThatThrownBy(() -> getTermCodes(json))
+                .isInstanceOf(ConsentFormatException.class)
+                .hasMessageContaining("Exclusion criteria must not contain Einwilligung consent codes.");
+    }
+
+    @Test
+    void failsWhenRetroCodeUsedAsExclusionCriterion() {
+        // placing .46 (MDAT retrospektiv) in exclusion criteria is not allowed
+        String json = """
+                {
+                  "exclusionCriteria": [
+                    [
+                      {
+                        "context": { "code": "Einwilligung", "system": "fdpg.mii.cds", "version": "1.0.0" },
+                        "termCodes": [
+                          { "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
+                            "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU" }
+                        ]
+                      }
+                    ]
+                  ]
+                }""";
+
+        assertThatThrownBy(() -> getTermCodes(json))
+                .isInstanceOf(ConsentFormatException.class)
+                .hasMessageContaining("Exclusion criteria must not contain Einwilligung consent codes.");
     }
 
     private Optional<Set<TermCode>> getTermCodes(String json) throws JsonProcessingException, ConsentFormatException {

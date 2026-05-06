@@ -4,6 +4,7 @@ import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundExceptio
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Encounter;
@@ -17,6 +18,7 @@ import reactor.util.function.Tuples;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
@@ -52,14 +54,18 @@ public class ConsentAdjuster {
      * {@link ConsentProvisions} entry based on the periods of those encounters.
      * </p>
      *
-     * @param batch      the {@link PatientBatch} containing patient IDs whose encounters should be fetched
-     * @param provisions the list of consent provisions to be adjusted
+     * @param batch           the {@link PatientBatch} containing patient IDs whose encounters should be fetched
+     * @param provisions      a map from patient ID to their list of consent provisions to be adjusted
+     * @param adjustableCodes the provision codes eligible for encounter-based start adjustment
      * @return a {@link Mono} emitting a map from patient ID to the list of adjusted provisions
      */
-    public Mono<Map<String, List<ConsentProvisions>>> fetchEncounterAndAdjustByEncounter(PatientBatch batch, Map<String, List<ConsentProvisions>> provisions) {
+    public Mono<Map<String, List<ConsentProvisions>>> fetchEncounterAndAdjustByEncounter(
+            PatientBatch batch,
+            Map<String, List<ConsentProvisions>> provisions,
+            Set<TermCode> adjustableCodes) {
         return fetchAndGroupEncounterByPatient(batch)
                 .map(encountersByPatient ->
-                        adjustProvisionsByEncounters(provisions, encountersByPatient)
+                        adjustProvisionsByEncounters(provisions, encountersByPatient, adjustableCodes)
                 );
     }
 
@@ -96,18 +102,20 @@ public class ConsentAdjuster {
 
 
     /**
-     * Pure function that adjusts a list of {@link ConsentProvisions} based on a map of patient encounters.
+     * Pure function that adjusts a map of {@link ConsentProvisions} based on a map of patient encounters.
      * <p>
      * For each provision, if its start date falls within any of the patient's encounter periods,
      * the provision start is shifted to the earliest overlapping encounter start.
      *
-     * @param provisions          The list of consent provisions to adjust.
-     * @param encountersByPatient A map from patient ID to their associated encounters.
-     * @return A map from patient ID to the list of adjusted {@link ConsentProvisions}.
+     * @param provisions          a map from patient ID to their list of consent provisions to adjust
+     * @param encountersByPatient a map from patient ID to their associated encounters
+     * @param adjustableCodes     the provision codes eligible for encounter-based start adjustment
+     * @return a map from patient ID to the list of adjusted {@link ConsentProvisions}
      */
     public Map<String, List<ConsentProvisions>> adjustProvisionsByEncounters(
             Map<String, List<ConsentProvisions>> provisions,
-            Map<String, Collection<Encounter>> encountersByPatient
+            Map<String, Collection<Encounter>> encountersByPatient,
+            Set<TermCode> adjustableCodes
     ) {
         return provisions
                 .entrySet().stream()
@@ -115,7 +123,8 @@ public class ConsentAdjuster {
                         Map.Entry::getKey,
                         entry -> entry.getValue().stream()
                                 .map(cp -> cp.updateByEncounters(
-                                        encountersByPatient.getOrDefault(entry.getKey(), List.of())))
+                                        encountersByPatient.getOrDefault(entry.getKey(), List.of()),
+                                        adjustableCodes))
                                 .toList()
                 ));
     }

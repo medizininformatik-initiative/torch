@@ -2,11 +2,14 @@ package de.medizininformatikinitiative.torch.model.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -74,6 +77,21 @@ class PatientBatchWithConsentFromConsentTest {
         assertThatThrownBy(() -> PatientBatchWithConsent.fromBatchAndConsent(batch, consentMap))
                 .isInstanceOf(ConsentViolatedException.class)
                 .hasMessageContaining("No patients with valid consent periods found in batch");
+    }
+
+    @Test
+    void twoArgConstructorSetsApplyConsentFalse() {
+        UUID id = UUID.randomUUID();
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(), id);
+        assertThat(batch.applyConsent()).isFalse();
+        assertThat(batch.id()).isEqualTo(id);
+    }
+
+    @Test
+    void isEmptyTrueWhenAllBundlesEmpty() {
+        var bundle = new PatientResourceBundle("p1", NonContinuousPeriod.of(), new ResourceBundle());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of("p1", bundle), UUID.randomUUID());
+        assertThat(batch.isEmpty()).isTrue();
     }
 
     @Test

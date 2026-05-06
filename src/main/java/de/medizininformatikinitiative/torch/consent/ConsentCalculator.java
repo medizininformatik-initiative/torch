@@ -12,6 +12,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,47 +35,15 @@ public class ConsentCalculator {
     }
 
     /**
-     * Applies the {@code dataPeriodOffsetYears} from {@link ConsentCodeConfig} to all permitted prospective
-     * provisions, regardless of whether a retrospective modifier is configured.
-     * <p>
-     * Provisions whose end date would precede the start date after subtraction are discarded with a warning.
-     * Deny provisions and provisions without a matching config entry pass through unchanged.
-     */
-    private List<Provision> applyOffsets(List<Provision> provisions) {
-        boolean hasOffsets = consentCodeConfig.entries().stream().anyMatch(e -> e.dataPeriodOffsetYears() > 0);
-        if (!hasOffsets) {
-            return provisions;
-        }
-        return provisions.stream()
-                .flatMap(p -> {
-                    if (!p.permit()) {
-                        return Stream.of(p);
-                    }
-                    ProspectiveEntry entry = consentCodeConfig.entries().stream()
-                            .filter(e -> e.code().equals(p.code()))
-                            .findFirst()
-                            .orElse(null);
-                    if (entry == null || entry.dataPeriodOffsetYears() == 0) {
-                        return Stream.of(p);
-                    }
-                    var newEnd = p.period().end().minusYears(entry.dataPeriodOffsetYears());
-                    if (newEnd.isBefore(p.period().start())) {
-                        logger.warn("Skipping provision for code {} — period [{}, {}] became negative after applying offset of {} years",
-                                p.code(), p.period().start(), p.period().end(), entry.dataPeriodOffsetYears());
-                        return Stream.empty();
-                    }
-                    return Stream.of(new Provision(p.code(), new Period(p.period().start(), newEnd), true));
-                })
-                .toList();
-    }
-
-    /**
      * Applies retrospective modifiers from {@link ConsentCodeConfig} to a flat list of provisions.
      * <p>
-     * For each permitted prospective provision whose offset-adjusted period overlaps a permitted retro
-     * modifier provision, the start date is shifted to
-     * {@link de.medizininformatikinitiative.torch.model.consent.RetroModifier#lookbackStart(java.time.LocalDate)}.
-     * Deny provisions and retro modifier provisions are dropped from the output.
+     * For each permitted prospective provision whose period overlaps a permitted retro modifier provision,
+     * the start date is shifted to {@link ProspectiveEntry#lookbackDate()}.
+     * Deny provisions for retro modifier codes subtract from the retroactive grant before it is emitted.
+     * Retro modifier provisions themselves are dropped from the output.
+     *
+     * @param provisions the raw provisions from a single {@link ConsentProvisions} resource
+     * @return the transformed provision list with retro grants applied and modifier provisions removed
      */
     private List<Provision> applyRetroModifiers(List<Provision> provisions) {
         Map<TermCode, ProspectiveEntry> retroMap = consentCodeConfig.retroToProspective();
@@ -83,6 +53,16 @@ public class ConsentCalculator {
 
         Map<TermCode, List<Period>> retroPermitsByProspective = provisions.stream()
                 .filter(Provision::permit)
+                .filter(p -> retroMap.containsKey(p.code()))
+                .collect(Collectors.groupingBy(
+                        p -> retroMap.get(p.code()).code(),
+                        Collectors.mapping(Provision::period, Collectors.toList())
+                ));
+
+        // Retro modifier denies (e.g. .45 deny) revoke the retroactive grant and must be applied
+        // to the retro-extended period before it exits this method.
+        Map<TermCode, List<Period>> retroDeniesByProspective = provisions.stream()
+                .filter(p -> !p.permit())
                 .filter(p -> retroMap.containsKey(p.code()))
                 .collect(Collectors.groupingBy(
                         p -> retroMap.get(p.code()).code(),
@@ -99,25 +79,26 @@ public class ConsentCalculator {
                             .filter(e -> e.code().equals(p.code()))
                             .findFirst()
                             .orElse(null);
-                    if (entry == null || !entry.hasRetroModifier()) {
+                    if (entry == null || !entry.hasRetroModifiers()) {
                         return Stream.of(p);
                     }
                     List<Period> retroPeriods = retroPermitsByProspective.getOrDefault(p.code(), List.of());
                     if (retroPeriods.stream().noneMatch(r -> p.period().intersect(r) != null)) {
                         return Stream.of(p);
                     }
-                    var newStart = entry.retroModifier().lookbackStart(p.period().start());
-                    return Stream.of(new Provision(p.code(), new Period(newStart, p.period().end()), true, true));
+                    var newStart = entry.lookbackDate();
+                    NonContinuousPeriod extended = NonContinuousPeriod.of(new Period(newStart, p.period().end()));
+                    for (Period deny : retroDeniesByProspective.getOrDefault(p.code(), List.of())) {
+                        extended = extended.substract(deny);
+                    }
+                    return extended.periods().stream()
+                            .map(period -> new Provision(p.code(), period, true, true));
                 })
                 .toList();
     }
 
     /**
      * Calculates the allowed consent periods per code for a single patient.
-     * <p>
-     * Retro modifier provisions are applied before merge/subtract: any permitted prospective provision
-     * overlapping a permitted retro provision has its start shifted to the configured lookback date.
-     * Only {@code consentCodes} (prospective codes) are required in the result.
      *
      * @param consentProvisions list of consent provisions for a patient
      * @param consentCodes      the prospective consent codes required for valid consent
@@ -128,40 +109,54 @@ public class ConsentCalculator {
             List<ConsentProvisions> consentProvisions,
             Set<TermCode> consentCodes
     ) {
-        List<Provision> allProvisions = consentProvisions.stream()
-                .flatMap(cp -> cp.provisions().stream())
-                .toList();
+        // Permits only come from resources that contain the full required package (.6 AND .8).
+        // Denies are applied globally across all resources — a revocation document (deny-only) still counts.
+        // Retro modifier denies (.45/.46) are consumed inside applyRetroModifiers per resource.
+        List<Provision> validPermits = new ArrayList<>();
+        List<Provision> allDenies = new ArrayList<>();
 
-        List<Provision> relevantProvisions = applyRetroModifiers(applyOffsets(allProvisions)).stream()
-                .filter(p -> consentCodes.contains(p.code()))
-                .toList();
+        for (ConsentProvisions cp : consentProvisions) {
+            List<Provision> processed = applyRetroModifiers(cp.provisions());
 
-        List<Provision> retroPermits = relevantProvisions.stream()
-                .filter(Provision::permit)
+            Set<TermCode> permittedCodes = processed.stream()
+                    .filter(Provision::permit)
+                    .map(Provision::code)
+                    .filter(consentCodes::contains)
+                    .collect(Collectors.toSet());
+
+            // Only resources carrying all required codes contribute permits (full-package check).
+            if (permittedCodes.containsAll(consentCodes)) {
+                processed.stream()
+                        .filter(Provision::permit)
+                        .filter(p -> consentCodes.contains(p.code()))
+                        .forEach(validPermits::add);
+            }
+
+            processed.stream()
+                    .filter(p -> !p.permit())
+                    .filter(p -> consentCodes.contains(p.code()))
+                    .forEach(allDenies::add);
+        }
+
+        List<Provision> retroPermits = validPermits.stream()
                 .filter(Provision::retroExtended)
                 .toList();
 
-        List<Provision> regularPermits = relevantProvisions.stream()
-                .filter(Provision::permit)
+        List<Provision> regularPermits = validPermits.stream()
                 .filter(p -> !p.retroExtended())
                 .toList();
 
-        List<Provision> denies = relevantProvisions.stream()
-                .filter(p -> !p.permit())
-                .toList();
-
-        // Retro-extended permits are immune to denies — the retro grant supersedes prior revocations
+        // Retro-extended permits are immune to prospective code denies (.6 deny).
         Map<TermCode, NonContinuousPeriod> result = new HashMap<>();
         for (Provision p : retroPermits) {
             result.merge(p.code(), NonContinuousPeriod.of(p.period()), NonContinuousPeriod::merge);
         }
 
-        // Regular permits have denies applied
         Map<TermCode, NonContinuousPeriod> regularResult = new HashMap<>();
         for (Provision p : regularPermits) {
             regularResult.merge(p.code(), NonContinuousPeriod.of(p.period()), NonContinuousPeriod::merge);
         }
-        for (Provision p : denies) {
+        for (Provision p : allDenies) {
             regularResult.computeIfPresent(p.code(), (k, v) -> v.substract(p.period()));
         }
 
@@ -171,19 +166,15 @@ public class ConsentCalculator {
             }
         });
 
-        Map<TermCode, NonContinuousPeriod> filtered = result.entrySet().stream()
-                .filter(e -> !e.getValue().isEmpty())
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-        return filtered.keySet().equals(consentCodes) ? filtered : Map.of();
+        return result.keySet().equals(consentCodes) ? result : Map.of();
     }
 
     /**
      * Returns the intersection of all provided consent periods by code.
      *
-     * @param consentsByCode map from consent code to {@link NonContinuousPeriod}
-     * @return a {@link NonContinuousPeriod} representing the intersection of all provided periods
-     * @throws ConsentViolatedException if there are no consent periods or if the intersection is empty
+     * @param consentsByCode a non-empty map from consent code to its allowed {@link NonContinuousPeriod}
+     * @return the intersection of all periods across all codes
+     * @throws ConsentViolatedException if there are no periods or the intersection is empty
      */
     public NonContinuousPeriod intersectConsent(Map<TermCode, NonContinuousPeriod> consentsByCode) throws ConsentViolatedException {
         if (consentsByCode.isEmpty()) {
@@ -192,7 +183,7 @@ public class ConsentCalculator {
 
         NonContinuousPeriod result = consentsByCode.values().stream()
                 .reduce(NonContinuousPeriod::intersect)
-                .orElseThrow(() -> new ConsentViolatedException("No consent periods found"));
+                .get(); // non-empty is guaranteed by the isEmpty() check above
 
         if (result.isEmpty()) {
             throw new ConsentViolatedException("Consent periods do not overlap");
@@ -202,25 +193,51 @@ public class ConsentCalculator {
     }
 
     /**
-     * Calculates the effective consent periods for multiple patients.
+     * Calculates the effective data-extraction consent period for multiple patients.
+     * <p>
+     * For each patient:
+     * <ol>
+     *     <li>Merges and subtracts permit/deny provisions per code.</li>
+     *     <li>Checks that every validity-gate code's period contains today; excludes the patient if not.</li>
+     *     <li>Intersects the non-gate (data-period) code periods and returns that as the extraction window.</li>
+     * </ol>
      *
      * @param consentCodes      the prospective codes that must all be present for valid consent
      * @param consentsByPatient a map from patient ID to a list of their {@link ConsentProvisions}
-     * @return a map from patient ID to {@link NonContinuousPeriod} representing their effective consent periods
+     * @return a map from patient ID to {@link NonContinuousPeriod} representing their data-extraction window
      */
     public Map<String, NonContinuousPeriod> calculateConsent(
             Set<TermCode> consentCodes,
             Map<String, List<ConsentProvisions>> consentsByPatient
     ) {
+        LocalDate today = LocalDate.now();
+        Set<TermCode> gateCodes = consentCodeConfig.gateCodes(consentCodes);
+        Set<TermCode> dataCodes = consentCodeConfig.nonGateCodes(consentCodes);
+
         return consentsByPatient.entrySet().stream()
                 .flatMap(entry -> {
                     String patientId = entry.getKey();
                     List<ConsentProvisions> provisions = entry.getValue();
 
+                    Map<TermCode, NonContinuousPeriod> byCode = subtractAndMergeByCode(provisions, consentCodes);
+                    if (byCode.isEmpty()) {
+                        return Stream.empty();
+                    }
+
+                    boolean gateValid = gateCodes.stream()
+                            .allMatch(code -> byCode.get(code).containsDate(today));
+                    if (!gateValid) {
+                        logger.debug("Patient {} excluded: validity-gate period does not contain today ({})", patientId, today);
+                        return Stream.empty();
+                    }
+
+                    Map<TermCode, NonContinuousPeriod> dataByCode = byCode.entrySet().stream()
+                            .filter(e -> dataCodes.contains(e.getKey()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
                     try {
-                        NonContinuousPeriod finalConsent =
-                                intersectConsent(subtractAndMergeByCode(provisions, consentCodes));
-                        return Stream.of(Map.entry(patientId, finalConsent));
+                        NonContinuousPeriod dataPeriod = intersectConsent(dataByCode);
+                        return Stream.of(Map.entry(patientId, dataPeriod));
                     } catch (ConsentViolatedException e) {
                         return Stream.empty();
                     }

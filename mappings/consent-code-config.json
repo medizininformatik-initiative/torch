@@ -1,14 +1,32 @@
 [
   {
-    "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
     "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+    "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
     "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU",
-    "dataPeriodOffsetYears": 25,
-    "retroModifier": {
-      "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
-      "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
-      "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU",
-      "lookbackYears": 200
-    }
+    "validityGate": true,
+    "required": [
+      "2.16.840.1.113883.3.1937.777.24.5.3.6"
+    ]
+  },
+  {
+    "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+    "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+    "display": "MDAT erheben",
+    "required": [
+      "2.16.840.1.113883.3.1937.777.24.5.3.8"
+    ],
+    "lookbackDate": "1900-01-01",
+    "retroModifiers": [
+      {
+        "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+        "code": "2.16.840.1.113883.3.1937.777.24.5.3.45",
+        "display": "MDAT retrospektiv speichern, verarbeiten"
+      },
+      {
+        "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+        "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
+        "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU"
+      }
+    ]
   }
 ]

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.model.consent;
 
 import com.google.common.collect.Streams;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -23,12 +24,12 @@ public record NonContinuousPeriod(List<Period> periods) {
 
     public NonContinuousPeriod merge(NonContinuousPeriod other) {
         List<Period> merged = Streams.concat(periods.stream(), other.periods.stream())
-                .sorted(Comparator.comparing(p -> p.start()))
+                .sorted(Comparator.comparing(Period::start))
                 .collect(ArrayList::new, (acc, next) -> {
                     if (acc.isEmpty()) {
                         acc.add(next);
                     } else {
-                        Period last = acc.get(acc.size() - 1);
+                        Period last = acc.getLast();
                         if (!last.end().isBefore(next.start().minusDays(1))) {
                             acc.set(acc.size() - 1, new Period(
                                     last.start(),
@@ -98,6 +99,10 @@ public record NonContinuousPeriod(List<Period> periods) {
         }
 
         return new NonContinuousPeriod(temp);
+    }
+
+    public boolean containsDate(LocalDate date) {
+        return periods.stream().anyMatch(p -> p.contains(date));
     }
 
     public boolean isEmpty() {
