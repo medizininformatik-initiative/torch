@@ -47,11 +47,6 @@ public class StandardAttributeGenerator {
         String profile = resourceType + ".meta.profile";
         tempAttributes.add(new AnnotatedAttribute(profile, profile, false));
 
-        if ("Patient".equals(resourceType)) {
-            String identifier = resourceType + ".identifier";
-            tempAttributes.add(new AnnotatedAttribute(identifier, identifier, false));
-        }
-
         if (compartmentManager.isInCompartment(resourceType)) {
             for (String field : patientRefFields) {
                 String fieldString = resourceType + "." + field;

@@ -117,8 +117,7 @@ class CrtdlValidatorServiceTest {
         assertThat(validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()).isEqualTo(
                 List.of(
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
-                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
-                        new AnnotatedAttribute("Patient.identifier", "Patient.identifier", false)
+                        new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
                 ));
     }
 
