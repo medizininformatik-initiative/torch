@@ -107,6 +107,40 @@ class PeriodTest {
 
 
     @Nested
+    class ContainsTests {
+
+        @Test
+        void trueWhenDateWithinPeriod() {
+            Period p = Period.of(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 10));
+            assertThat(p.contains(LocalDate.of(2025, 1, 5))).isTrue();
+        }
+
+        @Test
+        void trueOnStartBoundary() {
+            Period p = Period.of(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 10));
+            assertThat(p.contains(LocalDate.of(2025, 1, 1))).isTrue();
+        }
+
+        @Test
+        void trueOnEndBoundary() {
+            Period p = Period.of(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 10));
+            assertThat(p.contains(LocalDate.of(2025, 1, 10))).isTrue();
+        }
+
+        @Test
+        void falseWhenDateBeforeStart() {
+            Period p = Period.of(LocalDate.of(2025, 1, 5), LocalDate.of(2025, 1, 10));
+            assertThat(p.contains(LocalDate.of(2025, 1, 1))).isFalse();
+        }
+
+        @Test
+        void falseWhenDateAfterEnd() {
+            Period p = Period.of(LocalDate.of(2025, 1, 1), LocalDate.of(2025, 1, 5));
+            assertThat(p.contains(LocalDate.of(2025, 1, 10))).isFalse();
+        }
+    }
+
+    @Nested
     class FromHapiTests {
 
         @Test

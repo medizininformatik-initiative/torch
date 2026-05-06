@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -13,19 +15,14 @@ import static java.util.Objects.requireNonNull;
 /**
  * Defines the set of consent provision codes that TORCH supports and how they relate to each other.
  * <p>
- * Each entry describes one {@link ProspectiveEntry prospective code} — the code that must be permitted
- * in a patient's consent for extraction to proceed — and its optional {@link RetroModifier retrospective modifier},
- * which can extend the prospective code's valid period backwards in time.
- * <p>
- * The config is loaded at startup from {@code mappings/consent-code-config.json}, which can be edited manually.
- * The codes shipped with TORCH represent the recommended MII default. It is used in two places:
+ * Each entry describes one {@link ProspectiveEntry prospective code}. Entries declare:
  * <ul>
- *     <li>{@code ConsentHandler} — to filter the codes expanded from a CRTDL combined key down to the
- *     supported prospective codes, and to determine which additional codes must be fetched from the FHIR
- *     server (i.e. the retro modifier codes).</li>
- *     <li>{@code ConsentCalculator} — to apply retrospective modifier logic before the standard
- *     permit/deny merge-and-subtract step.</li>
+ *     <li>whether they act as a validity gate (today-in-period check) or provide the data-extraction window;</li>
+ *     <li>which other codes must co-occur with them in the CRTDL;</li>
+ *     <li>which retrospective modifier codes can extend their data window backwards in time.</li>
  * </ul>
+ * <p>
+ * The config is loaded at startup from {@code mappings/consent-code-config.json}.
  *
  * @param entries the list of supported prospective code entries
  * @see ProspectiveEntry
@@ -40,11 +37,6 @@ public record ConsentCodeConfig(List<ProspectiveEntry> entries) {
 
     /**
      * Returns the set of all prospective codes defined in this config.
-     * <p>
-     * These are the codes that must each have a non-empty allowed period for a patient's consent to be
-     * considered valid.
-     *
-     * @return an unmodifiable set of prospective {@link TermCode}s
      */
     public Set<TermCode> prospectiveCodes() {
         return entries.stream()
@@ -53,53 +45,100 @@ public record ConsentCodeConfig(List<ProspectiveEntry> entries) {
     }
 
     /**
-     * Filters the given set of codes to only those that are prospective codes in this config.
-     * <p>
-     * Used after expanding a CRTDL combined key to drop any individual codes that TORCH does not support
-     * (e.g. Rekontaktierung codes in V1).
+     * Returns the subset of config prospective codes that appear in {@code requestedCodes}.
      *
-     * @param codes the expanded set of codes from the CRTDL
-     * @return an unmodifiable set containing only the codes that appear as prospective codes in this config
+     * @param requestedCodes the full set of codes from the CRTDL cohort definition
+     * @return the intersection of config prospective codes and {@code requestedCodes}
      */
-    public Set<TermCode> filterToSupported(Set<TermCode> codes) {
-        Set<TermCode> supported = prospectiveCodes();
-        return codes.stream()
-                .filter(supported::contains)
+    public Set<TermCode> extractRequestedProspectiveCodes(Set<TermCode> requestedCodes) {
+        return entries.stream()
+                .map(ProspectiveEntry::code)
+                .filter(requestedCodes::contains)
                 .collect(Collectors.toUnmodifiableSet());
     }
 
     /**
-     * Returns the given prospective codes plus any retrospective modifier codes they require.
+     * Returns {@code prospectiveCodes} plus any retrospective modifier codes that are both configured
+     * for one of the prospective codes and were explicitly requested (present in {@code requestedCodes}).
      * <p>
-     * The returned set is passed to the FHIR fetcher so that both the prospective provisions and their
-     * modifier provisions are available for the consent calculation.
+     * Retro modifier codes are only added when the researcher included them in the CRTDL; this avoids
+     * applying retrospective logic that was not requested.
      *
-     * @param prospectiveCodes the supported prospective codes for the current request
+     * @param prospectiveCodes the prospective codes for the current request (after {@link #extractRequestedProspectiveCodes})
+     * @param requestedCodes   the full set of codes from the CRTDL cohort definition
      * @return an unmodifiable set of codes to fetch from the FHIR server
      */
-    public Set<TermCode> withRetroModifiers(Set<TermCode> prospectiveCodes) {
+    public Set<TermCode> withRetroModifiers(Set<TermCode> prospectiveCodes, Set<TermCode> requestedCodes) {
         Set<TermCode> result = new HashSet<>(prospectiveCodes);
         entries.stream()
-                .filter(e -> prospectiveCodes.contains(e.code()) && e.hasRetroModifier())
-                .map(e -> e.retroModifier().code())
-                .forEach(result::add);
+                .filter(e -> prospectiveCodes.contains(e.code()) && e.hasRetroModifiers())
+                .forEach(e -> e.retroModifiers().stream()
+                        .map(RetroModifier::code)
+                        .filter(requestedCodes::contains)
+                        .forEach(result::add));
         return Set.copyOf(result);
     }
 
     /**
      * Returns a map from each retrospective modifier {@link TermCode} to the {@link ProspectiveEntry} it modifies.
-     * <p>
-     * Used by {@code ConsentCalculator} to identify which provisions in the fetched consent data are retro
-     * modifiers and which prospective code's period they should extend.
      *
-     * @return an unmodifiable map keyed by retro modifier {@link TermCode}
+     * @return an unmodifiable map; only entries with at least one retro modifier are included
      */
     public Map<TermCode, ProspectiveEntry> retroToProspective() {
+        Map<TermCode, ProspectiveEntry> result = new HashMap<>();
+        entries.stream()
+                .filter(ProspectiveEntry::hasRetroModifiers)
+                .forEach(e -> e.retroModifiers().forEach(retro -> result.put(retro.code(), e)));
+        return Map.copyOf(result);
+    }
+
+    /**
+     * Returns the subset of {@code codes} whose entries are marked as validity gates.
+     *
+     * @param codes the prospective codes to filter
+     * @return codes in {@code codes} that correspond to validity-gate entries
+     */
+    public Set<TermCode> gateCodes(Set<TermCode> codes) {
         return entries.stream()
-                .filter(ProspectiveEntry::hasRetroModifier)
-                .collect(Collectors.toUnmodifiableMap(
-                        e -> e.retroModifier().code(),
-                        e -> e
-                ));
+                .filter(ProspectiveEntry::validityGate)
+                .map(ProspectiveEntry::code)
+                .filter(codes::contains)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Returns the subset of {@code codes} whose entries are NOT validity gates (i.e. data-period codes).
+     *
+     * @param codes the prospective codes to filter
+     * @return codes in {@code codes} that correspond to data-period (non-gate) entries
+     */
+    public Set<TermCode> nonGateCodes(Set<TermCode> codes) {
+        return entries.stream()
+                .filter(e -> !e.validityGate())
+                .map(ProspectiveEntry::code)
+                .filter(codes::contains)
+                .collect(Collectors.toUnmodifiableSet());
+    }
+
+    /**
+     * Validates that all co-occurrence constraints declared by entries present in {@code codes} are satisfied.
+     * <p>
+     * For each entry whose code appears in {@code codes}, every code listed in that entry's {@code required}
+     * field must also appear in {@code codes}. This enforces rules such as ".6 and .8 must appear together".
+     *
+     * @param codes the set of consent codes extracted from the CRTDL
+     * @throws ConsentFormatException if any required co-occurrence constraint is violated
+     */
+    public void validateCodeCoOccurrence(Set<TermCode> codes) throws ConsentFormatException {
+        for (ProspectiveEntry entry : entries) {
+            if (!codes.contains(entry.code())) continue;
+            for (TermCode required : entry.required()) {
+                if (!codes.contains(required)) {
+                    throw new ConsentFormatException(
+                            "Consent code " + entry.code().code() + " requires " + required.code()
+                                    + " to also be present in the CRTDL cohort definition.");
+                }
+            }
+        }
     }
 }

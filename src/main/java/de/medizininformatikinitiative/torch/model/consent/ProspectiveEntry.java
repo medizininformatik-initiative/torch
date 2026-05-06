@@ -5,56 +5,75 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 
+import java.time.LocalDate;
+import java.util.List;
+import java.util.stream.Collectors;
+
 import static java.util.Objects.requireNonNull;
 
 /**
- * Represents a supported prospective consent provision code and its optional retrospective modifier.
+ * Represents a supported prospective consent provision code, its role, its co-occurrence constraints,
+ * and its optional retrospective modifiers.
  * <p>
- * A prospective code (e.g. {@code 2.16.840.1.113883.3.1937.777.24.5.3.8}) is a code that must be present
- * with a permit in the patient's consent for extraction to proceed. Its period is taken directly from the
- * FHIR Consent resource.
+ * A <em>validity-gate</em> entry (e.g. {@code ...3.8}) checks that today falls within the patient's
+ * permitted period for this code — the patient is excluded if the check fails. A non-gate entry
+ * (e.g. {@code ...3.6}) provides the actual data-extraction window.
  * <p>
- * If a {@link RetroModifier} is configured, any permitted prospective provision whose period overlaps a
- * permitted modifier provision will have its start date shifted backwards to the modifier's
- * {@link RetroModifier#lookbackStart(java.time.LocalDate)}.
+ * {@code required} lists the codes that must appear alongside this one in the CRTDL cohort definition.
+ * The constraint is validated symmetrically: if this code is present, all listed codes must be present too.
  * <p>
- * {@code dataPeriodOffsetYears} is subtracted from the provision's end date before the consent window is
- * evaluated. A value of 25 on a provision valid until 2050-12-31 yields an effective data-access end of
- * 2025-12-31. Use 0 (the default) to apply no offset.
+ * {@code retroModifiers} are the codes that trigger the retroactive extension. The {@code lookbackDate}
+ * is how far back the grant reaches — it is a property of the prospective entry, not each modifier code.
  *
- * @param code                  the FHIR provision code for this prospective consent code
- * @param retroModifier         the optional retrospective modifier; {@code null} for standalone prospective codes
- * @param dataPeriodOffsetYears years to subtract from the provision end date (≥ 0)
+ * @param code           the FHIR provision code for this entry
+ * @param validityGate   {@code true} if today must fall within the permitted period (gate check);
+ *                       {@code false} if the period is used as the data-extraction window
+ * @param required       codes that must co-occur with this entry in the CRTDL
+ * @param retroModifiers optional retrospective modifier codes; empty list for standalone entries
+ * @param lookbackDate   how far back the retroactive grant reaches; {@code null} for entries without modifiers
  * @see RetroModifier
  * @see ConsentCodeConfig
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
-public record ProspectiveEntry(TermCode code, RetroModifier retroModifier, int dataPeriodOffsetYears) {
+public record ProspectiveEntry(TermCode code, boolean validityGate, List<TermCode> required,
+                               List<RetroModifier> retroModifiers, LocalDate lookbackDate) {
 
     public ProspectiveEntry {
         requireNonNull(code);
-        if (dataPeriodOffsetYears < 0) throw new IllegalArgumentException("dataPeriodOffsetYears must be non-negative");
+        required = required == null ? List.of() : List.copyOf(required);
+        retroModifiers = retroModifiers == null ? List.of() : List.copyOf(retroModifiers);
     }
 
-    public ProspectiveEntry(TermCode code, RetroModifier retroModifier) {
-        this(code, retroModifier, 0);
-    }
-
+    /**
+     * @param system         the OID/URI identifying the coding system (also used to build {@code required} term codes)
+     * @param code           the provision code within that system
+     * @param validityGate   {@code null} is treated as {@code false}
+     * @param required       sibling code strings within the same system; {@code null} treated as empty
+     * @param retroModifiers already-deserialized modifier entries; {@code null} treated as empty
+     * @param lookbackDate   ISO-8601 date string ({@code "1900-01-01"}); {@code null} for entries without modifiers
+     */
     @JsonCreator
     public static ProspectiveEntry fromJson(
             @JsonProperty("system") String system,
             @JsonProperty("code") String code,
-            @JsonProperty("retroModifier") RetroModifier retroModifier,
-            @JsonProperty("dataPeriodOffsetYears") Integer dataPeriodOffsetYears) {
-        return new ProspectiveEntry(new TermCode(system, code), retroModifier, dataPeriodOffsetYears != null ? dataPeriodOffsetYears : 0);
+            @JsonProperty("validityGate") Boolean validityGate,
+            @JsonProperty("required") List<String> required,
+            @JsonProperty("retroModifiers") List<RetroModifier> retroModifiers,
+            @JsonProperty("lookbackDate") String lookbackDate) {
+        String sys = requireNonNull(system, "system");
+        List<TermCode> requiredCodes = required == null ? List.of()
+                : required.stream().map(c -> new TermCode(sys, c)).collect(Collectors.toList());
+        return new ProspectiveEntry(
+                new TermCode(sys, code),
+                validityGate != null && validityGate,
+                requiredCodes,
+                retroModifiers == null ? List.of() : retroModifiers,
+                lookbackDate != null ? LocalDate.parse(lookbackDate) : null
+        );
     }
 
-    /**
-     * Returns {@code true} if this entry has a configured {@link RetroModifier}.
-     *
-     * @return {@code true} when a retrospective modifier is present
-     */
-    public boolean hasRetroModifier() {
-        return retroModifier != null;
+    /** Returns {@code true} if this entry has at least one retrospective modifier configured. */
+    public boolean hasRetroModifiers() {
+        return !retroModifiers.isEmpty();
     }
 }

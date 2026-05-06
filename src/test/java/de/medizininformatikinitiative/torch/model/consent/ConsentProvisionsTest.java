@@ -8,6 +8,7 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Date;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -34,7 +35,7 @@ class ConsentProvisionsTest {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
 
-        ConsentProvisions updated = consent.updateByEncounters(List.of());
+        ConsentProvisions updated = consent.updateByEncounters(List.of(), Set.of(CODE));
 
         assertThat(updated.provisions()).containsExactly(p1);
     }
@@ -47,7 +48,7 @@ class ConsentProvisionsTest {
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 5));
         Encounter e2 = createEncounter(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 5));
 
-        ConsentProvisions updated = consent.updateByEncounters(List.of(e1, e2));
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1, e2), Set.of(CODE));
 
         assertThat(updated.provisions()).containsExactly(p1);
     }
@@ -59,7 +60,7 @@ class ConsentProvisionsTest {
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
-        ConsentProvisions updated = consent.updateByEncounters(List.of(e1));
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1), Set.of(CODE));
 
         assertThat(updated.provisions()).hasSize(1);
         assertThat(updated.provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5));
@@ -74,7 +75,7 @@ class ConsentProvisionsTest {
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 8), LocalDate.of(2025, 9, 12));
         Encounter e2 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
-        ConsentProvisions updated = consent.updateByEncounters(List.of(e1, e2));
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1, e2), Set.of(CODE));
 
         assertThat(updated.provisions()).hasSize(1);
         assertThat(updated.provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5)); // earliest start
@@ -90,7 +91,7 @@ class ConsentProvisionsTest {
         Encounter nullPeriodEncounter = createEncounter(null, null);
         Encounter overlapping = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
-        ConsentProvisions updated = consent.updateByEncounters(List.of(nullPeriodEncounter, overlapping));
+        ConsentProvisions updated = consent.updateByEncounters(List.of(nullPeriodEncounter, overlapping), Set.of(CODE));
 
         assertThat(updated.provisions()).hasSize(1);
         assertThat(updated.provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5));

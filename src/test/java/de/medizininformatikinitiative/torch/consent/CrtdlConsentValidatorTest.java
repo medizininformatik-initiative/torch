@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import org.hl7.fhir.r4.model.AllergyIntolerance;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Medication;
@@ -105,6 +106,22 @@ class CrtdlConsentValidatorTest {
             assertThat(result).isFalse();
         }
 
+        @Test
+        void resourceTypeNotInConfigReturnsFalse() {
+            // AllergyIntolerance is not in the type-to-consent mapping → fieldValue == null
+            AllergyIntolerance allergy = new AllergyIntolerance();
+            boolean result = consentValidator.checkConsent(allergy, patientResourceBundle);
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        void resourceWithNoFieldValueReturnsFalse() {
+            // Condition is mapped to Condition.recordedDate, but no date is set → FHIRPath returns empty list
+            Condition condition = new Condition();
+            boolean result = consentValidator.checkConsent(condition, patientResourceBundle);
+            assertThat(result).isFalse();
+        }
+
     }
 
     @Nested
@@ -155,7 +172,29 @@ class CrtdlConsentValidatorTest {
             assertThat(result).isFalse();
         }
 
+        @Test
+        void patientFoundInBatchWithinConsentPeriod() {
+            Observation observation = new Observation();
+            observation.setSubject(new Reference("Patient/" + PATIENT_ID));
+            observation.setEffective(new DateTimeType("2022-04-20"));
 
+            PatientBatchWithConsent batch = new PatientBatchWithConsent(
+                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+
+            assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
+        }
+
+        @Test
+        void patientFoundInBatchOutsideConsentPeriod() {
+            Observation observation = new Observation();
+            observation.setSubject(new Reference("Patient/" + PATIENT_ID));
+            observation.setEffective(new DateTimeType("2018-04-20"));
+
+            PatientBatchWithConsent batch = new PatientBatchWithConsent(
+                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+
+            assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
+        }
     }
 
     @Nested

@@ -35,6 +35,7 @@ class ConsentHandlerIT {
     static final String MII_CONSENT_SYSTEM = "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3";
     static final Set<TermCode> MII_CONSENT_CODES = Set.of(
             new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.8"),
+            new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.6"),
             new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.46"),
             new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.10"),
             new TermCode(MII_CONSENT_SYSTEM, "2.16.840.1.113883.3.1937.777.24.5.3.37"),
@@ -88,8 +89,8 @@ class ConsentHandlerIT {
                     assertThat(batch.bundles().get(PATIENT_ID).consentPeriods().periods()).isNotEmpty();
                     assertConsentTrue(batch, "2021-01-02T00:00:00+01:00");
                     assertConsentTrue(batch, "2020-01-01T00:00:00+01:00");
-                    // Encounter shifts .8 start from 2021-01-01 to 2019-01-01; retro modifier (.46)
-                    // then shifts it further to 1819-01-01 — so 2019-01-01 is now within the window
+                    // Encounter shifts .6 start from 2021-01-01 to 2019-01-01; retro modifier (.46)
+                    // then shifts it further to 1900-01-01 — so 2019-01-01 is now within the window
                     assertConsentTrue(batch, "2019-01-01T00:00:00+01:00");
                     assertConsentFalse(batch, "2026-01-01T00:00:00+01:00");
                 }).verifyComplete();
