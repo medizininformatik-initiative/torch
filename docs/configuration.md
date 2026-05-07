@@ -213,8 +213,9 @@ Flag indicating whether to enable Clinical Quality Language (CQL) for processing
 #### `TORCH_OUTPUT_FILE_SERVER_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
 URL used to access the result files in `TORCH_RESULTS_DIR` via a proxy or file server.
+Must include an explicit scheme (`http://` or `https://`). TORCH will fail at startup if the scheme is missing.
 
-**Default:** – (none)
+**Default:** `http://localhost:8080/output`
 
 ---
 

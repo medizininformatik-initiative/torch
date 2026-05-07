@@ -51,6 +51,10 @@ public record TorchProperties(
             public record Server(@NotBlank(message = "Output server URL is required") String url) {
                 public Server {
                     url = ConfigUtils.removeTrailingSlashes(url);
+                    if (!url.startsWith("http://") && !url.startsWith("https://")) {
+                        throw new IllegalArgumentException(
+                                "torch.output.file.server.url must include a scheme (http:// or https://), got: " + url);
+                    }
                 }
             }
         }
