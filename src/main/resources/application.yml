@@ -42,7 +42,7 @@ torch:
   output:
     file:
       server:
-        url: localhost:8080/output
+        url: http://localhost:8080/output
 logging:
   level:
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}

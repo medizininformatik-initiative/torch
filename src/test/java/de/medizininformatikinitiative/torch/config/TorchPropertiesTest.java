@@ -130,6 +130,29 @@ public class TorchPropertiesTest {
     }
 
     @Nested
+    class OutputServerUrlValidation {
+
+        @Test
+        void schemeLessUrlThrows() {
+            assertThatThrownBy(() -> new TorchProperties.Output.File.Server("localhost:8080/output"))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("must include a scheme");
+        }
+
+        @Test
+        void httpUrlPasses() {
+            assertThatCode(() -> new TorchProperties.Output.File.Server("http://localhost:8080/output"))
+                    .doesNotThrowAnyException();
+        }
+
+        @Test
+        void httpsUrlPasses() {
+            assertThatCode(() -> new TorchProperties.Output.File.Server("https://example.com/output"))
+                    .doesNotThrowAnyException();
+        }
+    }
+
+    @Nested
     class OauthNullSetToEmptyString {
         @Test
         void defaultsWhenUserPasswordAndOauthNull() {
