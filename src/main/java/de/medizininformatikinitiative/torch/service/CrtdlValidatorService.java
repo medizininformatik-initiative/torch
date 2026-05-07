@@ -96,9 +96,18 @@ public class CrtdlValidatorService {
 
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, CompiledStructureDefinition
             definition, String patientGroupId) throws ValidationException {
+        Set<String> standardRefs = attributeGenerator.standardAttributeRefs(definition.type(), definition);
+        Set<String> seen = new HashSet<>();
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
 
         for (Attribute attribute : attributeGroup.attributes()) {
+            if (!seen.add(attribute.attributeRef())) {
+                throw new ValidationException("Duplicate attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
+            }
+            if (standardRefs.contains(attribute.attributeRef())) {
+                throw new ValidationException("Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id() + " is a standard attribute and must not be specified explicitly");
+            }
+
             Optional<ElementDefinition> elementDefinition = definition.elementDefinitionById(attribute.attributeRef());
             if (elementDefinition.isEmpty()) {
                 throw new ValidationException("Unknown Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());

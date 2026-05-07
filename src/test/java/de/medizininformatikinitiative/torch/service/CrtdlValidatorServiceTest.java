@@ -65,6 +65,15 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    void moreThanOnePatientGroup() {
+        AttributeGroup secondPatientGroup = new AttributeGroup("patientGroupId2", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, secondPatientGroup)));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("More than one Patient Attribute Group");
+    }
+
+    @Test
     void unknownProfile() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
 
@@ -85,10 +94,10 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void referenceWithoutLinkedGroups() {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.subject", false)), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.encounter", false)), List.of()))));
 
         assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Reference Attribute Observation.subject without linked Groups in group test");
+                .hasMessageContaining("Reference Attribute Observation.encounter without linked Groups in group test");
 
     }
 
@@ -121,6 +130,36 @@ class CrtdlValidatorServiceTest {
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
                         new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
                 ));
+    }
+
+    @Test
+    void duplicateAttribute() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.status", false), new Attribute("Observation.status", false)), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Duplicate attribute Observation.status in group test");
+    }
+
+    @Test
+    void standardAttributeExplicitlySpecified() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.id", false)), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Observation.id in group test is a standard attribute and must not be specified explicitly");
+    }
+
+    @Test
+    void standardCompartmentRefAttributeExplicitlySpecified() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.subject", false, List.of("patientGroupId"))), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Observation.subject in group test is a standard attribute and must not be specified explicitly");
     }
 
     @Test
