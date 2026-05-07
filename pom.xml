@@ -90,7 +90,8 @@
         </dependency>
 
         <!-- Overriding org.hl7.fhir.core modules that come from hapi-fhir-structures-r4/validation
-             and are affected by CVE-2026-33180 (information disclosure via HTTP redirects) -->
+             and are affected by CVE-2026-33180 (information disclosure via HTTP redirects)
+             and CVE-2026-34361 (SSRF + credential leak via /loadIG) -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>org.hl7.fhir.r4</artifactId>
@@ -104,6 +105,11 @@
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>org.hl7.fhir.utilities</artifactId>
+            <version>${hapi-fhir-core.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>ca.uhn.hapi.fhir</groupId>
+            <artifactId>org.hl7.fhir.validation</artifactId>
             <version>${hapi-fhir-core.version}</version>
         </dependency>
 
