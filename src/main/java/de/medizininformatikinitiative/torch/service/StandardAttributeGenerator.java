@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -57,5 +58,20 @@ public class StandardAttributeGenerator {
         }
 
         return new AnnotatedAttributeGroup(attributeGroup.name(), attributeGroup.id(), resourceType, attributeGroup.groupReference(), tempAttributes, attributeGroup.filter(), attributeGroup.includeReferenceOnly());
+    }
+
+    public Set<String> standardAttributeRefs(String resourceType, CompiledStructureDefinition definition) {
+        Set<String> refs = new HashSet<>();
+        refs.add(resourceType + ".id");
+        refs.add(resourceType + ".meta.profile");
+        if (compartmentManager.isInCompartment(resourceType)) {
+            for (String field : patientRefFields) {
+                String fieldString = resourceType + "." + field;
+                if (definition.elementDefinitionById(fieldString).isPresent()) {
+                    refs.add(fieldString);
+                }
+            }
+        }
+        return Set.copyOf(refs);
     }
 }
