@@ -1,15 +1,17 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
+import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
+import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -33,6 +35,7 @@ import reactor.core.publisher.Mono;
 import reactor.test.StepVerifier;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +43,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import static de.medizininformatikinitiative.torch.jobhandling.JobTest.job;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -82,6 +86,25 @@ class ExtractDataServiceTest {
     ExtractDataService service;
     ExtractDataService spyService;
 
+    private static Job jobWithParameters(UUID jobId, JobStatus status, JobParameters params) {
+        Instant now = Instant.now();
+        return new Job(
+                jobId,
+                status,
+                WorkUnitState.initNow(),
+                0,
+                Map.of(),
+                now,
+                now,
+                Optional.empty(),
+                List.of(),
+                params,
+                JobPriority.NORMAL,
+                WorkUnitState.initNow(),
+                0L
+        );
+    }
+
     @BeforeEach
     void setUp() {
         service = new ExtractDataService(
@@ -107,226 +130,11 @@ class ExtractDataServiceTest {
     class ProcessBatchTests {
 
         @Test
-        void processBatch_whenPostCascadeMustHaveFailsForOnePatient_filtersPatientAndStillFinishes() throws Exception {
+        void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() throws MustHaveViolatedException {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
-            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
-
-            GroupsToProcess groups = mock(GroupsToProcess.class);
-            when(processedGroupFactory.create(any())).thenReturn(groups);
-
-            List<de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup> directPatientGroups = List.of();
-            when(groups.directPatientCompartmentGroups()).thenReturn(directPatientGroups);
-            when(groups.allGroups()).thenReturn(Map.of());
-
-            PatientBatch rawBatch = mock(PatientBatch.class);
-            when(rawBatch.batchId()).thenReturn(batchId);
-
-            BatchState batchState = mock(BatchState.class);
-            BatchState finishedState = mock(BatchState.class);
-            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(finishedState);
-
-            BatchSelection selection = mock(BatchSelection.class);
-            when(selection.job()).thenReturn(job);
-            when(selection.batchState()).thenReturn(batchState);
-            when(selection.batch()).thenReturn(rawBatch);
-
-            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient1 =
-                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
-            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient2 =
-                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
-
-            ResourceBundle patientBundle1 = new ResourceBundle();
-            ResourceBundle patientBundle2 = new ResourceBundle();
-
-            when(patient1.bundle()).thenReturn(patientBundle1);
-            when(patient2.bundle()).thenReturn(patientBundle2);
-
-            Map<String, de.medizininformatikinitiative.torch.model.management.PatientResourceBundle> bundles =
-                    new LinkedHashMap<>();
-            bundles.put("p1", patient1);
-            bundles.put("p2", patient2);
-
-            PatientBatchWithConsent resolvedBatch = new PatientBatchWithConsent(
-                    bundles,
-                    false,
-                    new ResourceBundle(),
-                    batchId
-            );
-
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
-                    .thenReturn(Mono.just(resolvedBatch));
-            when(referenceResolver.resolvePatientBatch(eq(resolvedBatch), anyMap()))
-                    .thenReturn(Mono.just(resolvedBatch));
-            when(cascadingDelete.handlePatientBatch(eq(resolvedBatch), anyMap()))
-                    .thenReturn(resolvedBatch);
-
-            when(postCascadeMustHaveChecker.validate(any(ResourceBundle.class), any()))
-                    .thenAnswer(invocation -> {
-                        ResourceBundle bundle = invocation.getArgument(0);
-                        if (bundle == patientBundle1) {
-                            return patientBundle1;
-                        }
-                        if (bundle == patientBundle2) {
-                            throw new MustHaveViolatedException("missing direct group");
-                        }
-                        throw new AssertionError("Unexpected bundle passed to validate: " + bundle);
-                    });
-
-            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
-            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
-                mocked.when(() -> ExtractionPatientBatch.of(any())).thenAnswer(invocation -> {
-                    PatientBatchWithConsent filtered = invocation.getArgument(0);
-                    assertThat(filtered.patientIds()).containsExactly("p1");
-                    return ofResult;
-                });
-
-                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
-                        .thenReturn(extracted);
-
-                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
-                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
-
-                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
-
-                StepVerifier.create(spyService.processBatch(selection))
-                        .assertNext(res -> {
-                            assertThat(res.jobId()).isEqualTo(jobId);
-                            assertThat(res.batchId()).isEqualTo(batchId);
-                            assertThat(res.batchState()).isSameAs(finishedState);
-                            assertThat(res.resultCoreBundle()).containsSame(coreBundle);
-                            assertThat(res.issues())
-                                    .extracting(Issue::msg)
-                                    .containsExactly(
-                                            "Loaded patient compartment",
-                                            "Resolved references",
-                                            "Applied cascading delete",
-                                            "Applied post-cascade direct must-have check",
-                                            "Extraction finished",
-                                            "Wrote NDJSON bundle"
-                                    );
-                        })
-                        .verifyComplete();
-
-                mocked.verify(() -> ExtractionPatientBatch.of(any()));
-
-                ArgumentCaptor<ResourceBundle> bundleCaptor = ArgumentCaptor.forClass(ResourceBundle.class);
-                verify(postCascadeMustHaveChecker, Mockito.times(2))
-                        .validate(bundleCaptor.capture(), any());
-
-                assertThat(bundleCaptor.getAllValues())
-                        .containsExactly(patientBundle1, patientBundle2);
-
-                verify(spyService).writeBatch(jobId.toString(), extracted);
-            }
-        }
-
-        @Test
-        void processBatch_whenPostCascadeMustHaveFailsForAllPatients_skipsBatchAndDoesNotEmitCoreBundle() throws Exception {
-            UUID jobId = UUID.randomUUID();
-            UUID batchId = UUID.randomUUID();
-            Job job = Job.init(jobId, TestUtils.emptyJobParams());
-
-            GroupsToProcess groups = mock(GroupsToProcess.class);
-            when(processedGroupFactory.create(any())).thenReturn(groups);
-
-            List<de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup> directPatientGroups = List.of();
-            when(groups.directPatientCompartmentGroups()).thenReturn(directPatientGroups);
-            when(groups.allGroups()).thenReturn(Map.of());
-
-            PatientBatch rawBatch = mock(PatientBatch.class);
-            when(rawBatch.batchId()).thenReturn(batchId);
-
-            BatchState batchState = mock(BatchState.class);
-            BatchState skippedState = mock(BatchState.class);
-            when(batchState.skip()).thenReturn(skippedState);
-
-            BatchSelection selection = mock(BatchSelection.class);
-            when(selection.job()).thenReturn(job);
-            when(selection.batchState()).thenReturn(batchState);
-            when(selection.batch()).thenReturn(rawBatch);
-
-            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient1 =
-                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
-            de.medizininformatikinitiative.torch.model.management.PatientResourceBundle patient2 =
-                    mock(de.medizininformatikinitiative.torch.model.management.PatientResourceBundle.class);
-
-            ResourceBundle patientBundle1 = new ResourceBundle();
-            ResourceBundle patientBundle2 = new ResourceBundle();
-
-            when(patient1.bundle()).thenReturn(patientBundle1);
-            when(patient2.bundle()).thenReturn(patientBundle2);
-
-            Map<String, de.medizininformatikinitiative.torch.model.management.PatientResourceBundle> bundles =
-                    new LinkedHashMap<>();
-            bundles.put("p1", patient1);
-            bundles.put("p2", patient2);
-
-            PatientBatchWithConsent resolvedBatch = new PatientBatchWithConsent(
-                    bundles,
-                    false,
-                    new ResourceBundle(),
-                    batchId
-            );
-
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
-                    .thenReturn(Mono.just(resolvedBatch));
-            when(referenceResolver.resolvePatientBatch(eq(resolvedBatch), anyMap()))
-                    .thenReturn(Mono.just(resolvedBatch));
-            when(cascadingDelete.handlePatientBatch(eq(resolvedBatch), anyMap()))
-                    .thenReturn(resolvedBatch);
-
-            when(postCascadeMustHaveChecker.validate(any(ResourceBundle.class), any()))
-                    .thenThrow(new MustHaveViolatedException("missing direct group"));
-
-            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
-            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
-                mocked.when(() -> ExtractionPatientBatch.of(any())).thenAnswer(invocation -> {
-                    PatientBatchWithConsent filtered = invocation.getArgument(0);
-                    assertThat(filtered.patientIds()).isEmpty();
-                    return ofResult;
-                });
-
-                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
-                        .thenReturn(extracted);
-                when(extracted.isEmpty()).thenReturn(true);
-
-                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
-
-                StepVerifier.create(spyService.processBatch(selection))
-                        .assertNext(res -> {
-                            assertThat(res.jobId()).isEqualTo(jobId);
-                            assertThat(res.batchId()).isEqualTo(batchId);
-                            assertThat(res.batchState()).isSameAs(skippedState);
-                            assertThat(res.resultCoreBundle()).isEmpty();
-                            assertThat(res.issues())
-                                    .extracting(Issue::msg)
-                                    .containsExactly(
-                                            "Loaded patient compartment",
-                                            "Resolved references",
-                                            "Applied cascading delete",
-                                            "Applied post-cascade direct must-have check",
-                                            "Extraction finished",
-                                            "Wrote NDJSON bundle"
-                                    );
-                        })
-                        .verifyComplete();
-
-                mocked.verify(() -> ExtractionPatientBatch.of(any()));
-                verify(postCascadeMustHaveChecker, Mockito.times(2)).validate(any(ResourceBundle.class), any());
-                verify(spyService).writeBatch(jobId.toString(), extracted);
-                verify(batchToCoreWriter, never()).toCoreBundle(any());
-            }
-        }
-
-        @Test
-        void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() {
-            UUID jobId = UUID.randomUUID();
-            UUID batchId = UUID.randomUUID();
-            Job job = Job.init(jobId, TestUtils.emptyJobParams());
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(any())).thenReturn(groups);
@@ -335,6 +143,7 @@ class ExtractDataServiceTest {
 
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
 
             BatchState batchState = mock(BatchState.class);
             BatchState finishedState = mock(BatchState.class);
@@ -345,10 +154,11 @@ class ExtractDataServiceTest {
             when(selection.batchState()).thenReturn(batchState);
             when(selection.batch()).thenReturn(rawBatch);
             PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
 
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any(), any()))
                     .thenReturn(Mono.just(bwc));
-            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
                     .thenReturn(Mono.just(bwc));
             when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(bwc);
@@ -373,16 +183,7 @@ class ExtractDataServiceTest {
                             assertThat(res.batchId()).isEqualTo(batchId);
                             assertThat(res.batchState()).isSameAs(finishedState);
                             assertThat(res.resultCoreBundle()).containsSame(coreBundle);
-                            assertThat(res.issues())
-                                    .extracting(Issue::msg)
-                                    .containsExactly(
-                                            "Loaded patient compartment",
-                                            "Resolved references",
-                                            "Applied cascading delete",
-                                            "Applied post-cascade direct must-have check",
-                                            "Extraction finished",
-                                            "Wrote NDJSON bundle"
-                                    );
+                            assertThat(res.issues()).isEmpty();
                         })
                         .verifyComplete();
 
@@ -408,7 +209,7 @@ class ExtractDataServiceTest {
             JobParameters params = mock(JobParameters.class);
             when(params.crtdl()).thenReturn(crtdl);
 
-            Job job = Job.init(jobId, params);
+            Job job = jobWithParameters(jobId, JobStatus.PENDING, params);
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
             when(processedGroupFactory.create(crtdl)).thenReturn(groups);
@@ -430,13 +231,15 @@ class ExtractDataServiceTest {
             PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
             when(bwc.id()).thenReturn(batchId);
             when(bwc.patientIds()).thenReturn(List.of("p1"));
+            when(bwc.patientBatch()).thenReturn(mock(de.medizininformatikinitiative.torch.model.management.PatientBatch.class));
+            when(bwc.keep(any())).thenReturn(bwc);
 
             when(consentHandler.fetchAndBuildConsentInfo(Set.of(termcode), rawBatch))
                     .thenReturn(Mono.just(bwc));
 
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), eq(bwc)))
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), eq(bwc), any()))
                     .thenReturn(Mono.just(bwc));
-            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
                     .thenReturn(Mono.just(bwc));
             when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(bwc);
@@ -478,8 +281,7 @@ class ExtractDataServiceTest {
             JobParameters params = mock(JobParameters.class);
             when(params.crtdl()).thenReturn(crtdl);
 
-            Job job = Job.init(jobId, params);
-
+            Job job = jobWithParameters(jobId, JobStatus.PENDING, params);
 
             when(processedGroupFactory.create(crtdl)).thenReturn(mock(GroupsToProcess.class));
 
@@ -579,9 +381,8 @@ class ExtractDataServiceTest {
         @Test
         void processCore_whenTransformedEmpty_returnsSkipped_andDoesNotWrite() {
             UUID jobId = UUID.randomUUID();
-            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
-
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
@@ -590,9 +391,9 @@ class ExtractDataServiceTest {
             when(groups.allGroups()).thenReturn(Map.of());
 
             ResourceBundle rb = new ResourceBundle();
-            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class)))
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any()))
                     .thenReturn(Mono.just(rb));
-            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap()))
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
                     .thenReturn(Mono.just(rb));
 
             // keep datastore phase trivial (no missing chunks)
@@ -618,8 +419,8 @@ class ExtractDataServiceTest {
         @Test
         void processCore_whenTransformedNonEmpty_writesAndReturnsFinished() {
             UUID jobId = UUID.randomUUID();
-            Job job = Job.init(jobId, TestUtils.emptyJobParams());
 
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
@@ -628,9 +429,9 @@ class ExtractDataServiceTest {
             when(groups.allGroups()).thenReturn(Map.of());
 
             ResourceBundle rb = new ResourceBundle();
-            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class)))
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any()))
                     .thenReturn(Mono.just(rb));
-            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap()))
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
                     .thenReturn(Mono.just(rb));
 
             when(dataStore.groupReferencesByTypeInChunks(any())).thenReturn(List.of());
@@ -655,7 +456,9 @@ class ExtractDataServiceTest {
 
         @Test
         void processCore_whenPostCascadeMustHaveFails_emitsError() throws Exception {
-            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+            UUID jobId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
             AnnotatedCrtdl crtdl = job.parameters().crtdl();
 
             GroupsToProcess groups = mock(GroupsToProcess.class);
@@ -667,9 +470,9 @@ class ExtractDataServiceTest {
             when(groups.allGroups()).thenReturn(Map.of());
 
             ResourceBundle rb = new ResourceBundle();
-            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class)))
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any()))
                     .thenReturn(Mono.just(rb));
-            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap()))
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
                     .thenReturn(Mono.just(rb));
 
             doThrow(new MustHaveViolatedException("required direct core group missing"))

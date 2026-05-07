@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -385,11 +387,12 @@ public class FhirController {
     /**
      * Builds the completed-job response JSON.
      *
-     * <p>Includes NDJSON output URLs and embeds the {@link Job} as a custom extension.</p>
+     * <p>Includes output file URLs and embeds the {@link Job} as a custom extension.</p>
      */
     public JsonNode loadCompletedJobJSON(Job job,
                                          String requestUrl,
-                                         String transactionTime, String fileServerName) {
+                                         String transactionTime,
+                                         String fileServerName) {
         ObjectNode root = mapper.createObjectNode();
         root.put("transactionTime", transactionTime);
         root.put("request", requestUrl);
@@ -417,6 +420,20 @@ public class FhirController {
         extensionArr.add(mapper.createObjectNode()
                 .put("url", "https://torch.mii.de/fhir/StructureDefinition/torch-job")
                 .set("valueObject", jobNode));
+
+        if (persistence.jobDiagnosticsExists(job.id())) {
+            try {
+                JobDiagnostics diag = persistence.loadJobDiagnostics(job.id());
+                extensionArr.add(mapper.createObjectNode()
+                        .put("url", "torch-job-diagnostics-summary")
+                        .set("valueObject", mapper.valueToTree(JobDiagnosticsSummary.from(diag))));
+            } catch (Exception e) {
+                logger.warn("Failed to load diagnostics summary for job {}: {}", job.id(), e.getMessage());
+            }
+            extensionArr.add(mapper.createObjectNode()
+                    .put("url", "torch-job-diagnostics-detail")
+                    .put("valueUri", fileServerName + "/" + job.id() + "/reports/job-summary.json"));
+        }
 
         root.set("extension", extensionArr);
         return root;

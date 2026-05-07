@@ -424,14 +424,6 @@
                         <groupId>org.jacoco</groupId>
                         <artifactId>jacoco-maven-plugin</artifactId>
                         <version>0.8.14</version>
-
-                        <configuration>
-                            <excludes>
-                                <exclude>de/medizininformatikinitiative/torch/rest/FhirApi*</exclude>
-                                <exclude>de/medizininformatikinitiative/torch/rest/schema/**</exclude>
-                            </excludes>
-                        </configuration>
-
                         <executions>
                             <execution>
                                 <id>prepare-agent</id>
@@ -557,12 +549,13 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+                <version>0.8.14</version>
                 <configuration>
                     <excludes>
+                        <exclude>de/medizininformatikinitiative/torch/rest/FhirApi*</exclude>
                         <exclude>de/medizininformatikinitiative/torch/rest/schema/**</exclude>
                     </excludes>
                 </configuration>
-                <version>0.8.14</version>
                 <executions>
                     <execution>
                         <id>prepare-agent</id>

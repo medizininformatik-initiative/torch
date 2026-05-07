@@ -12,11 +12,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CriterionKeysTest {
 
     private static final AnnotatedAttributeGroup GROUP = new AnnotatedAttributeGroup(
+            "Laborwerte",
             "group-id",
             "Observation",
             "http://example.org/StructureDefinition/Observation",
             List.of(),
-            List.of()
+            List.of(),
+            false
     );
 
     private static final AnnotatedAttribute ATTRIBUTE = new AnnotatedAttribute(
@@ -29,21 +31,23 @@ class CriterionKeysTest {
     class MustHave {
 
         @Test
-        void mustHaveAttribute_usesAttributeFhirPathAsBothNameAndAttributeRef() {
+        void mustHaveAttribute_usesElementIdAsIdAndName() {
             var key = CriterionKeys.mustHaveAttribute(GROUP, ATTRIBUTE);
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.MUST_HAVE);
-            assertThat(key.name()).isEqualTo(ATTRIBUTE.fhirPath());
+            assertThat(key.id()).isEqualTo(ATTRIBUTE.attributeRef());
+            assertThat(key.name()).isEqualTo(ATTRIBUTE.attributeRef());
             assertThat(key.groupRef()).isEqualTo(GROUP.groupReference());
             assertThat(key.attributeRef()).isEqualTo(ATTRIBUTE.fhirPath());
         }
 
         @Test
-        void mustHaveGroup_usesGroupIdAsNameAndNullAttributeRef() {
+        void mustHaveGroup_usesGroupIdAsIdAndGroupNameAsName() {
             var key = CriterionKeys.mustHaveGroup(GROUP);
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.MUST_HAVE);
-            assertThat(key.name()).isEqualTo(GROUP.id());
+            assertThat(key.id()).isEqualTo(GROUP.id());
+            assertThat(key.name()).isEqualTo(GROUP.name());
             assertThat(key.groupRef()).isEqualTo(GROUP.groupReference());
             assertThat(key.attributeRef()).isNull();
         }
@@ -57,6 +61,7 @@ class CriterionKeysTest {
             var key = CriterionKeys.consentNoData();
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.CONSENT);
+            assertThat(key.id()).isNull();
             assertThat(key.name()).isEqualTo("No data due to consent");
             assertThat(key.groupRef()).isNull();
             assertThat(key.attributeRef()).isNull();
@@ -67,6 +72,7 @@ class CriterionKeysTest {
             var key = CriterionKeys.consentResourceBlocked();
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.CONSENT);
+            assertThat(key.id()).isNull();
             assertThat(key.name()).isEqualTo("Resource blocked by consent");
             assertThat(key.groupRef()).isNull();
             assertThat(key.attributeRef()).isNull();
@@ -81,6 +87,7 @@ class CriterionKeysTest {
             var key = CriterionKeys.referenceNotFound("Observation");
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.REFERENCE_NOT_FOUND);
+            assertThat(key.id()).isNull();
             assertThat(key.name()).isEqualTo("Reference target not found");
             assertThat(key.groupRef()).isEqualTo("Observation");
             assertThat(key.attributeRef()).isNull();
@@ -91,6 +98,7 @@ class CriterionKeysTest {
             var key = CriterionKeys.referenceOutsideBatch("Patient");
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.REFERENCE_OUTSIDE_BATCH);
+            assertThat(key.id()).isNull();
             assertThat(key.name()).isEqualTo("Reference outside patient batch");
             assertThat(key.groupRef()).isEqualTo("Patient");
             assertThat(key.attributeRef()).isNull();
@@ -101,6 +109,7 @@ class CriterionKeysTest {
             var key = CriterionKeys.referenceInvalid("MedicationRequest");
 
             assertThat(key.kind()).isEqualTo(ExclusionKind.REFERENCE_INVALID);
+            assertThat(key.id()).isNull();
             assertThat(key.name()).isEqualTo("Invalid reference format");
             assertThat(key.groupRef()).isEqualTo("MedicationRequest");
             assertThat(key.attributeRef()).isNull();
