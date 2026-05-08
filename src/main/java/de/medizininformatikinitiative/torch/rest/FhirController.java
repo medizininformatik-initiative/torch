@@ -15,6 +15,7 @@ import de.medizininformatikinitiative.torch.management.OperationOutcomeCreator;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.rest.schema.JobManifestSchema;
 import de.medizininformatikinitiative.torch.rest.schema.OperationOutcomeSchema;
+import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -83,17 +84,19 @@ public class FhirController {
     private final String fileServerName;
     private final CrtdlValidatorService validator;
     private final ObjectMapper mapper;
+    private final CohortQueryService cohortQueryService;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ExtractDataParametersParser parser, CrtdlValidatorService validator,
-                          JobPersistenceService persistence, TorchProperties properties, ObjectMapper mapper) {
+                          JobPersistenceService persistence, TorchProperties properties, ObjectMapper mapper,
+                          CohortQueryService cohortQueryService) {
         this.fhirContext = requireNonNull(fhirContext);
         this.extractDataParametersParser = requireNonNull(parser);
         this.validator = requireNonNull(validator);
         this.persistence = requireNonNull(persistence);
         this.baseUrl = properties.base().url();
         this.mapper = mapper;
-
+        this.cohortQueryService = requireNonNull(cohortQueryService);
         this.fileServerName = properties.output().file().server().url();
     }
 
@@ -110,12 +113,26 @@ public class FhirController {
                     method = RequestMethod.GET,
                     beanClass = FhirController.class,
                     beanMethod = "checkStatus"
+            ),
+            @RouterOperation(
+                    path = "/fhir/$translate-cql/{jobId}",
+                    method = RequestMethod.GET,
+                    beanClass = FhirController.class,
+                    beanMethod = "handleCqlForJob"
+            ),
+            @RouterOperation(
+                    path = "/fhir/$translate-cql",
+                    method = RequestMethod.POST,
+                    beanClass = FhirController.class,
+                    beanMethod = "handleCqlTranslation"
             )
     })
     public RouterFunction<ServerResponse> queryRouter() {
         logger.info("Init FhirController Router");
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
-                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus);
+                .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus)
+                .andRoute(GET("/fhir/$translate-cql/{jobId}"), this::handleCqlForJob)
+                .andRoute(POST("/fhir/$translate-cql"), this::handleCqlTranslation);
     }
 
     @Operation(
@@ -379,6 +396,110 @@ public class FhirController {
                     ServerResponse.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
                             OperationOutcomeCreator.fromJob(job)));
         };
+    }
+
+
+    @Operation(
+            summary = "GET /fhir/$translate-cql/{jobId} — CQL for a saved job",
+            description = "Returns the CQL of the cohort definition stored in an existing job. Useful for debugging.",
+            parameters = @Parameter(
+                    name = "jobId",
+                    in = ParameterIn.PATH,
+                    required = true,
+                    description = "Job identifier returned by the kick-off endpoint",
+                    schema = @Schema(type = "string", format = "uuid")
+            ),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "CQL", content = @Content(mediaType = "text/plain")),
+                    @ApiResponse(responseCode = "400", description = "Invalid job ID",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class))),
+                    @ApiResponse(responseCode = "404", description = "Job not found",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class))),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class)))
+            }
+    )
+    /** Handles {@code GET /fhir/$translate-cql/{jobId}}. */
+    public Mono<ServerResponse> handleCqlForJob(ServerRequest request) {
+        var jobIdRaw = request.pathVariable("jobId");
+        UUID jobId;
+        try {
+            jobId = UUID.fromString(jobIdRaw);
+        } catch (IllegalArgumentException e) {
+            return ServerResponse.badRequest()
+                    .contentType(MEDIA_TYPE_FHIR_JSON)
+                    .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
+                            OperationOutcomeCreator.simple(Severity.ERROR, OperationOutcome.IssueType.INVALID,
+                                    "Invalid jobId: " + jobIdRaw)));
+        }
+
+        Job job = persistence.getJob(jobId).orElse(null);
+        if (job == null) {
+            return ServerResponse.status(HttpStatus.NOT_FOUND)
+                    .contentType(MEDIA_TYPE_FHIR_JSON)
+                    .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
+                            OperationOutcomeCreator.simple(Severity.ERROR, OperationOutcome.IssueType.NOTFOUND,
+                                    "No job with id " + jobId + " exists")));
+        }
+
+        return cohortQueryService.translateToCql(job.parameters().crtdl().cohortDefinition())
+                .flatMap(cql -> ServerResponse.ok().contentType(MediaType.TEXT_PLAIN).bodyValue(cql))
+                .onErrorResume(Exception.class, e -> {
+                    logger.error("FHIR_CONTROLLER_03 Failed to translate CQL for job {}: {}", jobId, e.getMessage(), e);
+                    return ServerResponse.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .contentType(MEDIA_TYPE_FHIR_JSON)
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(createOperationOutcome(e)));
+                });
+    }
+
+    @Operation(
+            summary = "POST /fhir/$translate-cql — Translate a CRTDL or CCDL to CQL",
+            description = """
+                    Accepts either a full CRTDL (with a {@code cohortDefinition} field) or a bare CCDL
+                    (structured query) and returns the CQL representation without executing it.
+                    """,
+            requestBody = @RequestBody(required = true, content = @Content(mediaType = "application/json")),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "CQL", content = @Content(mediaType = "text/plain")),
+                    @ApiResponse(responseCode = "400", description = "Bad Request",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class))),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class)))
+            }
+    )
+    /**
+     * Handles {@code POST /fhir/$translate-cql}.
+     *
+     * <p>Accepts a CRTDL (extracts the {@code cohortDefinition} field) or a bare CCDL
+     * (structured query used directly). Returns the CQL as plain text.</p>
+     */
+    public Mono<ServerResponse> handleCqlTranslation(ServerRequest request) {
+        return request.bodyToMono(String.class)
+                .filter(body -> !body.isBlank())
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
+                .flatMap(body -> {
+                    JsonNode root;
+                    try {
+                        root = mapper.readTree(body);
+                    } catch (IOException e) {
+                        return Mono.error(new IllegalArgumentException("Invalid JSON: " + e.getMessage(), e));
+                    }
+                    JsonNode cohortDefinition = root.has("cohortDefinition") ? root.get("cohortDefinition") : root;
+                    return cohortQueryService.translateToCql(cohortDefinition);
+                })
+                .flatMap(cql -> ServerResponse.ok().contentType(MediaType.TEXT_PLAIN).bodyValue(cql))
+                .onErrorResume(Exception.class, e -> {
+                    HttpStatus status = e instanceof IllegalArgumentException
+                            ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
+                    if (status == HttpStatus.BAD_REQUEST) {
+                        logger.warn("FHIR_CONTROLLER_04 Bad request in $translate-cql: {}", e.getMessage(), e);
+                    } else {
+                        logger.error("FHIR_CONTROLLER_05 Internal server error in $translate-cql: {}", e.getMessage(), e);
+                    }
+                    return ServerResponse.status(status)
+                            .contentType(MEDIA_TYPE_FHIR_JSON)
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(createOperationOutcome(e)));
+                });
     }
 
 

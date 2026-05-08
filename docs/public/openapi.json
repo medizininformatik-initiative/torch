@@ -119,6 +119,110 @@
         }
       }
     },
+    "/fhir/$translate-cql": {
+      "post": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "POST /fhir/$translate-cql — Translate a CRTDL or CCDL to CQL",
+        "description": "Accepts either a full CRTDL (with a {@code cohortDefinition} field) or a bare CCDL\n(structured query) and returns the CQL representation without executing it.\n",
+        "operationId": "handleCqlTranslation",
+        "requestBody": {
+          "content": {
+            "application/json": {}
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "CQL",
+            "content": {
+              "text/plain": {}
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/fhir/$translate-cql/{jobId}": {
+      "get": {
+        "tags": [
+          "fhir-controller"
+        ],
+        "summary": "GET /fhir/$translate-cql/{jobId} — CQL for a saved job",
+        "description": "Returns the CQL of the cohort definition stored in an existing job. Useful for debugging.",
+        "operationId": "handleCqlForJob",
+        "parameters": [
+          {
+            "name": "jobId",
+            "in": "path",
+            "description": "Job identifier returned by the kick-off endpoint",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "CQL",
+            "content": {
+              "text/plain": {}
+            }
+          },
+          "400": {
+            "description": "Invalid job ID",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/fhir+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperationOutcome"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/fhir/__status/{jobId}": {
       "get": {
         "tags": [
@@ -160,7 +264,7 @@
             }
           },
           "404": {
-            "description": "Job Not Found",
+            "description": "Job Not Found Or Deleted",
             "content": {
               "application/fhir+json": {
                 "schema": {
@@ -1174,7 +1278,8 @@
               "RUNNING_PROCESS_CORE",
               "COMPLETED",
               "FAILED",
-              "CANCELLED"
+              "CANCELLED",
+              "DELETED"
             ]
           },
           "batches": {
