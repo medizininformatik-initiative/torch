@@ -4,6 +4,37 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.1] - 2026-05-11
+
+### Added
+
+- Add `POST /fhir/$translate-cql` debug endpoint [#748](https://github.com/medizininformatik-initiative/torch/issues/748)
+
+### Changed
+
+- Update Ontology to v4.1.0 [#901](https://github.com/medizininformatik-initiative/torch/issues/901)
+- Consent: Specify consent resources for FDPG project data extraction [#851](https://github.com/medizininformatik-initiative/torch/issues/851)
+
+### Removed
+
+- Remove Standard Patient Identifier Inclusion [#879](https://github.com/medizininformatik-initiative/torch/issues/879)
+
+### Fixed
+
+- Enrich `Patient.meta.profile` from CRTDL `groupReference` if absent [#897](https://github.com/medizininformatik-initiative/torch/issues/897)
+- Fix: Default `torch.output.file.server.url` lacks URL scheme [#884](https://github.com/medizininformatik-initiative/torch/issues/884)
+
+### Security
+
+- Fix CVE-2026-34361: pin `org.hl7.fhir.validation` to 6.9.7 [#882](https://github.com/medizininformatik-initiative/torch/issues/882)
+
+### Breaking Changes
+
+- **`Patient.identifier` removed from standard attributes** — add it explicitly to the CRTDL attribute group
+  if needed; identifier enrichment is now expected to be handled externally.
+- **Consent: only FDPG `.8` / `.6` codes are evaluated** — both must appear together in the CRTDL; `.45` /
+  `.46` remain optional retrospective modifiers; all other MII codes are silently ignored.
+
 ## [v1.0.0-alpha.20] - 2026-04-30
 
 ### Fixed
