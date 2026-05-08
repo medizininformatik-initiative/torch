@@ -3,6 +3,22 @@
 TORCH implements **privacy-aware consent handling** to ensure that the extracted data strictly complies with patient
 permissions and applicable regulations.
 
+> **v1.0.0-beta.1 — FDPG-Project consent scope clarified**
+>
+> As of this release, TORCH exclusively evaluates the two MII consent provision codes required for
+> FDPG "Zentrale Analyse" (centralised data extraction for researchers):
+>
+> | Code | OID | Role |
+> |---|---|---|
+> | MDAT wissenschaftlich nutzen EU DSGVO NIVEAU | `2.16.840.1.113883.3.1937.777.24.5.3.8` | Validity gate — today must fall within the provision period |
+> | MDAT erheben | `2.16.840.1.113883.3.1937.777.24.5.3.6` | Data-extraction window — resources outside this period are excluded |
+>
+> Both codes must appear **together** in the CRTDL cohort definition; TORCH rejects requests where
+> only one is present. The optional retrospective modifiers (`.45` / `.46`) extend `.6`'s period back
+> to 1900-01-01 when present in the same Consent resource and explicitly requested in the CRTDL.
+>
+> All other MII consent codes (BIOMAT, KKDAT, IDAT, etc.) are **silently ignored**.
+
 ---
 
 ## 1. Consent Representation
