@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -260,6 +261,74 @@ class DirectResourceLoaderTest {
                     .verifyComplete();
         }
 
+
+        @Test
+        void enrichesPatientMetaProfileWhenMissing() {
+            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
+            var patientGroup = new AnnotatedAttributeGroup("patGroup", "Patient", groupRef,
+                    List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
+
+            Patient patient = new Patient();
+            patient.setId("1");
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
+            var safeSet = new HashSet<>(List.of("1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
+            when(profileMustHaveChecker.fulfilled(patient, patientGroup)).thenReturn(true);
+
+            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet).block();
+
+            assertThat(patient.getMeta().getProfile()).hasSize(1);
+            assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
+        }
+
+        @Test
+        void replacesExistingPatientMetaProfileWithTarget() {
+            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
+            var existingProfile = "https://example.org/existing-profile";
+            var patientGroup = new AnnotatedAttributeGroup("patGroup", "Patient", groupRef,
+                    List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
+
+            Patient patient = new Patient();
+            patient.setId("1");
+            patient.getMeta().addProfile(existingProfile);
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
+            var safeSet = new HashSet<>(List.of("1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
+            when(profileMustHaveChecker.fulfilled(patient, patientGroup)).thenReturn(true);
+
+            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet).block();
+
+            assertThat(patient.getMeta().getProfile()).hasSize(1);
+            assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
+        }
+
+        @Test
+        void doesNotEnrichMetaProfileForNonPatientResources() {
+            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
+            var observationGroup = new AnnotatedAttributeGroup("obsGroup", "Observation", groupRef,
+                    List.of(new AnnotatedAttribute("Observation.code", "Observation.code", false)), List.of());
+
+            Observation observation = new Observation();
+            observation.setId("obs1");
+            observation.setSubject(new Reference("Patient/1"));
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
+            var safeSet = new HashSet<>(List.of("1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
+            when(profileMustHaveChecker.fulfilled(observation, observationGroup)).thenReturn(true);
+
+            directResourceLoader.processPatientAttributeGroups(List.of(observationGroup), batchWithConsent, safeSet).block();
+
+            assertThat(observation.getMeta().getProfile()).isEmpty();
+        }
 
         @Test
         void testStoresObservationWithKnownPatient() {

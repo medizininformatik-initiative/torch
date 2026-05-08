@@ -13,6 +13,7 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Patient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -173,9 +174,20 @@ public class DirectResourceLoader {
         // Extract a mutable copy of the patient bundles
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
-        return groupQueries(group)
+        var resourceFlux = groupQueries(group)
                 .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
-                .concatMap(resource -> applyConsent(resource, batch))
+                .concatMap(resource -> applyConsent(resource, batch));
+
+        if (AnnotatedAttributeGroup.PATIENT.equals(group.resourceType())) {
+            String targetProfile = group.groupReference();
+            resourceFlux = resourceFlux.map(resource -> {
+                ((Patient) resource).getMeta().getProfile().clear();
+                ((Patient) resource).getMeta().addProfile(targetProfile);
+                return resource;
+            });
+        }
+
+        return resourceFlux
                 .mapNotNull(DirectResourceLoader::extractPatientId)
                 .filter(tuple -> batch.bundles().containsKey(tuple.patientId))
                 .doOnDiscard(ResourceWithPatientId.class, tuple ->
@@ -193,4 +205,5 @@ public class DirectResourceLoader {
                 .doOnTerminate(() -> safeSet.retainAll(safeGroup))
                 .then(Mono.just(new PatientBatchWithConsent(mutableBundles, batch.applyConsent(), batch.coreBundle(), batch.id()))); // Convert back to immutable
     }
+
 }
