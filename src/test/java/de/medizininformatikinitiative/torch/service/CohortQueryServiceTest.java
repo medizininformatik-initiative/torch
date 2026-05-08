@@ -104,4 +104,20 @@ class CohortQueryServiceTest {
                 .expectError()
                 .verify();
     }
+
+    @Test
+    void translateToCql_validCohortDefinition_returnsCql() {
+        StepVerifier.create(service.translateToCql(crtdlAllObservations.cohortDefinition()))
+                .assertNext(cql -> assertThat(cql).isNotNull().isNotBlank())
+                .verifyComplete();
+    }
+
+    @Test
+    void translateToCql_invalidCohortDefinition_emitsIllegalArgumentException() {
+        JsonNode invalidNode = TextNode.valueOf("not a structured query");
+
+        StepVerifier.create(service.translateToCql(invalidNode))
+                .expectError(IllegalArgumentException.class)
+                .verify();
+    }
 }

@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -85,5 +86,22 @@ public class CohortQueryService {
                 .map(ccdl -> cqlQueryTranslator.toCql(ccdl).print())
                 .flatMapMany(cqlClient::fetchPatientIds)
                 .collectList();
+    }
+
+    /**
+     * Translates a cohort definition (structured query) to a CQL string without executing it.
+     *
+     * @param cohortDefinition the structured query JSON node (the {@code cohortDefinition} field of a CRTDL)
+     * @return mono emitting the CQL representation of the cohort query
+     */
+    public Mono<String> translateToCql(JsonNode cohortDefinition) {
+        return Mono.fromCallable(() -> {
+            try {
+                StructuredQuery sq = objectMapper.treeToValue(cohortDefinition, StructuredQuery.class);
+                return cqlQueryTranslator.toCql(sq).print();
+            } catch (JsonProcessingException e) {
+                throw new IllegalArgumentException("Invalid cohort definition: " + e.getMessage(), e);
+            }
+        });
     }
 }

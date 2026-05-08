@@ -12,6 +12,7 @@ import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
+import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
@@ -24,6 +25,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 
 import java.util.Collections;
 import java.util.Optional;
@@ -48,6 +50,9 @@ class FhirControllerTest {
     @Mock
     JobPersistenceService jobPersistenceService;
 
+    @Mock
+    CohortQueryService cohortQueryService;
+
     ObjectMapper objectMapper = new ObjectMapper()
             .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
             .registerModule(new com.fasterxml.jackson.datatype.jdk8.Jdk8Module());
@@ -70,7 +75,7 @@ class FhirControllerTest {
     @BeforeEach
     void setup() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper);
+        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper, cohortQueryService);
         client = WebTestClient.bindToRouterFunction(fhirController.queryRouter()).build();
     }
 
@@ -192,7 +197,7 @@ class FhirControllerTest {
             })
                     .when(failingMapper).writeValueAsString(any());
 
-            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper);
+            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper, cohortQueryService);
             WebTestClient.bindToRouterFunction(controller.queryRouter()).build()
                     .get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().is5xxServerError()
@@ -210,6 +215,121 @@ class FhirControllerTest {
 
             client.get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().is5xxServerError()
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
+    class CqlForJobTests {
+
+        @Test
+        void existingJobReturnsCql() {
+            UUID jobId = UUID.randomUUID();
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
+            when(cohortQueryService.translateToCql(any())).thenReturn(Mono.just("define Patient: ..."));
+
+            client.get().uri("/fhir/$translate-cql/" + jobId)
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_PLAIN)
+                    .expectBody(String.class).isEqualTo("define Patient: ...");
+        }
+
+        @Test
+        void invalidJobIdReturnsBadRequest() {
+            client.get().uri("/fhir/$translate-cql/not-a-uuid")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome")
+                    .jsonPath("$.issue[0].code").isEqualTo("invalid");
+        }
+
+        @Test
+        void nonExistentJobReturnsNotFound() {
+            UUID jobId = UUID.randomUUID();
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.empty());
+
+            client.get().uri("/fhir/$translate-cql/" + jobId)
+                    .exchange()
+                    .expectStatus().isNotFound()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome")
+                    .jsonPath("$.issue[0].code").isEqualTo("not-found");
+        }
+
+        @Test
+        void translationErrorReturnsInternalServerError() {
+            UUID jobId = UUID.randomUUID();
+            Job job = Job.init(jobId, TestUtils.emptyJobParams());
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
+            when(cohortQueryService.translateToCql(any()))
+                    .thenReturn(Mono.error(new RuntimeException("Translation failed")));
+
+            client.get().uri("/fhir/$translate-cql/" + jobId)
+                    .exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
+    class CqlTranslationTests {
+
+        @Test
+        void ccdlBodyReturnsCql() {
+            when(cohortQueryService.translateToCql(any())).thenReturn(Mono.just("define Patient: ..."));
+
+            client.post().uri("/fhir/$translate-cql")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{\"version\":\"http://to_be_decided.com/draft-1/schema#\",\"inclusionCriteria\":[[]]}")
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_PLAIN)
+                    .expectBody(String.class).isEqualTo("define Patient: ...");
+        }
+
+        @Test
+        void crtdlBodyExtractsCohortDefinition() {
+            when(cohortQueryService.translateToCql(any())).thenReturn(Mono.just("define Patient: ..."));
+
+            client.post().uri("/fhir/$translate-cql")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{\"cohortDefinition\":{\"inclusionCriteria\":[[]]},\"dataExtraction\":{}}")
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().contentTypeCompatibleWith(MediaType.TEXT_PLAIN)
+                    .expectBody(String.class).isEqualTo("define Patient: ...");
+        }
+
+        @Test
+        void emptyBodyReturnsBadRequest() {
+            client.post().uri("/fhir/$translate-cql")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void translationErrorReturnsInternalServerError() {
+            when(cohortQueryService.translateToCql(any()))
+                    .thenReturn(Mono.error(new RuntimeException("Translation failed")));
+
+            client.post().uri("/fhir/$translate-cql")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
         }
