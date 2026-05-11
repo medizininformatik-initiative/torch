@@ -2,11 +2,16 @@ package de.medizininformatikinitiative.torch.config;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.consent.ConsentValidator;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
+import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -23,6 +28,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 @SpringBootTest(classes = Torch.class)
 @ActiveProfiles("active")
 class WebConfigTest {
+
+    @MockitoBean
+    DseMappingTreeBase dseMappingTreeBase;
+
+    @MockitoBean
+    StructureDefinitionHandler structureDefinitionHandler;
+
+    @MockitoBean
+    ConsentValidator consentValidator;
+
+    @MockitoBean
+    ConsentCodeConfig consentCodeConfig;
 
     @DynamicPropertySource
     static void registerProperties(DynamicPropertyRegistry registry) {

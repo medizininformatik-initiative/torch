@@ -140,6 +140,8 @@ jobs:
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Download Ontology and Run Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
         run: mvn -P download-ontology -B verify
 
       - name: Upload Coverage to Codecov

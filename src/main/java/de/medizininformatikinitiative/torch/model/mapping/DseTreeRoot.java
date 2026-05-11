@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.model.mapping;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
@@ -10,6 +11,7 @@ import java.util.stream.Stream;
 
 import static java.util.function.Function.identity;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record DseTreeRoot(String system, Map<String, DseTreeEntry> entries) {
 
     @JsonCreator

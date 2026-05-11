@@ -22,7 +22,7 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <Hapi.version>8.8.1</Hapi.version>
         <hapi-fhir-core.version>6.9.7</hapi-fhir-core.version>
-        <ontology-tag>v4.0.0</ontology-tag>
+        <ontology-tag>v4.1.0</ontology-tag>
     </properties>
 
     <dependencies>
@@ -544,11 +544,21 @@
         <finalName>torch</finalName>
         <plugins>
 
+            <!-- Surefire Plugin for Unit Tests -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -Xmx8g</argLine>
+                </configuration>
+            </plugin>
+
             <!-- Failsafe Plugin for Integration Tests -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
+                    <argLine>@{argLine} -Xmx8g</argLine>
                     <excludes>
                         <exclude>**/*BlackBoxIT.java</exclude>
                     </excludes>
