@@ -54,12 +54,7 @@
       {
         "id": "111-pat",
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
-        "attributes": [
-          {
-            "attributeRef": "Patient.id",
-            "mustHave": true
-          }
-        ]
+        "attributes": []
       }
     ]
   }

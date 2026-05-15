@@ -46,19 +46,24 @@ Each group has an identifier for the group called **groupReference**, a list of 
 
 **Every data extraction must have exactly one attribute group that describes patient attributes**.
 
-An attribute to be extracted contains an attribute reference **attributeRef** and information if the attribute is
-required **must-have** e.g.
+An attribute to be extracted contains an attribute reference **attributeRef** and a flag indicating whether the attribute is required: **mustHave**.
 
-```json 
+```json
 {
   "attributeRef": "Medication.medicationCode",
-      "mustHave": true
-          
-          }
+  "mustHave": true
+}
 ```
 
+When `mustHave: true` is set on at least one attribute in a group, TORCH enforces that every patient has at least one resource of that group where all `mustHave: true` attributes are populated.
+Patients for whom no such resource exists are **dropped from the extraction result entirely**.
 
-If a **must have** condition is **violated**, it will result in a complete stop of the extraction for a **patient**.
+When no attribute in a group carries `mustHave: true`, the group is optional: patients are retained even if they have no resources for that group.
+
+Standard attributes (`id`, `meta.profile`, and patient compartment references such as `subject`) are enforced at pipeline level and are never subject to `mustHave` filtering.
+Resources that lack `id` or `meta.profile` are filtered out before must-have checking runs.
+For patient resources specifically, TORCH enriches the resource with the target profile if `meta.profile` is missing, so patients are not dropped for a missing profile alone.
+See [must-have checking](../implementation/must-have.md) for the full semantics.
 
 Filter definitions have a list of **FHIR search parameter operations** containing the type, name (corresponds the code field in FHIR Search Parameters) 
 and corresponding parameters. Currently **token** and **date** are supported types.

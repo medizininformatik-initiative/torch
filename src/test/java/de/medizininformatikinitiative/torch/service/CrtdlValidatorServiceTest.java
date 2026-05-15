@@ -98,6 +98,15 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    void moreThanOnePatientGroup() {
+        AttributeGroup secondPatientGroup = new AttributeGroup("patientGroupId2", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, secondPatientGroup)));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("More than one Patient Attribute Group");
+    }
+
+    @Test
     void unknownProfile() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "unknown.test", List.of(), List.of()))));
 
@@ -118,10 +127,10 @@ class CrtdlValidatorServiceTest {
 
     @Test
     void referenceWithoutLinkedGroups() {
-        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.subject", false)), List.of()))));
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab", List.of(new Attribute("Observation.encounter", false)), List.of()))));
 
         assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
-                .hasMessageContaining("Reference Attribute Observation.subject without linked Groups in group test");
+                .hasMessageContaining("Reference Attribute Observation.encounter without linked Groups in group test");
 
     }
 
@@ -154,6 +163,50 @@ class CrtdlValidatorServiceTest {
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
                         new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
                 ));
+    }
+
+    @Test
+    void duplicateAttribute() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.status", false), new Attribute("Observation.status", false)), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Duplicate attribute Observation.status in group test");
+    }
+
+    @Test
+    void standardAttributeExplicitlySpecified_isSkipped() throws ValidationException, ConsentFormatException {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.id", false)), List.of()))));
+
+        var result = validatorService.validateAndAnnotate(crtdl);
+
+        assertThat(result.dataExtraction().attributeGroups().get(1).attributes()).contains(
+                new AnnotatedAttribute("Observation.id", "Observation.id", false));
+    }
+
+    @Test
+    void standardCompartmentRefAttributeExplicitlySpecified_isSkipped() throws ValidationException, ConsentFormatException {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.subject", false, List.of("patientGroupId"))), List.of()))));
+
+        var result = validatorService.validateAndAnnotate(crtdl);
+
+        assertThat(result.dataExtraction().attributeGroups().get(1).attributes()).contains(
+                new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("patientGroupId")));
+    }
+
+    @Test
+    void standardAttributeExplicitlySpecifiedWithMustHaveTrue_failsValidation() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
+                        List.of(new Attribute("Observation.id", true)), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Standard attribute Observation.id in group test cannot be declared with mustHave: true");
     }
 
     @Test

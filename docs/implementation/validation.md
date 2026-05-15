@@ -48,6 +48,64 @@ Each attribute in an attribute group must reference an element that exists in th
 
 If an attribute reference cannot be resolved in the referenced profile, validation fails.
 
+### No duplicate attributes within a group
+
+Each `attributeRef` must appear at most once within a single attribute group.
+
+If the same `attributeRef` is listed more than once in the same group, validation fails — regardless of whether the two entries carry the same or different `mustHave` values.
+
+If an attribute needs to reference multiple linked groups, combine all linked group IDs into a single `linkedGroups` array on one attribute entry. Repeating the same `attributeRef` with different linked groups is not allowed.
+
+**Valid:**
+
+```json
+{
+  "attributeRef": "Observation.encounter",
+  "mustHave": false,
+  "linkedGroups": [
+    "groupA",
+    "groupB"
+  ]
+}
+```
+
+**Invalid (duplicate attributeRef):**
+
+```json
+[
+  {
+    "attributeRef": "Observation.encounter",
+    "mustHave": false,
+    "linkedGroups": [
+      "groupA"
+    ]
+  },
+  {
+    "attributeRef": "Observation.encounter",
+    "mustHave": false,
+    "linkedGroups": [
+      "groupB"
+    ]
+  }
+]
+```
+
+### Standard attributes: redundant declarations are skipped, contradictory declarations fail
+
+TORCH automatically generates a set of standard attributes for every attribute group (see [Standard Attributes Added During Validation](#standard-attributes-added-during-validation)).
+
+Standard attributes are technically enforced at pipeline level and are always present on any resource that reaches the must-have check. They are always generated with `mustHave: false` and never cause a patient to be dropped.
+
+If a CRTDL explicitly declares a standard attribute with `mustHave: false`, the declaration is redundant and silently skipped — the standard attribute is still generated as normal.
+
+If a CRTDL explicitly declares a standard attribute with `mustHave: true`, **validation fails**. This contradicts the standard definition: standard attributes cannot drive patient filtering because they are technically enforced, not user-controlled data quality requirements.
+
+This applies to:
+
+- `<ResourceType>.id`
+- `<ResourceType>.meta.profile`
+- `<ResourceType>.patient` and `<ResourceType>.subject` for resources in the patient compartment (when the element exists in the referenced profile)
+
 ### Typed attributes
 
 Each referenced element must have a type in the resolved profile definition.
@@ -89,7 +147,7 @@ This means validation does not only check correctness, but also prepares the CRT
 
 In addition to the explicitly defined CRTDL attributes, TORCH automatically adds a small set of standard attributes to each attribute group.
 
-These attributes are generated during validation and do not need to be specified manually in the CRTDL.
+These attributes are generated during validation with `mustHave: false` and do not need to be specified manually in the CRTDL.
 
 ### Added for all attribute groups
 
@@ -99,12 +157,6 @@ For every attribute group, TORCH adds:
 - `<ResourceType>.meta.profile`
 
 These attributes are required for technical processing and profile-aware handling.
-
-### Added for Patient groups
-
-If the attribute group references the resource type `Patient`, TORCH additionally adds:
-
-- `Patient.identifier`
 
 ### Added for resources in the patient compartment
 
@@ -124,8 +176,6 @@ Depending on the resource type, validation may add:
 - always:
     - `<ResourceType>.id`
     - `<ResourceType>.meta.profile`
-- for `Patient`:
-    - `Patient.identifier`
 - for patient-compartment resources, if present in the profile:
     - `<ResourceType>.patient`
     - `<ResourceType>.subject`

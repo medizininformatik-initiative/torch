@@ -71,12 +71,14 @@ export default withMermaid({
                         items: [
                             {text: 'Limitations', link: '/implementation/limitations'},
                             {text: 'Error Codes', link: '/implementation/error-codes'},
+                            {text: 'Validation', link: '/implementation/validation'},
                             {text: 'Consent', link: '/implementation/consent'},
                             {text: 'Direct Loading', link: '/implementation/direct-load'},
                             {text: 'Must Have Checking', link: '/implementation/must-have'},
                             {text: 'Cascading Delete', link: '/implementation/cascading-delete'},
                             {text: 'Reference Resolve', link: '/implementation/reference-resolve'},
                             {text: 'Redaction', link: '/implementation/redaction'},
+                            {text: 'Provenance', link: '/implementation/provenance'},
                             {text: 'Data Extraction', link: '/implementation/data-extraction'}
                         ]
                     }
