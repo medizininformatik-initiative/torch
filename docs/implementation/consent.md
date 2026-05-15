@@ -164,7 +164,7 @@ Consent resource B (revocation, 2023):
 - Consent records must be **up-to-date** and accurately reflect patient permissions.
 - Only the codes listed in `consent-code-config.json` are evaluated — all others are ignored.
 - The shipped default config supports the MII FDPG-Project (Zentrale Analyse) consent codes; other use cases may
-  require additions to `consent-code-config.json`.
+  are currently not supported.
 - TORCH treats all data in the FHIR server as MDAT (Medizinische Daten).
 - TORCH does not consider consent versioning — provision codes are assumed to be unique and to retain the same
   meaning across all versions of the consent profile.
