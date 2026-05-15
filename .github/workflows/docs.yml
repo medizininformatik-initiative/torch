@@ -23,40 +23,96 @@ permissions: read-all
 jobs:
   build-pages:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      pull-requests: write
     steps:
       - name: Check out Git repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
       - name: Setup Node
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
         with:
           node-version-file: .nvmrc
           cache: npm
           cache-dependency-path: 'docs/package-lock.json'
-      - name: Build
+
+      - name: Build Main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: docs
         env:
           DOCS_BASE: "/${{ github.event.repository.name }}/"
         run: make build
-      - name: Setup Pages
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6
-      - name: Upload artifact
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5
-        with:
-          path: docs/.vitepress/dist
 
-  deploy-pages:
+      - name: Build Preview
+        if: github.event_name == 'pull_request'
+        working-directory: docs
+        env:
+          DOCS_BASE: "/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/"
+        run: make build
+
+      - name: Deploy Main
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/.vitepress/dist
+          keep_files: true
+
+      - name: Deploy Preview
+        if: github.event_name == 'pull_request'
+        uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: docs/.vitepress/dist
+          destination_dir: preview/pr-${{ github.event.number }}
+          keep_files: true
+
+      - name: Comment Preview Url
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
+        with:
+          script: |
+            const url = 'https://medizininformatik-initiative.github.io/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/';
+            const body = `Preview docs deployed at ${url}`;
+            const marker = '<!-- preview-url-comment -->';
+            
+            const { data: comments } = await github.rest.issues.listComments({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo
+            });
+            
+            const existing = comments.find(c => c.body.includes(marker));
+            
+            if (existing) {
+              await github.rest.issues.updateComment({
+                  comment_id: existing.id,
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  body: `${marker}\n${body}`
+                });
+            } else {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `${marker}\n${body}`
+              });
+            }
+
+  cleanup-preview-page:
     runs-on: ubuntu-24.04
-    needs: [ build-pages ]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.event_name == 'pull_request' && github.event.action == 'closed'
     permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      contents: write
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: gh-pages
+      - run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git rm -rf preview/pr-${{ github.event.number }} || true
+          git commit -m "Remove Preview"
+          git push
