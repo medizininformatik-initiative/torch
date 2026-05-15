@@ -5,11 +5,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
+import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
@@ -53,6 +57,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 import java.util.stream.Stream;
 
@@ -170,6 +175,52 @@ class FhirControllerIT {
                 .verify();
 
         fis.close();
+    }
+
+    @Test
+    void consentResourceExtractedWhenDateTimeAtConsentPeriodStart() throws IOException, ValidationException, ConsentFormatException, ConsentViolatedException {
+        webClient.post()
+                .bodyValue(Files.readString(Path.of(RESOURCE_PATH_PREFIX + "Bundle-test-consent-ext.json")))
+                .header("Content-Type", "application/fhir+json")
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+
+        // Consent period mirrors the provision: start = 2024-02-23 == dateTime = 2024-02-23 (boundary case)
+        var consentPeriod = NonContinuousPeriod.of(Period.of("2024-02-23", "2054-01-31"));
+        var batch = PatientBatchWithConsent.fromBatchAndConsent(
+                PatientBatch.of("mii-exa-test-data-patient-1"),
+                Map.of("mii-exa-test-data-patient-1", consentPeriod)
+        );
+
+        Crtdl crtdl;
+        try (var fis = new FileInputStream(RESOURCE_PATH_PREFIX + "CrtdlItTests/CRTDL_test_consent-ext.json")) {
+            crtdl = objectMapper.readValue(fis, Crtdl.class);
+        }
+        AnnotatedCrtdl annotatedCrtdl = validatorService.validateAndAnnotate(crtdl);
+
+        PatientBatchWithConsent result = transformer.directLoadPatientCompartment(
+                annotatedCrtdl.dataExtraction().attributeGroups(), batch
+        ).block();
+
+        assertThat(result).isNotNull();
+        assertThat(result.bundles()).hasSize(1);
+
+        var patientBundle = result.bundles().get("mii-exa-test-data-patient-1");
+        assertThat(patientBundle).isNotNull();
+        assertThat(patientBundle.bundle().cache()).hasSize(2);
+
+        var extractedConsent = patientBundle.get(new ExtractionId("Consent", "mii-exa-test-data-patient-1-consent-1"));
+        assertThat(extractedConsent).isPresent();
+        var consent = (org.hl7.fhir.r4.model.Consent) extractedConsent.get();
+        assertThat(consent.getIdElement().getIdPart()).isEqualTo("mii-exa-test-data-patient-1-consent-1");
+        assertThat(consent.getStatus()).isEqualTo(org.hl7.fhir.r4.model.Consent.ConsentState.ACTIVE);
+
+        var extractedPatient = patientBundle.get(new ExtractionId("Patient", "mii-exa-test-data-patient-1"));
+        assertThat(extractedPatient).isPresent();
+        var patient = (org.hl7.fhir.r4.model.Patient) extractedPatient.get();
+        assertThat(patient.getIdElement().getIdPart()).isEqualTo("mii-exa-test-data-patient-1");
+        assertThat(patient.getGender()).isEqualTo(org.hl7.fhir.r4.model.Enumerations.AdministrativeGender.MALE);
     }
 
     void testExecutor(String filePath, String url, HttpHeaders headers) {

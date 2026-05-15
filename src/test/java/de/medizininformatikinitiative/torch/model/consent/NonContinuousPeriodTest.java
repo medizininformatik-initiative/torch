@@ -127,6 +127,39 @@ class NonContinuousPeriodTest {
 
             assertThat(ncp.within(resource)).isFalse();
         }
+
+        @Test
+        void trueWhenStartEqualsConsentStart() {
+            var ncp = new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10")));
+            var resource = p("2024-01-01", "2024-01-05");
+
+            assertThat(ncp.within(resource)).isTrue();
+        }
+
+        @Test
+        void trueWhenEndEqualsConsentEnd() {
+            var ncp = new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10")));
+            var resource = p("2024-01-05", "2024-01-10");
+
+            assertThat(ncp.within(resource)).isTrue();
+        }
+
+        @Test
+        void trueWhenResourcePeriodMatchesConsentPeriodExactly() {
+            var ncp = new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10")));
+            var resource = p("2024-01-01", "2024-01-10");
+
+            assertThat(ncp.within(resource)).isTrue();
+        }
+
+        @Test
+        void trueWhenPointDateEqualsConsentStart() {
+            // Consent resource with dateTime == consent period start — the main bug case
+            var ncp = new NonContinuousPeriod(List.of(p("2024-01-01", "2024-01-10")));
+            var resource = p("2024-01-01", "2024-01-01");
+
+            assertThat(ncp.within(resource)).isTrue();
+        }
     }
 
     @Nested

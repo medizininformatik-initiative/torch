@@ -51,6 +51,20 @@ class CdsBlackBoxIT {
     }
 
     @Test
+    void consentResourceExtractedWhenDateTimeAtConsentPeriodStart() throws IOException {
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_consent-ext.json")).block();
+        assertThat(statusUrl).isNotNull();
+        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        assertThat(statusResponse).isNotNull();
+
+        List<Bundle> patientBundles = statusResponse.patientBundleUrls().stream().flatMap(fileServerClient::fetchBundles).toList();
+
+        assertThat(patientBundles).isNotEmpty();
+        assertThat(patientBundles).allSatisfy(bundle ->
+                assertThat(bundle).extractResourcesByType(ResourceType.Consent).isNotEmpty());
+    }
+
+    @Test
     void testExamples() throws IOException {
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/CrtdlItTests/CRTDL_test_it-kds-crtdl.json")).block();
         assertThat(statusUrl).isNotNull();

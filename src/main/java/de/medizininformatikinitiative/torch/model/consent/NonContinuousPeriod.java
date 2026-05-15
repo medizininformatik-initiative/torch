@@ -59,7 +59,7 @@ public record NonContinuousPeriod(List<Period> periods) {
 
     public boolean within(Period resourcePeriod) {
         return periods.stream().anyMatch(period ->
-                resourcePeriod.start().isAfter(period.start()) && resourcePeriod.end().isBefore(period.end()));
+                !resourcePeriod.start().isBefore(period.start()) && !resourcePeriod.end().isAfter(period.end()));
     }
 
 
