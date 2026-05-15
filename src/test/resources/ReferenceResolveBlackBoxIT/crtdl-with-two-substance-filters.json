@@ -61,17 +61,17 @@
           {
             "attributeRef": "Medication.manufacturer",
             "mustHave": false,
-            "linkedGroups": ["linked-orga-group"]
+            "linkedGroups": [
+              "linked-orga-group"
+            ]
           },
           {
             "attributeRef": "Medication.ingredient.item[x]",
             "mustHave": false,
-            "linkedGroups": ["subst-group-1"]
-          },
-          {
-            "attributeRef": "Medication.ingredient.item[x]",
-            "mustHave": false,
-            "linkedGroups": ["subst-group-2"]
+            "linkedGroups": [
+              "subst-group-1",
+              "subst-group-2"
+            ]
           }
         ]
       },
@@ -95,7 +95,9 @@
           {
             "attributeRef": "MedicationAdministration.medication[x]",
             "mustHave": false,
-            "linkedGroups": ["med-group"]
+            "linkedGroups": [
+              "med-group"
+            ]
           }
         ]
       },

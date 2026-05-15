@@ -85,7 +85,7 @@
         "groupReference": "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization",
         "attributes": [
           {
-            "attributeRef": "Organization.id",
+            "attributeRef": "Organization.name",
             "mustHave": true
           }
         ],

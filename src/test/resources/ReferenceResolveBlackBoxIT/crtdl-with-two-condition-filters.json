@@ -105,12 +105,10 @@
           {
             "attributeRef": "Encounter.diagnosis.condition",
             "mustHave": false,
-            "linkedGroups": ["cond-group-1"]
-          },
-          {
-            "attributeRef": "Encounter.diagnosis.condition",
-            "mustHave": false,
-            "linkedGroups": ["cond-group-2"]
+            "linkedGroups": [
+              "cond-group-1",
+              "cond-group-2"
+            ]
           }
         ]
       }
