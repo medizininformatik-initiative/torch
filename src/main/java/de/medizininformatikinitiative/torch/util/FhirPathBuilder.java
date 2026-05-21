@@ -5,6 +5,7 @@ import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 
@@ -12,6 +13,7 @@ import java.util.List;
 /**
  * Class for building FHIR and Terser Paths from Element Ids for Slicing, Copying and finding
  */
+@Component
 public class FhirPathBuilder {
 
 
@@ -92,6 +94,10 @@ public class FhirPathBuilder {
         return new String[]{String.valueOf(fhirPath), String.valueOf(terserPath)};
     }
 
+
+    public String[] resolve(String input, CompiledStructureDefinition definition) throws FHIRException {
+        return handleSlicingForFhirPath(input, definition);
+    }
 
     /**
      * Builds a FHIRPath expression with a list of where conditions

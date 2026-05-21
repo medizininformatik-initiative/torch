@@ -14,7 +14,9 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataE
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
+import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Property;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -34,11 +36,13 @@ public class CrtdlValidatorService {
     private final StandardAttributeGenerator attributeGenerator;
     private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
     private final ConsentCodeConfig consentCodeConfig;
+    private final FhirPathBuilder fhirPathBuilder;
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
         this.consentCodeConfig = consentCodeConfig;
+        this.fhirPathBuilder = fhirPathBuilder;
     }
 
     /**
@@ -97,6 +101,7 @@ public class CrtdlValidatorService {
     private AnnotatedAttributeGroup annotateGroup(AttributeGroup attributeGroup, CompiledStructureDefinition
             definition, String patientGroupId) throws ValidationException {
         List<AnnotatedAttribute> annotatedAttributes = new ArrayList<>();
+        Set<String> processedRefs = new HashSet<>();
 
         for (Attribute attribute : attributeGroup.attributes()) {
             Optional<ElementDefinition> elementDefinition = definition.elementDefinitionById(attribute.attributeRef());
@@ -112,13 +117,83 @@ public class CrtdlValidatorService {
                 throw new ValidationException("Typeless Attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
             }
 
-            String[] fhirTerser = FhirPathBuilder.handleSlicingForFhirPath(attribute.attributeRef(), definition);
+            String[] fhirTerser;
+            try {
+                fhirTerser = fhirPathBuilder.resolve(attribute.attributeRef(), definition);
+            } catch (FHIRException e) {
+                throw new ValidationException("Cannot resolve FHIR path for attribute " + attribute.attributeRef() + ": " + e.getMessage());
+            }
             annotatedAttributes.add(new AnnotatedAttribute(attribute.attributeRef(), fhirTerser[0], attribute.mustHave(), attribute.linkedGroups()));
+            processedRefs.add(attribute.attributeRef());
         }
+
+        annotatedAttributes.addAll(sliceDiscriminatorAttributes(attributeGroup.attributes(), definition, processedRefs));
 
         return attributeGenerator
                 .generate(attributeGroup, patientGroupId)
                 .addAttributes(annotatedAttributes);
+    }
+
+    /**
+     * For each attribute that references a sub-element of a slice (e.g. {@code Patient.address:Strassenanschrift.postalCode}),
+     * returns additional non-mustHave attributes for the slice's discriminator fields (e.g. {@code Patient.address:Strassenanschrift.type}).
+     * <p>
+     * Without these, the copy step omits the discriminator field, and the subsequent redaction step cannot identify
+     * which slice the partially-copied element belongs to — causing the entire element to be wiped.
+     */
+    private List<AnnotatedAttribute> sliceDiscriminatorAttributes(List<Attribute> attributes, CompiledStructureDefinition definition, Set<String> existingRefs) {
+        List<AnnotatedAttribute> result = new ArrayList<>();
+
+        for (Attribute attribute : attributes) {
+            String ref = attribute.attributeRef();
+            if (!ref.contains(":")) continue;
+
+            String[] parts = ref.split("\\.");
+            StringBuilder currentId = new StringBuilder();
+
+            for (int i = 0; i < parts.length - 1; i++) {
+                if (i > 0) currentId.append(".");
+                currentId.append(parts[i]);
+
+                if (!parts[i].contains(":")) continue;
+
+                String sliceId = currentId.toString();
+                String parentId = sliceId.substring(0, sliceId.indexOf(":"));
+
+                Optional<ElementDefinition> parentDef = definition.elementDefinitionById(parentId);
+                if (parentDef.isEmpty() || !parentDef.get().hasSlicing()) continue;
+
+                for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent disc : parentDef.get().getSlicing().getDiscriminator()) {
+                    for (String discFieldId : discriminatorFieldIds(sliceId, disc, definition)) {
+                        if (!existingRefs.add(discFieldId)) continue;
+                        try {
+                            String[] fhirTerser = fhirPathBuilder.resolve(discFieldId, definition);
+                            result.add(new AnnotatedAttribute(discFieldId, fhirTerser[0], false));
+                        } catch (Exception e) {
+                            logger.debug("Could not add discriminator attribute {}: {}", discFieldId, e.getMessage());
+                        }
+                    }
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private List<String> discriminatorFieldIds(String sliceId, ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator, CompiledStructureDefinition definition) {
+        String path = discriminator.getPath();
+
+        if ("$this".equals(path)) {
+            return definition.elementDefinitionById(sliceId)
+                    .filter(ElementDefinition::hasFixedOrPattern)
+                    .map(slice -> slice.getFixedOrPattern().children().stream()
+                            .filter(Property::hasValues)
+                            .map(child -> sliceId + "." + child.getName())
+                            .toList())
+                    .orElse(List.of());
+        }
+
+        return List.of(sliceId + "." + path);
     }
 }
 

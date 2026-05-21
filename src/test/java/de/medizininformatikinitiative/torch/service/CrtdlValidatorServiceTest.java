@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
+import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
@@ -15,21 +16,42 @@ import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.DataExtraction;
 import de.medizininformatikinitiative.torch.model.crtdl.Filter;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
+import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.when;
 
 
+@ExtendWith(MockitoExtension.class)
 class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
             new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
-            new ConsentCodeConfig(List.of()));
+            new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder());
+
+    @Mock
+    StructureDefinitionHandler mockHandler;
+    @Mock
+    StandardAttributeGenerator mockAttributeGenerator;
+    @Mock
+    FhirPathBuilder mockFhirPathBuilder;
     JsonNode node = JsonNodeFactory.instance.objectNode();
 
     AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert", List.of(), List.of());
@@ -121,6 +143,145 @@ class CrtdlValidatorServiceTest {
                         new AnnotatedAttribute("Patient.id", "Patient.id", false),
                         new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false)
                 ));
+    }
+
+    @Test
+    void sliceSubElement_addsDiscriminatorAttribute() throws ValidationException, ConsentFormatException {
+        AttributeGroup patientGroupWithAddress = new AttributeGroup(
+                "patientGroupId",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                List.of(new Attribute("Patient.address:Strassenanschrift.postalCode", false)),
+                List.of()
+        );
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroupWithAddress)));
+
+        var validatedCrtdl = validatorService.validateAndAnnotate(crtdl);
+
+        List<String> refs = validatedCrtdl.dataExtraction().attributeGroups().getFirst().attributes()
+                .stream().map(AnnotatedAttribute::attributeRef).toList();
+        assertThat(refs).contains(
+                "Patient.address:Strassenanschrift.postalCode",
+                "Patient.address:Strassenanschrift.type"
+        );
+    }
+
+    @Test
+    void sliceDiscriminatorAttributes_parentDefMissing_skips() throws Exception {
+        // SD has the sliced attribute but NOT the parent element — parentDef.isEmpty() → continue
+        ElementDefinition attrEd = new ElementDefinition();
+        attrEd.setId("Observation.component:someSlice.code");
+        attrEd.addType(new ElementDefinition.TypeRefComponent().setCode("CodeableConcept"));
+
+        StructureDefinition sd = new StructureDefinition();
+        sd.setType("Observation");
+        sd.getSnapshot().addElement(attrEd);
+        CompiledStructureDefinition csd = new CompiledStructureDefinition(sd,
+                Map.of("Observation.component:someSlice.code", attrEd));
+
+        StructureDefinition patientSd = new StructureDefinition();
+        patientSd.setType("Patient");
+        CompiledStructureDefinition patientCsd = CompiledStructureDefinition.fromStructureDefinition(patientSd);
+
+        when(mockHandler.getDefinition("patient-profile")).thenReturn(Optional.of(patientCsd));
+        when(mockHandler.getDefinition("obs-profile")).thenReturn(Optional.of(csd));
+
+        AnnotatedAttributeGroup stub = new AnnotatedAttributeGroup("g", "Observation", "obs-profile", List.of(), List.of());
+        when(mockAttributeGenerator.generate(any(), any())).thenReturn(stub);
+        when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
+                .thenReturn(new String[]{"Observation.component", "Observation.component"});
+
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder);
+
+        AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
+        AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
+                List.of(new Attribute("Observation.component:someSlice.code", false)), List.of());
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, obsGroup)));
+
+        var result = svc.validateAndAnnotate(crtdl);
+        List<String> refs = result.dataExtraction().attributeGroups().stream()
+                .flatMap(g -> g.attributes().stream())
+                .map(AnnotatedAttribute::attributeRef)
+                .toList();
+        // discriminator attribute for Observation.component is not added since parentDef is missing
+        assertThat(refs).contains("Observation.component:someSlice.code");
+        assertThat(refs).doesNotContain("Observation.component");
+    }
+
+    @Test
+    void sliceDiscriminatorAttributes_parentHasNoSlicing_skips() throws Exception {
+        // SD has both the parent and the sliced attribute, but parent has no slicing → !hasSlicing() → continue
+        ElementDefinition parentEd = new ElementDefinition();
+        parentEd.setId("Observation.component");
+        parentEd.addType(new ElementDefinition.TypeRefComponent().setCode("BackboneElement"));
+        // intentionally no slicing set
+
+        ElementDefinition attrEd = new ElementDefinition();
+        attrEd.setId("Observation.component:someSlice.code");
+        attrEd.addType(new ElementDefinition.TypeRefComponent().setCode("CodeableConcept"));
+
+        StructureDefinition sd = new StructureDefinition();
+        sd.setType("Observation");
+        sd.getSnapshot().addElement(parentEd);
+        sd.getSnapshot().addElement(attrEd);
+        CompiledStructureDefinition csd = CompiledStructureDefinition.fromStructureDefinition(sd);
+
+        StructureDefinition patientSd = new StructureDefinition();
+        patientSd.setType("Patient");
+        CompiledStructureDefinition patientCsd = CompiledStructureDefinition.fromStructureDefinition(patientSd);
+
+        when(mockHandler.getDefinition("patient-profile")).thenReturn(Optional.of(patientCsd));
+        when(mockHandler.getDefinition("obs-profile")).thenReturn(Optional.of(csd));
+
+        AnnotatedAttributeGroup stub = new AnnotatedAttributeGroup("g", "Observation", "obs-profile", List.of(), List.of());
+        when(mockAttributeGenerator.generate(any(), any())).thenReturn(stub);
+        when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
+                .thenReturn(new String[]{"Observation.component", "Observation.component"});
+
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder);
+
+        AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
+        AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
+                List.of(new Attribute("Observation.component:someSlice.code", false)), List.of());
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup, obsGroup)));
+
+        var result = svc.validateAndAnnotate(crtdl);
+        List<String> refs = result.dataExtraction().attributeGroups().stream()
+                .flatMap(g -> g.attributes().stream())
+                .map(AnnotatedAttribute::attributeRef)
+                .toList();
+        assertThat(refs).contains("Observation.component:someSlice.code");
+        assertThat(refs).doesNotContain("Observation.component");
+    }
+
+    @Test
+    void sliceDiscriminatorAttributes_fhirPathThrows_logsAndSkips() throws Exception {
+        // FhirPathBuilder throws when resolving the discriminator field — caught, logged, discriminator is omitted
+        CrtdlValidatorService svc = new CrtdlValidatorService(
+                itSetup.structureDefinitionHandler(),
+                new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
+                new ConsentCodeConfig(List.of()),
+                mockFhirPathBuilder);
+
+        String postalCode = "Patient.address:Strassenanschrift.postalCode";
+        String discriminator = "Patient.address:Strassenanschrift.type";
+        when(mockFhirPathBuilder.resolve(eq(postalCode), any()))
+                .thenReturn(new String[]{"Patient.address.where(type = 'postal').postalCode", "Patient.address.postalCode"});
+        when(mockFhirPathBuilder.resolve(eq(discriminator), any()))
+                .thenThrow(new RuntimeException("simulated FhirPath failure"));
+
+        AttributeGroup patientGroupWithAddress = new AttributeGroup(
+                "patientGroupId",
+                "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                List.of(new Attribute(postalCode, false)),
+                List.of()
+        );
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroupWithAddress)));
+
+        var result = svc.validateAndAnnotate(crtdl);
+        List<String> refs = result.dataExtraction().attributeGroups().getFirst().attributes()
+                .stream().map(AnnotatedAttribute::attributeRef).toList();
+        assertThat(refs).contains(postalCode);
+        assertThat(refs).doesNotContain(discriminator);
     }
 
     @Test
