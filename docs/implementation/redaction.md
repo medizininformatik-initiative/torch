@@ -30,6 +30,12 @@ extract it.
   This means that if slicing is open in the profile, additional slices not defined in the profile are removed.
   **Exception** is the Patient.identifier field, which is always treated as open slicing.
 
+- **Discriminator Field Auto-Injection**: When a CRTDL attribute references a sub-element of a named slice
+  (e.g. `Patient.address:Strassenanschrift.postalCode`), TORCH automatically includes the slice's discriminator
+  fields (e.g. `Patient.address:Strassenanschrift.type`) in the copy step.
+  This is required because the redaction step uses discriminator values to identify which slice an element belongs
+  to — without them, the copied element would not match any slice and would be removed entirely.
+
 
 - **Data Absent Reason Setting**: If an element is removed due to redaction or extraction but is required by the
   profile,

@@ -19,6 +19,7 @@ import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.experimental.runners.Enclosed;
 import org.junit.jupiter.api.BeforeEach;
@@ -460,6 +461,42 @@ class BatchCopierRedacterIT {
             assertThat(out.getClass_().hasDisplay()).isFalse();
         }
 
+
+        @Test
+        void sliceSubfieldExtractedWithDiscriminator() {
+            String patientJson = """
+                    {
+                      "resourceType": "Patient",
+                      "id": "p1",
+                      "meta": {
+                        "profile": ["https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"]
+                      },
+                      "address": [{"type": "both", "postalCode": "10178"}]
+                    }""";
+
+            Patient patient = parser.parseResource(Patient.class, patientJson);
+
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(
+                    "Patient1", "Patient",
+                    "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                    List.of(
+                            new AnnotatedAttribute("Patient.id", "Patient.id", false),
+                            new AnnotatedAttribute("Patient.meta.profile", "Patient.meta.profile", false),
+                            new AnnotatedAttribute("Patient.address:Strassenanschrift.postalCode", "Patient.address.where($this.type='both').postalCode", false),
+                            new AnnotatedAttribute("Patient.address:Strassenanschrift.type", "Patient.address.where($this.type='both').type", false)),
+                    List.of());
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(patient, "Patient1", true);
+
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
+                    ExtractionResourceBundle.of(bundle), Map.of("Patient1", group));
+
+            assertThat(result.cache()).hasSize(1);
+            Patient out = (Patient) result.markMissing(ExtractionId.fromRelativeUrl("Patient/p1")).orElseThrow();
+            assertThat(out.getAddress()).hasSize(1);
+            assertThat(out.getAddressFirstRep().getPostalCode()).isEqualTo("10178");
+        }
 
         @Nested
         class transformBatch {
