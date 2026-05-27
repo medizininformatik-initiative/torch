@@ -17,10 +17,13 @@ import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import de.medizininformatikinitiative.torch.util.CrtdlFactory;
+import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
@@ -146,17 +149,20 @@ class FhirControllerTest {
                     .jsonPath("$.issue[0].code").isEqualTo("not-found");
         }
 
-        @Test
-        void runningJobReturnsAcceptedWithOperationOutcome() {
+        @ParameterizedTest
+        @EnumSource(value = JobStatus.class, names = {
+                "RUNNING_PROCESS_BATCH", "RUNNING_GET_COHORT", "RUNNING_PROCESS_CORE", "PENDING", "PAUSED"
+        })
+        void inProgressJobReturnsAcceptedWithXProgress(JobStatus status) {
             UUID jobId = UUID.randomUUID();
-            // Create a job in RUNNING state using your factory method
-            Job runningJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.RUNNING_PROCESS_BATCH);
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(status);
 
-            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(runningJob));
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
 
             client.get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().isAccepted()
                     .expectHeader().contentType(MediaType.APPLICATION_JSON)
+                    .expectHeader().exists("X-Progress")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
         }
@@ -166,7 +172,6 @@ class FhirControllerTest {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
-            // Setup a completed job with one batch
             Job completedJob = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.COMPLETED)
                     .withBatchState(new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
                     .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
@@ -177,9 +182,33 @@ class FhirControllerTest {
                     .expectStatus().isOk()
                     .expectBody()
                     .jsonPath("$.output").isArray()
-                    // Verify the URL construction logic from your controller
                     .jsonPath("$.output[?(@.type=='NDJSON Bundle')].url").exists()
+                    .jsonPath("$.error").isArray()
+                    .jsonPath("$.request").isEqualTo("")
                     .jsonPath("$.extension[0].url").isEqualTo("https://torch.mii.de/fhir/StructureDefinition/torch-job");
+        }
+
+        @Test
+        void completedJobEmitsKickOffUrlAsRequest() {
+            UUID jobId = UUID.randomUUID();
+            JobParameters params = new JobParameters(
+                    TestUtils.emptyJobParams().crtdl(),
+                    java.util.List.of(),
+                    "http://base-url/fhir/$extract-data"
+            );
+            Job completedJob = Job.init(jobId, params).withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.transactionTime").exists()
+                    .jsonPath("$.request").isEqualTo("http://base-url/fhir/$extract-data")
+                    .jsonPath("$.requiresAccessToken").isEqualTo(false)
+                    .jsonPath("$.output").isArray()
+                    .jsonPath("$.error").isArray();
         }
 
         @Test

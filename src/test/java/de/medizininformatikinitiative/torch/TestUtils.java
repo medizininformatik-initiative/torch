@@ -48,7 +48,7 @@ public class TestUtils {
                         JsonNodeFactory.instance.objectNode(),
                         new AnnotatedDataExtraction(List.of()),
                         Optional.empty()
-                ), List.of()
+                ), List.of(), null
         );
     }
 }
