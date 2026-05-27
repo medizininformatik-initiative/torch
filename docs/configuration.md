@@ -263,15 +263,57 @@ For an example setup see [application-test.yml](https://github.com/medizininform
 ## Setting up SSL Certificates
 
 Torch supports custom SSL Certificate Authorities (CAs) to connect to services like FHIR Servers or Flare.
-Provide PEM-encoded CA certificates by mounting them into /app/certs inside the Docker container.
+At startup the container entrypoint chooses one of three modes, evaluated in order:
 
-At startup, Torch automatically converts all *.pem files into a temporary Java truststore and starts the JVM with this truststore enabled. This allows secure connections to services using self-signed or private certificates.
+1. **Pre-configured truststore** — set `TRUSTSTORE_FILE` to the path of an existing `.jks` or `.p12` truststore mounted into the container. Torch starts immediately with that truststore; no certificate import is performed.
+2. **PEM certificates** — mount one or more `*.pem` CA files into `/app/certs`. Torch builds a temporary Java truststore from those files and starts with it enabled.
+3. **Default JVM truststore** — if neither of the above is configured, Torch uses the default JVM truststore.
 
-If no certificates are provided, Torch uses the default JVM truststore.
+### Environment Variables
 
-See the container entrypoint script for implementation details.
+#### `TRUSTSTORE_FILE` <Badge type="warning" text="Since 4.0.6"/>
 
-### Docker Compose example
+Path to an existing Java truststore file (`.jks` or `.p12`) inside the container.
+When set, Torch skips the PEM import step and uses this truststore directly.
+
+**Default:** – (none)
+
+---
+
+#### `TRUSTSTORE_PASS` <Badge type="warning" text="Since 1.0.0-alpha"/>
+
+Password for the truststore — used both when Torch builds a truststore from PEM files and when it opens a pre-configured truststore supplied via `TRUSTSTORE_FILE`.
+
+**Default:** `changeit`
+
+---
+
+#### `KEY_PASS` <Badge type="warning" text="Since 1.0.0-alpha"/>
+
+Key password used when generating the intermediate key pair during the PEM-to-truststore conversion.
+Not relevant when `TRUSTSTORE_FILE` is set.
+
+**Default:** `changeit`
+
+---
+
+### Docker Compose examples
+
+**Using a pre-configured truststore:**
+
+```yaml
+services:
+  torch:
+    image: ghcr.io/medizininformatik-initiative/torch:latest
+    environment:
+      TRUSTSTORE_FILE: /app/truststore/my-truststore.jks
+      TRUSTSTORE_PASS: changeit
+    volumes:
+      - torch-data-store:/app/output
+      - ./my-truststore.jks:/app/truststore/my-truststore.jks:ro
+```
+
+**Using PEM certificates (previous behaviour, unchanged):**
 
 ```yaml
 services:
@@ -279,13 +321,11 @@ services:
     image: ghcr.io/medizininformatik-initiative/torch:latest
     volumes:
       - torch-data-store:/app/output
-      # ...
       - ./certs:/app/certs    # Optional: custom CA certificates (*.pem)
-
 ```
 
-All *.pem files placed in ./certs will be picked up automatically at container startup.
+All `*.pem` files placed in `./certs` will be picked up automatically at container startup.
 
-See the container  [entrypoint script](https://github.com/medizininformatik-initiative/torch/blob/main/docker-entrypoint.sh) for implementation details.
+See the container [entrypoint script](https://github.com/medizininformatik-initiative/torch/blob/main/docker-entrypoint.sh) for implementation details.
 
 [5]: https://www.hl7.org/fhir/http.html#async "FHIR Asynchronous Interaction Request Pattern"
