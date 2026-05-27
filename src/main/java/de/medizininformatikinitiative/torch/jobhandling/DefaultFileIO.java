@@ -7,6 +7,7 @@ import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 import java.util.stream.Stream;
 
 /**
@@ -18,6 +19,11 @@ public class DefaultFileIO implements FileIo {
     @Override
     public BufferedWriter newBufferedWriter(Path path) throws IOException {
         return Files.newBufferedWriter(path);
+    }
+
+    @Override
+    public BufferedWriter newAppendingWriter(Path path) throws IOException {
+        return Files.newBufferedWriter(path, StandardOpenOption.CREATE, StandardOpenOption.APPEND);
     }
 
     @Override

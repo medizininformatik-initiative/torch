@@ -28,7 +28,7 @@ public final class CriterionKeys {
     ) {
         return new CriterionKey(
                 ExclusionKind.MUST_HAVE,
-                attribute.fhirPath(),
+                attribute.attributeRef(),
                 group.groupReference(),
                 attribute.fhirPath()
         );
@@ -67,7 +67,7 @@ public final class CriterionKeys {
     public static CriterionKey consentNoData() {
         return new CriterionKey(
                 ExclusionKind.CONSENT,
-                "No data due to consent",
+                "no-data",
                 null,
                 null
         );
@@ -81,7 +81,7 @@ public final class CriterionKeys {
     public static CriterionKey consentResourceBlocked() {
         return new CriterionKey(
                 ExclusionKind.CONSENT,
-                "Resource blocked by consent",
+                "resource-blocked",
                 null,
                 null
         );
@@ -100,7 +100,7 @@ public final class CriterionKeys {
     public static CriterionKey referenceNotFound(String resourceType) {
         return new CriterionKey(
                 ExclusionKind.REFERENCE_NOT_FOUND,
-                "Reference target not found",
+                null,
                 resourceType,
                 null
         );
@@ -115,7 +115,7 @@ public final class CriterionKeys {
     public static CriterionKey referenceOutsideBatch(String resourceType) {
         return new CriterionKey(
                 ExclusionKind.REFERENCE_OUTSIDE_BATCH,
-                "Reference outside patient batch",
+                null,
                 resourceType,
                 null
         );
@@ -130,7 +130,7 @@ public final class CriterionKeys {
     public static CriterionKey referenceInvalid(String resourceType) {
         return new CriterionKey(
                 ExclusionKind.REFERENCE_INVALID,
-                "Invalid reference format",
+                null,
                 resourceType,
                 null
         );

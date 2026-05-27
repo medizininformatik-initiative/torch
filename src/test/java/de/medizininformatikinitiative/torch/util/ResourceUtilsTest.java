@@ -8,17 +8,12 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ResourceUtilsTest {
 
-
-    @Nested
-    class getPatientId {
-
-
-    }
 
     @Nested
     class GetMethodWithOneParam {
@@ -44,9 +39,8 @@ class ResourceUtilsTest {
 
         @Test
         void throwsWhenMethodNotFound() {
-            Patient patient = new Patient();
-            assertThrows(NoSuchMethodException.class,
-                    () -> ResourceUtils.getMethodWithOneParam(patient, "nonExistentMethod"));
+            assertThatThrownBy(() -> ResourceUtils.getMethodWithOneParam(new Patient(), "nonExistentMethod"))
+                    .isInstanceOf(NoSuchMethodException.class);
         }
     }
 

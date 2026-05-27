@@ -2,21 +2,27 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
+import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Resource;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -107,5 +113,72 @@ class BatchCopierRedacterTest {
         transformer.transformBundle(extractionBundle, Map.of());
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
+    }
+
+    @Nested
+    class CreateWrapper {
+
+        private BatchCopierRedacter real;
+
+        @BeforeEach
+        void setUpReal() {
+            real = new BatchCopierRedacter(copier, redaction);
+        }
+
+        @Test
+        void singleGroup_buildsWrapperWithProfile() {
+            var patient = new Patient();
+            patient.setId("p1");
+            var group = new AnnotatedAttributeGroup("G1", "Patient", "http://profile/Patient",
+                    List.of(new AnnotatedAttribute("Patient.id", "Patient.id", false)), List.of());
+            var info = new ResourceExtractionInfo(Set.of("G1"), Map.of());
+
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", group));
+
+            assertThat(wrapper.resource()).isSameAs(patient);
+            assertThat(wrapper.profiles()).containsExactly("http://profile/Patient");
+        }
+
+        @Test
+        void unknownGroup_skippedGracefully() {
+            var patient = new Patient();
+            patient.setId("p1");
+            var info = new ResourceExtractionInfo(Set.of("unknown-group"), Map.of());
+
+            var wrapper = real.createWrapper(patient, info, Map.of());
+
+            assertThat(wrapper.resource()).isSameAs(patient);
+            assertThat(wrapper.profiles()).isEmpty();
+        }
+
+        @Test
+        void multipleGroups_mergesProfiles() {
+            var patient = new Patient();
+            patient.setId("p1");
+            var g1 = new AnnotatedAttributeGroup("G1", "Patient", "http://profile/P1",
+                    List.of(new AnnotatedAttribute("Patient.id", "Patient.id", false)), List.of());
+            var g2 = new AnnotatedAttributeGroup("G2", "Patient", "http://profile/P2",
+                    List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
+            var info = new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of());
+
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", g1, "G2", g2));
+
+            assertThat(wrapper.profiles()).containsExactlyInAnyOrder("http://profile/P1", "http://profile/P2");
+        }
+    }
+
+    @Nested
+    class TransformResource {
+
+        @Test
+        void returnsTransformedResource() throws Exception {
+            var patient = new Patient();
+            patient.setId("dummy");
+            var wrapper = new ExtractionRedactionWrapper(patient, Set.of(), Map.of(), new CopyTreeNode("Patient"));
+
+            var result = transformer.transformResource(wrapper);
+
+            assertThat(result).isNotNull().isInstanceOf(Patient.class);
+        }
     }
 }

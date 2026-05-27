@@ -75,6 +75,15 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
         return bundles.get(id);
     }
 
+    /** Total number of present (non-empty) cached resources across all patient bundles. */
+    public long totalResources() {
+        return bundles.values().stream()
+                .mapToLong(prb -> prb.bundle().cache().values().stream()
+                        .filter(java.util.Optional::isPresent)
+                        .count())
+                .sum();
+    }
+
     public PatientBatchWithConsent keep(Collection<String> safeSet) {
         Map<String, PatientResourceBundle> filtered = bundles.entrySet().stream()
                 .filter(entry -> safeSet.contains(entry.getKey()))

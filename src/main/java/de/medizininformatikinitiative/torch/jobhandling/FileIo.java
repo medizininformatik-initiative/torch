@@ -17,6 +17,8 @@ public interface FileIo {
 
     BufferedWriter newBufferedWriter(Path path) throws IOException;
 
+    BufferedWriter newAppendingWriter(Path path) throws IOException;
+
     Reader newBufferedReader(Path path) throws IOException;
 
     Stream<String> lines(Path path) throws IOException;

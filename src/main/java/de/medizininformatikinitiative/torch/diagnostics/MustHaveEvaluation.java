@@ -12,6 +12,14 @@ public sealed interface MustHaveEvaluation
         MustHaveEvaluation.Fulfilled,
         MustHaveEvaluation.Violated {
 
+    default boolean applicable() {
+        return !(this instanceof NotApplicable);
+    }
+
+    default boolean fulfilled() {
+        return this instanceof Fulfilled;
+    }
+
     /**
      * The constraint was not relevant to the evaluated resource.
      */

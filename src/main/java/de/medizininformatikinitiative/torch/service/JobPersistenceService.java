@@ -1,7 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvReader;
+import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvWriter;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsMapper;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -34,6 +38,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -59,6 +64,7 @@ public class JobPersistenceService {
 
     private final FileIo io;
     private final ObjectMapper mapper;
+    private final JobDiagnosticsMapper diagnosticsMapper;
     private final Path baseDir;
     private final Map<UUID, Job> jobRegistry = new ConcurrentHashMap<>();
     private final int batchSize;
@@ -71,6 +77,7 @@ public class JobPersistenceService {
     ) {
         this.io = requireNonNull(io);
         this.mapper = requireNonNull(mapper);
+        this.diagnosticsMapper = new JobDiagnosticsMapper(mapper);
         this.baseDir = Paths.get(dir).toAbsolutePath();
         this.batchSize = batchSize;
     }
@@ -78,6 +85,22 @@ public class JobPersistenceService {
     // TEST-ONLY. Package-private on purpose.
     void putJobForTest(Job job) {
         jobRegistry.put(job.id(), job);
+    }
+
+    private static final String REPORT_DIR_NAME = "reports";
+    private static final String REPORT_JOB_FILE_NAME = "job-summary.json";
+    private static final String DIAGNOSTICS_CSV_FILE_NAME = "diagnostics.csv";
+
+    private Path reportDir(UUID jobId) {
+        return jobDir(jobId).resolve(REPORT_DIR_NAME);
+    }
+
+    private Path jobReportFile(UUID jobId) {
+        return reportDir(jobId).resolve(REPORT_JOB_FILE_NAME);
+    }
+
+    private Path diagnosticsCsvFile(UUID jobId) {
+        return reportDir(jobId).resolve(DIAGNOSTICS_CSV_FILE_NAME);
     }
 
     /**
@@ -159,10 +182,11 @@ public class JobPersistenceService {
      * @throws JobNotFoundException if Job is unknown to the registry
      */
     public void deleteJob(UUID jobId) throws JobNotFoundException {
-        updateJobAndReturn(jobId, job -> {
-            Job deleted = job.delete();
-            return new JobAndResult<>(deleted, deleted);
+        Job deleted = updateJobAndReturn(jobId, job -> {
+            Job d = job.delete();
+            return new JobAndResult<>(d, d);
         });
+        if (deleted == null) throw new JobNotFoundException(jobId);
         logger.info("Marked job {} as deleted – directory will be removed by GC", jobId);
     }
 
@@ -204,10 +228,12 @@ public class JobPersistenceService {
      * @throws JobNotFoundException if Job is unknown to the registry
      */
     public Job pauseJob(UUID jobId) throws JobNotFoundException {
-        return updateJobAndReturn(jobId, job -> {
-            Job result = job.pause();
-            return new JobAndResult<>(result, result);
+        Job result = updateJobAndReturn(jobId, job -> {
+            Job r = job.pause();
+            return new JobAndResult<>(r, r);
         });
+        if (result == null) throw new JobNotFoundException(jobId);
+        return result;
     }
 
     /**
@@ -220,10 +246,12 @@ public class JobPersistenceService {
      * @throws JobNotFoundException if Job is unknown to the registry
      */
     public Job cancelJob(UUID jobId) throws JobNotFoundException {
-        return updateJobAndReturn(jobId, job -> {
-            Job result = job.cancel();
-            return new JobAndResult<>(result, result);
+        Job result = updateJobAndReturn(jobId, job -> {
+            Job r = job.cancel();
+            return new JobAndResult<>(r, r);
         });
+        if (result == null) throw new JobNotFoundException(jobId);
+        return result;
     }
 
     /**
@@ -236,10 +264,12 @@ public class JobPersistenceService {
      * @throws JobNotFoundException if Job is unknown to the registry
      */
     public Job resumeJob(UUID jobId) throws JobNotFoundException {
-        return updateJobAndReturn(jobId, job -> {
-            Job result = job.resume();
-            return new JobAndResult<>(result, result);
+        Job result = updateJobAndReturn(jobId, job -> {
+            Job r = job.resume();
+            return new JobAndResult<>(r, r);
         });
+        if (result == null) throw new JobNotFoundException(jobId);
+        return result;
     }
 
     /**
@@ -256,13 +286,15 @@ public class JobPersistenceService {
      * @throws VersionConflictException if the current version does not match {@code expectedVersion}
      */
     public Job changePriority(UUID jobId, JobPriority priority, long expectedVersion) throws JobNotFoundException {
-        return updateJobAndReturn(jobId, job -> {
+        Job result = updateJobAndReturn(jobId, job -> {
             if (job.version() != expectedVersion) {
                 throw new VersionConflictException(jobId, expectedVersion, job.version());
             }
-            Job result = job.withPriority(priority);
-            return new JobAndResult<>(result, result);
+            Job updated = job.withPriority(priority);
+            return new JobAndResult<>(updated, updated);
         });
+        if (result == null) throw new JobNotFoundException(jobId);
+        return result;
     }
 
     /**
@@ -305,9 +337,8 @@ public class JobPersistenceService {
      * @param jobId   job id
      * @param batchId batch id
      * @return true if claimed; false otherwise
-     * @throws JobNotFoundException when job is not unknown
      */
-    public boolean tryStartBatch(UUID jobId, UUID batchId) throws JobNotFoundException {
+    public boolean tryStartBatch(UUID jobId, UUID batchId) {
         return Boolean.TRUE.equals(updateJobAndReturn(jobId, job -> {
             BatchState bs = job.batches().get(batchId);
             if (bs == null) {
@@ -366,10 +397,28 @@ public class JobPersistenceService {
      *
      * @param jobId job id
      * @param ids   cohort ids
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCohortSuccess(UUID jobId, List<String> ids) throws JobNotFoundException {
+    public void onCohortSuccess(UUID jobId, List<String> ids) {
+        onCohortSuccess(jobId, ids, 0L);
+    }
+
+    /**
+     * Applies cohort success with cohort-query timing: persists batches, timing, and advances job state.
+     *
+     * @param jobId                    job id
+     * @param ids                      cohort ids
+     * @param cohortQueryDurationNanos wall-clock time of the cohort query; 0 means not recorded
+     */
+    public void onCohortSuccess(UUID jobId, List<String> ids, long cohortQueryDurationNanos) {
         List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
+
+        if (cohortQueryDurationNanos > 0) {
+            try {
+                saveCohortTiming(jobId, cohortQueryDurationNanos / 1_000_000);
+            } catch (IOException e) {
+                logger.warn("Failed to save cohort timing for job {}: {}", jobId, e.getMessage(), e);
+            }
+        }
 
         updateJobAndReturn(jobId, job -> {
             Map<UUID, BatchState> stateMap = new HashMap<>();
@@ -378,9 +427,7 @@ public class JobPersistenceService {
                 stateMap.put(b.batchId(), new BatchState(b.batchId(), WorkUnitState.initNow()));
             }
 
-            Job updated = job.onCohortSuccess(stateMap, ids.size());
-
-            return new JobAndResult<>(updated, null);
+            return new JobAndResult<>(job.onCohortSuccess(stateMap, ids.size()), null);
         });
     }
 
@@ -390,30 +437,37 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param e      cause
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCohortError(UUID jobId, List<Issue> issues, Exception e) throws JobNotFoundException {
+    public void onCohortError(UUID jobId, List<Issue> issues, Exception e) {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onCohortError(e, issues), null));
     }
 
 
     /**
-     * Applies batch success transition and persists the core-batch part.
+     * Applies batch success transition and persists the core-batch part and diagnostics.
      *
      * @param result batch result
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onBatchProcessingSuccess(BatchResult result) throws JobNotFoundException {
+    public void onBatchProcessingSuccess(BatchResult result) {
         UUID jobId = result.jobId();
 
         updateJobAndReturn(jobId, job -> {
-            if (result.resultCoreBundle().isPresent()) {
-                saveCoreBatch(
-                        jobId,
-                        result.batchState().batchId(),
-                        result.resultCoreBundle().get()
-                );
-            }
+            result.resultCoreBundle().ifPresent(bundle -> {
+                try {
+                    saveCoreBatch(jobId, result.batchState().batchId(), bundle);
+                } catch (IOException e) {
+                    logger.warn("Failed to save core batch for job {}: {}", jobId, e.getMessage(), e);
+                }
+            });
+
+            result.diagnostics().ifPresent(diag -> {
+                try {
+                    saveBatchDiagnostics(diag);
+                } catch (IOException e) {
+                    logger.warn("Failed to save batch diagnostics for batch {}: {}",
+                            result.batchId(), e.getMessage(), e);
+                }
+            });
 
             return new JobAndResult<>(
                     job.onBatchProcessingSuccess(result),
@@ -429,20 +483,38 @@ public class JobPersistenceService {
      * @param batchId batch id
      * @param issues  issues to attach
      * @param e       cause
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onBatchError(UUID jobId, UUID batchId, List<Issue> issues, Throwable e) throws JobNotFoundException {
+    public void onBatchError(UUID jobId, UUID batchId, List<Issue> issues, Throwable e) {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onBatchError(batchId, e, issues), null));
     }
 
     /**
-     * Applies core success transition.
+     * Applies core success transition and builds the job-level diagnostics summary.
      *
      * @param result core result
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCoreSuccess(CoreResult result) throws JobNotFoundException {
-        updateJobAndReturn(result.jobId(), job -> new JobAndResult<>(job.onCoreSuccess(result), null));
+    public void onCoreSuccess(CoreResult result) {
+        updateJobAndReturn(result.jobId(), job -> {
+            result.diagnostics().ifPresent(diag -> {
+                try {
+                    saveCoreResourceDiagnostics(diag);
+                } catch (IOException e) {
+                    logger.warn("Failed to save core diagnostics for job {}: {}",
+                            result.jobId(), e.getMessage(), e);
+                }
+            });
+
+            Job updated = job.onCoreSuccess(result);
+            if (updated.status() == JobStatus.COMPLETED) {
+                try {
+                    buildAndSaveJobDiagnostics(result.jobId());
+                } catch (IOException e) {
+                    logger.warn("Failed to build job diagnostics summary for job {}: {}",
+                            result.jobId(), e.getMessage(), e);
+                }
+            }
+            return new JobAndResult<>(updated, null);
+        });
     }
 
     /**
@@ -451,9 +523,8 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param e      cause
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onCoreError(UUID jobId, List<Issue> issues, Throwable e) throws JobNotFoundException {
+    public void onCoreError(UUID jobId, List<Issue> issues, Throwable e) {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onCoreError(e, issues), null));
     }
 
@@ -463,9 +534,8 @@ public class JobPersistenceService {
      * @param jobId  job id
      * @param issues issues to attach
      * @param t      cause
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public void onJobError(UUID jobId, List<Issue> issues, Throwable t) throws JobNotFoundException {
+    public void onJobError(UUID jobId, List<Issue> issues, Throwable t) {
         updateJobAndReturn(jobId, job -> new JobAndResult<>(job.onJobError(t, issues), null));
     }
 
@@ -474,9 +544,8 @@ public class JobPersistenceService {
      *
      * @param jobId job id
      * @return true if claimed; false otherwise
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    public boolean tryMarkCoreInProgress(UUID jobId) throws JobNotFoundException {
+    public boolean tryMarkCoreInProgress(UUID jobId) {
         return Boolean.TRUE.equals(updateJobAndReturn(jobId, job -> {
             if (job.coreState().status() != WorkUnitStatus.INIT) {
                 return new JobAndResult<>(job, false);
@@ -536,16 +605,14 @@ public class JobPersistenceService {
      * @param fn    update function
      * @param <T>   result type
      * @return result or {@code null} if update/persist failed
-     * @throws JobNotFoundException if Job is unknown to the registry
      */
-    <T> T updateJobAndReturn(UUID jobId, JobUpdate<T> fn) throws JobNotFoundException {
+    <T> T updateJobAndReturn(UUID jobId, JobUpdate<T> fn) {
         requireNonNull(jobId);
         requireNonNull(fn);
 
         AtomicReference<T> resultRef = new AtomicReference<>();
 
-        Job result = jobRegistry.computeIfPresent(jobId, (id, current) -> {
-
+        jobRegistry.computeIfPresent(jobId, (id, current) -> {
             Job updatedJob;
             try {
                 JobAndResult<T> jr = fn.apply(current);
@@ -576,9 +643,7 @@ public class JobPersistenceService {
                 return current.onJobError(e, List.of());
             }
         });
-        if (result == null) {
-            throw new JobNotFoundException(jobId);
-        }
+
         return resultRef.get();
     }
 
@@ -621,22 +686,107 @@ public class JobPersistenceService {
     }
 
     // -------------------------------------------------------------------------
+    // Diagnostics
+    //--------------------------------------------------------------------------
+
+    public void saveBatchDiagnostics(BatchDiagnostics report) throws IOException {
+        saveDiagnostics(report, false);
+    }
+
+    public void saveCoreResourceDiagnostics(BatchDiagnostics report) throws IOException {
+        saveDiagnostics(report, true);
+    }
+
+    private void saveDiagnostics(BatchDiagnostics report, boolean isCore) throws IOException {
+        UUID jobId = report.jobId();
+        io.createDirectories(reportDir(jobId));
+
+        Path csv = diagnosticsCsvFile(jobId);
+        boolean writeHeader = !io.exists(csv);
+        try (BufferedWriter w = io.newAppendingWriter(csv)) {
+            if (writeHeader) {
+                w.write(DiagnosticsCsvWriter.HEADER);
+                w.newLine();
+            }
+            if (isCore) {
+                DiagnosticsCsvWriter.writeCore(w, report);
+            } else {
+                DiagnosticsCsvWriter.writeBatch(w, report);
+            }
+        }
+    }
+
+    public List<BatchDiagnostics> loadAllBatchDiagnostics(UUID jobId) throws IOException {
+        Path csv = diagnosticsCsvFile(jobId);
+        if (!io.exists(csv)) return List.of();
+        try (Stream<String> lines = io.lines(csv)) {
+            return DiagnosticsCsvReader.readAll(jobId, lines).batches();
+        }
+    }
+
+    public JobDiagnostics loadJobDiagnostics(UUID jobId) throws IOException {
+        Path csv = diagnosticsCsvFile(jobId);
+        if (!io.exists(csv)) return new JobDiagnostics(jobId, 0L, 0L, List.of());
+        try (Stream<String> lines = io.lines(csv)) {
+            DiagnosticsCsvReader.CsvData data = DiagnosticsCsvReader.readAll(jobId, lines);
+            return JobDiagnostics.fromBatches(jobId, data.batches(), data.cohortQueryDurationMs());
+        }
+    }
+
+    void saveCohortTiming(UUID jobId, long durationMs) throws IOException {
+        io.createDirectories(reportDir(jobId));
+        Path csv = diagnosticsCsvFile(jobId);
+        boolean writeHeader = !io.exists(csv);
+        try (BufferedWriter w = io.newAppendingWriter(csv)) {
+            if (writeHeader) {
+                w.write(DiagnosticsCsvWriter.HEADER);
+                w.newLine();
+            }
+            DiagnosticsCsvWriter.writeCohort(w, durationMs);
+        }
+    }
+
+    long loadCohortTiming(UUID jobId) throws IOException {
+        Path csv = diagnosticsCsvFile(jobId);
+        if (!io.exists(csv)) return 0L;
+        try (Stream<String> lines = io.lines(csv)) {
+            return DiagnosticsCsvReader.readAll(jobId, lines).cohortQueryDurationMs();
+        }
+    }
+
+    public JobDiagnostics buildAndSaveJobDiagnostics(UUID jobId) throws IOException {
+        JobDiagnostics jobReport = loadJobDiagnostics(jobId);
+
+        if (jobReport.criteria().isEmpty()) {
+            logger.debug("No batch diagnostics found for job {} — skipping job summary creation", jobId);
+            return jobReport;
+        }
+
+        ensureDirectoryStructure(jobId);
+        Path file = jobReportFile(jobId);
+        Path tmp = file.resolveSibling(REPORT_JOB_FILE_NAME + ".tmp");
+
+        try (Writer writer = io.newBufferedWriter(tmp)) {
+            mapper.writeValue(writer, diagnosticsMapper.toOperationOutcome(jobReport));
+        }
+        io.atomicMove(tmp, file);
+
+        return jobReport;
+    }
+
+    // -------------------------------------------------------------------------
     // Persistence internals
     // -------------------------------------------------------------------------
 
     Optional<WorkUnit> selectNextInternal(UUID jobId) {
-        try {
-            return Optional.ofNullable(updateJobAndReturn(jobId, job -> {
-                Optional<WorkUnit> maybeWU = job.selectNextWorkUnit();
-                if (maybeWU.isEmpty()) {
-                    return new JobAndResult<>(job, null);
-                }
-                WorkUnit wu = maybeWU.get();
-                return new JobAndResult<>(wu.job(), wu);
-            }));
-        } catch (JobNotFoundException e) {
-            return Optional.empty();
-        }
+        return Optional.ofNullable(updateJobAndReturn(jobId, job -> {
+            Optional<WorkUnit> maybeWU = job.selectNextWorkUnit();
+            if (maybeWU.isEmpty()) {
+                return new JobAndResult<>(job, null);
+            }
+            WorkUnit wu = maybeWU.orElseThrow();
+            return new JobAndResult<>(wu.job(), wu);
+        }));
     }
 
     private Path jobDir(UUID jobId) {
@@ -678,6 +828,11 @@ public class JobPersistenceService {
         io.createDirectories(jobDir(jobId));
         io.createDirectories(batchDir(jobId));
         io.createDirectories(coreBatchDir(jobId));
+        io.createDirectories(reportDir(jobId));
+    }
+
+    public boolean jobDiagnosticsExists(UUID jobId) {
+        return io.exists(jobReportFile(jobId));
     }
 
     @FunctionalInterface

@@ -1,28 +1,31 @@
 package de.medizininformatikinitiative.torch.diagnostics;
 
-import java.util.Collections;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import static java.util.Objects.requireNonNull;
 
 /**
  * Thread-safe accumulator for collecting exclusion diagnostics during batch processing.
  *
- * <p>Call {@link #incPatientsExcluded} and {@link #incResourcesExcluded} concurrently from
- * worker threads, then call {@link #snapshot()} once at the end to obtain an immutable
- * {@link BatchDiagnostics} record.
+ * <p>Call {@link #incPatientsExcluded}, {@link #incResourcesExcluded}, and
+ * {@link #recordDuration} concurrently from worker threads, then call
+ * {@link #snapshot(long)} once at the end to obtain an immutable {@link BatchDiagnostics} record.
+ *
+ * <p>Use {@link #noop()} to obtain a shared instance whose write methods are no-ops, for code
+ * paths where diagnostics are not needed.
  */
-public final class BatchDiagnosticsAcc {
+public class BatchDiagnosticsAcc {
 
     private final UUID jobId;
     private final UUID batchId;
-    private final int cohortPatientsInBatch;
+    private final long cohortPatientsInBatch;
 
-    private final AtomicInteger finalPatientsInBatch = new AtomicInteger(-1);
     private final ConcurrentHashMap<CriterionKey, CriterionCounts> criteria = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<PipelineStage, StageCounts> stages = new ConcurrentHashMap<>();
 
     /**
      * Creates a new accumulator for the given batch.
@@ -33,7 +36,7 @@ public final class BatchDiagnosticsAcc {
      * @throws NullPointerException     if {@code jobId} or {@code batchId} is {@code null}
      * @throws IllegalArgumentException if {@code cohortPatientsInBatch} is negative
      */
-    public BatchDiagnosticsAcc(UUID jobId, UUID batchId, int cohortPatientsInBatch) {
+    public BatchDiagnosticsAcc(UUID jobId, UUID batchId, long cohortPatientsInBatch) {
         this.jobId = requireNonNull(jobId, "jobId");
         this.batchId = requireNonNull(batchId, "batchId");
         if (cohortPatientsInBatch < 0) {
@@ -50,24 +53,8 @@ public final class BatchDiagnosticsAcc {
         return batchId;
     }
 
-    public int cohortPatientsInBatch() {
+    public long cohortPatientsInBatch() {
         return cohortPatientsInBatch;
-    }
-
-    /**
-     * Records the number of patients that passed all exclusion checks in this batch.
-     *
-     * <p>Intended to be called once at the end of processing. If called multiple times, the last
-     * write wins. When never called, {@link #snapshot()} falls back to {@code cohortPatientsInBatch}.
-     *
-     * @param finalPatients number of surviving patients; must be &gt;= 0
-     * @throws IllegalArgumentException if {@code finalPatients} is negative
-     */
-    public void setFinalPatientsInBatch(int finalPatients) {
-        if (finalPatients < 0) {
-            throw new IllegalArgumentException("finalPatientsInBatch must be >= 0");
-        }
-        finalPatientsInBatch.set(finalPatients);
     }
 
     /**
@@ -118,36 +105,88 @@ public final class BatchDiagnosticsAcc {
         requireNonNull(key, "key");
         if (durationNanos <= 0) return;
 
+        long durationMs = durationNanos / 1_000_000;
+        if (durationMs == 0) return;
+
         criteria.compute(key, (k, v) -> {
             CriterionCounts cur = (v == null) ? CriterionCounts.empty() : v;
-            return cur.plusDuration(durationNanos);
+            return cur.plusDuration(durationMs);
         });
+    }
+
+    /**
+     * Records throughput for a pipeline stage.
+     *
+     * <p>Multiple calls for the same stage are additive (useful when a stage runs per-group).
+     * Zero and negative values are silently ignored.
+     *
+     * @param stage              the pipeline stage
+     * @param durationNanos      elapsed nanoseconds; zero and negative values are ignored
+     * @param resourcesProcessed number of resources (or patients) that passed through the stage
+     * @throws NullPointerException if {@code stage} is {@code null}
+     */
+    public void recordStage(PipelineStage stage, long durationNanos, long resourcesProcessed) {
+        requireNonNull(stage, "stage");
+        if (durationNanos <= 0 && resourcesProcessed <= 0) return;
+
+        long durationMs = Math.max(0, durationNanos) / 1_000_000;
+        long safeResources = Math.max(0, resourcesProcessed);
+        stages.merge(stage, new StageCounts(durationMs, safeResources), StageCounts::add);
+    }
+
+    /**
+     * Returns a shared no-op accumulator whose write methods do nothing.
+     *
+     * <p>Use this for code paths that need an {@code acc} parameter but do not collect diagnostics
+     * (e.g. callers that forward to an acc-aware overload without an accumulator of their own).
+     * Never call {@link #snapshot(long)} on the returned instance.
+     */
+    public static BatchDiagnosticsAcc noop() {
+        return Noop.INSTANCE;
     }
 
     /**
      * Returns an immutable {@link BatchDiagnostics} reflecting the current accumulated state.
      *
-     * <p>If {@link #setFinalPatientsInBatch} was never called, {@code finalPatientsInBatch} defaults
-     * to {@code cohortPatientsInBatch}. Can be called multiple times; each call produces an
-     * independent snapshot.
+     * <p>Can be called multiple times; each call produces an independent snapshot.
      *
+     * @param finalPatientsInBatch number of patients that survived all exclusion checks; must be &gt;= 0
      * @return a point-in-time snapshot of batch diagnostics
+     * @throws IllegalArgumentException if {@code finalPatientsInBatch} is negative
      */
-    public BatchDiagnostics snapshot() {
-        int finalPatients = finalPatientsInBatch.get();
-        if (finalPatients < 0) {
-            finalPatients = cohortPatientsInBatch;
+    public BatchDiagnostics snapshot(long finalPatientsInBatch) {
+        if (finalPatientsInBatch < 0) {
+            throw new IllegalArgumentException("finalPatientsInBatch must be >= 0");
         }
 
-        // Make it immutable-ish for downstream consumers
-        Map<CriterionKey, CriterionCounts> copy = Collections.unmodifiableMap(new ConcurrentHashMap<>(criteria));
+        List<CriterionEntry> entries = criteria.entrySet().stream()
+                .map(e -> new CriterionEntry(e.getKey(), e.getValue()))
+                .toList();
+
+        Map<PipelineStage, StageCounts> stagesSnapshot = new EnumMap<>(PipelineStage.class);
+        stagesSnapshot.putAll(stages);
 
         return new BatchDiagnostics(
                 jobId,
                 batchId,
                 cohortPatientsInBatch,
-                finalPatients,
-                copy
+                finalPatientsInBatch,
+                List.copyOf(entries),
+                Map.copyOf(stagesSnapshot)
         );
+    }
+
+    private static final class Noop extends BatchDiagnosticsAcc {
+        private static final UUID NOOP_ID = new UUID(0L, 0L);
+        static final Noop INSTANCE = new Noop();
+
+        private Noop() {
+            super(NOOP_ID, NOOP_ID, 0);
+        }
+
+        @Override public void incPatientsExcluded(CriterionKey key, int delta) {}
+        @Override public void incResourcesExcluded(CriterionKey key, int delta) {}
+        @Override public void recordDuration(CriterionKey key, long durationNanos) {}
+        @Override public void recordStage(PipelineStage stage, long durationNanos, long resourcesProcessed) {}
     }
 }

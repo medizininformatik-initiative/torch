@@ -2,16 +2,22 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
+import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
+import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
@@ -30,7 +36,9 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 
+import java.io.IOException;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -247,6 +255,94 @@ class FhirControllerTest {
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
         }
+
+        @Test
+        void tempFailedJobReturnsServiceUnavailable() {
+            UUID jobId = UUID.randomUUID();
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.TEMP_FAILED);
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isEqualTo(503)
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void cancelledJobReturnsGone() {
+            UUID jobId = UUID.randomUUID();
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.CANCELLED);
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isEqualTo(410)
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void deletedJobReturnsNotFound() {
+            UUID jobId = UUID.randomUUID();
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.DELETED);
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(job));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isNotFound()
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void completedJobWithDiagnosticsIncludesDiagnosticsExtensions() throws IOException {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+            when(jobPersistenceService.jobDiagnosticsExists(any())).thenReturn(true);
+            when(jobPersistenceService.loadJobDiagnostics(any())).thenReturn(
+                    new JobDiagnostics(jobId, 10L, 8L, List.of()));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.output[?(@.type=='OperationOutcome')]").doesNotExist()
+                    .jsonPath("$.extension[?(@.url=='torch-job-diagnostics-summary')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-job-diagnostics')]").exists();
+        }
+
+        @Test
+        void completedJobWithIssuesIncludesIssuesExtension() {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withIssuesAdded(List.of(new Issue(Severity.WARNING, "Batch skipped: no consenting patients", "")));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.extension[?(@.url=='torch-job-issues')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-job-issues')].valueObject").isArray();
+        }
+
+        @Test
+        void completedJobWithNoIssuesOmitsIssuesExtension() {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.extension[?(@.url=='torch-job-issues')]").doesNotExist();
+        }
     }
 
     @Nested
@@ -358,6 +454,74 @@ class FhirControllerTest {
                     .bodyValue("{}")
                     .exchange()
                     .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void invalidJsonBodyReturnsBadRequest() {
+            client.post().uri("/fhir/$translate-cql")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
+    class ExtractDataSuccessTests {
+
+        AnnotatedCrtdl annotated = new AnnotatedCrtdl(
+                JsonNodeFactory.instance.objectNode(),
+                new AnnotatedDataExtraction(List.of()),
+                Optional.empty());
+        ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), List.of());
+
+        @Test
+        void successReturnsAcceptedWithContentLocation() throws Exception {
+            UUID createdJobId = UUID.randomUUID();
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(jobPersistenceService.createJob(any(), any(), any())).thenReturn(createdJobId);
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isAccepted()
+                    .expectHeader().valueMatches("Content-Location", ".*/fhir/__status/" + createdJobId);
+        }
+
+        @Test
+        void createJobIOExceptionReturnsInternalServerError() throws Exception {
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(jobPersistenceService.createJob(any(), any(), any())).thenThrow(new IOException("disk full"));
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void consentFormatExceptionReturnsBadRequest() throws Exception {
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenThrow(new ConsentFormatException("bad consent"));
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isBadRequest()
                     .expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");

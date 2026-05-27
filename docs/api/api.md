@@ -113,6 +113,88 @@ If `core.ndjson` contains resources but **no patient batch files are present**, 
 
 ---
 
+### Job Completion Manifest Extensions
+
+When a job completes, the `GET /fhir/__status/{jobId}` response follows the
+[FHIR Async Bulk Data manifest format][1].
+The `output` array contains **only FHIR NDJSON Bundle files** — one file per patient batch (each
+containing one Bundle per patient) and one `core.ndjson`. Non-resource data (diagnostics, issues) is never placed in `output`, because
+downstream consumers process every entry there as a FHIR resource file.
+
+TORCH-specific data is surfaced in the `extension` array. Three extension URLs are defined:
+
+| `url`                                                     | Content                                                                                                                                      | Present when                                                   |
+|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
+| `https://torch.mii.de/fhir/StructureDefinition/torch-job` | Full serialised job state (batches, timings, version)                                                                                        | Always                                                         |
+| `torch-job-diagnostics-summary`                           | Per-exclusion-kind patient and resource counts, cohort total and final patient total                                                         | Diagnostics were collected (i.e. at least one batch completed) |
+| `torch-job-diagnostics`                                   | `valueUrl` pointing to the full diagnostics OperationOutcome file (per-stage timings, per-criterion counts and timing); see [Job Diagnostics](./diagnostics.md) | Same as above |
+| `torch-job-issues`                                        | List of `{severity, msg, diagnostics}` objects recording warnings and errors that occurred during processing (e.g. skipped batches, retries) | At least one issue was recorded                                |
+
+Example completed manifest:
+
+```json
+{
+  "transactionTime": "2026-01-15T10:30:00Z",
+  "request": "http://localhost:8080/fhir/__status/<jobId>",
+  "requiresAccessToken": false,
+  "output": [
+    {
+      "type": "NDJSON Bundle",
+      "url": "http://fileserver/<jobId>/<batchId>.ndjson"
+    },
+    {
+      "type": "NDJSON Bundle",
+      "url": "http://fileserver/<jobId>/core.ndjson"
+    }
+  ],
+  "extension": [
+    {
+      "url": "https://torch.mii.de/fhir/StructureDefinition/torch-job",
+      "valueObject": {
+        "id": "<jobId>",
+        "status": "COMPLETED",
+        ...
+      }
+    },
+    {
+      "url": "torch-job-diagnostics-summary",
+      "valueObject": {
+        "cohortPatientsTotal": 100,
+        "finalPatientsTotal": 87,
+        "exclusionsByKind": [
+          {
+            "kind": "CONSENT",
+            "patientsExcluded": 5,
+            "resourcesExcluded": 0
+          },
+          {
+            "kind": "MUST_HAVE",
+            "patientsExcluded": 8,
+            "resourcesExcluded": 42
+          }
+        ]
+      }
+    },
+    {
+      "url": "torch-job-diagnostics",
+      "valueUrl": "http://fileserver/<jobId>/reports/job-summary.json"
+    },
+    {
+      "url": "torch-job-issues",
+      "valueObject": [
+        {
+          "severity": "WARNING",
+          "msg": "Batch <id> skipped: no consenting patients",
+          "diagnostics": ""
+        }
+      ]
+    }
+  ]
+}
+```
+
+---
+
 ### Example
 
 Given:

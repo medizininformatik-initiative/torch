@@ -11,10 +11,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class BatchDiagnosticsAccTest {
 
     private static final CriterionKey KEY_1 =
-            new CriterionKey(ExclusionKind.MUST_HAVE, "must-have-group", "groupRef-1", "attr-1");
+            new CriterionKey(ExclusionKind.MUST_HAVE, "group-id-1", "groupRef-1", "attr-1");
 
     private static final CriterionKey KEY_2 =
-            new CriterionKey(ExclusionKind.REFERENCE_NOT_FOUND, "reference-not-found", "groupRef-2", "attr-2");
+            new CriterionKey(ExclusionKind.REFERENCE_NOT_FOUND, null, "groupRef-2", "attr-2");
 
     @Nested
     class Constructor {
@@ -58,29 +58,6 @@ class BatchDiagnosticsAccTest {
     }
 
     @Nested
-    class SetFinalPatientsInBatch {
-
-        @Test
-        void throwsWhenNegative() {
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 3);
-
-            assertThatThrownBy(() -> acc.setFinalPatientsInBatch(-1))
-                    .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessage("finalPatientsInBatch must be >= 0");
-        }
-
-        @Test
-        void lastWriteWins() {
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
-
-            acc.setFinalPatientsInBatch(4);
-            acc.setFinalPatientsInBatch(2);
-
-            assertThat(acc.snapshot().finalPatientsInBatch()).isEqualTo(2);
-        }
-    }
-
-    @Nested
     class IncPatientsExcluded {
 
         @Test
@@ -90,10 +67,10 @@ class BatchDiagnosticsAccTest {
             acc.incPatientsExcluded(KEY_1, 2);
             acc.incPatientsExcluded(KEY_1, 3);
 
-            BatchDiagnostics snapshot = acc.snapshot();
+            BatchDiagnostics snapshot = acc.snapshot(0);
 
-            assertThat(snapshot.criteria().get(KEY_1).patientsExcluded()).isEqualTo(5);
-            assertThat(snapshot.criteria().get(KEY_1).resourcesExcluded()).isEqualTo(0);
+            assertThat(snapshot.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(5);
+            assertThat(snapshot.countsFor(KEY_1).get().resourcesExcluded()).isEqualTo(0);
         }
 
         @Test
@@ -103,7 +80,7 @@ class BatchDiagnosticsAccTest {
             acc.incPatientsExcluded(KEY_1, 0);
             acc.incPatientsExcluded(KEY_1, -2);
 
-            assertThat(acc.snapshot().criteria()).doesNotContainKey(KEY_1);
+            assertThat(acc.snapshot(0).countsFor(KEY_1)).isEmpty();
         }
 
         @Test
@@ -126,10 +103,10 @@ class BatchDiagnosticsAccTest {
             acc.incResourcesExcluded(KEY_1, 2);
             acc.incResourcesExcluded(KEY_1, 4);
 
-            BatchDiagnostics snapshot = acc.snapshot();
+            BatchDiagnostics snapshot = acc.snapshot(0);
 
-            assertThat(snapshot.criteria().get(KEY_1).patientsExcluded()).isEqualTo(0);
-            assertThat(snapshot.criteria().get(KEY_1).resourcesExcluded()).isEqualTo(6);
+            assertThat(snapshot.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(0);
+            assertThat(snapshot.countsFor(KEY_1).get().resourcesExcluded()).isEqualTo(6);
         }
 
         @Test
@@ -139,7 +116,7 @@ class BatchDiagnosticsAccTest {
             acc.incResourcesExcluded(KEY_1, 0);
             acc.incResourcesExcluded(KEY_1, -2);
 
-            assertThat(acc.snapshot().criteria()).doesNotContainKey(KEY_1);
+            assertThat(acc.snapshot(0).countsFor(KEY_1)).isEmpty();
         }
 
         @Test
@@ -164,10 +141,10 @@ class BatchDiagnosticsAccTest {
             acc.incPatientsExcluded(KEY_1, 3);
             acc.incResourcesExcluded(KEY_1, 4);
 
-            BatchDiagnostics snapshot = acc.snapshot();
+            BatchDiagnostics snapshot = acc.snapshot(0);
 
-            assertThat(snapshot.criteria().get(KEY_1).patientsExcluded()).isEqualTo(4);
-            assertThat(snapshot.criteria().get(KEY_1).resourcesExcluded()).isEqualTo(6);
+            assertThat(snapshot.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(4);
+            assertThat(snapshot.countsFor(KEY_1).get().resourcesExcluded()).isEqualTo(6);
         }
 
         @Test
@@ -177,13 +154,13 @@ class BatchDiagnosticsAccTest {
             acc.incResourcesExcluded(KEY_1, 2);
             acc.incPatientsExcluded(KEY_2, 1);
 
-            BatchDiagnostics snapshot = acc.snapshot();
+            BatchDiagnostics snapshot = acc.snapshot(0);
 
             assertThat(snapshot.criteria()).hasSize(2);
-            assertThat(snapshot.criteria().get(KEY_1).resourcesExcluded()).isEqualTo(2);
-            assertThat(snapshot.criteria().get(KEY_1).patientsExcluded()).isEqualTo(0);
-            assertThat(snapshot.criteria().get(KEY_2).patientsExcluded()).isEqualTo(1);
-            assertThat(snapshot.criteria().get(KEY_2).resourcesExcluded()).isEqualTo(0);
+            assertThat(snapshot.countsFor(KEY_1).get().resourcesExcluded()).isEqualTo(2);
+            assertThat(snapshot.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(0);
+            assertThat(snapshot.countsFor(KEY_2).get().patientsExcluded()).isEqualTo(1);
+            assertThat(snapshot.countsFor(KEY_2).get().resourcesExcluded()).isEqualTo(0);
         }
     }
 
@@ -194,13 +171,13 @@ class BatchDiagnosticsAccTest {
         void accumulatesDurationAndInvocationsPerKey() {
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
 
-            acc.recordDuration(KEY_1, 100);
-            acc.recordDuration(KEY_1, 200);
+            acc.recordDuration(KEY_1, 100_000_000L); // 100 ms in nanos
+            acc.recordDuration(KEY_1, 200_000_000L); // 200 ms in nanos
 
-            CriterionCounts counts = acc.snapshot().criteria().get(KEY_1);
-            assertThat(counts.totalDurationNanos()).isEqualTo(300);
+            CriterionCounts counts = acc.snapshot(0).countsFor(KEY_1).get();
+            assertThat(counts.totalDurationMs()).isEqualTo(300);
             assertThat(counts.invocations()).isEqualTo(2);
-            assertThat(counts.averageDurationNanos()).isEqualTo(150);
+            assertThat(counts.averageDurationMs()).isEqualTo(150);
         }
 
         @Test
@@ -210,7 +187,7 @@ class BatchDiagnosticsAccTest {
             acc.recordDuration(KEY_1, 0);
             acc.recordDuration(KEY_1, -50);
 
-            assertThat(acc.snapshot().criteria()).doesNotContainKey(KEY_1);
+            assertThat(acc.snapshot(0).countsFor(KEY_1)).isEmpty();
         }
 
         @Test
@@ -218,11 +195,11 @@ class BatchDiagnosticsAccTest {
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
 
             acc.incPatientsExcluded(KEY_1, 3);
-            acc.recordDuration(KEY_1, 500);
+            acc.recordDuration(KEY_1, 500_000_000L); // 500 ms in nanos
 
-            CriterionCounts counts = acc.snapshot().criteria().get(KEY_1);
+            CriterionCounts counts = acc.snapshot(0).countsFor(KEY_1).get();
             assertThat(counts.patientsExcluded()).isEqualTo(3);
-            assertThat(counts.totalDurationNanos()).isEqualTo(500);
+            assertThat(counts.totalDurationMs()).isEqualTo(500);
             assertThat(counts.invocations()).isEqualTo(1);
         }
 
@@ -237,40 +214,94 @@ class BatchDiagnosticsAccTest {
     }
 
     @Nested
+    class RecordStage {
+
+        @Test
+        void recordsSingleStage() {
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
+
+            acc.recordStage(PipelineStage.DIRECT_LOAD, 1_000_000_000L, 20); // 1000 ms in nanos
+
+            assertThat(acc.snapshot(0).stages().get(PipelineStage.DIRECT_LOAD))
+                    .isEqualTo(new StageCounts(1000, 20));
+        }
+
+        @Test
+        void multipleCallsSameStage_accumulates() {
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
+
+            acc.recordStage(PipelineStage.CASCADING_DELETE, 100_000_000L, 5);  // 100 ms
+            acc.recordStage(PipelineStage.CASCADING_DELETE, 200_000_000L, 10); // 200 ms
+
+            assertThat(acc.snapshot(0).stages().get(PipelineStage.CASCADING_DELETE))
+                    .isEqualTo(new StageCounts(300, 15));
+        }
+
+        @Test
+        void differentStages_areIndependent() {
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
+
+            acc.recordStage(PipelineStage.DIRECT_LOAD, 100_000_000L, 10);
+            acc.recordStage(PipelineStage.REFERENCE_RESOLVE, 200_000_000L, 5);
+
+            assertThat(acc.snapshot(0).stages()).containsOnlyKeys(
+                    PipelineStage.DIRECT_LOAD, PipelineStage.REFERENCE_RESOLVE);
+        }
+
+        @Test
+        void zeroDurationAndResources_isIgnored() {
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
+
+            acc.recordStage(PipelineStage.COPY_REDACT, 0, 0);
+
+            assertThat(acc.snapshot(0).stages()).isEmpty();
+        }
+
+        @Test
+        void throwsWhenStageIsNull() {
+            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
+
+            assertThatThrownBy(() -> acc.recordStage(null, 100, 10))
+                    .isInstanceOf(NullPointerException.class)
+                    .hasMessage("stage");
+        }
+    }
+
+    @Nested
     class Snapshot {
 
         @Test
-        void usesCohortPatientsWhenFinalNeverSet() {
+        void storesProvidedFinalPatientCount() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, 5);
-            BatchDiagnostics snapshot = acc.snapshot();
+            BatchDiagnostics snapshot = acc.snapshot(3);
 
             assertThat(snapshot.jobId()).isEqualTo(jobId);
             assertThat(snapshot.batchId()).isEqualTo(batchId);
             assertThat(snapshot.cohortPatientsInBatch()).isEqualTo(5);
-            assertThat(snapshot.finalPatientsInBatch()).isEqualTo(5);
+            assertThat(snapshot.finalPatientsInBatch()).isEqualTo(3);
             assertThat(snapshot.criteria()).isEmpty();
         }
 
         @Test
-        void usesExplicitFinalPatientsWhenSet() {
+        void throwsWhenFinalPatientsIsNegative() {
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
 
-            acc.setFinalPatientsInBatch(2);
-
-            assertThat(acc.snapshot().finalPatientsInBatch()).isEqualTo(2);
+            assertThatThrownBy(() -> acc.snapshot(-1))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("finalPatientsInBatch must be >= 0");
         }
 
         @Test
-        void returnsUnmodifiableCriteriaMap() {
+        void returnsUnmodifiableCriteriaList() {
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
             acc.incPatientsExcluded(KEY_1, 1);
 
-            var snapshot = acc.snapshot();
+            var snapshot = acc.snapshot(0);
 
-            assertThatThrownBy(() -> snapshot.criteria().put(KEY_2, CriterionCounts.empty()))
+            assertThatThrownBy(() -> snapshot.criteria().add(new CriterionEntry(KEY_2, CriterionCounts.empty())))
                     .isInstanceOf(UnsupportedOperationException.class);
         }
 
@@ -278,17 +309,17 @@ class BatchDiagnosticsAccTest {
         void isIndependentFromFutureChanges() {
             BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 5);
             acc.incPatientsExcluded(KEY_1, 1);
-            var first = acc.snapshot();
+            var first = acc.snapshot(0);
             acc.incPatientsExcluded(KEY_1, 2);
             acc.incResourcesExcluded(KEY_2, 4);
-            var second = acc.snapshot();
+            var second = acc.snapshot(0);
 
             assertThat(first.criteria()).hasSize(1);
-            assertThat(first.criteria().get(KEY_1).patientsExcluded()).isEqualTo(1);
-            assertThat(first.criteria().get(KEY_1).resourcesExcluded()).isEqualTo(0);
-            assertThat(first.criteria()).doesNotContainKey(KEY_2);
-            assertThat(second.criteria().get(KEY_1).patientsExcluded()).isEqualTo(3);
-            assertThat(second.criteria().get(KEY_2).resourcesExcluded()).isEqualTo(4);
+            assertThat(first.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(1);
+            assertThat(first.countsFor(KEY_1).get().resourcesExcluded()).isEqualTo(0);
+            assertThat(first.countsFor(KEY_2)).isEmpty();
+            assertThat(second.countsFor(KEY_1).get().patientsExcluded()).isEqualTo(3);
+            assertThat(second.countsFor(KEY_2).get().resourcesExcluded()).isEqualTo(4);
         }
     }
 }
