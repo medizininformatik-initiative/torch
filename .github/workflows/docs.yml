@@ -14,18 +14,16 @@ on:
     - cron: '0 1 * * *'
   merge_group:
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-  cancel-in-progress: true
-
 permissions: read-all
 
 jobs:
   build-pages:
     runs-on: ubuntu-24.04
+    concurrency:
+      group: docs-build-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+      cancel-in-progress: true
     permissions:
-      contents: write
-      pull-requests: write
+      contents: read
     steps:
       - name: Check out Git repository
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -51,12 +49,37 @@ jobs:
           DOCS_BASE: "/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/"
         run: make build
 
+      - name: Upload Pages Artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push' || github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: pages-dist
+          path: docs/.vitepress/dist
+
+  deploy-pages:
+    needs: build-pages
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' || github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    # Serialize all gh-pages pushes globally to prevent concurrent-push conflicts
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Download Pages Artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: pages-dist
+          path: dist
+
       - name: Deploy Main
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/.vitepress/dist
+          publish_dir: dist
           keep_files: true
 
       - name: Deploy Preview
@@ -64,7 +87,7 @@ jobs:
         uses: peaceiris/actions-gh-pages@84c30a85c19949d7eee79c4ff27748b70285e453
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: docs/.vitepress/dist
+          publish_dir: dist
           destination_dir: preview/pr-${{ github.event.number }}
           keep_files: true
 
@@ -76,15 +99,15 @@ jobs:
             const url = 'https://medizininformatik-initiative.github.io/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/';
             const body = `Preview docs deployed at ${url}`;
             const marker = '<!-- preview-url-comment -->';
-            
+
             const { data: comments } = await github.rest.issues.listComments({
               issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo
             });
-            
+
             const existing = comments.find(c => c.body.includes(marker));
-            
+
             if (existing) {
               await github.rest.issues.updateComment({
                   comment_id: existing.id,
@@ -104,6 +127,9 @@ jobs:
   cleanup-preview-page:
     runs-on: ubuntu-24.04
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:
