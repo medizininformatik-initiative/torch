@@ -44,7 +44,6 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 
 import java.io.IOException;
-import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
@@ -230,7 +229,8 @@ public class FhirController {
                     try {
                         jobId = persistence.createJob(
                                 annotated,
-                                parameters.patientIds()
+                                parameters.patientIds(),
+                                baseUrl + "/fhir/$extract-data"
                         );
                     } catch (IOException ioe) {
                         return Mono.error(ioe);
@@ -364,13 +364,11 @@ public class FhirController {
                     .bodyValue(oo);
         }
 
-        String transactionTime = DateTimeFormatter.ISO_INSTANT.format(Instant.now());
-        String requestUrl = request.uri().toString();
         logger.trace("Status of queried jobID {} is {}", jobId, job.status());
         return switch (job.status()) {
             case COMPLETED -> {
                 try {
-                    String json = mapper.writeValueAsString(loadCompletedJobJSON(job, requestUrl, transactionTime, fileServerName));
+                    String json = mapper.writeValueAsString(loadCompletedJobJSON(job, fileServerName));
                     yield ServerResponse.ok()
                             .contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(json);
@@ -381,8 +379,11 @@ public class FhirController {
                 }
             }
             case PAUSED, PENDING, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, RUNNING_GET_COHORT ->
-                    accepted().contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                            OperationOutcomeCreator.fromJob(job)));
+                    accepted()
+                            .header("X-Progress", xProgress(job))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
+                                    OperationOutcomeCreator.fromJob(job)));
             case TEMP_FAILED ->
                     ServerResponse.status(503).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
                             OperationOutcomeCreator.fromJob(job)));
@@ -508,12 +509,19 @@ public class FhirController {
      *
      * <p>Includes NDJSON output URLs and embeds the {@link Job} as a custom extension.</p>
      */
-    public JsonNode loadCompletedJobJSON(Job job,
-                                         String requestUrl,
-                                         String transactionTime, String fileServerName) {
+    private static String xProgress(Job job) {
+        return switch (job.status()) {
+            case RUNNING_GET_COHORT -> "Getting cohort";
+            case RUNNING_PROCESS_BATCH -> "Processing batches (%.0f%%)".formatted(job.calculateBatchProgress());
+            case RUNNING_PROCESS_CORE -> "Processing core resources";
+            default -> job.status().display();
+        };
+    }
+
+    public JsonNode loadCompletedJobJSON(Job job, String fileServerName) {
         ObjectNode root = mapper.createObjectNode();
-        root.put("transactionTime", transactionTime);
-        root.put("request", requestUrl);
+        root.put("transactionTime", DateTimeFormatter.ISO_INSTANT.format(job.startedAt()));
+        root.put("request", job.parameters().kickOffUrl() != null ? job.parameters().kickOffUrl() : "");
         root.put("requiresAccessToken", false);
 
         ArrayNode outputArr = mapper.createArrayNode();
@@ -532,6 +540,8 @@ public class FhirController {
         }
 
         root.set("output", outputArr);
+        root.set("error", mapper.createArrayNode());
+
         JsonNode jobNode = mapper.valueToTree(job);
 
         ArrayNode extensionArr = mapper.createArrayNode();

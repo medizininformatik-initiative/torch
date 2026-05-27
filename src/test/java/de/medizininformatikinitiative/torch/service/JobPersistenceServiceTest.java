@@ -92,7 +92,7 @@ class JobPersistenceServiceTest {
         @Test
         void saveBatchCreatesNdjson() throws IOException {
             UUID jobId = UUID.randomUUID();
-            persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
+            persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null);
 
             PatientBatch batch = new PatientBatch(List.of("A", "B"), UUID.randomUUID());
             persistenceService.saveBatch(batch, jobId);
@@ -138,7 +138,7 @@ class JobPersistenceServiceTest {
         void testCreateJobPersistOnIO() throws IOException {
             Instant before = Instant.now();
 
-            UUID jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
+            UUID jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null);
 
             Instant after = Instant.now();
 
@@ -204,7 +204,7 @@ class JobPersistenceServiceTest {
         void saveCoreBatch_and_loadCoreInfo_shouldPersistAndReloadSingleCoreBundle() throws IOException {
 
             UUID jobId = UUID.randomUUID();
-            persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
+            persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null);
 
             ResourceExtractionInfo rei = new ResourceExtractionInfo(Set.of("G1"), Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1"))));
 
@@ -239,7 +239,7 @@ class JobPersistenceServiceTest {
             doNothing().when(io).createDirectories(any());
             when(io.newBufferedWriter(any())).thenThrow(new IOException("boom"));
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null)).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -249,7 +249,7 @@ class JobPersistenceServiceTest {
 
             doThrow(new IOException("atomic move failed")).when(io).atomicMove(any(), any());
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null)).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -279,7 +279,7 @@ class JobPersistenceServiceTest {
         void failsWhenCreatingJobDirFails() throws IOException {
             doThrow(new IOException("mkdir fail")).when(io).createDirectories(any());
 
-            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch())).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
+            assertThatThrownBy(() -> service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null)).isInstanceOf(IOException.class).hasMessageContaining("Failed to initialize job");
         }
 
         @Test
@@ -290,7 +290,7 @@ class JobPersistenceServiceTest {
             when(io.newBufferedWriter(any())).thenReturn(writer);
             doNothing().when(io).atomicMove(any(), any());
 
-            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch());
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), EMPTY_PARAMETERS.paramBatch(), null);
 
             verify(io).newBufferedWriter(argThat(path -> path.toString().contains(jobId.toString())));
         }
@@ -516,7 +516,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -560,7 +560,7 @@ class JobPersistenceServiceTest {
         @Test
         void selectNextWorkUnit_OrdersByPriority() throws IOException {
             // Job 1: Normal Priority
-            UUID firstJob = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID firstJob = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             // Job 2: High Priority
             UUID j2 = UUID.randomUUID();
             Job highPrio = Job.init(j2, EMPTY_PARAMETERS).withPriority(JobPriority.HIGH);
@@ -590,7 +590,7 @@ class JobPersistenceServiceTest {
 
         @Test
         void onCoreErrorFailsCore() throws IOException, JobNotFoundException {
-            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
             Job runningCore = service.getJob(jobId).orElseThrow().withStatus(JobStatus.RUNNING_PROCESS_CORE).withCoreState(WorkUnitState.startNow());
 
@@ -803,7 +803,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             persistenceService.init();
-            jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -860,7 +860,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -885,7 +885,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
             spyService.init();
-            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
             doThrow(new IOException("disk full")).when(spyIo).newBufferedWriter(argThat(p -> p.toString().endsWith(".tmp")));
 
@@ -908,7 +908,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
             spyService.init();
-            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             spyService.deleteJob(id);
 
             doThrow(new IOException("permission denied")).when(spyIo).deleteDir(any());
@@ -1001,7 +1001,7 @@ class JobPersistenceServiceTest {
 
         @Test
         void returnsWorkUnitWhenJobSchedulable() throws IOException {
-            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
             Optional<WorkUnit> result = service.selectNextInternal(jobId);
 
@@ -1022,7 +1022,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -1077,7 +1077,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -1135,7 +1135,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -1215,7 +1215,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
 
         @Test
@@ -1270,9 +1270,9 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
             service.init();
-            jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-            jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
-            jobId3 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of());
+            jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+            jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+            jobId3 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
             service.putJobForTest(service.getJob(jobId2).orElseThrow().withStatus(JobStatus.COMPLETED));
             service.putJobForTest(service.getJob(jobId3).orElseThrow().withStatus(JobStatus.FAILED));

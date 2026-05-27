@@ -128,9 +128,9 @@ public class JobPersistenceService {
      * @return created job id
      * @throws IOException if persistence fails
      */
-    public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds) throws IOException {
+    public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds, String kickOffUrl) throws IOException {
         UUID jobId = UUID.randomUUID();
-        Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds));
+        Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds, kickOffUrl));
         initJob(initial);
         return jobId;
     }

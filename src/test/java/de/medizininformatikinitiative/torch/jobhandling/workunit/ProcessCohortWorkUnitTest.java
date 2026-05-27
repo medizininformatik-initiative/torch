@@ -49,7 +49,7 @@ class ProcessCohortWorkUnitTest {
     }
 
     private static Job jobWithParams(UUID jobId, List<String> paramBatch) {
-        JobParameters params = new JobParameters(minimalCrtdl(), paramBatch);
+        JobParameters params = new JobParameters(minimalCrtdl(), paramBatch, null);
 
         return Job.init(jobId, params);
     }
