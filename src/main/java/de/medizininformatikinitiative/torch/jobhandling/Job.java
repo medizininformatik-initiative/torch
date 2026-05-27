@@ -215,7 +215,11 @@ public record Job(
         boolean retryable = RetryabilityUtil.isRetryable(e);
         WorkUnitState out = cohortState.onFailure(retryable);
         Job updated = withCohortState(out)
-                .withIssuesAdded(issues);
+                .withIssuesAdded(merge(issues, List.of(Issue.fromException(
+                        retryable ? Severity.WARNING : Severity.ERROR,
+                        "Cohort query failed: " + e.getMessage(),
+                        e
+                ))));
         if (!retryable) return updated.withStatus(JobStatus.FAILED);
         return updated.withStatus(JobStatus.TEMP_FAILED);
     }
@@ -240,7 +244,12 @@ public record Job(
         if (status != JobStatus.RUNNING_PROCESS_BATCH) {
             return this;
         }
-        Job updated = withIssuesAdded(issues);
+        boolean retryable = RetryabilityUtil.isRetryable(e);
+        Job updated = withIssuesAdded(merge(issues, List.of(Issue.fromException(
+                retryable ? Severity.WARNING : Severity.ERROR,
+                "Batch " + batchId + " failed: " + e.getMessage(),
+                e
+        ))));
 
         BatchState bs = updated.batches().get(batchId);
         if (bs == null) {
@@ -253,7 +262,6 @@ public record Job(
                     .withStatus(JobStatus.FAILED);
         }
 
-        boolean retryable = RetryabilityUtil.isRetryable(e);
         BatchState out = bs.onFailure(retryable);
 
         Job withBatch = updated.withBatchState(out);
