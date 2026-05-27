@@ -115,6 +115,18 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
+  shell-tests:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Install bats
+        run: sudo apt-get install -y bats
+
+      - name: Run docker-entrypoint shell tests
+        run: bats src/test/shell/docker-entrypoint.bats
+
   test:
     needs: build
     runs-on: ubuntu-24.04
