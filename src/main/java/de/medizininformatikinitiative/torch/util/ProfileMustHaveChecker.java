@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
+import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import org.hl7.fhir.r4.model.Base;
@@ -22,24 +23,34 @@ public class ProfileMustHaveChecker {
     }
 
     public boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
-        if (group == null) {
-            return false;
-        }
-        if (src == null) {
-            return false;
-        }
-        DomainResource resource = (DomainResource) src;
-        List<String> profiles = src.getMeta().getProfile().stream().map(CanonicalType::getValue).map(ResourceUtils::stripVersion).toList();
+        return evaluateFirst(src, group).fulfilled();
+    }
 
-        if (resource.getResourceType().toString().equals("Patient") || profiles.contains(group.groupReference())) {
-            if (group.hasMustHave()) {
-                return group.attributes().stream()
-                        .filter(AnnotatedAttribute::mustHave)
-                        .allMatch(attribute -> Boolean.TRUE.equals(fulfilled(resource, attribute))); // Ensures true or false
+    public MustHaveEvaluation evaluateFirst(Resource src, AnnotatedAttributeGroup group) {
+        if (group == null || src == null) return new MustHaveEvaluation.NotApplicable();
+        if (!(src instanceof DomainResource resource)) return new MustHaveEvaluation.NotApplicable();
+
+        List<String> profiles = src.getMeta().getProfile().stream()
+                .map(CanonicalType::getValue)
+                .map(ResourceUtils::stripVersion)
+                .toList();
+
+        boolean inScope =
+                resource.getResourceType().toString().equals("Patient")
+                        || profiles.contains(group.groupReference());
+
+        if (!inScope) return new MustHaveEvaluation.NotApplicable();
+        if (!group.hasMustHave()) return new MustHaveEvaluation.Fulfilled();
+
+        for (AnnotatedAttribute attr : group.attributes()) {
+            if (!attr.mustHave()) continue;
+
+            if (!Boolean.TRUE.equals(fulfilled(resource, attr))) {
+                return new MustHaveEvaluation.Violated(attr);
             }
-            return true;
         }
-        return false;
+
+        return new MustHaveEvaluation.Fulfilled();
     }
 
 

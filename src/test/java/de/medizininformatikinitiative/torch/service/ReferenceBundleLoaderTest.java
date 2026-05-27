@@ -2,13 +2,17 @@ package de.medizininformatikinitiative.torch.service;
 
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
+import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -29,6 +33,7 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -168,5 +173,50 @@ class ReferenceBundleLoaderTest {
                     Set.of(REF_3));
         }
 
+    }
+
+    @Nested
+    class CacheSearchResults {
+
+        @Test
+        void coreResource_cachedInCoreBundle() {
+            var obs = new Observation();
+            obs.setId("Observation/obs1");
+            var coreBundle = new ResourceBundle();
+            when(compartmentManager.isInCompartment(any(ExtractionId.class))).thenReturn(false);
+
+            referenceBundleLoader.cacheSearchResults(null, coreBundle, false, obs);
+
+            assertThat(coreBundle.get(ExtractionId.fromRelativeUrl("Observation/obs1"))).isPresent();
+        }
+
+        @Test
+        void patientResource_cachedInPatientBundle() throws Exception {
+            var patient = new Patient();
+            patient.setId("Patient/p1");
+            var patientBundle = new PatientResourceBundle("p1");
+            var coreBundle = new ResourceBundle();
+            when(compartmentManager.isInCompartment(any(ExtractionId.class))).thenReturn(true);
+
+            referenceBundleLoader.cacheSearchResults(patientBundle, coreBundle, false, patient);
+
+            assertThat(patientBundle.bundle().get(ExtractionId.fromRelativeUrl("Patient/p1"))).isPresent();
+        }
+
+        @Test
+        void patientResource_consentViolated_putsEmptyOptionalInPatientBundle() throws Exception {
+            var patient = new Patient();
+            patient.setId("Patient/p1");
+            var patientBundle = new PatientResourceBundle("p1");
+            var coreBundle = new ResourceBundle();
+            when(compartmentManager.isInCompartment(any(ExtractionId.class))).thenReturn(true);
+            doThrow(new ConsentViolatedException("consent violated"))
+                    .when(consentValidator).checkPatientIdAndConsent(any(), any(Boolean.class), any());
+
+            referenceBundleLoader.cacheSearchResults(patientBundle, coreBundle, true, patient);
+
+            var cached = patientBundle.bundle().get(ExtractionId.fromRelativeUrl("Patient/p1"));
+            assertThat(cached).isNotNull().isEmpty();
+        }
     }
 }

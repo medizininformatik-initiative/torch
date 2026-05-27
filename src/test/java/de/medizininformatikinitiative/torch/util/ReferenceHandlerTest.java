@@ -1,210 +1,220 @@
 package de.medizininformatikinitiative.torch.util;
 
-import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.management.CompartmentManager;
-import de.medizininformatikinitiative.torch.service.DataStore;
+import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
+import org.hl7.fhir.r4.model.Medication;
+import org.hl7.fhir.r4.model.Observation;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import reactor.test.StepVerifier;
+
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class ReferenceHandlerTest {
 
     @Mock
-    private DataStore dataStore;
-
-    @Mock
     private ProfileMustHaveChecker profileMustHaveChecker;
 
-    @Mock
-    private CompartmentManager compartmentManager;
-
-    @Mock
-    private ConsentValidator consentValidator;
-
-    @InjectMocks
     private ReferenceHandler referenceHandler;
+
+    static final ExtractionId OBS_ID = ExtractionId.fromRelativeUrl("Observation/obs1");
+    static final ExtractionId MED_ID = ExtractionId.fromRelativeUrl("Medication/m1");
 
     @BeforeEach
     void setUp() {
         referenceHandler = new ReferenceHandler(profileMustHaveChecker);
     }
 
-/*
     @Nested
-    class CoreResource {
+    class HandleReferenceAttribute {
+
         @Test
-        void shouldResolveReferenceSuccessfully() {
+        void refNotInAnyBundle_mustHaveFalse_returnsEmptyList() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
 
-            Resource coreResource = mock(Resource.class);
-
-
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.just(coreResource));
-
-
-            when(compartmentManager.isInCompartment(coreResource)).thenReturn(false);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
-
-            StepVerifier.create(result).assertNext(resource -> assertThat(resource).isNotNull()).verifyComplete();
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of()))
+                    .assertNext(list -> assertThat(list).isEmpty())
+                    .verifyComplete();
         }
 
         @Test
-        void noCoreResourceFound() {
+        void refNotInAnyBundle_mustHaveTrue_errorsWithMustHaveViolated() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
 
-            Resource coreResource = mock(Resource.class);
-
-
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.just(coreResource));
-
-
-            when(compartmentManager.isInCompartment(coreResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
-
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient Resource referenced in Core Bundle")).verify();
-        }
-
-        @Test
-        void shouldReturnEmptyWhenEmptyRespource() {
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.empty());
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
-            StepVerifier.create(result).expectComplete().verify();
-        }
-
-        @Test
-        void shouldReturnErrorOnConnectionError() {
-            // Simulate a connection error (like when the host is unreachable)
-            WebClientRequestException connectionException = new WebClientRequestException(
-                    new UnknownHostException("Host not found"),    // Cause of the error
-                    HttpMethod.GET,                                // HTTP method used
-                    URI.create("http://localhost/Medication/123"),  // URI of the request (can be any valid URI)
-                    HttpHeaders.EMPTY                              // Headers (optional, can be empty)
-            );
-
-            // Mock the behavior of dataStore.fetchResourceByReference to return the exception
-            when(dataStore.fetchResourceByReference("Medication/123")).thenReturn(Mono.error(connectionException));
-
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Medication/123");
-
-            // Now expecting an error (not complete)
-            StepVerifier.create(result)
-                    .expectError(WebClientRequestException.class)  // Expect the WebClientRequestException error type
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of()))
+                    .expectError(MustHaveViolatedException.class)
                     .verify();
         }
 
+        @Test
+        void refInCoreBundle_profileFulfilled_returnsResourceGroup() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(true);
+
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of("grp", group)))
+                    .assertNext(list -> assertThat(list).hasSize(1))
+                    .verifyComplete();
+        }
+
+        @Test
+        void refInPatientBundle_profileFulfilled_returnsResourceGroup() {
+            var obs = new Observation();
+            obs.setId("obs1");
+            var patRef = ExtractionId.fromRelativeUrl("Observation/obs1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(patRef), "grp", OBS_ID);
+            var patientBundle = new PatientResourceBundle("p1");
+            patientBundle.put(obs);
+            var coreBundle = new ResourceBundle();
+            var group = new AnnotatedAttributeGroup("grp", "Observation", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(obs, group)).thenReturn(true);
+
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, patientBundle, coreBundle, Map.of("grp", group)))
+                    .assertNext(list -> assertThat(list).hasSize(1))
+                    .verifyComplete();
+        }
+
+        @Test
+        void profileNotFulfilled_returnsEmptyListNoError() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(false);
+
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of("grp", group)))
+                    .assertNext(list -> assertThat(list).isEmpty())
+                    .verifyComplete();
+        }
+
+        @Test
+        void cachedValidityReused_doesNotCallChecker() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            var rg = new ResourceGroup(MED_ID, "grp");
+            coreBundle.addResourceGroupValidity(rg, true);
+
+            StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of("grp", group)))
+                    .assertNext(list -> assertThat(list).hasSize(1))
+                    .verifyComplete();
+        }
     }
 
     @Nested
-    class PatientResource {
+    class HandleReferences {
+
         @Test
-        void shouldResolveReferenceSuccessfullyWithConsent() {
+        void unprocessedRef_notInBundle_mustHaveFalse_completesEmpty() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
 
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
-
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");
-
-
-            StepVerifier.create(result).assertNext(wrapper -> assertThat(wrapper).isNotNull()).verifyComplete();
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+                    .verifyComplete();
         }
 
         @Test
-        void shouldResolveReferenceSuccessfullyWithoutConsent() {
+        void alreadyValidAttribute_skipsReprocessing_completesEmpty() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.setResourceAttributeValid(wrapper.toResourceAttributeGroup());
 
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
-
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, false, "Patient/123");
-
-
-            StepVerifier.create(result).assertNext(wrapper -> assertThat(wrapper).isNotNull()).verifyComplete();
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+                    .verifyComplete();
         }
 
         @Test
-        void ConsentViolatedExceptionShouldBeThrown() {
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-            Patient patientResource = new Patient();
-            patientResource.setId("123");
+        void invalidAttribute_mustHaveFalse_completesEmpty() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-            when(consentValidator.checkConsent(patientResource, patientBundle)).thenReturn(false);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, true, "Patient/123");
-
-
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ConsentViolatedException && throwable.getMessage().contains("Consent Violated in Patient Resource")).verify();
-
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+                    .verifyComplete();
         }
 
         @Test
-        void failsPointingAtOtherPatient() {
+        void refInCoreBundle_profileFulfilled_emitsNewResourceGroup() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(true);
 
-            PatientResourceBundle patientBundle = new PatientResourceBundle("123");
-
-            Patient patientResource = new Patient();
-            patientResource.setId("False");
-
-
-            when(dataStore.fetchResourceByReference("Patient/123")).thenReturn(Mono.just(patientResource));
-
-
-            when(compartmentManager.isInCompartment(patientResource)).thenReturn(true);
-
-
-            Mono<Resource> result = referenceHandler.getResourceMono(patientBundle, false, "Patient/123");
-
-
-            StepVerifier.create(result).expectErrorMatches(throwable -> throwable instanceof ReferenceToPatientException && throwable.getMessage().contains("Patient loaded reference belonging to another patient")).verify();
+            StepVerifier.create(referenceHandler.handleReferences(
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of()))
+                    .assertNext(rg -> assertThat(rg.resourceId()).isEqualTo(MED_ID))
+                    .verifyComplete();
         }
 
         @Test
-        void shouldLogAndReturnEmptyMonoOnError() {
-            // Simulate a connection error (like when the host is unreachable)
-            when(dataStore.fetchResourceByReference("Broken/999")).thenReturn(Mono.error(new RuntimeException("Connection failed")));
+        void alreadyKnownGroup_filteredOut() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(true);
+            var knownGroup = new ResourceGroup(MED_ID, "grp");
 
-            Mono<Resource> result = referenceHandler.getResourceMono(null, true, "Broken/999");
+            StepVerifier.create(referenceHandler.handleReferences(
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(knownGroup)))
+                    .verifyComplete();
+        }
 
-            // Expecting a RuntimeException with the message "Connection failed"
-            StepVerifier.create(result)
-                    .expectErrorMatches(throwable ->
-                            throwable instanceof RuntimeException &&
-                                    throwable.getMessage().contains("Connection failed")
-                    )
+        @Test
+        void invalidAttribute_mustHaveTrue_errorsAndMarksParentInvalid() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
+
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+                    .expectError(MustHaveViolatedException.class)
                     .verify();
+
+            assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
         }
-
-
     }
-*/
-
 }

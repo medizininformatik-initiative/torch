@@ -42,4 +42,13 @@ public record ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundl
     public ExtractionResourceBundle get(String id) {
         return bundles.get(id);
     }
+
+    /** Total number of present (non-empty) cached resources across all patient bundles. */
+    public long totalResources() {
+        return bundles.values().stream()
+                .mapToLong(b -> b.cache().values().stream()
+                        .filter(java.util.Optional::isPresent)
+                        .count())
+                .sum();
+    }
 }

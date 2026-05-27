@@ -4,15 +4,15 @@ package de.medizininformatikinitiative.torch.diagnostics;
  * Immutable counts of patients and resources excluded for a single {@link CriterionKey},
  * together with cumulative processing-time metrics.
  *
- * @param patientsExcluded   number of patients excluded by this criterion
- * @param resourcesExcluded  number of resources excluded by this criterion
- * @param totalDurationNanos total wall-clock time (in nanoseconds) across all recorded invocations
- * @param invocations        number of times a duration was recorded for this criterion
+ * @param patientsExcluded  number of patients excluded by this criterion
+ * @param resourcesExcluded number of resources excluded by this criterion
+ * @param totalDurationMs   total wall-clock time (in milliseconds) across all recorded invocations
+ * @param invocations       number of times a duration was recorded for this criterion
  */
 public record CriterionCounts(
         long patientsExcluded,
         long resourcesExcluded,
-        long totalDurationNanos,
+        long totalDurationMs,
         long invocations
 ) {
 
@@ -33,8 +33,8 @@ public record CriterionCounts(
             throw new IllegalArgumentException("patientsExcluded must not be negative: " + patientsExcluded);
         if (resourcesExcluded < 0)
             throw new IllegalArgumentException("resourcesExcluded must not be negative: " + resourcesExcluded);
-        if (totalDurationNanos < 0)
-            throw new IllegalArgumentException("totalDurationNanos must not be negative: " + totalDurationNanos);
+        if (totalDurationMs < 0)
+            throw new IllegalArgumentException("totalDurationMs must not be negative: " + totalDurationMs);
         if (invocations < 0)
             throw new IllegalArgumentException("invocations must not be negative: " + invocations);
     }
@@ -49,13 +49,13 @@ public record CriterionCounts(
     }
 
     /**
-     * Returns the average processing time per recorded invocation, or {@code 0} if no
-     * invocations have been recorded yet.
+     * Returns the average processing time per recorded invocation in milliseconds,
+     * or {@code 0} if no invocations have been recorded yet.
      *
-     * @return {@code totalDurationNanos / invocations}, or {@code 0} when {@code invocations == 0}
+     * @return {@code totalDurationMs / invocations}, or {@code 0} when {@code invocations == 0}
      */
-    public long averageDurationNanos() {
-        return invocations > 0 ? totalDurationNanos / invocations : 0L;
+    public long averageDurationMs() {
+        return invocations > 0 ? totalDurationMs / invocations : 0L;
     }
 
     /**
@@ -69,7 +69,7 @@ public record CriterionCounts(
         return new CriterionCounts(
                 Math.addExact(this.patientsExcluded, other.patientsExcluded),
                 Math.addExact(this.resourcesExcluded, other.resourcesExcluded),
-                Math.addExact(this.totalDurationNanos, other.totalDurationNanos),
+                Math.addExact(this.totalDurationMs, other.totalDurationMs),
                 Math.addExact(this.invocations, other.invocations)
         );
     }
@@ -86,7 +86,7 @@ public record CriterionCounts(
     public CriterionCounts plusPatients(long delta) {
         if (delta == 0) return this;
         if (delta < 0) throw new IllegalArgumentException("delta must not be negative: " + delta);
-        return new CriterionCounts(Math.addExact(patientsExcluded, delta), resourcesExcluded, totalDurationNanos, invocations);
+        return new CriterionCounts(Math.addExact(patientsExcluded, delta), resourcesExcluded, totalDurationMs, invocations);
     }
 
     /**
@@ -101,23 +101,23 @@ public record CriterionCounts(
     public CriterionCounts plusResources(long delta) {
         if (delta == 0) return this;
         if (delta < 0) throw new IllegalArgumentException("delta must not be negative: " + delta);
-        return new CriterionCounts(patientsExcluded, Math.addExact(resourcesExcluded, delta), totalDurationNanos, invocations);
+        return new CriterionCounts(patientsExcluded, Math.addExact(resourcesExcluded, delta), totalDurationMs, invocations);
     }
 
     /**
-     * Returns a new {@link CriterionCounts} with {@code durationNanos} added to
-     * {@code totalDurationNanos} and {@code invocations} incremented by one.
-     * Returns this instance unchanged when {@code durationNanos} is zero.
+     * Returns a new {@link CriterionCounts} with {@code durationMs} added to
+     * {@code totalDurationMs} and {@code invocations} incremented by one.
+     * Returns this instance unchanged when {@code durationMs} is zero.
      *
-     * @param durationNanos nanoseconds to add; must not be negative
+     * @param durationMs milliseconds to add; must not be negative
      * @return updated counts
-     * @throws IllegalArgumentException if {@code durationNanos} is negative
+     * @throws IllegalArgumentException if {@code durationMs} is negative
      * @throws ArithmeticException      if the addition overflows
      */
-    public CriterionCounts plusDuration(long durationNanos) {
-        if (durationNanos == 0) return this;
-        if (durationNanos < 0) throw new IllegalArgumentException("durationNanos must not be negative: " + durationNanos);
+    public CriterionCounts plusDuration(long durationMs) {
+        if (durationMs == 0) return this;
+        if (durationMs < 0) throw new IllegalArgumentException("durationMs must not be negative: " + durationMs);
         return new CriterionCounts(patientsExcluded, resourcesExcluded,
-                Math.addExact(totalDurationNanos, durationNanos), Math.addExact(invocations, 1));
+                Math.addExact(totalDurationMs, durationMs), Math.addExact(invocations, 1));
     }
 }

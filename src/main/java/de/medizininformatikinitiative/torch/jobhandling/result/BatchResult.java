@@ -23,6 +23,7 @@ import static java.util.Objects.requireNonNull;
  */
 public record BatchResult(UUID jobId, UUID batchId, BatchState batchState,
                           Optional<ExtractionResourceBundle> resultCoreBundle,
+                          Optional<de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics> diagnostics,
                           List<Issue> issues) {
 
     public BatchResult {

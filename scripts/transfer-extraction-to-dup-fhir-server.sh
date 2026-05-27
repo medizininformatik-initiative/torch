@@ -209,12 +209,17 @@ while true; do
 done
 
 # === PARSE OUTPUT URLS ===
-urls=()
+ndjson_urls=()
 while IFS= read -r url; do
-  [[ -n "$url" ]] && urls+=("$url")
-done < <(echo "$export_json" | jq -r '.output[].url')
+  [[ -n "$url" ]] && ndjson_urls+=("$url")
+done < <(echo "$export_json" | jq -r '.output[] | select(.type != "OperationOutcome") | .url')
 
-if [[ ${#urls[@]} -eq 0 ]]; then
+outcome_urls=()
+while IFS= read -r url; do
+  [[ -n "$url" ]] && outcome_urls+=("$url")
+done < <(echo "$export_json" | jq -r '.output[] | select(.type == "OperationOutcome") | .url')
+
+if [[ ${#ndjson_urls[@]} -eq 0 ]]; then
   echo "⚠️ No NDJSON URLs found."
   exit 1
 fi
@@ -256,6 +261,32 @@ wait_for_url() {
   return 1
 }
 
+print_summary() {
+  local url="$1"
+  local filename="$TMP_DIR/$(basename "$url")"
+
+  if ! wait_for_url "$url" 10 10; then
+    echo "❌ Timed out waiting for diagnostics file: $url" >&2
+    exit 1
+  fi
+
+  echo "🌐 Downloading diagnostics: $url"
+  curl -s -o "$filename" "$url"
+
+  echo
+  echo "📊 TORCH Job Diagnostics"
+  echo "--------------------------------------------"
+  if command -v jq >/dev/null 2>&1; then
+    jq . "$filename"
+  else
+    cat "$filename"
+  fi
+  echo "--------------------------------------------"
+  echo
+
+  rm -f "$filename"
+}
+
 process_file() {
   local url="$1"
   local filename="$TMP_DIR/$(basename "$url")"
@@ -278,12 +309,16 @@ process_file() {
 }
 
 # core.ndjson first
-for url in "${urls[@]}"; do
+for url in "${ndjson_urls[@]}"; do
   [[ "$url" == *core.ndjson ]] && process_file "$url" && break
 done
 
+for url in "${outcome_urls[@]}"; do
+  print_summary "$url"
+done
+
 # rest
-for url in "${urls[@]}"; do
+for url in "${ndjson_urls[@]}"; do
   [[ "$url" != *core.ndjson ]] && process_file "$url"
 done
 

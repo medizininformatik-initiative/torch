@@ -29,7 +29,7 @@ class CriterionCountsTest {
         void throwsWhenTotalDurationNanosIsNegative() {
             assertThatThrownBy(() -> new CriterionCounts(0, 0, -1, 0))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("totalDurationNanos");
+                    .hasMessageContaining("totalDurationMs");
         }
 
         @Test
@@ -43,7 +43,7 @@ class CriterionCountsTest {
         void convenienceConstructor_zeroesDurationAndInvocations() {
             var counts = new CriterionCounts(3, 7);
 
-            assertThat(counts.totalDurationNanos()).isZero();
+            assertThat(counts.totalDurationMs()).isZero();
             assertThat(counts.invocations()).isZero();
         }
     }
@@ -54,7 +54,7 @@ class CriterionCountsTest {
 
         assertThat(counts.patientsExcluded()).isZero();
         assertThat(counts.resourcesExcluded()).isZero();
-        assertThat(counts.totalDurationNanos()).isZero();
+        assertThat(counts.totalDurationMs()).isZero();
         assertThat(counts.invocations()).isZero();
     }
 
@@ -84,7 +84,7 @@ class CriterionCountsTest {
 
             var result = a.add(b);
 
-            assertThat(result.totalDurationNanos()).isEqualTo(400);
+            assertThat(result.totalDurationMs()).isEqualTo(400);
             assertThat(result.invocations()).isEqualTo(5);
         }
 
@@ -134,7 +134,7 @@ class CriterionCountsTest {
 
             var result = counts.plusPatients(10);
 
-            assertThat(result.totalDurationNanos()).isEqualTo(500);
+            assertThat(result.totalDurationMs()).isEqualTo(500);
             assertThat(result.invocations()).isEqualTo(3);
         }
     }
@@ -174,7 +174,7 @@ class CriterionCountsTest {
 
             var result = counts.plusResources(10);
 
-            assertThat(result.totalDurationNanos()).isEqualTo(500);
+            assertThat(result.totalDurationMs()).isEqualTo(500);
             assertThat(result.invocations()).isEqualTo(3);
         }
     }
@@ -195,7 +195,7 @@ class CriterionCountsTest {
                     .plusDuration(100)
                     .plusDuration(200);
 
-            assertThat(result.totalDurationNanos()).isEqualTo(300);
+            assertThat(result.totalDurationMs()).isEqualTo(300);
             assertThat(result.invocations()).isEqualTo(2);
         }
 
@@ -213,7 +213,7 @@ class CriterionCountsTest {
         void throwsWhenNegative() {
             assertThatThrownBy(() -> CriterionCounts.empty().plusDuration(-1))
                     .isInstanceOf(IllegalArgumentException.class)
-                    .hasMessageContaining("durationNanos");
+                    .hasMessageContaining("durationMs");
         }
     }
 
@@ -224,14 +224,14 @@ class CriterionCountsTest {
         void returnsZeroWhenNoInvocations() {
             var counts = CriterionCounts.empty();
 
-            assertThat(counts.averageDurationNanos()).isZero();
+            assertThat(counts.averageDurationMs()).isZero();
         }
 
         @Test
         void returnsTotalDividedByInvocations() {
             var counts = new CriterionCounts(0, 0, 300, 3);
 
-            assertThat(counts.averageDurationNanos()).isEqualTo(100);
+            assertThat(counts.averageDurationMs()).isEqualTo(100);
         }
     }
 }

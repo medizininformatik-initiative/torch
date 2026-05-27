@@ -56,6 +56,7 @@ export default withMermaid({
                 items: [
                     {text: 'Configuration', link: '/configuration'},
                     {text: 'API', link: '/api/api.md'},
+                    {text: 'Job Diagnostics', link: '/api/diagnostics'},
                     {
                         text: 'CRTDL', link: '/crtdl/crtdl',
                         items: [
