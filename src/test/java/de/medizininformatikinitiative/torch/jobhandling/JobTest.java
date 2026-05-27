@@ -558,6 +558,22 @@ public class JobTest {
             assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
             assertThat(updated.cohortState().status()).isEqualTo(WorkUnitStatus.TEMP_FAILED);
             assertThat(updated.issues()).containsAll(sampleIssues);
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.WARNING && i.msg().contains("Cohort query failed: Retryable"));
+        }
+
+        @Test
+        void onCohortError_nonRetryable_failsWithErrorIssue() {
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow());
+
+            Job updated = j.onCohortError(new RuntimeException("Non-retryable"), List.of());
+
+            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            assertThat(updated.cohortState().status()).isEqualTo(WorkUnitStatus.FAILED);
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.ERROR && i.msg().contains("Cohort query failed: Non-retryable"));
         }
 
         @Test
@@ -587,6 +603,24 @@ public class JobTest {
             assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
             assertThat(updated.batches().get(b1).status()).isEqualTo(WorkUnitStatus.TEMP_FAILED);
             assertThat(updated.issues()).containsAll(sampleIssues);
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.WARNING && i.msg().contains("Batch " + b1 + " failed: Retryable"));
+        }
+
+        @Test
+        void onBatchError_nonRetryable_failsWithErrorIssue() {
+            UUID b1 = UUID.randomUUID();
+
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(new BatchState(b1, WorkUnitState.startNow()));
+
+            Job updated = j.onBatchError(b1, new RuntimeException("Non-retryable"), List.of());
+
+            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            assertThat(updated.batches().get(b1).status()).isEqualTo(WorkUnitStatus.FAILED);
+            assertThat(updated.issues()).anyMatch(i ->
+                    i.severity() == Severity.ERROR && i.msg().contains("Batch " + b1 + " failed: Non-retryable"));
         }
 
         @Test
