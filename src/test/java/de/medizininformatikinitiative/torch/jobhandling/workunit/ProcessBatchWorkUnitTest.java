@@ -298,6 +298,27 @@ class ProcessBatchWorkUnitTest {
 
 
     @Test
+    void execute_whenExtractFailsWithRetryableError_recordsBatchError_andCompletes() throws IOException, JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        UUID batchId = UUID.randomUUID();
+        Job job = Job.init(jobId, TestUtils.emptyJobParams());
+
+        ProcessBatchWorkUnit wu = new ProcessBatchWorkUnit(job, batchId);
+
+        when(persistence.tryStartBatch(jobId, batchId)).thenReturn(true);
+        when(persistence.loadBatch(jobId, batchId)).thenReturn(batch);
+        when(persistence.getJob(jobId)).thenReturn(Optional.of(job));
+
+        IOException retryable = new IOException("connection reset");
+        when(extract.processBatch(any(BatchSelection.class))).thenReturn(Mono.error(retryable));
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
+
+        verify(persistence).onBatchError(eq(jobId), eq(batchId), eq(List.of()), any(Exception.class));
+        verify(persistence, never()).onBatchProcessingSuccess(any());
+    }
+
+    @Test
     void persistingSuccessFailsThrows() throws IOException, JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         UUID batchId = UUID.randomUUID();

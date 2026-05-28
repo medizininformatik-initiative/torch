@@ -3,8 +3,11 @@ package de.medizininformatikinitiative.torch.jobhandling.workunit;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
+import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
@@ -13,6 +16,7 @@ import java.util.NoSuchElementException;
 import java.util.UUID;
 
 public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
+    private static final Logger logger = LoggerFactory.getLogger(ProcessBatchWorkUnit.class);
 
     @Override
     public Mono<Void> execute(JobExecutionContext ctx) {
@@ -34,11 +38,16 @@ public record ProcessBatchWorkUnit(Job job, UUID batchId) implements WorkUnit {
         return loadSelection(ctx)
                 .flatMap(selection ->
                         ctx.extract().processBatch(selection)
-                                // domain failure => record batch error
-                                .onErrorResume(t -> onBatchError(ctx, t).then(Mono.empty()))
+                                .onErrorResume(t -> {
+                                    if (RetryabilityUtil.isRetryable(t)) {
+                                        logger.warn("Batch {} for job {} failed (retryable): {}", batchId, job.id(), RetryabilityUtil.rootCauseMessage(t));
+                                    } else {
+                                        logger.error("Batch {} for job {} failed", batchId, job.id(), t);
+                                    }
+                                    return onBatchError(ctx, t).then(Mono.empty());
+                                })
                 )
                 .flatMap(result -> persistBatchSuccess(ctx, result))
-                // job deleted during execution → silently stop
                 .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
                 .onErrorResume(NoSuchElementException.class, e -> Mono.empty())
                 .then();

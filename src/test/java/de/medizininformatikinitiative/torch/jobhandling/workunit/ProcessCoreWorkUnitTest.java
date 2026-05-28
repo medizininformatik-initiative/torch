@@ -87,6 +87,28 @@ class ProcessCoreWorkUnitTest {
     }
 
     @Test
+    void execute_callsOnCoreErrorWhenProcessCoreFailsNonRetryable() throws Exception {
+        UUID jobId = UUID.randomUUID();
+        Job job = mock(Job.class);
+        when(job.id()).thenReturn(jobId);
+
+        ExtractionResourceBundle coreInfo = new ExtractionResourceBundle();
+        RuntimeException boom = new RuntimeException("bad input");
+
+        when(ctx.persistence()).thenReturn(persistence);
+        when(ctx.extract()).thenReturn(extract);
+        when(persistence.loadCoreInfo(jobId)).thenReturn(coreInfo);
+        when(extract.processCore(job, coreInfo)).thenReturn(Mono.error(boom));
+
+        ProcessCoreWorkUnit wu = new ProcessCoreWorkUnit(job);
+
+        StepVerifier.create(wu.execute(ctx)).verifyComplete();
+
+        verify(persistence, never()).onCoreSuccess(any());
+        verify(persistence).onCoreError(eq(jobId), eq(List.of()), any(Exception.class));
+    }
+
+    @Test
     void execute_whenJobDeletedWhilePersistingSuccess_completes() throws Exception {
         UUID jobId = UUID.randomUUID();
         Job job = mock(Job.class);
