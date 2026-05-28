@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.jobhandling.workunit;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
+import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
@@ -43,18 +44,23 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
                     logger.debug("Ignoring cohort result for deleted job {}", job.id());
                     return Mono.empty();
                 })
-                .onErrorResume(t ->
-                        Mono.fromCallable(() -> {
-                                    Exception ex = (t instanceof Exception e) ? e : new RuntimeException(t);
-                                    ctx.persistence().onCohortError(job.id(), List.of(), ex);
-                                    return 0;
-                                })
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .onErrorResume(JobNotFoundException.class, e -> {
-                                    logger.debug("Ignoring cohort error for deleted job {}", job.id());
-                                    return Mono.empty();
-                                })
-                                .then()
-                );
+                .onErrorResume(t -> {
+                    if (RetryabilityUtil.isRetryable(t)) {
+                        logger.warn("Cohort query for job {} failed (retryable): {}", job.id(), RetryabilityUtil.rootCauseMessage(t));
+                    } else {
+                        logger.error("Cohort query failed for job {}", job.id(), t);
+                    }
+                    return Mono.fromCallable(() -> {
+                                Exception ex = (t instanceof Exception e) ? e : new RuntimeException(t);
+                                ctx.persistence().onCohortError(job.id(), List.of(), ex);
+                                return 0;
+                            })
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .onErrorResume(JobNotFoundException.class, e -> {
+                                logger.debug("Ignoring cohort error for deleted job {}", job.id());
+                                return Mono.empty();
+                            })
+                            .then();
+                });
     }
 }

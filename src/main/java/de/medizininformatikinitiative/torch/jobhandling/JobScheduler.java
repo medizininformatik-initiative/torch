@@ -150,15 +150,20 @@ public class JobScheduler {
     void executeBlocking(WorkUnit wu) throws IOException {
         wu.execute(ctx)
                 .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                .onErrorResume(t ->
-                        Mono.fromCallable(() -> {
-                                    ctx.persistence().onJobError(wu.job().id(), List.of(), t);
-                                    return 0;
-                                })
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                                .then()
-                )
+                .onErrorResume(t -> {
+                    if (RetryabilityUtil.isRetryable(t)) {
+                        logger.warn("Work unit for job {} failed (retryable): {}", wu.job().id(), RetryabilityUtil.rootCauseMessage(t));
+                    } else {
+                        logger.error("Work unit for job {} failed", wu.job().id(), t);
+                    }
+                    return Mono.fromCallable(() -> {
+                                ctx.persistence().onJobError(wu.job().id(), List.of(), t);
+                                return 0;
+                            })
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
+                            .then();
+                })
                 .block();
     }
 

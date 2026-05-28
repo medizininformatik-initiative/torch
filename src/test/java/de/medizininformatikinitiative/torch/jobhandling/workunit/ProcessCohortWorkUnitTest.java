@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.jobhandling.workunit;
 
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
+import java.io.IOException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
@@ -145,6 +146,22 @@ class ProcessCohortWorkUnitTest {
         // onErrorResume swallows -> completes
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
+
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
+    }
+
+    @Test
+    void execute_whenCohortQueryFailsWithRetryableError_recordsCohortError_andCompletes() throws JobNotFoundException {
+        UUID jobId = UUID.randomUUID();
+        Job job = jobWithParams(jobId, List.of());
+
+        ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
+
+        IOException retryable = new IOException("connection reset");
+        when(cohortQueryService.runCohortQuery(any())).thenReturn(Mono.error(retryable));
+
+        assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
 
         verify(persistence, never()).onCohortSuccess(any(), anyList());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));

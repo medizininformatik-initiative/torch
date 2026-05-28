@@ -149,6 +149,26 @@ class JobSchedulerTest {
     }
 
     @Test
+    void executeBlocking_logsWarnForRetryableError() throws Exception {
+        JobScheduler scheduler = newScheduler(newCtx());
+        ProcessBatchWorkUnit mockWu = mock(ProcessBatchWorkUnit.class);
+        Job mockJob = mock(Job.class);
+        UUID jobId = UUID.randomUUID();
+        Exception retryable = new IOException("connection reset");
+
+        when(mockJob.id()).thenReturn(jobId);
+        when(mockWu.job()).thenReturn(mockJob);
+        when(mockWu.execute(any())).thenReturn(Mono.error(retryable));
+
+        Method executeBlocking = JobScheduler.class.getDeclaredMethod("executeBlocking", WorkUnit.class);
+        executeBlocking.setAccessible(true);
+
+        executeBlocking.invoke(scheduler, mockWu);
+
+        verify(persistence, timeout(1000)).onJobError(eq(jobId), eq(List.of()), eq(retryable));
+    }
+
+    @Test
     void executeBlocking_ignoresDeletedJob() throws Exception {
         JobScheduler scheduler = newScheduler(newCtx());
         ProcessBatchWorkUnit mockWu = mock(ProcessBatchWorkUnit.class);

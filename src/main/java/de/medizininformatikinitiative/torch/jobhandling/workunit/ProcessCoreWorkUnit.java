@@ -3,12 +3,16 @@ package de.medizininformatikinitiative.torch.jobhandling.workunit;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
+import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
 
 public record ProcessCoreWorkUnit(Job job) implements WorkUnit {
+    private static final Logger logger = LoggerFactory.getLogger(ProcessCoreWorkUnit.class);
 
     /**
      * Executes the core processing step.
@@ -34,14 +38,19 @@ public record ProcessCoreWorkUnit(Job job) implements WorkUnit {
                                 .then()
                 )
                 .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                .onErrorResume(t ->
-                        Mono.fromCallable(() -> {
-                                    ctx.persistence().onCoreError(job.id(), List.of(), t);
-                                    return 0;
-                                })
-                                .subscribeOn(Schedulers.boundedElastic())
-                                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                                .then()
-                );
+                .onErrorResume(t -> {
+                    if (RetryabilityUtil.isRetryable(t)) {
+                        logger.warn("Core processing for job {} failed (retryable): {}", job.id(), RetryabilityUtil.rootCauseMessage(t));
+                    } else {
+                        logger.error("Core processing failed for job {}", job.id(), t);
+                    }
+                    return Mono.fromCallable(() -> {
+                                ctx.persistence().onCoreError(job.id(), List.of(), t);
+                                return 0;
+                            })
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
+                            .then();
+                });
     }
 }
