@@ -23,11 +23,22 @@ class ResourceUtilsTest {
     @Nested
     class GetMethodWithOneParam {
 
+        static class MultiOverload {
+            public void doSomething() {}
+            public void doSomething(String ignored) {}
+        }
+
         @Test
         void findsMethodByName() throws NoSuchMethodException {
             Patient patient = new Patient();
             Method method = ResourceUtils.getMethodWithOneParam(patient, "setId");
             assertThat(method.getName()).isEqualTo("setId");
+            assertThat(method.getParameterCount()).isEqualTo(1);
+        }
+
+        @Test
+        void skipsOverloadsWithWrongParamCount() throws NoSuchMethodException {
+            Method method = ResourceUtils.getMethodWithOneParam(new MultiOverload(), "doSomething");
             assertThat(method.getParameterCount()).isEqualTo(1);
         }
 
