@@ -25,7 +25,7 @@ class ResourceUtilsTest {
 
         static class MultiOverload {
             public void doSomething() {}
-            public void doSomething(String ignored) {}
+            public void doSomething(String s) { s.hashCode(); }
         }
 
         @Test
