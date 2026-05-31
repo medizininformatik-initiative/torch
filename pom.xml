@@ -124,7 +124,7 @@
         <dependency>
             <groupId>com.nimbusds</groupId>
             <artifactId>nimbus-jose-jwt</artifactId>
-            <version>10.9</version>
+            <version>10.9.1</version>
         </dependency>
 
         <!-- Overriding apache commons lang that comes from hapi and causes a vulnerability in the older version -->
