@@ -65,12 +65,7 @@
             <version>${Hapi.version}</version>
         </dependency>
 
-        <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-client</artifactId>
-            <version>${Hapi.version}</version>
-        </dependency>
-
+        <!-- provides profiles-types.xml, loaded by HapiWorkerContext for FHIRPath .ofType() resolution -->
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
             <artifactId>hapi-fhir-validation-resources-r4</artifactId>
@@ -79,14 +74,21 @@
 
         <dependency>
             <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-validation</artifactId>
+            <artifactId>hapi-fhir-caching-caffeine</artifactId>
             <version>${Hapi.version}</version>
         </dependency>
 
+        <!-- ucum was pulled transitively via hapi-fhir-validation (now removed); declared optional in org.hl7.fhir.r4 -->
         <dependency>
-            <groupId>ca.uhn.hapi.fhir</groupId>
-            <artifactId>hapi-fhir-caching-caffeine</artifactId>
-            <version>${Hapi.version}</version>
+            <groupId>org.fhir</groupId>
+            <artifactId>ucum</artifactId>
+            <version>1.0.9</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <!-- Overriding org.hl7.fhir.core modules that come from hapi-fhir-structures-r4/validation
