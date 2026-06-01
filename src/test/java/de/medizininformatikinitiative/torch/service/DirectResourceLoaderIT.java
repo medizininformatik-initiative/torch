@@ -80,7 +80,7 @@ class DirectResourceLoaderIT {
         PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Patient", EMPTY); // Basic query setup
 
-        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
+        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query, Patient.class);
 
         StepVerifier.create(result)
                 .expectNextMatches(Patient.class::isInstance)
@@ -93,7 +93,7 @@ class DirectResourceLoaderIT {
         PatientBatch batch = PatientBatch.of("1", "2");
         Query query = new Query("Observation", EMPTY); // Basic query setup
 
-        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
+        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query, Observation.class);
 
         StepVerifier.create(result)
                 .expectNextMatches(Observation.class::isInstance)
@@ -109,7 +109,7 @@ class DirectResourceLoaderIT {
 
         List<Query> queries = crtdl.dataExtraction().attributeGroups().getFirst().queries(dseMappingTreeBase, "Observation");
 
-        StepVerifier.create(dLoader.executeQueryWithBatch(batch, queries.getFirst()))
+        StepVerifier.create(dLoader.executeQueryWithBatch(batch, queries.getFirst(), Observation.class))
                 .expectNextMatches(Observation.class::isInstance)
                 .expectNextMatches(Observation.class::isInstance)
                 .verifyComplete();

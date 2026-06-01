@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
@@ -48,6 +50,8 @@ class DirectResourceLoaderTest {
     StructureDefinitionHandler structureDefinitionHandler;
     @Mock
     ProfileMustHaveChecker profileMustHaveChecker;
+    @Spy
+    FhirContext fhirContext = FhirContext.forR4();
     @InjectMocks
     DirectResourceLoader directResourceLoader;
 

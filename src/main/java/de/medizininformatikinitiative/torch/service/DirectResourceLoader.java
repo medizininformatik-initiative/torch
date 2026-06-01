@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
@@ -43,13 +44,15 @@ public class DirectResourceLoader {
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final ProfileMustHaveChecker profileMustHaveChecker;
+    private final FhirContext fhirContext;
 
     @Autowired
-    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator) {
+    public DirectResourceLoader(DataStore dataStore, DseMappingTreeBase dseMappingTreeBase, ProfileMustHaveChecker profileMustHaveChecker, ConsentValidator validator, FhirContext fhirContext) {
         this.dataStore = dataStore;
         this.consentValidator = validator;
         this.dseMappingTreeBase = dseMappingTreeBase;
         this.profileMustHaveChecker = profileMustHaveChecker;
+        this.fhirContext = requireNonNull(fhirContext);
     }
 
     /**
@@ -85,9 +88,9 @@ public class DirectResourceLoader {
         return Flux.fromIterable(group.queries(dseMappingTreeBase, group.resourceType()));
     }
 
-    Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
+    <T extends DomainResource> Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query, Class<T> resourceClass) {
         logger.debug("Execute query {} over {} patients", query, batch.ids().size());
-        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())), DomainResource.class);
+        return dataStore.search(Query.of(query.type(), batch.compartmentSearchParam(query.type()).appendParams(query.params())), resourceClass).cast(DomainResource.class);
     }
 
     private Mono<DomainResource> applyConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
@@ -174,8 +177,9 @@ public class DirectResourceLoader {
         // Extract a mutable copy of the patient bundles
         Map<String, PatientResourceBundle> mutableBundles = batch.bundles();
 
+        Class<? extends DomainResource> resourceClass = fhirContext.getResourceDefinition(group.resourceType()).getImplementingClass().asSubclass(DomainResource.class);
         var resourceFlux = groupQueries(group)
-                .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
+                .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query, resourceClass))
                 .concatMap(resource -> applyConsent(resource, batch));
 
         if (AnnotatedAttributeGroup.PATIENT.equals(group.resourceType())) {
