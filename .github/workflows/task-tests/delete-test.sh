@@ -33,7 +33,18 @@ EXPORT_ID=$(grep "TORCH_EXPORT_ID=" "$LOG" | cut -d= -f2 | xargs)
 
 echo "✅ Export ID: $EXPORT_ID"
 
-sleep 3
+echo "⏳ Waiting for job to be in progress (202)..."
+in_progress=false
+for _ in $(seq 1 60); do
+  code="$(status_code "$EXPORT_ID")"
+  if [[ "$code" == "202" ]]; then
+    in_progress=true
+    break
+  fi
+  [[ "$code" == "200" ]] && fail "Job completed before we could delete it — workload may be too small for this test"
+  sleep 1
+done
+[[ "$in_progress" == "true" ]] || fail "Job never reached in-progress within 60s (last status: $code)"
 
 echo "🗑️ Delete..."
 curl -s -X DELETE \
