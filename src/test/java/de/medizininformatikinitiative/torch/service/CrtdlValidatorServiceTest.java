@@ -22,6 +22,7 @@ import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
+import ca.uhn.fhir.context.FhirContext;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -44,7 +45,7 @@ class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
             new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
-            new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder());
+            new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext());
 
     @Mock
     StructureDefinitionHandler mockHandler;
@@ -84,6 +85,16 @@ class CrtdlValidatorServiceTest {
 
         assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ConsentFormatException.class)
                 .hasMessageContaining("Exclusion criteria must not contain Einwilligung consent codes.");
+    }
+
+    @Test
+    void nonDomainResourceProfile() {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("binaryGroup", "https://gematik.de/fhir/isik/StructureDefinition/ISiKBinary", List.of(), List.of()))));
+
+        assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ValidationException.class)
+                .hasMessageContaining("Binary")
+                .hasMessageContaining("not a DomainResource");
     }
 
     @Test
@@ -190,7 +201,7 @@ class CrtdlValidatorServiceTest {
         when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
                 .thenReturn(new String[]{"Observation.component", "Observation.component"});
 
-        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder);
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4());
 
         AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
         AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
@@ -237,7 +248,7 @@ class CrtdlValidatorServiceTest {
         when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
                 .thenReturn(new String[]{"Observation.component", "Observation.component"});
 
-        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder);
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4());
 
         AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
         AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
@@ -260,7 +271,7 @@ class CrtdlValidatorServiceTest {
                 itSetup.structureDefinitionHandler(),
                 new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
                 new ConsentCodeConfig(List.of()),
-                mockFhirPathBuilder);
+                mockFhirPathBuilder, itSetup.fhirContext());
 
         String postalCode = "Patient.address:Strassenanschrift.postalCode";
         String discriminator = "Patient.address:Strassenanschrift.type";

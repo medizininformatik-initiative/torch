@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
@@ -15,6 +16,7 @@ import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.CompiledStructureDefinition;
 import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.exceptions.FHIRException;
+import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.Property;
 import org.slf4j.Logger;
@@ -37,12 +39,14 @@ public class CrtdlValidatorService {
     private final CrtdlConsentValidator crtdlConsentValidator = new CrtdlConsentValidator();
     private final ConsentCodeConfig consentCodeConfig;
     private final FhirPathBuilder fhirPathBuilder;
+    private final FhirContext fhirContext;
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder, FhirContext fhirContext) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
         this.consentCodeConfig = consentCodeConfig;
         this.fhirPathBuilder = fhirPathBuilder;
+        this.fhirContext = fhirContext;
     }
 
     /**
@@ -65,6 +69,12 @@ public class CrtdlValidatorService {
         for (AttributeGroup attributeGroup : crtdl.dataExtraction().attributeGroups()) {
             CompiledStructureDefinition definition = profileHandler.getDefinition(attributeGroup.groupReference())
                     .orElseThrow(() -> new ValidationException("Unknown Profile: " + attributeGroup.groupReference()));
+            Class<?> implementingClass = fhirContext.getResourceDefinition(definition.type()).getImplementingClass();
+            if (!DomainResource.class.isAssignableFrom(implementingClass)) {
+                throw new ValidationException("Profile " + attributeGroup.groupReference() +
+                        " maps to resource type " + definition.type() +
+                        ", which is not a DomainResource. Only DomainResource types are supported.");
+            }
             if (Objects.equals(definition.type(), "Patient")) {
                 if (exactlyOnePatientGroup) {
                     throw new ValidationException(" More than one Patient Attribute Group");
