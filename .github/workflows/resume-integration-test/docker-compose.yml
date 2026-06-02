@@ -1,0 +1,74 @@
+services:
+  source-fhir-server:
+    container_name: source-fhir-server
+    image: samply/blaze:1.7.0@sha256:f2e87759605587eaf9cbbf86e229938019a732bb908d4e59f107a2744e73825f
+    environment:
+      BASE_URL: http://source-fhir-server:8080
+      LOG_LEVEL: debug
+      JAVA_TOOL_OPTIONS: -Xmx2g
+    ports:
+      - "8083:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  target-fhir-server:
+    container_name: target-fhir-server
+    image: samply/blaze:1.7.0@sha256:f2e87759605587eaf9cbbf86e229938019a732bb908d4e59f107a2744e73825f
+    environment:
+      BASE_URL: http://target-fhir-server:8080
+      LOG_LEVEL: debug
+      JAVA_TOOL_OPTIONS: -Xmx2g
+    ports:
+      - "8084:8080"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  torch:
+    container_name: torch
+    restart: unless-stopped
+    image: torch:latest
+    environment:
+      TORCH_PROFILE_DIR: /app/ontology/structureDefinitions
+      TORCH_MAPPING_TYPE_TO_CONSENT: /app/mappings/type_to_consent.json
+      TORCH_FHIR_URL: http://source-fhir-server:8080/fhir
+      TORCH_FHIR_MAX_CONNECTIONS: 4
+      TORCH_RESULTS_DIR: /app/output
+      LOG_LEVEL: debug
+      TORCH_OUTPUT_FILE_SERVER_URL: http://localhost:8080
+      TORCH_BATCHSIZE: 100
+      TORCH_MAXCONCURRENCY: 4
+      TORCH_MAPPINGSFILE: /app/ontology/mapping_cql.json
+      TORCH_CONCEPTTREEFILE: /app/ontology/mapping_tree.json
+      TORCH_USECQL: true
+      JAVA_TOOL_OPTIONS: -Xmx4g
+    volumes:
+      - torch-data-store:/app/output
+
+  nginx:
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost:8080/fhir/metadata" ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
+    container_name: nginx
+    depends_on:
+      - torch
+    restart: unless-stopped
+    image: nginxinc/nginx-unprivileged:1.31.1-alpine@sha256:02c985e54bee40c14c6de677226f394d96c661944185d407e77ca73602f15e1b
+    ports:
+      - "8080:8080"
+    volumes:
+      - torch-data-store:/app/output
+      - ./nginx.conf:/etc/nginx/nginx.conf
+
+volumes:
+  torch-data-store:
