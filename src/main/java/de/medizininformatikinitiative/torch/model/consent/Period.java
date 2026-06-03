@@ -123,7 +123,7 @@ public record Period(
 
     public boolean isStartBetween(Period period) {
         return period.start().isBefore(start) &&
-                period.end().isAfter(start);
+                !period.end().isBefore(start);
     }
 
     public boolean contains(LocalDate date) {

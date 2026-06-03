@@ -269,6 +269,15 @@ class NonContinuousPeriodTest {
         }
 
         @Test
+        void trueWhenStartEqualsEncounterEnd() {
+            // consent signed on last day of encounter → boundary is inclusive
+            var target = p("2024-01-06", "2024-01-10");
+            var ref = p("2024-01-01", "2024-01-06");
+
+            assertThat(target.isStartBetween(ref)).isTrue();
+        }
+
+        @Test
         void falseWhenOutside() {
             var target = p("2024-01-10", "2024-01-20");
             var ref = p("2024-01-01", "2024-01-05");
