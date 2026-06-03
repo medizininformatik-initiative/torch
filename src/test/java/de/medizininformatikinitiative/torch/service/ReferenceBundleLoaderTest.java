@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
+import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
@@ -26,6 +27,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -121,6 +123,23 @@ class ReferenceBundleLoaderTest {
         assertThat(maxActive.get())
                 .as("Max concurrent executeBundle calls should be 1")
                 .isEqualTo(1);
+    }
+
+    @Nested
+    class TestCacheSearchResults {
+
+        @Test
+        void withNullPatientBundle_patientResource_doesNotNPE() {
+            org.hl7.fhir.r4.model.Patient patient = new org.hl7.fhir.r4.model.Patient();
+            patient.setId("Patient/42");
+            ResourceBundle coreBundle = new ResourceBundle();
+
+            when(compartmentManager.isInCompartment(any(ExtractionId.class))).thenReturn(true);
+
+            assertThatCode(() -> referenceBundleLoader.cacheSearchResults(null, coreBundle, false, patient))
+                    .doesNotThrowAnyException();
+            assertThat(coreBundle.contains(ExtractionId.fromRelativeUrl("Patient/42"))).isTrue();
+        }
     }
 
     @Nested
