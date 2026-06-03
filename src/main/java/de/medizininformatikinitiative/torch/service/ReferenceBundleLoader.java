@@ -109,6 +109,7 @@ public class ReferenceBundleLoader {
         if (isPatientResource && patientBundle == null) {
             logger.warn("CoreBundle loaded reference {} belonging to a Patient ", relativeUrl);
             coreBundle.put(relativeUrl);
+            return;
         }
         if (isPatientResource) {
             try {
