@@ -4,6 +4,38 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.3] - 2026-06-05
+
+### Added
+
+- Provide extraction-exclusion list in TORCH output [#615](https://github.com/medizininformatik-initiative/torch/issues/615)
+- Add CITATION.cff [#954](https://github.com/medizininformatik-initiative/torch/pull/954)
+
+### Fixed
+
+- `ConsentAdjuster` no longer extends encounter when consent is signed on the encounter end date [#973](https://github.com/medizininformatik-initiative/torch/pull/973)
+- `cacheSearchResults` no longer throws NPE when patient bundle arrives with null patient resource [#975](https://github.com/medizininformatik-initiative/torch/pull/975)
+- Reject non-`DomainResource` attribute groups in `CrtdlValidatorService` [#963](https://github.com/medizininformatik-initiative/torch/pull/963)
+- Fix intermittent timing failures in integration tests [#952](https://github.com/medizininformatik-initiative/torch/pull/952) [#966](https://github.com/medizininformatik-initiative/torch/pull/966)
+
+### Documentation
+
+- Improve consent handling documentation with pipeline, encounter-adjustment, and retrospective-modifier diagrams [#911](https://github.com/medizininformatik-initiative/torch/issues/911)
+
+## [v1.0.0-beta.2.1] - 2026-05-28
+
+### Added
+
+- Make truststore configurable via `TRUSTSTORE_FILE` env var [#930](https://github.com/medizininformatik-initiative/torch/pull/930)
+- Test FHIR server connectivity at startup via `GET /metadata` [#929](https://github.com/medizininformatik-initiative/torch/pull/929)
+
+### Fixed
+
+- Fix: extract subfield of slice [#919](https://github.com/medizininformatik-initiative/torch/pull/919)
+- Record exception as issue in `onBatchError` and `onCohortError` [#936](https://github.com/medizininformatik-initiative/torch/pull/936)
+- Fix FHIR R5 Async Bulk conformance gaps [#915](https://github.com/medizininformatik-initiative/torch/pull/915)
+- Fix error not logged in pipeline [#938](https://github.com/medizininformatik-initiative/torch/issues/938)
+
 ## [v1.0.0-beta.2] - 2026-05-15
 
 ### Fixed
