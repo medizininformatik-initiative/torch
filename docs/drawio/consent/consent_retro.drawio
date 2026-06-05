@@ -1,0 +1,97 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Retro Modifier" id="consent_retro">
+    <mxGraphModel dx="1722" dy="1029" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="560" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Retrospective Modifier Semantics" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="10" y="8" width="800" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value=".6 provision (prospective)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="30" y="38" width="180" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="leg2" value=".45/.46 retro modifier permit" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ff9800;strokeColor=#e65100;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="30" y="60" width="180" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value=".45/.46 retro modifier deny" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;dashed=1;dashPattern=5 3;" parent="1" vertex="1">
+          <mxGeometry x="30" y="82" width="180" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="Extended .6 (retro applied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="240" y="38" width="180" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="Period revoked by retro deny" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;dashed=1;dashPattern=5 3;" parent="1" vertex="1">
+          <mxGeometry x="240" y="60" width="180" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_title" value="Case 1: .45 permit overlaps .6 in same Consent resource (no deny)" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="20" y="110" width="780" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_axis" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#333;strokeColor=#333;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="40" y="250" width="690" height="2" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_t0" value="1900" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="20" y="254" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_t4" value="2010" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="284" y="254" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_t6" value="2020&amp;#xa;(bcStart)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="416" y="254" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_t8" value="2025&amp;#xa;(bcEnd)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="548" y="254" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_dot6" value=".6 permit&amp;#xa;(2020–2025)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="446" y="128" width="132" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_mod_permit" value=".45 permit&amp;#xa;(2018–2025)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ff9800;strokeColor=#e65100;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="380" y="158" width="198" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_overlap" value="↑ overlaps .6 in same resource → triggers retro extension" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="380" y="193" width="198" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="c1_ext" value=".6 extended: 1900–2025&amp;#xa;(retro modifier applied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="50" y="229" width="528" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_title" value="Case 2: .45 deny in same resource revokes part of extended period" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="5" y="350" width="780" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_axis" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#333;strokeColor=#333;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="40" y="491" width="690" height="2" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_t0" value="1900" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="20" y="495" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_t4" value="2010" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="284" y="495" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_t6" value="2020&amp;#xa;(bcStart)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="416" y="495" width="60" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_t8" value="2025&amp;#xa;(bcEnd)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="550" y="496" width="58" height="25" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_dot6" value=".6 permit&amp;#xa;(2020–2025)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="446" y="368" width="132" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_mod_permit" value=".45 permit&amp;#xa;(2018–2025)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ff9800;strokeColor=#e65100;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="380" y="400" width="198" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_overlap" value="↑ overlaps .6 in same resource → triggers retro extension" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="385" y="428" width="198" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_ext" value=".6 extended: 1900–2025&amp;#xa;(retro modifier applied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="50" y="470" width="528" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="c2_deny" value=".45 deny (1950–2000)&amp;#xa;period revoked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;dashed=1;dashPattern=5 3;" parent="1" vertex="1">
+          <mxGeometry x="60" y="471" width="132" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="note1" value="A retro modifier in a DIFFERENT Consent resource has NO effect on .6 provisions from another resource." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="10" y="580" width="780" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="note2" value="Only retro modifier denies (.45/.46 deny) can reduce the retro-extended period — prospective denies (.6 deny) cannot." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
+          <mxGeometry x="10" y="600" width="780" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
