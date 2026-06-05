@@ -1,0 +1,184 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.2.5 Chrome/138.0.7204.251 Electron/37.6.1 Safari/537.36" version="28.2.5">
+  <diagram name="Encounter Adjustment" id="consent_encounter">
+    <mxGraphModel dx="336" dy="201" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="820" pageHeight="460" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="Encounter-Based Consent Start Adjustment" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="10" y="10" width="800" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="leg1" value="Prospective .6 window" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+          <mxGeometry x="30" y="42" width="180" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg3" value="Resource included" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;" parent="1" vertex="1">
+          <mxGeometry x="240" y="42" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg4" value="Resource excluded" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;" parent="1" vertex="1">
+          <mxGeometry x="240" y="68" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg5" value="Encounter interval" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="390" y="42" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_title" value="MII BC1 — with encounter adjustment (.6 start shifted to ENC 1)" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="10" y="100" width="500" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e0" value="ENC 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="66" y="152" width="42" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e1" value="&lt;font&gt;ENC 1/BC ENC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="155" y="152" width="90" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e2" value="ENC 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="270" y="152" width="64" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e3" value="ENC 3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="347" y="152" width="70" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e4" value="ENC 4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="428" y="152" width="52" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e5" value="ENC 5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="573" y="152" width="65" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_e6" value="ENC 6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="648" y="152" width="86" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r0" value="R1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="66" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r1" value="R2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="118.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r2" value="R3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="163.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r3" value="R4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="231" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r4" value="R5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="306" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r5" value="R6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="351" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r6" value="R7" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="403.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r7" value="R8" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="433.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r8" value="R9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F44336;strokeColor=#C62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="463.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r9" value="R10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F44336;strokeColor=#C62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="508.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r10" value="R11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F44336;strokeColor=#C62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="561" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r11" value="R12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#C62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="606" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r12" value="R13" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="673.5" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_r13" value="R14" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="726" y="190" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_axis" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#444;strokeColor=#444;" parent="1" vertex="1">
+          <mxGeometry x="70" y="214" width="705" height="4" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_yellow" value="BC (.6) — 5 Years (encounter-adjusted)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+          <mxGeometry x="155" y="224" width="300" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_bcs" value="bcStart" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="130" y="250" width="50" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="bc1_bce" value="bcEnd" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="430" y="250" width="50" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_title" value="MII BC2 — no encounter adjustment (.6 starts at bcStart)" style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="10" y="278" width="500" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r0" value="R1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="66" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r1" value="R2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="118.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r2" value="R3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="163.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r3" value="R4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4CAF50;strokeColor=#388E3C;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="231" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r4" value="R5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4CAF50;strokeColor=#388E3C;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="306" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r5" value="R6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="351" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r6" value="R7" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="403.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r7" value="R8" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#4caf50;strokeColor=#388e3c;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="433.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r8" value="R9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="463.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r9" value="R10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="508.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r10" value="R11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="561" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r11" value="R12" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="606" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r12" value="R13" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="673.5" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_r13" value="R14" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f44336;strokeColor=#c62828;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="726" y="348" width="28" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_axis" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#444;strokeColor=#444;" parent="1" vertex="1">
+          <mxGeometry x="70" y="372" width="705" height="4" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_yellow" value="BC (.6) — 5 Years" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
+          <mxGeometry x="230" y="382" width="225" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_bcs" value="bcStart" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="205" y="408" width="50" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="bc2_bce" value="bcEnd" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="430" y="408" width="50" height="14" as="geometry" />
+        </mxCell>
+        <mxCell id="note1" value="R3–R11 included in BC1 (within encounter-adjusted window) but R3–R4 and R9–R11 excluded in BC2 (outside bcStart window)." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+          <mxGeometry x="10" y="434" width="780" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-1" value="ENC 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="66" y="320" width="42" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-2" value="&lt;font&gt;ENC 1/BC ENC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="155" y="320" width="90" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-3" value="ENC 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="270" y="320" width="64" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-4" value="ENC 3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="347" y="320" width="70" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-5" value="ENC 4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="428" y="320" width="52" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-6" value="ENC 5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="573" y="320" width="65" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="esdCVZMDUop7Pje9OVMV-7" value="ENC 6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="648" y="320" width="86" height="16" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

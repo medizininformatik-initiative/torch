@@ -67,6 +67,9 @@ Codes not listed in `consent-code-config.json` are silently ignored.
 
 ## 3. Consent Evaluation Pipeline
 
+<img src="../drawio/consent/consent_pipeline.svg" class="diagram-light" alt="Consent evaluation pipeline flowchart">
+<img src="../drawio/consent/consent_pipeline_dark.svg" class="diagram-dark" alt="Consent evaluation pipeline flowchart">
+
 Before any data extraction:
 
 1. **Extract consent codes from CRTDL** — codes are read from the `cohortDefinition` inclusion criteria. TORCH
@@ -94,6 +97,17 @@ Before any data extraction:
    patient's final data-extraction window.
 10. **Enforce during extraction** — resources whose consent data field (as configured in `type_to_consent.json`)
     falls outside the consent window are excluded from the result.
+
+### Encounter Adjustment
+
+The diagram below shows two patients — **MII BC1** (encounter adjustment applied) and **MII BC2** (no adjustment)
+— to illustrate how step 5 shifts the `.6` provision start.
+
+<img src="../drawio/consent/consent_encounter.svg" class="diagram-light" alt="Consent timeline showing encounter-based start adjustment">
+<img src="../drawio/consent/consent_encounter_dark.svg" class="diagram-dark" alt="Consent timeline showing encounter-based start adjustment">
+
+In BC1, the `.6` window is extended back to the start of the overlapping encounter (ENC 1), making additional
+historical resources (R9–R11) eligible for extraction compared to BC2 where the window starts at `bcStart`.
 
 ---
 
@@ -124,6 +138,17 @@ The retrospective modifiers (`.45`, `.46`) act as **period extenders** for `.6`:
 - Retro modifier **denies** (`.45`/`.46` deny) in the same resource subtract from the retro-extended period.
 - Prospective code **denies** (`.6` deny) do **not** reduce a retro-extended period — only the retro modifier
   deny can revoke the retroactive grant.
+
+The diagram below shows the two key cases — with and without a retro modifier deny.
+
+<img src="../drawio/consent/consent_retro.svg" class="diagram-light" alt="Retrospective modifier semantics diagram">
+<img src="../drawio/consent/consent_retro_dark.svg" class="diagram-dark" alt="Retrospective modifier semantics diagram">
+
+<style>
+.diagram-light, .diagram-dark { max-width: 100%; }
+html:not(.dark) .diagram-dark { display: none; }
+html.dark .diagram-light { display: none; }
+</style>
 
 **Example:**
 
