@@ -3,7 +3,6 @@ FROM eclipse-temurin:25.0.3_9-jre-alpine@sha256:c707c0d18cb9e8556380719f80d96a75
 ENV JAVA_TOOL_OPTIONS="-Xmx4g"
 ENV CERTIFICATE_PATH=/app/certs
 ENV TRUSTSTORE_PATH=/app/truststore
-ENV TRUSTSTORE_FILE=self-signed-truststore.jks
 
 COPY target/torch.jar /app/
 COPY mappings  /app/mappings

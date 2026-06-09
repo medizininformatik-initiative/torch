@@ -65,7 +65,8 @@ services:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
       - ./structureDefinitions:/app/StructureDefinitions
       - ./output:/app/output
-    user: 1000:1000
+      - ./certs:/app/certs
+    user: 1001:1001
 
 volumes:
   data-store-data:
