@@ -226,11 +226,12 @@ public class ExtractDataService {
                 )
                 .map(extractedBatch -> {
                     BatchDiagnostics diag = acc.snapshot(extractedBatch.bundles().size());
+                    WorkUnitStatus status = extractedBatch.isEmpty() ? WorkUnitStatus.SKIPPED : WorkUnitStatus.FINISHED;
 
                     return new BatchResult(
                             jobId,
                             batchId,
-                            batchState.finishNow(WorkUnitStatus.FINISHED),
+                            batchState.finishNow(status),
                             Optional.of(batchToCoreWriter.toCoreBundle(extractedBatch)),
                             Optional.of(diag),
                             List.of()

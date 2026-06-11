@@ -314,6 +314,64 @@ class ExtractDataServiceTest {
 
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
         }
+
+        @Test
+        void processBatch_whenExtractedBatchEmpty_returnsSkipped() throws MustHaveViolatedException {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+            when(groups.directPatientCompartmentGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState skippedState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.SKIPPED)).thenReturn(skippedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any(), any()))
+                    .thenReturn(Mono.just(bwc));
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
+                    .thenReturn(Mono.just(bwc));
+            when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(bwc);
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any())).thenReturn(ofResult);
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.isEmpty()).thenReturn(true);
+                when(extracted.bundles()).thenReturn(Map.of());
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap())).thenReturn(extracted);
+
+                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> {
+                            assertThat(res.batchState()).isSameAs(skippedState);
+                            assertThat(res.issues()).isEmpty();
+                        })
+                        .verifyComplete();
+            }
+        }
     }
 
     // -------------------------------------------------------------------------
