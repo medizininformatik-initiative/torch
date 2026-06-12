@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.4] - 2026-06-12
+
+## Fixed
+
+- Fix empty NDJSON links in job output [#994](https://github.com/medizininformatik-initiative/torch/pull/994)
+- Fix certificate loading via /app/certs [#990](https://github.com/medizininformatik-initiative/torch/pull/990)
+
+
 ## [v1.0.0-beta.3] - 2026-06-05
 
 ### Added
