@@ -6,9 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionCounts;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionEntry;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKey;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionRecord;
 import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
@@ -1057,9 +1055,7 @@ class JobPersistenceServiceTest {
         @Test
         void saveBatchDiagnostics_roundTrip() throws IOException {
             UUID batchId = UUID.randomUUID();
-            var key = new CriterionKey(ExclusionKind.CONSENT, "no-data", null, null);
-            var diag = new BatchDiagnostics(jobId, batchId, 10L, 8L,
-                    List.of(new CriterionEntry(key, new CriterionCounts(2, 0))));
+            var diag = new BatchDiagnostics(jobId, batchId, 10L, 8L, Map.of());
             service.saveBatchDiagnostics(diag);
 
             List<BatchDiagnostics> loaded = service.loadAllBatchDiagnostics(jobId);
@@ -1067,11 +1063,6 @@ class JobPersistenceServiceTest {
             assertThat(loaded.get(0).batchId()).isEqualTo(batchId);
             assertThat(loaded.get(0).cohortPatientsInBatch()).isEqualTo(10L);
             assertThat(loaded.get(0).finalPatientsInBatch()).isEqualTo(8L);
-            assertThat(loaded.get(0).criteria()).hasSize(1);
-            CriterionEntry loadedEntry = loaded.get(0).criteria().get(0);
-            assertThat(loadedEntry.key().kind()).isEqualTo(ExclusionKind.CONSENT);
-            assertThat(loadedEntry.key().id()).isEqualTo("no-data");
-            assertThat(loadedEntry.counts().patientsExcluded()).isEqualTo(2);
         }
 
         @Test
@@ -1085,25 +1076,25 @@ class JobPersistenceServiceTest {
             JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
             assertThat(result.cohortPatientsTotal()).isZero();
             assertThat(result.finalPatientsTotal()).isZero();
-            assertThat(result.criteria()).isEmpty();
             assertThat(service.jobDiagnosticsExists(jobId)).isFalse();
         }
 
         @Test
         void buildAndSaveJobDiagnostics_mergesBatchDiagnostics() throws IOException {
-            CriterionKey key = new CriterionKey(ExclusionKind.MUST_HAVE, "test-id", null, null);
             UUID batch1 = UUID.randomUUID();
             UUID batch2 = UUID.randomUUID();
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 5L, 4L, List.of(new CriterionEntry(key, new CriterionCounts(1, 2)))));
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 3L, 3L, List.of(new CriterionEntry(key, new CriterionCounts(0, 1)))));
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 5L, 4L, Map.of()));
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 3L, 3L, Map.of()));
+            service.saveExclusions(jobId, List.of(
+                    new ExclusionRecord("p1", ExclusionKind.MUST_HAVE_RESOURCE, "grp-1", null, null),
+                    new ExclusionRecord("p2", ExclusionKind.MUST_HAVE_RESOURCE, "grp-1", null, null),
+                    new ExclusionRecord("p3", ExclusionKind.MUST_HAVE_RESOURCE, "grp-1", null, null)
+            ));
 
             JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
 
             assertThat(result.cohortPatientsTotal()).isEqualTo(8L);
             assertThat(result.finalPatientsTotal()).isEqualTo(7L);
-            var counts = result.countsFor(key).orElseThrow();
-            assertThat(counts.patientsExcluded()).isEqualTo(1);
-            assertThat(counts.resourcesExcluded()).isEqualTo(3);
             assertThat(service.jobDiagnosticsExists(jobId)).isTrue();
 
             var savedFile = baseDir.resolve(jobId.toString()).resolve("reports").resolve("job-summary.json");
@@ -1111,23 +1102,21 @@ class JobPersistenceServiceTest {
             assertThat(root.get("resourceType").asText()).isEqualTo("OperationOutcome");
             assertThat(root.get("issue")).hasSize(1);
             assertThat(root.get("issue").get(0).get("code").asText()).isEqualTo("business-rule");
-            assertThat(root.get("issue").get(0).get("details").get("coding").get(0).get("code").asText()).isEqualTo("MUST_HAVE");
+            assertThat(root.get("issue").get(0).get("details").get("coding").get(0).get("code").asText()).isEqualTo("MUST_HAVE_RESOURCE");
         }
 
         @Test
         void loadJobDiagnostics_aggregatesFromBatchFiles() throws IOException {
-            CriterionKey key = new CriterionKey(ExclusionKind.CONSENT, "no-data", null, null);
             UUID batch1 = UUID.randomUUID();
             UUID batch2 = UUID.randomUUID();
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 4L, 3L, List.of(new CriterionEntry(key, new CriterionCounts(1, 0)))));
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 6L, 5L, List.of(new CriterionEntry(key, new CriterionCounts(1, 0)))));
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 4L, 3L, Map.of()));
+            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 6L, 5L, Map.of()));
 
             JobDiagnostics diag = service.loadJobDiagnostics(jobId);
 
             assertThat(diag.jobId()).isEqualTo(jobId);
             assertThat(diag.cohortPatientsTotal()).isEqualTo(10L);
             assertThat(diag.finalPatientsTotal()).isEqualTo(8L);
-            assertThat(diag.countsFor(key).orElseThrow().patientsExcluded()).isEqualTo(2);
         }
 
         @Test
@@ -1137,12 +1126,13 @@ class JobPersistenceServiceTest {
             UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
 
             BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
-            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, List.of());
+            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, Map.of());
             var result = new BatchResult(
                     jobId, batchId,
                     batchState.finishNow(WorkUnitStatus.FINISHED),
                     Optional.empty(),
                     Optional.of(diag),
+                    List.of(),
                     List.of()
             );
 
@@ -1165,6 +1155,7 @@ class JobPersistenceServiceTest {
                     batchState.finishNow(WorkUnitStatus.FINISHED),
                     Optional.of(coreBundle),
                     Optional.empty(),
+                    List.of(),
                     List.of()
             );
 
@@ -1182,12 +1173,13 @@ class JobPersistenceServiceTest {
             service.tryStartBatch(jobId, batchId);
 
             BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
-            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, List.of());
+            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, Map.of());
             var result = new BatchResult(
                     jobId, batchId,
                     batchState.finishNow(WorkUnitStatus.FINISHED),
                     Optional.empty(),
                     Optional.of(diag),
+                    List.of(),
                     List.of()
             );
 
@@ -1196,6 +1188,126 @@ class JobPersistenceServiceTest {
                     .when(spySvc).saveBatchDiagnostics(any());
 
             assertThatCode(() -> spySvc.onBatchProcessingSuccess(result)).doesNotThrowAnyException();
+        }
+
+        @Test
+        void loadExclusions_returnsEmpty_whenFileDoesNotExist() throws IOException {
+            assertThat(service.loadExclusions(UUID.randomUUID())).isEmpty();
+        }
+
+        @Test
+        void loadExclusions_roundTrip() throws IOException {
+            var records = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.CONSENT, null, null, null),
+                    new ExclusionRecord("p2", ExclusionKind.MUST_HAVE_RESOURCE, "grp", null, null)
+            );
+            service.saveExclusions(jobId, records);
+
+            List<ExclusionRecord> loaded = service.loadExclusions(jobId);
+
+            assertThat(loaded).hasSize(2);
+            assertThat(loaded.get(0).patientId()).isEqualTo("p1");
+            assertThat(loaded.get(0).reason()).isEqualTo(ExclusionKind.CONSENT);
+            assertThat(loaded.get(1).reason()).isEqualTo(ExclusionKind.MUST_HAVE_RESOURCE);
+        }
+
+        @Test
+        void onBatchProcessingSuccess_withExclusions_savesExclusionsToDisk() throws IOException {
+            service.selectNextWorkUnit();
+            service.onCohortSuccess(jobId, List.of("P1"));
+            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
+            service.tryStartBatch(jobId, batchId);
+
+            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
+            var exclusions = List.of(
+                    new ExclusionRecord("P1", ExclusionKind.CONSENT, null, null, null)
+            );
+            var result = new BatchResult(
+                    jobId, batchId,
+                    batchState.finishNow(WorkUnitStatus.FINISHED),
+                    Optional.empty(),
+                    Optional.empty(),
+                    exclusions,
+                    List.of()
+            );
+
+            service.onBatchProcessingSuccess(result);
+
+            List<ExclusionRecord> loaded = service.loadExclusions(jobId);
+            assertThat(loaded).hasSize(1);
+            assertThat(loaded.get(0).patientId()).isEqualTo("P1");
+            assertThat(loaded.get(0).reason()).isEqualTo(ExclusionKind.CONSENT);
+        }
+
+        @Test
+        void onCoreSuccess_withExclusionsAndDiagnostics_savesBoth() throws IOException {
+            service.selectNextWorkUnit();
+            service.onCohortSuccess(jobId, List.of());
+            service.tryMarkCoreInProgress(jobId);
+
+            var coreDiag = new BatchDiagnostics(jobId, jobId, 0L, 0L, Map.of());
+            var exclusions = List.of(
+                    new ExclusionRecord(null, ExclusionKind.REFERENCE_NOT_FOUND, null, "Observation/obs-1", null)
+            );
+            var result = new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED,
+                    Optional.of(coreDiag), exclusions);
+
+            service.onCoreSuccess(result);
+
+            assertThat(service.loadExclusions(jobId)).hasSize(1);
+            assertThat(service.loadExclusions(jobId).get(0).reason()).isEqualTo(ExclusionKind.REFERENCE_NOT_FOUND);
+        }
+
+        @Test
+        void onBatchProcessingSuccess_exclusionsIOException_doesNotThrow() throws IOException {
+            service.selectNextWorkUnit();
+            service.onCohortSuccess(jobId, List.of("P1"));
+            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
+            service.tryStartBatch(jobId, batchId);
+
+            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
+            var exclusions = List.of(new ExclusionRecord("P1", ExclusionKind.CONSENT, null, null, null));
+            var result = new BatchResult(
+                    jobId, batchId,
+                    batchState.finishNow(WorkUnitStatus.FINISHED),
+                    Optional.empty(),
+                    Optional.empty(),
+                    exclusions,
+                    List.of()
+            );
+
+            JobPersistenceService spySvc = spy(service);
+            doThrow(new IOException("disk full")).when(spySvc).saveExclusions(any(), any());
+
+            assertThatCode(() -> spySvc.onBatchProcessingSuccess(result)).doesNotThrowAnyException();
+        }
+
+        @Test
+        void onCoreSuccess_exclusionsIOException_doesNotThrow() throws IOException {
+            service.selectNextWorkUnit();
+            service.onCohortSuccess(jobId, List.of());
+            service.tryMarkCoreInProgress(jobId);
+
+            var exclusions = List.of(
+                    new ExclusionRecord(null, ExclusionKind.REFERENCE_NOT_FOUND, null, "Observation/obs-1", null)
+            );
+            var result = new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED,
+                    Optional.empty(), exclusions);
+
+            JobPersistenceService spySvc = spy(service);
+            doThrow(new IOException("disk full")).when(spySvc).saveExclusions(any(), any());
+
+            assertThatCode(() -> spySvc.onCoreSuccess(result)).doesNotThrowAnyException();
+        }
+
+        @Test
+        void saveExclusions_appendsToExistingFile_noExtraHeader() throws IOException {
+            var records1 = List.of(new ExclusionRecord("p1", ExclusionKind.CONSENT, null, null, null));
+            var records2 = List.of(new ExclusionRecord("p2", ExclusionKind.CONSENT, null, null, null));
+            service.saveExclusions(jobId, records1);
+            service.saveExclusions(jobId, records2);
+            List<ExclusionRecord> loaded = service.loadExclusions(jobId);
+            assertThat(loaded).hasSize(2);
         }
     }
 

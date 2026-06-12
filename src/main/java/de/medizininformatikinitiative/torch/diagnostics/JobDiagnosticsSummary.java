@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.diagnostics;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
@@ -9,20 +11,23 @@ import java.util.Map;
  *
  * @param cohortPatientsTotal total patients in the cohort
  * @param finalPatientsTotal  total patients remaining after all exclusions
- * @param exclusionsByKind    per-kind patient and resource exclusion totals
+ * @param exclusionsByKind    per-kind patient and resource exclusion totals derived from the exclusion log
  */
 public record JobDiagnosticsSummary(
-        long cohortPatientsTotal,
-        long finalPatientsTotal,
-        List<ExclusionKindCounts> exclusionsByKind
+        @JsonProperty long cohortPatientsTotal,
+        @JsonProperty long finalPatientsTotal,
+        @JsonProperty List<ExclusionKindCounts> exclusionsByKind
 ) {
 
-    public static JobDiagnosticsSummary from(JobDiagnostics diag) {
+    public static JobDiagnosticsSummary from(JobDiagnostics diag, List<ExclusionRecord> exclusions) {
         Map<ExclusionKind, long[]> byKind = new EnumMap<>(ExclusionKind.class);
-        for (CriterionEntry e : diag.criteria()) {
-            long[] c = byKind.computeIfAbsent(e.key().kind(), k -> new long[2]);
-            c[0] += e.counts().patientsExcluded();
-            c[1] += e.counts().resourcesExcluded();
+        for (ExclusionRecord r : exclusions) {
+            long[] c = byKind.computeIfAbsent(r.reason(), k -> new long[2]);
+            if (r.resourceId() == null) {
+                c[0]++; // patient-level
+            } else {
+                c[1]++; // resource-level
+            }
         }
         List<ExclusionKindCounts> list = byKind.entrySet().stream()
                 .map(e -> new ExclusionKindCounts(e.getKey(), e.getValue()[0], e.getValue()[1]))
