@@ -156,6 +156,13 @@ jobs:
           TESTCONTAINERS_RYUK_DISABLED: "true"
         run: mvn -P download-ontology -B verify
 
+      - name: Upload JaCoCo Coverage Report
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: jacoco-coverage-report
+          path: |
+            target/site/jacoco/jacoco.xml
+            target/site/jacoco/
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
