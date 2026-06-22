@@ -1,12 +1,17 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Quantity;
+import org.hl7.fhir.r4.model.Ratio;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -213,6 +218,39 @@ class ElementCopierTest {
         for (Identifier expectedId : expected) {
             assertThat(tgt.getIdentifier().stream().anyMatch(i -> i.equalsDeep(expectedId))).isTrue();
         }
+    }
+
+    @Test
+    void ingredientSiblingFieldsSurviveWhenParentAttributeCoversSub() throws ReflectiveOperationException {
+        Medication src = new Medication();
+        src.setCode(new CodeableConcept().addCoding(new Coding()
+                .setSystem("http://fhir.de/CodeSystem/bfarm/atc").setCode("L01BC02").setDisplay("Fluorouracil")));
+        Medication.MedicationIngredientComponent ing = src.addIngredient();
+        ing.setItem(new CodeableConcept().addCoding(new Coding()
+                .setSystem("http://fhir.de/CodeSystem/ask").setCode("07374")));
+        ing.setStrength(new Ratio()
+                .setNumerator(new Quantity().setValue(1000).setUnit("mg"))
+                .setDenominator(new Quantity().setValue(20).setUnit("ml")));
+
+        Medication tgt = new Medication();
+
+        List<AnnotatedAttribute> attrs = List.of(
+                new AnnotatedAttribute("Medication.code", "Medication.code", false),
+                new AnnotatedAttribute("Medication.ingredient", "Medication.ingredient", false),
+                new AnnotatedAttribute("Medication.ingredient.item[x]", "Medication.ingredient.item",
+                        false, List.of("22a5ca5c-1bc3-4621-b757-a229dbd76db2"))
+        );
+        CopyTreeNode copyTree = AnnotatedAttributeGroup.buildTree(attrs, "Medication");
+
+        copyService.copy(src, tgt, copyTree);
+
+        assertThat(tgt.getCode().getCodingFirstRep().getCode()).isEqualTo("L01BC02");
+        assertThat(tgt.getIngredient()).hasSize(1);
+        Medication.MedicationIngredientComponent copied = tgt.getIngredientFirstRep();
+        assertThat(copied.getItemCodeableConcept().getCodingFirstRep().getCode()).isEqualTo("07374");
+        assertThat(copied.hasStrength()).isTrue();
+        assertThat(copied.getStrength().getNumerator().getValue()).isEqualByComparingTo("1000");
+        assertThat(copied.getStrength().getDenominator().getValue()).isEqualByComparingTo("20");
     }
 
     @Nested

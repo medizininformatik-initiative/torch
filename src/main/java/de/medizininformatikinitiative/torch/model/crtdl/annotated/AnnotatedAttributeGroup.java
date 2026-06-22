@@ -160,11 +160,22 @@ public record AnnotatedAttributeGroup(
     public static CopyTreeNode buildTree(List<AnnotatedAttribute> attributes, String resourceType) {
         CopyTreeNode root = new CopyTreeNode(resourceType);
 
-        for (AnnotatedAttribute attr : attributes) {
-            List<FieldCondition> parts = FieldCondition.splitFhirPath(attr);
+        List<List<FieldCondition>> allParts = attributes.stream()
+                .map(FieldCondition::splitFhirPath)
+                .toList();
+
+        for (int i = 0; i < attributes.size(); i++) {
+            List<FieldCondition> parts = allParts.get(i);
+
+            // Skip paths covered by a shorter ancestor attribute — the ancestor leaf already copies the whole element,
+            // so adding sub-paths would incorrectly narrow extraction to only those sub-fields.
+            boolean coveredByAncestor = allParts.stream()
+                    .anyMatch(other -> other.size() < parts.size() && parts.subList(0, other.size()).equals(other));
+            if (coveredByAncestor) continue;
+
             CopyTreeNode current = root;
-            for (int i = 1; i < parts.size(); i++) {
-                current = current.getOrCreateChild(parts.get(i));
+            for (int k = 1; k < parts.size(); k++) {
+                current = current.getOrCreateChild(parts.get(k));
             }
         }
         return root;
