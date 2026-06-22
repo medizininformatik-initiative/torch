@@ -23,7 +23,7 @@
         <Hapi.version>8.10.0</Hapi.version>
         <hapi-fhir-core.version>6.9.9</hapi-fhir-core.version>
         <ontology-tag>v4.1.0</ontology-tag>
-        <netty.version>4.2.13.Final</netty.version>
+        <netty.version>4.2.15.Final</netty.version>
         <opentelemetry.version>1.62.0</opentelemetry.version>
     </properties>
 
