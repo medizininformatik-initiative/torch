@@ -108,6 +108,19 @@ class AnnotatedAttributeGroupTest {
         }
 
         @Test
+        void buildTree_ancestorAttributeCoversSub_subPathSkippedInTree() {
+            List<AnnotatedAttribute> attrs = List.of(
+                    new AnnotatedAttribute("Medication.ingredient", "Medication.ingredient", false),
+                    new AnnotatedAttribute("Medication.ingredient.item[x]", "Medication.ingredient.item",
+                            false, List.of("some-linked-group"))
+            );
+            CopyTreeNode root = AnnotatedAttributeGroup.buildTree(attrs, "Medication");
+
+            CopyTreeNode ingredientNode = root.getChild(new FieldCondition("ingredient", "")).orElseThrow();
+            assertThat(ingredientNode.children()).isEmpty();
+        }
+
+        @Test
         void buildTree_encounterTypeKontaktebene() {
             var condition = ".where($this.coding.system='http://fhir.de/CodeSystem/Kontaktebene')";
             var attrs = List.of(
