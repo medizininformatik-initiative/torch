@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import ca.uhn.fhir.model.api.TemporalPrecisionEnum;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DateType;
 import org.hl7.fhir.r4.model.InstantType;
@@ -298,5 +299,127 @@ class PeriodTest {
             assertThat(Period.fromHapi(hapi)).isEmpty();
         }
 
+        // --- border-case: hasValue()=true, precision>=DAY, but getValue()==null ---
+        //
+        // In PrimitiveType.fromStringValue, myStringValue is written before parse() is
+        // called. If parse() throws a DataFormatException (unchecked), myStringValue
+        // stays set (so hasValue()=true) while myCoercedValue stays null (so
+        // getValue()==null and getYear()==null). The guards !hasValue() and
+        // isNotDayPrecise() both pass (DateType's default precision is DAY), so the old
+        // code hit an NPE when unboxing the null Integer from getYear().
+
+        @Test
+        void testFromHapiDateType_ignoredWhenGetYearReturnsNull() {
+            assertThat(Period.fromHapi(dateTypeWithNullValue())).isEmpty();
+        }
+
+        @Test
+        void testFromHapiDateTimeType_ignoredWhenGetYearReturnsNull() {
+            assertThat(Period.fromHapi(dateTimeTypeWithNullValue())).isEmpty();
+        }
+
+        @Test
+        void testFromHapiPeriod_ignoredWhenStartGetYearReturnsNull() {
+            org.hl7.fhir.r4.model.Period hapi = new org.hl7.fhir.r4.model.Period();
+            hapi.setStartElement(dateTimeTypeWithNullValue());
+            hapi.setEndElement(new DateTimeType("2025-01-10"));
+
+            assertThat(Period.fromHapi(hapi)).isEmpty();
+        }
+
+        @Test
+        void testFromHapiPeriod_ignoredWhenEndGetYearReturnsNull() {
+            org.hl7.fhir.r4.model.Period hapi = new org.hl7.fhir.r4.model.Period();
+            hapi.setStartElement(new DateTimeType("2025-01-01"));
+            hapi.setEndElement(dateTimeTypeWithNullValue());
+
+            assertThat(Period.fromHapi(hapi)).isEmpty();
+        }
+
+        @Test
+        void testFromHapiPeriod_ignoredWhenReversed() {
+            org.hl7.fhir.r4.model.Period hapi = new org.hl7.fhir.r4.model.Period();
+            hapi.setStartElement(new DateTimeType("2025-01-10"));
+            hapi.setEndElement(new DateTimeType("2025-01-01"));
+
+            assertThat(Period.fromHapi(hapi)).isEmpty();
+        }
+
+        @Test
+        void testFromHapiDateTimeType_ignoredWhenMonthIsNullButYearIsPresent() {
+            assertThat(Period.fromHapi(dateTimeTypeWithComponents(2025, null, 1))).isEmpty();
+        }
+
+        @Test
+        void testFromHapiDateTimeType_ignoredWhenDayIsNullButYearAndMonthArePresent() {
+            assertThat(Period.fromHapi(dateTimeTypeWithComponents(2025, 0, null))).isEmpty();
+        }
+
+        @Test
+        void testFromHapiDateTimeType_ignoredWhenComponentsFormImpossibleDate() {
+            // getYear/Month/Day are non-null but February 30 does not exist →
+            // LocalDate.of throws DateTimeException, caught in toLocalDateDayPrecise
+            assertThat(Period.fromHapi(new StubbedDateTimeType(2025, 1, 30))).isEmpty();
+        }
+
+        private static DateTimeType dateTimeTypeWithComponents(
+                Integer year, Integer month, Integer day
+        ) {
+            return new StubbedDateTimeType(year, month, day);
+        }
+
+        private static DateType dateTypeWithNullValue() {
+            DateType d = new DateType();
+            try {
+                d.fromStringValue("not-a-date");
+            } catch (Exception e) {
+                // parse() threw after myStringValue was written:
+                // hasValue()=true, getValue()=null, getYear()=null
+            }
+            return d;
+        }
+
+        private static DateTimeType dateTimeTypeWithNullValue() {
+            DateTimeType dt = new DateTimeType();
+            try {
+                dt.fromStringValue("not-a-date");
+            } catch (Exception e) {
+                // parse() threw after myStringValue was written:
+                // hasValue()=true, getValue()=null, getYear()=null
+            }
+            return dt;
+        }
+
+    }
+
+    /**
+     * Named subclass of {@link DateTimeType} with controllable date components.
+     * <p>
+     * Anonymous subclasses of {@code DateTimeType} (which implements
+     * {@link java.io.Externalizable}) would trigger a CodeQL warning because they
+     * cannot declare a public no-argument constructor. This named class satisfies
+     * that requirement while providing the same test-double capability.
+     */
+    static class StubbedDateTimeType extends DateTimeType {
+
+        private final Integer year;
+        private final Integer month;
+        private final Integer day;
+
+        public StubbedDateTimeType() {
+            this(null, null, null);
+        }
+
+        StubbedDateTimeType(Integer year, Integer month, Integer day) {
+            this.year = year;
+            this.month = month;
+            this.day = day;
+        }
+
+        @Override public boolean hasValue() { return true; }
+        @Override public TemporalPrecisionEnum getPrecision() { return TemporalPrecisionEnum.DAY; }
+        @Override public Integer getYear() { return year; }
+        @Override public Integer getMonth() { return month; }
+        @Override public Integer getDay() { return day; }
     }
 }
