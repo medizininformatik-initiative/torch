@@ -9,6 +9,7 @@ import org.hl7.fhir.r4.model.InstantType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.DateTimeException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,16 +65,39 @@ public record Period(
         };
     }
 
-    private static Optional<Period> fromHapiPeriodSafe(org.hl7.fhir.r4.model.Period p) {
-        if (!p.hasStart() || !p.hasEnd()) {
+    private static Optional<Period> fromHapiPeriodSafe(
+            org.hl7.fhir.r4.model.Period period
+    ) {
+        if (!period.hasStart() || !period.hasEnd()) {
             logger.trace("Ignoring FHIR Period without start or end");
             return Optional.empty();
         }
-        if (isNotDayPrecise(p.getStartElement()) || isNotDayPrecise(p.getEndElement())) {
+
+        if (isNotDayPrecise(period.getStartElement())
+                || isNotDayPrecise(period.getEndElement())) {
             logger.trace("Ignoring FHIR Period with precision < DAY");
             return Optional.empty();
         }
-        return Optional.of(fromHapiPeriod(p));
+
+        Optional<LocalDate> start =
+                toLocalDateDayPrecise(period.getStartElement());
+
+        Optional<LocalDate> end =
+                toLocalDateDayPrecise(period.getEndElement());
+
+        if (start.isEmpty() || end.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (end.get().isBefore(start.get())) {
+            logger.trace(
+                    "Ignoring reversed FHIR Period: start={}, end={}",
+                    start.get(), end.get()
+            );
+            return Optional.empty();
+        }
+
+        return Optional.of(new Period(start.get(), end.get()));
     }
 
     private static Optional<Period> fromHapiDateTimeSafe(DateTimeType dt) {
@@ -82,7 +106,7 @@ public record Period(
             return Optional.empty();
         }
         if (isNotDayPrecise(dt)) return Optional.empty();
-        return Optional.of(fromHapiDateTime(dt));
+        return toLocalDateDayPrecise(dt).map(date -> new Period(date, date));
     }
 
     private static Optional<Period> fromHapiInstantSafe(InstantType i) {
@@ -96,29 +120,43 @@ public record Period(
         return t.getPrecision().compareTo(TemporalPrecisionEnum.DAY) < 0;
     }
 
-    private static Optional<Period> fromHapiDateSafe(DateType d) {
-        if (!d.hasValue() || isNotDayPrecise(d)) {
+    private static Optional<Period> fromHapiDateSafe(DateType date) {
+        if (!date.hasValue() || isNotDayPrecise(date)) {
             return Optional.empty();
         }
-        LocalDate date = toLocalDateDayPrecise(d);
-        return Optional.of(new Period(date, date));
+
+        return toLocalDateDayPrecise(date)
+                .map(value -> new Period(value, value));
     }
 
-    private static Period fromHapiPeriod(org.hl7.fhir.r4.model.Period hapiPeriod) {
-        return new Period(toLocalDateDayPrecise(hapiPeriod.getStartElement()), toLocalDateDayPrecise(hapiPeriod.getEndElement()));
-    }
+    private static Optional<LocalDate> toLocalDateDayPrecise(BaseDateTimeType value) {
+        Integer year = value.getYear();
+        Integer month = value.getMonth();
+        Integer day = value.getDay();
 
-    private static Period fromHapiDateTime(org.hl7.fhir.r4.model.DateTimeType hapiValue) {
-        return new Period(toLocalDateDayPrecise(hapiValue), toLocalDateDayPrecise(hapiValue));
-    }
+        if (year == null || month == null || day == null) {
+            logger.warn(
+                    "Incomplete FHIR date: type={}, value={}, precision={}, year={}, month={}, day={}",
+                    value.getClass().getSimpleName(),
+                    value.primitiveValue(),
+                    value.getPrecision(),
+                    year, month, day
+            );
+            return Optional.empty();
+        }
 
-
-    private static LocalDate toLocalDateDayPrecise(BaseDateTimeType value) {
-        return LocalDate.of(
-                value.getYear(),
-                value.getMonth() + 1,
-                value.getDay()
-        );
+        try {
+            return Optional.of(LocalDate.of(year, month + 1, day));
+        } catch (DateTimeException e) {
+            logger.warn(
+                    "Invalid FHIR date components: value={}, precision={}, year={}, month={}, day={}",
+                    value.primitiveValue(),
+                    value.getPrecision(),
+                    year, month, day,
+                    e
+            );
+            return Optional.empty();
+        }
     }
 
     public boolean isStartBetween(Period period) {
