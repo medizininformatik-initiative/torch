@@ -182,6 +182,7 @@ public record ExtractionResourceBundle(ConcurrentHashMap<ExtractionId, ResourceE
         // groupId → Set<resourceId>
         Map<String, Set<ExtractionId>> groupIdToResourceIds =
                 extractionInfoMap.entrySet().stream()
+                        .filter(e -> cache.getOrDefault(e.getKey(), Optional.empty()).isPresent())
                         .flatMap(e -> e.getValue().groups().stream()
                                 .map(groupId -> Map.entry(groupId, e.getKey())))
                         .collect(Collectors.groupingBy(
