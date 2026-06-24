@@ -8,6 +8,7 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Provenance;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.Test;
 
@@ -34,7 +35,11 @@ class ExtractionResourceBundleTest {
                 )
         );
 
-        ExtractionResourceBundle bundle = new ExtractionResourceBundle(infoMap, new ConcurrentHashMap<>());
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(infoMap, CacheBuilder.create()
+                .with("Patient/R1", new Patient().setId("Patient/R1"))
+                .with("Patient/R2", new Patient().setId("Patient/R2"))
+                .with("Patient/R3", new Patient().setId("Patient/R3"))
+                .build());
 
         List<Provenance> prov = bundle.buildProvenance("EX123");
 
@@ -77,18 +82,11 @@ class ExtractionResourceBundleTest {
 
     @Test
     void toFhirBundle_addsResourcesThenProvenance_inDeterministicOrder() {
-        ConcurrentHashMap<ExtractionId, Optional<org.hl7.fhir.r4.model.Resource>> cache = new ConcurrentHashMap<>();
-
-        Patient p2 = new Patient();
-        p2.setId("Patient/2");
-        Patient p1 = new Patient();
-        p1.setId("Patient/1");
-        Patient p3 = new Patient();
-        p3.setId("Patient/3");
-
-        cache.put(ExtractionId.fromRelativeUrl("Patient/3"), Optional.of(p3));
-        cache.put(ExtractionId.fromRelativeUrl("Patient/1"), Optional.of(p1));
-        cache.put(ExtractionId.fromRelativeUrl("Patient/2"), Optional.of(p2));
+        var cache = CacheBuilder.create()
+                .with("Patient/3", new Patient().setId("Patient/3"))
+                .with("Patient/1", new Patient().setId("Patient/1"))
+                .with("Patient/2", new Patient().setId("Patient/2"))
+                .build();
 
         Map<ExtractionId, ResourceExtractionInfo> info = Map.of(
                 ExtractionId.fromRelativeUrl("Patient/1"), new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of()),
@@ -150,47 +148,55 @@ class ExtractionResourceBundleTest {
     }
 
     @Test
-    void optionalEmptyResourcesAreSkipped() {
-        ConcurrentHashMap<ExtractionId, Optional<org.hl7.fhir.r4.model.Resource>> cache =
-                new ConcurrentHashMap<>();
-
-        cache.put(ExtractionId.fromRelativeUrl("Patient/1"), Optional.empty());
-        cache.put(ExtractionId.fromRelativeUrl("Patient/2"), Optional.empty());
-
+    void optionalEmptyResourcesAreSkippedFromBundleAndProvenance() {
         ExtractionResourceBundle bundle = new ExtractionResourceBundle(
                 new ConcurrentHashMap<>(Map.of(
                         ExtractionId.fromRelativeUrl("Patient/1"), new ResourceExtractionInfo(Set.of("G1"), Map.of()),
                         ExtractionId.fromRelativeUrl("Patient/2"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
                 )),
-                cache
+                CacheBuilder.create().empty("Patient/1").empty("Patient/2").build()
         );
 
         Bundle fhir = bundle.toFhirBundle("EX123");
 
-        // No actual resources added
-        // But provenance still appears because groups exist.
-        assertThat(fhir.getEntry()).hasSize(1);
+        assertThat(fhir.getEntry()).isEmpty();
+    }
 
-        assertThat(fhir.getEntry().getFirst().getRequest().getUrl())
-                .startsWith("Provenance/torch");
+    @Test
+    void partiallyEmptyResourcesAreSkippedFromBundleAndProvenance() {
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(
+                new ConcurrentHashMap<>(Map.of(
+                        ExtractionId.fromRelativeUrl("Patient/1"), new ResourceExtractionInfo(Set.of("G1"), Map.of()),
+                        ExtractionId.fromRelativeUrl("Patient/2"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
+                )),
+                CacheBuilder.create()
+                        .empty("Patient/1")
+                        .with("Patient/2", new Patient().setId("Patient/2"))
+                        .build()
+        );
 
-        Provenance prov = (Provenance) fhir.getEntry().getFirst().getResource();
-        assertThat(prov.getTarget())
+        Bundle fhir = bundle.toFhirBundle("EX123");
+
+        var urls = fhir.getEntry().stream().map(e -> e.getRequest().getUrl()).toList();
+        assertThat(urls).contains("Patient/2");
+        assertThat(urls).doesNotContain("Patient/1");
+
+        var provenances = fhir.getEntry().stream()
+                .map(Bundle.BundleEntryComponent::getResource)
+                .filter(r -> r instanceof Provenance)
+                .map(r -> (Provenance) r)
+                .toList();
+        assertThat(provenances).hasSize(1);
+        assertThat(provenances.getFirst().getTarget())
                 .extracting(Reference::getReference)
-                .containsExactlyInAnyOrder("Patient/1", "Patient/2");
+                .containsExactly("Patient/2");
     }
 
     @Test
     void noGroupsMeansNoProvenance() {
-        Patient p = new Patient();
-        p.setId("Patient/1");
-
-        ConcurrentHashMap<ExtractionId, Optional<org.hl7.fhir.r4.model.Resource>> cache = new ConcurrentHashMap<>();
-        cache.put(ExtractionId.fromRelativeUrl("Patient/1"), Optional.of(p));
-
         ExtractionResourceBundle bundle = new ExtractionResourceBundle(
                 new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("Patient/1"), new ResourceExtractionInfo(Set.of(), Map.of()))),
-                cache
+                CacheBuilder.create().with("Patient/1", new Patient().setId("Patient/1")).build()
         );
 
         Bundle fhir = bundle.toFhirBundle("EX123");
@@ -237,7 +243,9 @@ class ExtractionResourceBundleTest {
                 ExtractionId.fromRelativeUrl("Patient/R1"), new ResourceExtractionInfo(Set.of("GroupX"), Map.of())
         );
 
-        ExtractionResourceBundle bundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(info), new ConcurrentHashMap<>());
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(
+                new ConcurrentHashMap<>(info),
+                CacheBuilder.create().with("Patient/R1", new Patient().setId("Patient/R1")).build());
 
         var provenanceList = bundle.buildProvenance("EX999");
 
@@ -257,16 +265,10 @@ class ExtractionResourceBundleTest {
 
     @Test
     void deterministicOutput_evenIfCalledTwice() {
-        ConcurrentHashMap<ExtractionId, Optional<org.hl7.fhir.r4.model.Resource>> cache =
-                new ConcurrentHashMap<>();
-
-        Patient p1 = new Patient();
-        p1.setId("Patient/2");
-        Patient p2 = new Patient();
-        p2.setId("Patient/1");
-
-        cache.put(ExtractionId.fromRelativeUrl("Patient/2"), Optional.of(p1));
-        cache.put(ExtractionId.fromRelativeUrl("Patient/1"), Optional.of(p2));
+        var cache = CacheBuilder.create()
+                .with("Patient/2", new Patient().setId("Patient/2"))
+                .with("Patient/1", new Patient().setId("Patient/1"))
+                .build();
 
         Map<ExtractionId, ResourceExtractionInfo> info = Map.of(
                 ExtractionId.fromRelativeUrl("Patient/1"), new ResourceExtractionInfo(Set.of("G1"), Map.of()),
@@ -303,7 +305,13 @@ class ExtractionResourceBundleTest {
                 ExtractionId.fromRelativeUrl("R/C"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
         );
 
-        ExtractionResourceBundle bundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(infoMap), new ConcurrentHashMap<>());
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(
+                new ConcurrentHashMap<>(infoMap),
+                CacheBuilder.create()
+                        .with("R/B", new Patient().setId("R/B"))
+                        .with("R/A", new Patient().setId("R/A"))
+                        .with("R/C", new Patient().setId("R/C"))
+                        .build());
 
         Provenance prov = bundle.buildProvenance("EX123").getFirst();
 
@@ -312,6 +320,24 @@ class ExtractionResourceBundleTest {
                         .map(Reference::getReference)
                         .toList()
         ).containsExactlyInAnyOrder("R/A", "R/B", "R/C"); // order within provenance is set-of-values (no guaranteed order)
+    }
+
+    private static final class CacheBuilder {
+        private final ConcurrentHashMap<ExtractionId, Optional<Resource>> map = new ConcurrentHashMap<>();
+
+        static CacheBuilder create() { return new CacheBuilder(); }
+
+        CacheBuilder with(String relativeUrl, Resource resource) {
+            map.put(ExtractionId.fromRelativeUrl(relativeUrl), Optional.of(resource));
+            return this;
+        }
+
+        CacheBuilder empty(String relativeUrl) {
+            map.put(ExtractionId.fromRelativeUrl(relativeUrl), Optional.empty());
+            return this;
+        }
+
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> build() { return map; }
     }
 }
 
