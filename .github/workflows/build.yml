@@ -35,7 +35,7 @@ jobs:
           java-version: 21
 
       - name: Cache Local Maven Repo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
         with:
           path: ~/.m2/repository
           key: build-maven-${{ hashFiles('pom.xml') }}
@@ -141,7 +141,7 @@ jobs:
           java-version: 21
 
       - name: Cache Local Maven Repo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
@@ -188,7 +188,7 @@ jobs:
           java-version: 21
 
       - name: Cache Local Maven Repo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
@@ -428,7 +428,7 @@ jobs:
           java-version: 21
 
       - name: Cache Local Maven Repo
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        uses: actions/cache@2c8a9bd7457de244a408f35966fab2fb45fda9c8 # v6
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
