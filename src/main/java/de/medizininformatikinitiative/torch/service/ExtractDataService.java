@@ -137,7 +137,10 @@ public class ExtractDataService {
                         .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
                         .doOnNext(bwc -> acc.recordStage(PipelineStage.CONSENT_FETCH,
                                 System.nanoTime() - consentStart, bwc.patientIds().size()))
-                        .onErrorResume(ConsentViolatedException.class, ex -> Mono.empty());
+                        .onErrorResume(ConsentViolatedException.class, ex -> {
+                            logger.warn("Batch {} skipped: no consenting patients", batch.batchId());
+                            return Mono.empty();
+                        });
 
         return batchWithConsent
                 .flatMap(bwc -> processBatchAfterConsent(bwc, jobId, groupsToProcess, batchState, acc))
