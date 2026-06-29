@@ -46,9 +46,9 @@ export default withMermaid({
                 activeMatch: '^/$'
             },
             {
-                text: 'Getting Started',
-                link: '/getting-started',
-                activeMatch: '^/getting-started'
+                text: 'Deployment',
+                link: '/deployment',
+                activeMatch: '^/$'
             },
             {
                 text: 'Documentation',

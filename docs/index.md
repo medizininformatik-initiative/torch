@@ -10,8 +10,8 @@ hero:
       text: Overview
       link: /overview
     - theme: brand
-      text: Get Started
-      link: /getting-started
+      text: Deployment
+      link: /deployment
     - theme: alt
       text: API
       link: /api/api
