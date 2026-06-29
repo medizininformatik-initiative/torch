@@ -105,7 +105,7 @@ The `core.ndjson` file contains:
 - all **non-patient-specific resources** (e.g. shared reference data such as `Medication`)
 
 For **referential integrity**, `core.ndjson` **must be processed before** any patient batch files.  
-For this reason, the provided [transfer script](./../getting-started.md#transfer-script) uploads `core.ndjson` first.
+For this reason, the provided [transfer script](./../deployment.md#transfer-script) uploads `core.ndjson` first.
 
 If `core.ndjson` contains resources but **no patient batch files are present**, this indicates that:
 
