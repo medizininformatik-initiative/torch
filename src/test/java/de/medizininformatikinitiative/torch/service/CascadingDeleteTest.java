@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class CascadingDeleteTest {
 
-    private ResourceBundle coreResourceBundle;
+    private ResourceBundle resourceBundle;
     private ResourceAttribute resourceAttribute;
     private ResourceGroup resourceGroup;
     private ResourceAttribute resourceAttribute2;
@@ -38,7 +38,7 @@ class CascadingDeleteTest {
 
     @BeforeEach
     void setUp() {
-        coreResourceBundle = new ResourceBundle();
+        resourceBundle = new ResourceBundle();
 
         resourceAttribute = new ResourceAttribute(rid("r/test1"), new AnnotatedAttribute("test", "test", false));
         resourceAttribute2 = new ResourceAttribute(rid("r/test2"), new AnnotatedAttribute("test", "test", false));
@@ -63,27 +63,30 @@ class CascadingDeleteTest {
 
         @Test
         void testSimpleChain() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
-            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            // parentResourceGroup1 is the unreferenced root here, so it must be directly loaded (refOnly == false)
+            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", "", List.of(), List.of(), false));
 
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute2);
-            coreResourceBundle.addResourceGroupValidity(resourceGroup, false);
-            coreResourceBundle.addResourceGroupValidity(resourceGroup2, true);
-            coreResourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
-            PatientBatchWithConsent patientBatchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("Core", coreResourceBundle)));
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.addResourceGroupValidity(resourceGroup, false);
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+            PatientBatchWithConsent patientBatchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("Core", resourceBundle)));
 
             cascadingDelete.handlePatientBatch(patientBatchWithConsent, groupMap);
 
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
-            assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
-            assertThat(patientBatchWithConsent.bundles()).containsExactly(Map.entry("Core", new PatientResourceBundle("Core", coreResourceBundle)));
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
+            assertThat(resourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
+            assertThat(patientBatchWithConsent.bundles()).containsExactly(Map.entry("Core", new PatientResourceBundle("Core", resourceBundle)));
         }
     }
 
@@ -92,80 +95,167 @@ class CascadingDeleteTest {
 
         @Test
         void testSimpleChain() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
-            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            // parentResourceGroup1 is the unreferenced root here, so it must be directly loaded (refOnly == false)
+            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", "", List.of(), List.of(), false));
 
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute2);
-            coreResourceBundle.addResourceGroupValidity(resourceGroup, false);
-            coreResourceBundle.addResourceGroupValidity(resourceGroup2, true);
-            coreResourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
 
-            cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.addResourceGroupValidity(resourceGroup, false);
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
 
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
-            assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
+            cascadingDelete.handleBundle(resourceBundle, groupMap);
+
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
+            assertThat(resourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
+        }
+
+        @Test
+        void validAnchorGroundsReferencedCycle() {
+            // D (non-refOnly, valid) → A (refOnly) → B (refOnly) → A
+            // D is valid so the sweep BFS reaches A and B through D — both stay valid.
+            ExtractionId dId = rid("r/D");
+            ExtractionId aId = rid("r/A");
+            ExtractionId bId = rid("r/B");
+
+            ResourceGroup d = new ResourceGroup(dId, "groupD");
+            ResourceGroup a = new ResourceGroup(aId, "groupA");
+            ResourceGroup b = new ResourceGroup(bId, "groupB");
+
+            groupMap.put("groupD", new AnnotatedAttributeGroup("", "groupD", "", "", List.of(), List.of(), false));
+            groupMap.put("groupA", new AnnotatedAttributeGroup("", "groupA", "", "", List.of(), List.of(), true));
+            groupMap.put("groupB", new AnnotatedAttributeGroup("", "groupB", "", "", List.of(), List.of(), true));
+
+            ResourceAttribute attrDA = new ResourceAttribute(dId, new AnnotatedAttribute("attrDA", "test", false));
+            ResourceAttribute attrAB = new ResourceAttribute(aId, new AnnotatedAttribute("attrAB", "test", false));
+            ResourceAttribute attrBA = new ResourceAttribute(bId, new AnnotatedAttribute("attrBA", "test", false));
+
+            resourceBundle.addAttributeToParent(attrDA, d);
+            resourceBundle.addAttributeToChild(attrDA, a);
+            resourceBundle.addAttributeToParent(attrAB, a);
+            resourceBundle.addAttributeToChild(attrAB, b);
+            resourceBundle.addAttributeToParent(attrBA, b);
+            resourceBundle.addAttributeToChild(attrBA, a);
+
+            resourceBundle.setResourceAttributeValid(attrDA);
+            resourceBundle.setResourceAttributeValid(attrAB);
+            resourceBundle.setResourceAttributeValid(attrBA);
+
+            resourceBundle.addResourceGroupValidity(d, true);
+            resourceBundle.addResourceGroupValidity(a, true);
+            resourceBundle.addResourceGroupValidity(b, true);
+
+            cascadingDelete.handleBundle(resourceBundle, groupMap);
+
+            assertThat(resourceBundle.isValidResourceGroup(a)).isTrue();
+            assertThat(resourceBundle.isValidResourceGroup(b)).isTrue();
         }
 
         @Test
         void testRefOnlyCycle() {
             // Establish cyclic dependencies:
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
-            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
-            coreResourceBundle.addAttributeToParent(resourceAttribute3, resourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute3, parentResourceGroup1); // Cycle back
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            resourceBundle.addAttributeToParent(resourceAttribute3, resourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute3, parentResourceGroup1); // Cycle back
 
             // Mark attributes as valid initially
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute2);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute3);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.setResourceAttributeValid(resourceAttribute3);
 
             // Mark resource groups, setting one as false to trigger cascading delete
-            coreResourceBundle.addResourceGroupValidity(resourceGroup, false);  // Invalid, should trigger deletions
-            coreResourceBundle.addResourceGroupValidity(resourceGroup2, true);
-            coreResourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+            resourceBundle.addResourceGroupValidity(resourceGroup, false);  // Invalid, should trigger deletions
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
 
             // Run full bundle cascading delete
-            cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+            cascadingDelete.handleBundle(resourceBundle, groupMap);
 
             // Ensure attributes are removed from the child mapping
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute3);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute3);
 
             // Attributes should be marked invalid
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute3)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute3)).isFalse();
 
             // **Everything should be deleted**
-            assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isFalse(); // Should be deleted
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse(); // Should be deleted
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup)).isFalse(); // Should be deleted
+            assertThat(resourceBundle.isValidResourceGroup(parentResourceGroup1)).isFalse(); // Should be deleted
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse(); // Should be deleted
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup)).isFalse(); // Should be deleted
+        }
+
+        @Test
+        void unfoundedCycleIsInvalidatedBySweep() {
+            // D (non-refOnly) → A (refOnly) → B (refOnly) → A
+            // D is the only external anchor. When D is invalidated, A keeps B as a parent and
+            // B keeps A as a parent, so the main BFS never enqueues either. The post-processing
+            // sweep must catch and invalidate both.
+            ExtractionId dId = rid("r/D");
+            ExtractionId aId = rid("r/A");
+            ExtractionId bId = rid("r/B");
+
+            ResourceGroup d = new ResourceGroup(dId, "groupD");
+            ResourceGroup a = new ResourceGroup(aId, "groupA");
+            ResourceGroup b = new ResourceGroup(bId, "groupB");
+
+            groupMap.put("groupD", new AnnotatedAttributeGroup("", "groupD", "", "", List.of(), List.of(), false));
+            groupMap.put("groupA", new AnnotatedAttributeGroup("", "groupA", "", "", List.of(), List.of(), true));
+            groupMap.put("groupB", new AnnotatedAttributeGroup("", "groupB", "", "", List.of(), List.of(), true));
+
+            ResourceAttribute attrDA = new ResourceAttribute(dId, new AnnotatedAttribute("attrDA", "test", false));
+            ResourceAttribute attrAB = new ResourceAttribute(aId, new AnnotatedAttribute("attrAB", "test", false));
+            ResourceAttribute attrBA = new ResourceAttribute(bId, new AnnotatedAttribute("attrBA", "test", false));
+
+            resourceBundle.addAttributeToParent(attrDA, d);
+            resourceBundle.addAttributeToChild(attrDA, a);
+            resourceBundle.addAttributeToParent(attrAB, a);
+            resourceBundle.addAttributeToChild(attrAB, b);
+            resourceBundle.addAttributeToParent(attrBA, b);
+            resourceBundle.addAttributeToChild(attrBA, a);
+
+            resourceBundle.setResourceAttributeValid(attrDA);
+            resourceBundle.setResourceAttributeValid(attrAB);
+            resourceBundle.setResourceAttributeValid(attrBA);
+
+            resourceBundle.addResourceGroupValidity(d, false);
+            resourceBundle.addResourceGroupValidity(a, true);
+            resourceBundle.addResourceGroupValidity(b, true);
+
+            cascadingDelete.handleBundle(resourceBundle, groupMap);
+
+            assertThat(resourceBundle.isValidResourceGroup(a)).isFalse();
+            assertThat(resourceBundle.isValidResourceGroup(b)).isFalse();
         }
 
         @Test
         void testCycleWithProtectedGroup() {
             // Establish cyclic dependencies:
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
-            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
-            coreResourceBundle.addAttributeToParent(resourceAttribute3, resourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute3, parentResourceGroup1); // Cycle back
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            resourceBundle.addAttributeToParent(resourceAttribute3, resourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute3, parentResourceGroup1); // Cycle back
 
             // Mark attributes as valid initially
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute2);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute3);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.setResourceAttributeValid(resourceAttribute3);
 
             // Define resource groups with `includeReferenceOnly`
             groupMap.put("group1", new AnnotatedAttributeGroup("", "group1", "", "", List.of(), List.of(), true));  // Can be deleted
@@ -173,27 +263,27 @@ class CascadingDeleteTest {
             groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", "", List.of(), List.of(), false)); // Protected (refOnly == false)
 
             // Set resource group validity (Trigger cascading deletion)
-            coreResourceBundle.addResourceGroupValidity(resourceGroup, false); // Mark invalid, triggers deletion
-            coreResourceBundle.addResourceGroupValidity(resourceGroup2, true);
-            coreResourceBundle.addResourceGroupValidity(parentResourceGroup1, true); // Protected group (should survive)
+            resourceBundle.addResourceGroupValidity(resourceGroup, false); // Mark invalid, triggers deletion
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true); // Protected group (should survive)
 
             // Run full bundle cascading delete
-            cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+            cascadingDelete.handleBundle(resourceBundle, groupMap);
 
             // Ensure attributes are removed from the child mapping
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute3);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute3);
 
             // Attributes should be marked invalid
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute3)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute3)).isFalse();
 
             // **ResourceGroup2 and resourceGroup should be deleted, but parentResourceGroup1 should be protected**
-            assertThat(coreResourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue(); // Should **survive** (protected)
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup2)).isFalse(); // Should be deleted
-            assertThat(coreResourceBundle.isValidResourceGroup(resourceGroup)).isFalse(); // Should be deleted
+            assertThat(resourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue(); // Should **survive** (protected)
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse(); // Should be deleted
+            assertThat(resourceBundle.isValidResourceGroup(resourceGroup)).isFalse(); // Should be deleted
         }
 
         @Nested
@@ -222,38 +312,38 @@ class CascadingDeleteTest {
                 //   root → attr1 → branch1 → attr2 → leaf1
                 //        → attr3 → branch2 → leaf2
 
-                coreResourceBundle.addAttributeToParent(attr1, root);
-                coreResourceBundle.addAttributeToChild(attr1, branch1);
-                coreResourceBundle.addAttributeToParent(attr2, branch1);
-                coreResourceBundle.addAttributeToChild(attr2, leaf1);
-                coreResourceBundle.addAttributeToParent(attr3, root);
-                coreResourceBundle.addAttributeToChild(attr3, branch2);
-                coreResourceBundle.addAttributeToChild(attr3, leaf2);
+                resourceBundle.addAttributeToParent(attr1, root);
+                resourceBundle.addAttributeToChild(attr1, branch1);
+                resourceBundle.addAttributeToParent(attr2, branch1);
+                resourceBundle.addAttributeToChild(attr2, leaf1);
+                resourceBundle.addAttributeToParent(attr3, root);
+                resourceBundle.addAttributeToChild(attr3, branch2);
+                resourceBundle.addAttributeToChild(attr3, leaf2);
 
-                coreResourceBundle.setResourceAttributeValid(attr1);
-                coreResourceBundle.setResourceAttributeValid(attr2);
-                coreResourceBundle.setResourceAttributeValid(attr3);
+                resourceBundle.setResourceAttributeValid(attr1);
+                resourceBundle.setResourceAttributeValid(attr2);
+                resourceBundle.setResourceAttributeValid(attr3);
 
                 // Mark root as invalid to trigger full deletion
-                coreResourceBundle.addResourceGroupValidity(root, false);
-                coreResourceBundle.addResourceGroupValidity(branch1, true);
-                coreResourceBundle.addResourceGroupValidity(branch2, true);
-                coreResourceBundle.addResourceGroupValidity(leaf1, true);
-                coreResourceBundle.addResourceGroupValidity(leaf2, true);
+                resourceBundle.addResourceGroupValidity(root, false);
+                resourceBundle.addResourceGroupValidity(branch1, true);
+                resourceBundle.addResourceGroupValidity(branch2, true);
+                resourceBundle.addResourceGroupValidity(leaf1, true);
+                resourceBundle.addResourceGroupValidity(leaf2, true);
 
                 // Run full bundle cascading delete
-                cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+                cascadingDelete.handleBundle(resourceBundle, groupMap);
 
                 // Attributes should all be removed
-                assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr1);
-                assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr2);
-                assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr3);
+                assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr1);
+                assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr2);
+                assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(attr3);
 
                 // Ensure all dependent groups are deleted
-                assertThat(coreResourceBundle.isValidResourceGroup(branch1)).isFalse();
-                assertThat(coreResourceBundle.isValidResourceGroup(branch2)).isFalse();
-                assertThat(coreResourceBundle.isValidResourceGroup(leaf1)).isFalse();
-                assertThat(coreResourceBundle.isValidResourceGroup(leaf2)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(branch1)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(branch2)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(leaf1)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(leaf2)).isFalse();
             }
 
             @Test
@@ -274,25 +364,25 @@ class CascadingDeleteTest {
                 //   root → attr1 → branch1 (deletable)
                 //        → attr2 → branch2 (protected)
 
-                coreResourceBundle.addAttributeToParent(attr1, root);
-                coreResourceBundle.addAttributeToChild(attr1, branch1);
-                coreResourceBundle.addAttributeToParent(attr2, root);
-                coreResourceBundle.addAttributeToChild(attr2, branch2);
+                resourceBundle.addAttributeToParent(attr1, root);
+                resourceBundle.addAttributeToChild(attr1, branch1);
+                resourceBundle.addAttributeToParent(attr2, root);
+                resourceBundle.addAttributeToChild(attr2, branch2);
 
-                coreResourceBundle.setResourceAttributeValid(attr1);
-                coreResourceBundle.setResourceAttributeValid(attr2);
+                resourceBundle.setResourceAttributeValid(attr1);
+                resourceBundle.setResourceAttributeValid(attr2);
 
                 // Mark root as invalid to trigger deletion
-                coreResourceBundle.addResourceGroupValidity(root, false);
-                coreResourceBundle.addResourceGroupValidity(branch1, true);
-                coreResourceBundle.addResourceGroupValidity(branch2, true);
+                resourceBundle.addResourceGroupValidity(root, false);
+                resourceBundle.addResourceGroupValidity(branch1, true);
+                resourceBundle.addResourceGroupValidity(branch2, true);
 
                 // Run full bundle cascading delete
-                cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+                cascadingDelete.handleBundle(resourceBundle, groupMap);
 
                 // Ensure branch1 is deleted but branch2 is protected
-                assertThat(coreResourceBundle.isValidResourceGroup(branch1)).isFalse();
-                assertThat(coreResourceBundle.isValidResourceGroup(branch2)).isTrue(); // Protected
+                assertThat(resourceBundle.isValidResourceGroup(branch1)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(branch2)).isTrue(); // Protected
             }
 
             @Test
@@ -315,31 +405,31 @@ class CascadingDeleteTest {
                 //   root → attr1 → branch1 → attr2 → leaf1
                 //        → attr2 → branch2 (branch2 has no children)
 
-                coreResourceBundle.addAttributeToParent(attr1, root);
-                coreResourceBundle.addAttributeToChild(attr1, branch1);
-                coreResourceBundle.addAttributeToParent(attr2, branch1);
-                coreResourceBundle.addAttributeToChild(attr2, leaf1);
-                coreResourceBundle.addAttributeToParent(attr2, root);
-                coreResourceBundle.addAttributeToChild(attr2, branch2);
+                resourceBundle.addAttributeToParent(attr1, root);
+                resourceBundle.addAttributeToChild(attr1, branch1);
+                resourceBundle.addAttributeToParent(attr2, branch1);
+                resourceBundle.addAttributeToChild(attr2, leaf1);
+                resourceBundle.addAttributeToParent(attr2, root);
+                resourceBundle.addAttributeToChild(attr2, branch2);
 
-                coreResourceBundle.setResourceAttributeValid(attr1);
-                coreResourceBundle.setResourceAttributeValid(attr2);
+                resourceBundle.setResourceAttributeValid(attr1);
+                resourceBundle.setResourceAttributeValid(attr2);
 
                 // Mark root as invalid to trigger deletion
-                coreResourceBundle.addResourceGroupValidity(root, false);
-                coreResourceBundle.addResourceGroupValidity(branch1, true);
-                coreResourceBundle.addResourceGroupValidity(branch2, true);
-                coreResourceBundle.addResourceGroupValidity(leaf1, true);
+                resourceBundle.addResourceGroupValidity(root, false);
+                resourceBundle.addResourceGroupValidity(branch1, true);
+                resourceBundle.addResourceGroupValidity(branch2, true);
+                resourceBundle.addResourceGroupValidity(leaf1, true);
 
                 // Run full bundle cascading delete
-                cascadingDelete.handleBundle(coreResourceBundle, groupMap);
+                cascadingDelete.handleBundle(resourceBundle, groupMap);
 
                 // Ensure branch1 and leaf1 are deleted
-                assertThat(coreResourceBundle.isValidResourceGroup(branch1)).isFalse();
-                assertThat(coreResourceBundle.isValidResourceGroup(leaf1)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(branch1)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(leaf1)).isFalse();
 
                 // **branch2 should also be deleted because attr2 was invalidated**
-                assertThat(coreResourceBundle.isValidResourceGroup(branch2)).isFalse();
+                assertThat(resourceBundle.isValidResourceGroup(branch2)).isFalse();
             }
         }
     }
@@ -349,28 +439,28 @@ class CascadingDeleteTest {
 
         @Test
         void NoMustHaveNotRemoved() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
 
-            assertThat(coreResourceBundle.childResourceGroupToResourceAttributesMap()).doesNotContainKey(resourceGroup);
+            assertThat(resourceBundle.childResourceGroupToResourceAttributesMap()).doesNotContainKey(resourceGroup);
             assertThat(result).isEmpty();
-            assertThat(coreResourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
+            assertThat(resourceBundle.resourceAttributeValid(resourceAttribute)).isFalse();
         }
 
         @Test
         void mustHaveAttributesTriggerInvalidation() {
             ResourceAttribute mustHaveAttribute = new ResourceAttribute(rid("r/mustHave"), new AnnotatedAttribute("mustHave", "test", true));
-            coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup2);
+            resourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToParent(mustHaveAttribute, parentResourceGroup2);
 
-            coreResourceBundle.addAttributeToChild(mustHaveAttribute, resourceGroup);
-            coreResourceBundle.setResourceAttributeValid(mustHaveAttribute);
+            resourceBundle.addAttributeToChild(mustHaveAttribute, resourceGroup);
+            resourceBundle.setResourceAttributeValid(mustHaveAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
         }
@@ -381,54 +471,54 @@ class CascadingDeleteTest {
 
         @Test
         void attributeStillAlive() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
 
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).containsKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).containsKey(resourceAttribute);
             assertThat(result).isEmpty();
         }
 
         @Test
         void attributeDeletedAfterAllParentsDied() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result1 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
-            Set<ResourceGroup> result2 = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroup> result1 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroup> result2 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1);
 
             assertThat(result1).isEmpty();
             assertThat(result2).contains(resourceGroup);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
         }
 
         @Test
         void doesRemoveDirectlyLoadedIfEmpty() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
-            coreResourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1);
 
             assertThat(result).contains(resourceGroup);
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
         }
 
         @Test
         void doesNotRemoveDirectlyLoaded() {
-            coreResourceBundle.addAttributeToParent(resourceAttribute2, parentResourceGroup2);
-            coreResourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
-            coreResourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.addAttributeToParent(resourceAttribute2, parentResourceGroup2);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(coreResourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
 
             assertThat(result).isEmpty();
-            assertThat(coreResourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
         }
     }
 }
