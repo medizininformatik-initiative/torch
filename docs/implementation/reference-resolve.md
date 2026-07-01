@@ -59,6 +59,9 @@ When a core resource is referenced by a patient resource, this core resource is 
 bundles and core bundles. Since the newly fetched resources might belong to any patient (as described in [[1](#notes-1)]),
 a helping structure was created before, mapping from reference to patient-ID's so each references it put into the correct
 patient bundles (or the core bundle of the batch if the resource is a core resource). Same goes for attribute validity.
+   Resources assigned to a patient bundle are filtered against that patient's consent window at this point — resources
+   outside the window are excluded from the bundle. When no consent codes are present in the cohort definition, all
+   resources are considered consented.
 6. **Handle References**: Same as for core resources (see above). A helping structure is not needed in this step, because
 the necessary resources and RG-validity was already set in the correct patient bundles in step 5. So when checking if
 the original RG's, that should initially be resolved, are valid, the reference strings can directly be used to retrieve

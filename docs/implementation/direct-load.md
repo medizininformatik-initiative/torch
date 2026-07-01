@@ -47,9 +47,8 @@ Patient attribute groups are loaded and processed for each patient.
 All resources from a patient attribute group are loaded and processed in a single fhir search request
 and then assigned to their patient.
 
-- First the consent is checked for each of the loaded resources and only resources that pass the consent check are processed further.
-    - When **no consent** key is defined, all resources are considered to be consenting by
-      default.
+- Each loaded resource is filtered against the patient's consent window; only resources within the consent period are processed further.
+    - When no consent codes are present in the cohort definition, all resources are considered consented by default.
 - A profile and must-have check is done on every resource.
 
 - If after the group processing a must-have condition is violated, the respective patient is marked for deletion. Once all patients are processed,
@@ -60,10 +59,10 @@ flowchart TD
 	Start[Start Patient Attribute Processing] --> ForEach[For each patient]
 	ForEach --> Load[Load patient resources in single FHIR search request]
 	Load --> Assign[Assign resources to patient]
-	Assign --> Consent[Consent check on patient resources]
-	Consent --> ConsentKey{Consent key defined?}
-	ConsentKey -->|no| AllConsent[All resources considered consenting by default]
-	ConsentKey -->|yes| OnlyConsent[Process only consenting resources]
+	Assign --> Consent[Filter resources against patient consent window]
+	Consent --> ConsentCodes{Consent codes in cohort definition?}
+	ConsentCodes -->|no| AllConsent[All resources considered consented by default]
+	ConsentCodes -->|yes| OnlyConsent[Only resources within consent window are processed]
 	AllConsent --> ProfileCheck[Profile and must-have check on every resource]
 	OnlyConsent --> ProfileCheck
     ProfileCheck --> MustHaveViolated{Group processing violated must-have condition?}

@@ -168,17 +168,63 @@ Consent resource B (revocation, 2023):
 
 ## 6. Enforcement in Data Processing
 
-- Data outside the patient's consent window are excluded from the result set.
-- All enforcement happens **before** results are packaged into NDJSON bundles.
+Consent is enforced at two points in the extraction pipeline — both before results are packaged into NDJSON bundles:
+
+- **Direct load** — when patient resources are fetched from the FHIR server, each resource is checked against the patient's consent window. Resources outside the window are dropped before any further processing.
+- **Reference resolution** — when referenced resources are fetched and assigned to a patient bundle, the same consent window check is applied. Resources outside the window are excluded from the bundle.
+
+Core resources (resources outside the patient compartment) are not consent-filtered.
 
 ---
 
 ## 7. Integration with CRTDL
 
-- CRTDL definitions reference consent via the `cohortDefinition` inclusion criteria.
-- The consent check uses a specific date field per FHIR resource type. If no field is configured for a resource
-  type, all resources of that type are considered consented (see
-  [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
+Consent codes are embedded in the `cohortDefinition` as inclusion criteria entries with `context.code = "Einwilligung"`. Each entry carries one MII OID provision code in `termCodes`. When at least one such entry is present, TORCH enables consent enforcement for the entire extraction job. If no `Einwilligung` entries are present, consent enforcement is skipped and all resources are treated as consented.
+
+```json
+{
+  "inclusionCriteria": [
+    [
+      {
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        },
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        },
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+            "display": "MDAT erheben",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+The consent check uses a specific date field per FHIR resource type to determine whether a resource falls within the patient's consent window. If no field is configured for a resource type, all resources of that type are considered consented (see [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
 
 ---
 
