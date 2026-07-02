@@ -374,6 +374,37 @@ class CascadingDeleteTest {
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
         }
+
+        @Test
+        void everyMustHaveAttributeSharingATargetIsEscalated() {
+            // Three DISTINCT attributes, owned by three different resources, all reference the same
+            // resourceGroup and are each must-have. "wasLastChild" must be evaluated per attribute:
+            // whichever attribute happens to be processed last in the shared target's incoming set must
+            // not be the only one escalated - each attribute independently lost its only child.
+            ResourceGroup parentResourceGroup3 = new ResourceGroup(rid("r/resourceP3"), "group5");
+            groupMap.put("group5", new AnnotatedAttributeGroup("", "group5", "", "", List.of(), List.of(), true));
+
+            ResourceAttribute mustHaveAttribute1 = new ResourceAttribute(rid("r/mustHaveOwner1"), new AnnotatedAttribute("mustHaveAttr1", "test", true));
+            ResourceAttribute mustHaveAttribute2 = new ResourceAttribute(rid("r/mustHaveOwner2"), new AnnotatedAttribute("mustHaveAttr2", "test", true));
+            ResourceAttribute mustHaveAttribute3 = new ResourceAttribute(rid("r/mustHaveOwner3"), new AnnotatedAttribute("mustHaveAttr3", "test", true));
+
+            coreResourceBundle.addAttributeToParent(mustHaveAttribute1, parentResourceGroup1);
+            coreResourceBundle.addAttributeToChild(mustHaveAttribute1, resourceGroup);
+
+            coreResourceBundle.addAttributeToParent(mustHaveAttribute2, parentResourceGroup2);
+            coreResourceBundle.addAttributeToChild(mustHaveAttribute2, resourceGroup);
+
+            coreResourceBundle.addAttributeToParent(mustHaveAttribute3, parentResourceGroup3);
+            coreResourceBundle.addAttributeToChild(mustHaveAttribute3, resourceGroup);
+
+            coreResourceBundle.setResourceAttributeValid(mustHaveAttribute1);
+            coreResourceBundle.setResourceAttributeValid(mustHaveAttribute2);
+            coreResourceBundle.setResourceAttributeValid(mustHaveAttribute3);
+
+            Set<ResourceGroup> result = cascadingDelete.handleParents(coreResourceBundle, resourceGroup);
+
+            assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2, parentResourceGroup3);
+        }
     }
 
     @Nested
