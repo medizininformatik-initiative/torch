@@ -12,7 +12,23 @@ import java.util.LinkedList;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.stream.Collectors;
 
+/**
+ * Propagates the invalidation of {@link ResourceGroup}s through a {@link ResourceBundle}'s reference
+ * graph.
+ *
+ * <p>{@link #handleBundle} runs in two phases. First, {@link #handleChildren} and {@link #handleParents}
+ * are applied breadth-first starting from the initially invalid groups: an attribute is invalidated once
+ * its last remaining reference disappears, a referenceOnly group is invalidated once its last remaining
+ * parent attribute disappears, and a must-have attribute losing its last reference escalates the
+ * invalidation to its parent groups. This phase is a greatest-fixpoint computation: it only invalidates a
+ * group once it can prove that group has zero remaining live references, so a pair of referenceOnly groups
+ * that reference each other can keep one another alive even after their only external anchor is gone,
+ * since neither individually ever reaches zero. {@link #sweepUnfoundedCycles} then runs a mark-and-sweep
+ * pass to catch exactly that case, invalidating any referenceOnly group left standing that is not actually
+ * reachable from a directly loaded group.
+ */
 @Component
 public class CascadingDelete {
 
@@ -21,6 +37,11 @@ public class CascadingDelete {
         return patientBatch;
     }
 
+    /**
+     * Invalidates the bundle's initially invalid {@link ResourceGroup}s and propagates that invalidation
+     * through the reference graph, then removes any referenceOnly reference cycle left behind with no live
+     * anchor. See the class Javadoc for the two-phase algorithm.
+     */
     void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
         Queue<ResourceGroup> processingQueue = new LinkedList<>(invalidResourceGroups);
@@ -29,7 +50,50 @@ public class CascadingDelete {
             processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
             processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
         }
-        
+        sweepUnfoundedCycles(resourceBundle, groupMap);
+    }
+
+    /**
+     * Mark-and-sweep pass catching referenceOnly {@link ResourceGroup}s that survive the main BFS only
+     * because they form a mutually-supporting reference cycle with no live anchor (e.g. A references B and
+     * B references A; once their only external referrer is invalidated, neither A nor B alone ever reaches
+     * zero remaining parents, so {@link #handleChildren} never invalidates either). Starting from the
+     * directly loaded (non-referenceOnly) groups, a forward BFS marks every group reachable through a valid
+     * attribute as grounded. Any referenceOnly group left unmarked is unfounded and is invalidated, with the
+     * invalidation propagated through {@link #handleParents} to catch must-have violations.
+     */
+    private void sweepUnfoundedCycles(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        Set<ResourceGroup> validGroups = resourceBundle.getValidResourceGroups();
+        Set<ResourceGroup> grounded = new LinkedHashSet<>();
+        Queue<ResourceGroup> bfsQueue = new LinkedList<>();
+
+        for (ResourceGroup rg : validGroups) {
+            if (!groupMap.get(rg.groupId()).includeReferenceOnly()) {
+                grounded.add(rg);
+                bfsQueue.add(rg);
+            }
+        }
+
+        while (!bfsQueue.isEmpty()) {
+            ResourceGroup rg = bfsQueue.poll();
+            for (ResourceAttribute attr : resourceBundle.parentResourceGroupToResourceAttributesMap().getOrDefault(rg, Set.of())) {
+                if (!resourceBundle.resourceAttributeValid(attr)) continue;
+                for (ResourceGroup target : resourceBundle.resourceAttributeToChildResourceGroup().getOrDefault(attr, Set.of())) {
+                    if (grounded.add(target)) {
+                        bfsQueue.add(target);
+                    }
+                }
+            }
+        }
+
+        Queue<ResourceGroup> invalidationQueue = validGroups.stream()
+                .filter(rg -> groupMap.get(rg.groupId()).includeReferenceOnly() && !grounded.contains(rg))
+                .collect(Collectors.toCollection(LinkedList::new));
+
+        invalidationQueue.forEach(rg -> resourceBundle.addResourceGroupValidity(rg, false));
+        while (!invalidationQueue.isEmpty()) {
+            invalidationQueue.addAll(handleParents(resourceBundle, invalidationQueue.poll()));
+        }
     }
 
     /**
