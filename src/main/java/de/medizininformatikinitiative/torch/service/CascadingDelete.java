@@ -148,25 +148,21 @@ public class CascadingDelete {
         Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(childRG, Set.of());
 
         for (ResourceAttribute resourceAttribute : resourceAttributes) {
-            boolean wasLastChild = resourceBundle.removeParentAttributeFromChildRG(childRG, resourceAttribute);
-            resourceBundle.removeChildRGFromAttribute(childRG, resourceAttribute);
+            resourceBundle.removeParentAttributeFromChildRG(childRG, resourceAttribute);
+            boolean attributeHasNoValidChildrenLeft = resourceBundle.removeChildRGFromAttribute(childRG, resourceAttribute);
 
-            if (wasLastChild) {
-                resourceBundle.setResourceAttributeInValid(resourceAttribute);
+            // If the attribute has no valid children left and it's must-have, escalate to all parent groups of the attribute
+            if (attributeHasNoValidChildrenLeft && resourceAttribute.annotatedAttribute().mustHave()) {
+                Set<ResourceGroup> parentGroups = resourceBundle.resourceAttributeToParentResourceGroup()
+                        .getOrDefault(resourceAttribute, Set.of());
 
-                // If it's a must-have attribute, escalate to all parent groups of the attribute
-                if (resourceAttribute.annotatedAttribute().mustHave()) {
-                    Set<ResourceGroup> parentGroups = resourceBundle.resourceAttributeToParentResourceGroup()
-                            .getOrDefault(resourceAttribute, Set.of());
+                // Add all parent groups to be invalidated
+                resourceGroups.addAll(parentGroups);
 
-                    // Add all parent groups to be invalidated
-                    resourceGroups.addAll(parentGroups);
-
-                    // Ensure invalidation is applied recursively
-                    for (ResourceGroup parentGroup : parentGroups) {
-                        resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
-                        resourceBundle.addResourceGroupValidity(parentGroup, false);
-                    }
+                // Ensure invalidation is applied recursively
+                for (ResourceGroup parentGroup : parentGroups) {
+                    resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
+                    resourceBundle.addResourceGroupValidity(parentGroup, false);
                 }
             }
         }
