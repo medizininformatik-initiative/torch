@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.diagnostics;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 /**
  * Aggregated exclusion counts for a single {@link ExclusionKind}.
  *
@@ -8,8 +10,8 @@ package de.medizininformatikinitiative.torch.diagnostics;
  * @param resourcesExcluded total resources excluded for this reason
  */
 public record ExclusionKindCounts(
-        ExclusionKind kind,
-        long patientsExcluded,
-        long resourcesExcluded
+        @JsonProperty ExclusionKind kind,
+        @JsonProperty long patientsExcluded,
+        @JsonProperty long resourcesExcluded
 ) {
 }

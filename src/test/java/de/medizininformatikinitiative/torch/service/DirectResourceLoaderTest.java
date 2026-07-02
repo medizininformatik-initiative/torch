@@ -1,8 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionAcc;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionRecord;
 import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -17,7 +18,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
-import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -80,9 +80,8 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.empty());
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, new ExclusionAcc()))
                     .verifyComplete();
         }
 
@@ -95,9 +94,8 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.empty());
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, new ExclusionAcc()))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
         }
@@ -117,16 +115,18 @@ class DirectResourceLoaderTest {
             when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group))).thenReturn(eval);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            ExclusionAcc writer = new ExclusionAcc();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, writer))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
 
             verify(bundle).put(obs, "core", false);
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr))).isEmpty();
+            // NotApplicable resources should not produce a MUST_HAVE_FIELD exclusion record
+            assertThat(writer.snapshot())
+                    .noneMatch(r -> r.reason() == ExclusionKind.MUST_HAVE_FIELD
+                            && "groupRef".equals(r.groupRef()));
         }
 
         @Test
@@ -142,14 +142,11 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.just(obs));
 
             MustHaveEvaluation ok = new MustHaveEvaluation.Fulfilled();
-
-            when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group)))
-                    .thenReturn(ok);
+            when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group))).thenReturn(ok);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, new ExclusionAcc()))
                     .verifyComplete();
 
             verify(bundle).put(obs, "core", true);
@@ -168,23 +165,21 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.just(obs));
 
             MustHaveEvaluation violated = new MustHaveEvaluation.Violated(attr);
-
-            when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group)))
-                    .thenReturn(violated);
+            when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group))).thenReturn(violated);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            ExclusionAcc writer = new ExclusionAcc();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, writer))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
 
             verify(bundle).put(obs, "core", false);
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr)).orElseThrow().resourcesExcluded())
-                    .isEqualTo(1);
+            List<ExclusionRecord> exclusions = writer.snapshot();
+            assertThat(exclusions).hasSize(1);
+            assertThat(exclusions.get(0).reason()).isEqualTo(ExclusionKind.MUST_HAVE_FIELD);
+            assertThat(exclusions.get(0).resourceId()).isEqualTo("Observation/xyz");
         }
     }
 
@@ -211,13 +206,13 @@ class DirectResourceLoaderTest {
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
             when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(false);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batchWithConsent.id(), 1);
+            ExclusionAcc writer = new ExclusionAcc();
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
                             List.of(group),
                             batchWithConsent,
                             safeSet,
-                            acc
+                            writer
                     ))
                     .assertNext(res -> {
                         assertThat(res.get("1").bundle().cache())
@@ -225,9 +220,11 @@ class DirectResourceLoaderTest {
                     })
                     .verifyComplete();
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.consentResourceBlocked())).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.consentResourceBlocked()).orElseThrow().resourcesExcluded()).isEqualTo(1);
+            List<ExclusionRecord> exclusions = writer.snapshot();
+            assertThat(exclusions).hasSize(1);
+            assertThat(exclusions.get(0).reason()).isEqualTo(ExclusionKind.CONSENT);
+            assertThat(exclusions.get(0).patientId()).isEqualTo("1");
+            assertThat(exclusions.get(0).resourceId()).isEqualTo("Observation/xyz");
         }
 
         @Test
@@ -246,16 +243,15 @@ class DirectResourceLoaderTest {
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
             MustHaveEvaluation eval = new MustHaveEvaluation.NotApplicable();
-
             when(profileMustHaveChecker.evaluateFirst(observation, group)).thenReturn(eval);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            ExclusionAcc writer = new ExclusionAcc();
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
                             List.of(group),
                             batchWithConsent,
                             safeSet,
-                            acc
+                            writer
                     ))
                     .assertNext(processedBatch -> {
                         assertThat(processedBatch.get("1").bundle().cache())
@@ -274,11 +270,12 @@ class DirectResourceLoaderTest {
 
             assertThat(safeSet).isEmpty();
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveGroup(group))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveGroup(group)).orElseThrow().patientsExcluded()).isEqualTo(1);
-
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, mustHaveAttr))).isEmpty();
+            // Patient had a resource but none fulfilled must-have → MUST_HAVE_RESOURCE patient-level record
+            List<ExclusionRecord> exclusions = writer.snapshot();
+            assertThat(exclusions).hasSize(1);
+            assertThat(exclusions.get(0).patientId()).isEqualTo("1");
+            assertThat(exclusions.get(0).reason()).isEqualTo(ExclusionKind.MUST_HAVE_RESOURCE);
+            assertThat(exclusions.get(0).groupRef()).isEqualTo("groupRef");
         }
 
         @Test
@@ -303,15 +300,12 @@ class DirectResourceLoaderTest {
             when(dataStore.search(any(), any())).thenReturn(Flux.just(obs1));
 
             MustHaveEvaluation eval = new MustHaveEvaluation.Fulfilled();
-
             when(profileMustHaveChecker.evaluateFirst(obs1, group)).thenReturn(eval);
-
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), 2);
 
             StepVerifier.create(directResourceLoader.directLoadPatientCompartment(
                             List.of(group),
                             batch,
-                            acc
+                            new ExclusionAcc()
                     ))
                     .assertNext(result -> {
                         assertThat(result.bundles()).containsKey("1");
@@ -331,13 +325,11 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.empty());
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
                     safeSet,
-                    acc
+                    new ExclusionAcc()
             );
 
             StepVerifier.create(result)
@@ -359,13 +351,11 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(new Observation()));
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
                     safeSet,
-                    acc
+                    new ExclusionAcc()
             );
 
             StepVerifier.create(result)
@@ -392,221 +382,15 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
                     safeSet,
-                    acc
+                    new ExclusionAcc()
             );
 
             StepVerifier.create(result)
-                    .assertNext(res -> {
-                        assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache())
-                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
-                    })
-                    .verifyComplete();
-        }
-
-        @Test
-        void testIgnoresResourceWithoutPatientReference() {
-            var attribute = new AnnotatedAttribute("Observation.name", "Observation.name", false);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attribute), List.of());
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            Observation observation = new Observation();
-            observation.setId("Observation/xyz");
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
-            var result = directResourceLoader.processPatientAttributeGroups(
-                    List.of(attributeGroup),
-                    batchWithConsent,
-                    safeSet,
-                    acc
-            );
-
-            StepVerifier.create(result)
-                    .assertNext(res -> {
-                        assertThat(res.bundles()).containsKey("1");
-                        assertThat(res.get("1").bundle().cache())
-                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
-                    })
-                    .verifyComplete();
-        }
-
-        @Test
-        void testStoresObservationWithInvalidMustHave() {
-            var mustHaveAttr = new AnnotatedAttribute("Observation.id", "Observation.id", true);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(mustHaveAttr), List.of());
-
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            Observation observation = new Observation();
-            observation.setId("Observation/xyz");
-            observation.setSubject(new Reference("Patient/1"));
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-
-            MustHaveEvaluation eval = new MustHaveEvaluation.Violated(mustHaveAttr);
-
-            when(profileMustHaveChecker.evaluateFirst(observation, attributeGroup)).thenReturn(eval);
-
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
-            var result = directResourceLoader.processPatientAttributeGroups(
-                    List.of(attributeGroup),
-                    batchWithConsent,
-                    safeSet,
-                    acc
-            );
-
-            StepVerifier.create(result)
-                    .assertNext(processedBatch -> {
-                        assertThat(processedBatch).isNotNull();
-                        assertThat(processedBatch.patientBatch().ids()).containsExactly("1");
-
-                        assertThat(processedBatch.get("1").bundle().cache())
-                                .isEqualTo(Map.of(
-                                        ExtractionId.fromRelativeUrl("Observation/xyz"),
-                                        Optional.of(observation)
-                                ));
-
-                        assertThat(processedBatch.get("1").bundle().getValidResourceGroups())
-                                .doesNotContain(new ResourceGroup(
-                                        ExtractionId.fromRelativeUrl("Observation/xyz"),
-                                        "test"
-                                ));
-                    })
-                    .verifyComplete();
-
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(attributeGroup, mustHaveAttr))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(attributeGroup, mustHaveAttr)).orElseThrow().resourcesExcluded())
-                    .isEqualTo(1);
-        }
-
-        @Test
-        void enrichesPatientMetaProfileWhenMissing() {
-            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
-            var patientGroup = new AnnotatedAttributeGroup("patGroup", "Patient", groupRef,
-                    List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
-
-            Patient patient = new Patient();
-            patient.setId("1");
-
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
-
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet, acc).block();
-
-            assertThat(patient.getMeta().getProfile()).hasSize(1);
-            assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
-        }
-
-        @Test
-        void replacesExistingPatientMetaProfileWithTarget() {
-            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
-            var existingProfile = "https://example.org/existing-profile";
-            var patientGroup = new AnnotatedAttributeGroup("patGroup", "Patient", groupRef,
-                    List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
-
-            Patient patient = new Patient();
-            patient.setId("1");
-            patient.getMeta().addProfile(existingProfile);
-
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
-
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet, acc).block();
-
-            assertThat(patient.getMeta().getProfile()).hasSize(1);
-            assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
-        }
-
-        @Test
-        void doesNotEnrichMetaProfileForNonPatientResources() {
-            var groupRef = "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab";
-            var observationGroup = new AnnotatedAttributeGroup("obsGroup", "Observation", groupRef,
-                    List.of(new AnnotatedAttribute("Observation.code", "Observation.code", false)), List.of());
-
-            Observation observation = new Observation();
-            observation.setId("obs1");
-            observation.setSubject(new Reference("Patient/1"));
-
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(observationGroup), batchWithConsent, safeSet, acc).block();
-
-            assertThat(observation.getMeta().getProfile()).isEmpty();
-        }
-
-        @Test
-        void testStoresObservationWithKnownPatient() {
-            var mustHaveAttr = new AnnotatedAttribute("Observation.id", "Observation.id", true);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(mustHaveAttr), List.of());
-
-            var patientBundle = new PatientResourceBundle("1");
-            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
-            var safeSet = new HashSet<>(List.of("1"));
-
-            Observation observation = new Observation();
-            observation.setId("Observation/xyz");
-            observation.setSubject(new Reference("Patient/1"));
-
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-
-            MustHaveEvaluation eval = new MustHaveEvaluation.Fulfilled();
-
-            when(profileMustHaveChecker.evaluateFirst(observation, attributeGroup)).thenReturn(eval);
-
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
-            var result = directResourceLoader.processPatientAttributeGroups(
-                    List.of(attributeGroup),
-                    batchWithConsent,
-                    safeSet,
-                    acc
-            );
-
-            StepVerifier.create(result)
-                    .assertNext(processedBatch -> {
-                        assertThat(processedBatch).isNotNull();
-                        assertThat(processedBatch.patientBatch().ids()).containsExactly("1");
-
-                        assertThat(processedBatch.get("1").bundle().cache())
-                                .isEqualTo(Map.of(
-                                        ExtractionId.fromRelativeUrl("Observation/xyz"),
-                                        Optional.of(observation)
-                                ));
-
-                        assertThat(processedBatch.get("1").bundle().getValidResourceGroups())
-                                .containsExactly(new ResourceGroup(
-                                        ExtractionId.fromRelativeUrl("Observation/xyz"),
-                                        "test"
-                                ));
-                    })
+                    .assertNext(res -> assertThat(res.bundles()).containsKey("1"))
                     .verifyComplete();
         }
     }

@@ -30,9 +30,9 @@ class JobDiagnosticsMapperTest {
 
         @Test
         void setsResourceTypeAndJobExtensions() {
-            var diag = new JobDiagnostics(JOB_ID, 50, 40, List.of());
+            var diag = new JobDiagnostics(JOB_ID, 50, 40, Map.of(), 0L);
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, List.of());
 
             assertThat(result.get("resourceType").asText()).isEqualTo("OperationOutcome");
             var ext = result.get("extension");
@@ -45,66 +45,77 @@ class JobDiagnosticsMapperTest {
         }
 
         @Test
-        void emptyDiagnostics_producesEmptyIssueArray() {
-            var diag = new JobDiagnostics(JOB_ID, 0, 0, List.of());
+        void emptyExclusions_producesEmptyIssueArray() {
+            var diag = new JobDiagnostics(JOB_ID, 0, 0, Map.of(), 0L);
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, List.of());
 
             assertThat(result.get("issue")).isEmpty();
         }
 
         @Test
-        void criterion_producesIssueWithCodingAndCounts() {
-            var key = new CriterionKey(ExclusionKind.MUST_HAVE, "Obs.code", "obs-group", "Observation.code");
-            var counts = new CriterionCounts(2, 3, 1000L, 1L);
-            var diag = new JobDiagnostics(JOB_ID, 10, 8, List.of(new CriterionEntry(key, counts)));
+        void mustHaveResourceExclusion_producesIssueWithBusinessRuleCode() {
+            var diag = new JobDiagnostics(JOB_ID, 10, 8, Map.of(), 0L);
+            var exclusions = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.MUST_HAVE_RESOURCE, "obs-group", null, "Observation.code"),
+                    new ExclusionRecord("p2", ExclusionKind.MUST_HAVE_RESOURCE, "obs-group", null, "Observation.code")
+            );
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, exclusions);
 
             var issue = result.get("issue").get(0);
             assertThat(issue.get("severity").asText()).isEqualTo("information");
             assertThat(issue.get("code").asText()).isEqualTo("business-rule");
-            assertThat(issue.get("details").get("coding").get(0).get("code").asText()).isEqualTo("MUST_HAVE");
-            assertThat(issue.get("details").get("text").asText()).isEqualTo("Obs.code");
-            assertThat(issue.get("expression").get(0).asText()).isEqualTo("Observation.code");
+            assertThat(issue.get("details").get("coding").get(0).get("code").asText()).isEqualTo("MUST_HAVE_RESOURCE");
             var issueExt = issue.get("extension");
-            assertThat(issueExt.get(0).get("url").asText()).isEqualTo("elementId");
-            assertThat(issueExt.get(1).get("url").asText()).isEqualTo("groupRef");
-            assertThat(issueExt.get(2).get("valueInteger").asLong()).isEqualTo(2);
-            assertThat(issueExt.get(3).get("valueInteger").asLong()).isEqualTo(3);
-            assertThat(issueExt.get(4).get("url").asText()).isEqualTo("durationMs");
+            assertThat(issueExt.get(1).get("url").asText()).isEqualTo("patientsExcluded");
+            assertThat(issueExt.get(1).get("valueInteger").asLong()).isEqualTo(2);
         }
 
         @Test
-        void referenceKind_usesDisplayNameFromKind() {
-            var key = new CriterionKey(ExclusionKind.REFERENCE_NOT_FOUND, null, "Observation", null);
-            var diag = new JobDiagnostics(JOB_ID, 5, 4, List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
+        void consentExclusion_usesSuppressedCode() {
+            var diag = new JobDiagnostics(JOB_ID, 5, 4, Map.of(), 0L);
+            var exclusions = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.CONSENT, null, null, null)
+            );
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, exclusions);
 
-            var issue = result.get("issue").get(0);
-            assertThat(issue.get("details").get("text").asText()).isEqualTo("Reference target not found");
-            assertThat(issue.has("expression")).isFalse();
+            assertThat(result.get("issue").get(0).get("code").asText()).isEqualTo("suppressed");
         }
 
         @Test
-        void mustHaveKind_withNullId_omitsDetailsText() {
-            var key = new CriterionKey(ExclusionKind.MUST_HAVE, null, null, null);
-            var diag = new JobDiagnostics(JOB_ID, 5, 4, List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
+        void referenceNotFoundExclusion_usesNotFoundCode() {
+            var diag = new JobDiagnostics(JOB_ID, 5, 4, Map.of(), 0L);
+            var exclusions = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.REFERENCE_NOT_FOUND, "grp", "Observation/o1", null)
+            );
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, exclusions);
 
-            var issue = result.get("issue").get(0);
-            assertThat(issue.get("details").has("text")).isFalse();
+            assertThat(result.get("issue").get(0).get("code").asText()).isEqualTo("not-found");
+        }
+
+        @Test
+        void exclusionsAggregatedByKey() {
+            var diag = new JobDiagnostics(JOB_ID, 10, 7, Map.of(), 0L);
+            var exclusions = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.CONSENT, null, null, null),
+                    new ExclusionRecord("p2", ExclusionKind.CONSENT, null, null, null),
+                    new ExclusionRecord("p3", ExclusionKind.MUST_HAVE_RESOURCE, "grp", null, null)
+            );
+
+            ObjectNode result = mapper.toOperationOutcome(diag, exclusions);
+
+            assertThat(result.get("issue")).hasSize(2);
         }
 
         @Test
         void stageTimings_serializedAsRootExtensions() {
-            var diag = new JobDiagnostics(JOB_ID, 10, 10, List.of(),
-                    Map.of(PipelineStage.CASCADING_DELETE, new StageCounts(60_000L, 120)), // 60 s in ms
-                    0L);
+            var diag = new JobDiagnostics(JOB_ID, 10, 10,
+                    Map.of(PipelineStage.CASCADING_DELETE, new StageCounts(60_000L, 120)), 0L);
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, List.of());
 
             var ext = result.get("extension");
             boolean found = false;
@@ -123,9 +134,9 @@ class JobDiagnosticsMapperTest {
 
         @Test
         void cohortQueryDuration_serializedWhenNonZero() {
-            var diag = new JobDiagnostics(JOB_ID, 10, 10, List.of(), Map.of(), 5_000L); // 5 s in ms
+            var diag = new JobDiagnostics(JOB_ID, 10, 10, Map.of(), 5_000L);
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, List.of());
 
             var ext = result.get("extension");
             boolean found = false;
@@ -135,14 +146,14 @@ class JobDiagnosticsMapperTest {
                     found = true;
                 }
             }
-            assertThat(found).as("cohortQueryDurationNanos extension present").isTrue();
+            assertThat(found).as("cohortQueryDurationMs extension present").isTrue();
         }
 
         @Test
         void zeroCohortQueryDuration_omitted() {
-            var diag = new JobDiagnostics(JOB_ID, 10, 10, List.of(), Map.of(), 0L);
+            var diag = new JobDiagnostics(JOB_ID, 10, 10, Map.of(), 0L);
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, List.of());
 
             var ext = result.get("extension");
             for (var node : ext) {
@@ -153,10 +164,10 @@ class JobDiagnosticsMapperTest {
         @ParameterizedTest
         @EnumSource(ExclusionKind.class)
         void allExclusionKindsProduceIssueCode(ExclusionKind kind) {
-            var key = new CriterionKey(kind, null, null, null);
-            var diag = new JobDiagnostics(JOB_ID, 1, 0, List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
+            var diag = new JobDiagnostics(JOB_ID, 1, 0, Map.of(), 0L);
+            var exclusions = List.of(new ExclusionRecord("p1", kind, null, null, null));
 
-            ObjectNode result = mapper.toOperationOutcome(diag);
+            ObjectNode result = mapper.toOperationOutcome(diag, exclusions);
 
             assertThat(result.get("issue").get(0).get("code").asText()).isNotBlank();
         }

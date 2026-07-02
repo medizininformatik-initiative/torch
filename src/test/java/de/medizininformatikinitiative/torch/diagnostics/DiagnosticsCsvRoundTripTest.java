@@ -19,18 +19,17 @@ class DiagnosticsCsvRoundTripTest {
     static final UUID BATCH_A = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000001");
     static final UUID BATCH_B = UUID.fromString("bbbbbbbb-0000-0000-0000-000000000002");
 
-    private static DiagnosticsCsvReader.CsvData roundTrip(UUID jobId,
-                                                           List<BatchDiagnostics> batches,
-                                                           long cohortMs) throws IOException {
+    private static MetricsCsvReader.CsvData roundTrip(UUID jobId,
+                                                       List<BatchDiagnostics> batches,
+                                                       long cohortMs) throws IOException {
         StringWriter sw = new StringWriter();
         try (BufferedWriter bw = new BufferedWriter(sw)) {
-            bw.write(DiagnosticsCsvWriter.HEADER);
+            bw.write(MetricsCsvWriter.HEADER);
             bw.newLine();
-            for (BatchDiagnostics b : batches) DiagnosticsCsvWriter.writeBatch(bw, b);
-            if (cohortMs > 0) DiagnosticsCsvWriter.writeCohort(bw, cohortMs);
+            for (BatchDiagnostics b : batches) MetricsCsvWriter.writeBatch(bw, b);
+            if (cohortMs > 0) MetricsCsvWriter.writeCohort(bw, cohortMs);
         }
-        String csv = sw.toString();
-        return DiagnosticsCsvReader.readAll(jobId, csv.lines());
+        return MetricsCsvReader.readAll(jobId, sw.toString().lines());
     }
 
     @Nested
@@ -38,69 +37,17 @@ class DiagnosticsCsvRoundTripTest {
 
         @Test
         void emptyBatch_roundTrips() throws IOException {
-            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 10, 8, List.of());
+            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 10, 8, Map.of());
 
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
+            MetricsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
 
             assertThat(data.batches()).hasSize(1);
             BatchDiagnostics loaded = data.batches().get(0);
             assertThat(loaded.batchId()).isEqualTo(BATCH_A);
             assertThat(loaded.cohortPatientsInBatch()).isEqualTo(10);
             assertThat(loaded.finalPatientsInBatch()).isEqualTo(8);
-            assertThat(loaded.criteria()).isEmpty();
             assertThat(loaded.stages()).isEmpty();
             assertThat(data.cohortQueryDurationMs()).isZero();
-        }
-    }
-
-    @Nested
-    class CriterionRows {
-
-        @Test
-        void singleCriterion_roundTrips() throws IOException {
-            var key = new CriterionKey(ExclusionKind.MUST_HAVE, "Obs.code", "grp-1", "Observation.code");
-            var counts = new CriterionCounts(3, 5, 200, 2);
-            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 10, 7,
-                    List.of(new CriterionEntry(key, counts)));
-
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
-
-            BatchDiagnostics loaded = data.batches().get(0);
-            assertThat(loaded.criteria()).hasSize(1);
-            CriterionEntry entry = loaded.criteria().get(0);
-            assertThat(entry.key().kind()).isEqualTo(ExclusionKind.MUST_HAVE);
-            assertThat(entry.key().id()).isEqualTo("Obs.code");
-            assertThat(entry.key().groupRef()).isEqualTo("grp-1");
-            assertThat(entry.key().attributeRef()).isEqualTo("Observation.code");
-            assertThat(entry.counts().patientsExcluded()).isEqualTo(3);
-            assertThat(entry.counts().resourcesExcluded()).isEqualTo(5);
-            assertThat(entry.counts().totalDurationMs()).isEqualTo(200);
-            assertThat(entry.counts().invocations()).isEqualTo(2);
-        }
-
-        @Test
-        void nullFields_roundTripAsNull() throws IOException {
-            var key = new CriterionKey(ExclusionKind.REFERENCE_NOT_FOUND, null, null, null);
-            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 5, 4,
-                    List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
-
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
-
-            CriterionKey loaded = data.batches().get(0).criteria().get(0).key();
-            assertThat(loaded.id()).isNull();
-            assertThat(loaded.groupRef()).isNull();
-            assertThat(loaded.attributeRef()).isNull();
-        }
-
-        @Test
-        void commaInIdField_escapedAndRoundTrips() throws IOException {
-            var key = new CriterionKey(ExclusionKind.CONSENT, "a,b", null, null);
-            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 1, 0,
-                    List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
-
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
-
-            assertThat(data.batches().get(0).criteria().get(0).key().id()).isEqualTo("a,b");
         }
     }
 
@@ -112,9 +59,9 @@ class DiagnosticsCsvRoundTripTest {
             var stages = Map.of(
                     PipelineStage.DIRECT_LOAD, new StageCounts(1000, 50),
                     PipelineStage.CASCADING_DELETE, new StageCounts(2000, 30));
-            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 10, 10, List.of(), stages);
+            var diag = new BatchDiagnostics(JOB_ID, BATCH_A, 10, 10, stages);
 
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
+            MetricsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(diag), 0);
 
             Map<PipelineStage, StageCounts> loaded = data.batches().get(0).stages();
             assertThat(loaded).containsKey(PipelineStage.DIRECT_LOAD);
@@ -129,13 +76,10 @@ class DiagnosticsCsvRoundTripTest {
 
         @Test
         void twoBatches_keptSeparate() throws IOException {
-            var key = new CriterionKey(ExclusionKind.CONSENT, "c", null, null);
-            var batchA = new BatchDiagnostics(JOB_ID, BATCH_A, 5, 4,
-                    List.of(new CriterionEntry(key, new CriterionCounts(1, 0))));
-            var batchB = new BatchDiagnostics(JOB_ID, BATCH_B, 3, 3,
-                    List.of(new CriterionEntry(key, new CriterionCounts(0, 2))));
+            var batchA = new BatchDiagnostics(JOB_ID, BATCH_A, 5, 4, Map.of());
+            var batchB = new BatchDiagnostics(JOB_ID, BATCH_B, 3, 3, Map.of());
 
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(batchA, batchB), 0);
+            MetricsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(batchA, batchB), 0);
 
             assertThat(data.batches()).hasSize(2);
         }
@@ -146,13 +90,13 @@ class DiagnosticsCsvRoundTripTest {
 
         @Test
         void cohortDurationRoundTrips() throws IOException {
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(), 5000);
+            MetricsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(), 5000);
             assertThat(data.cohortQueryDurationMs()).isEqualTo(5000);
         }
 
         @Test
         void zeroCohortDuration_returnedAsZero() throws IOException {
-            DiagnosticsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(), 0);
+            MetricsCsvReader.CsvData data = roundTrip(JOB_ID, List.of(), 0);
             assertThat(data.cohortQueryDurationMs()).isZero();
         }
     }
@@ -162,94 +106,200 @@ class DiagnosticsCsvRoundTripTest {
 
         @Test
         void coreRow_roundTrips() throws IOException {
-            var key = new CriterionKey(ExclusionKind.MUST_HAVE, "Obs.code", "grp-core", null);
-            var diag = new BatchDiagnostics(JOB_ID, JOB_ID, 0, 0,
-                    List.of(new CriterionEntry(key, new CriterionCounts(0, 3))));
+            var diag = new BatchDiagnostics(JOB_ID, JOB_ID, 0, 0, Map.of());
 
             StringWriter sw = new StringWriter();
             try (BufferedWriter bw = new BufferedWriter(sw)) {
-                bw.write(DiagnosticsCsvWriter.HEADER);
+                bw.write(MetricsCsvWriter.HEADER);
                 bw.newLine();
-                DiagnosticsCsvWriter.writeCore(bw, diag);
+                MetricsCsvWriter.writeCore(bw, diag);
             }
-            DiagnosticsCsvReader.CsvData data = DiagnosticsCsvReader.readAll(JOB_ID, sw.toString().lines());
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, sw.toString().lines());
 
             assertThat(data.batches()).hasSize(1);
             BatchDiagnostics loaded = data.batches().get(0);
             assertThat(loaded.batchId()).isEqualTo(JOB_ID);
             assertThat(loaded.cohortPatientsInBatch()).isZero();
             assertThat(loaded.finalPatientsInBatch()).isZero();
-            assertThat(loaded.criteria()).hasSize(1);
-            assertThat(loaded.criteria().get(0).counts().resourcesExcluded()).isEqualTo(3);
         }
 
         @Test
         void coreRowAppearsAlongsideBatchRows() throws IOException {
-            var batchDiag = new BatchDiagnostics(JOB_ID, BATCH_A, 5, 4, List.of());
-            var coreDiag = new BatchDiagnostics(JOB_ID, JOB_ID, 0, 0, List.of());
+            var batchDiag = new BatchDiagnostics(JOB_ID, BATCH_A, 5, 4, Map.of());
+            var coreDiag = new BatchDiagnostics(JOB_ID, JOB_ID, 0, 0, Map.of());
 
             StringWriter sw = new StringWriter();
             try (BufferedWriter bw = new BufferedWriter(sw)) {
-                bw.write(DiagnosticsCsvWriter.HEADER);
+                bw.write(MetricsCsvWriter.HEADER);
                 bw.newLine();
-                DiagnosticsCsvWriter.writeBatch(bw, batchDiag);
-                DiagnosticsCsvWriter.writeCore(bw, coreDiag);
+                MetricsCsvWriter.writeBatch(bw, batchDiag);
+                MetricsCsvWriter.writeCore(bw, coreDiag);
             }
-            DiagnosticsCsvReader.CsvData data = DiagnosticsCsvReader.readAll(JOB_ID, sw.toString().lines());
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, sw.toString().lines());
 
             assertThat(data.batches()).hasSize(2);
         }
     }
 
     @Nested
-    class EscapeLogic {
+    class MalformedMetricsRows {
 
         @Test
-        void plainValue_notQuoted() {
-            assertThat(DiagnosticsCsvWriter.escape("hello")).isEqualTo("hello");
+        void unknownRowType_isIgnored() {
+            String csv = MetricsCsvWriter.HEADER + "\nunknown_type,id,0,0,,,,\n";
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, csv.lines());
+            assertThat(data.batches()).isEmpty();
+            assertThat(data.cohortQueryDurationMs()).isZero();
         }
 
         @Test
-        void valueWithComma_quoted() {
-            assertThat(DiagnosticsCsvWriter.escape("a,b")).isEqualTo("\"a,b\"");
+        void batchRowWithMalformedUuid_isSkipped() {
+            String csv = MetricsCsvWriter.HEADER + "\nbatch,not-a-uuid,10,8,,,,\n";
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, csv.lines());
+            assertThat(data.batches()).isEmpty();
         }
 
         @Test
-        void valueWithQuote_doubled() {
-            assertThat(DiagnosticsCsvWriter.escape("say \"hi\"")).isEqualTo("\"say \"\"hi\"\"\"");
+        void stageRowWithUnknownStageName_isSkipped() {
+            String csv = MetricsCsvWriter.HEADER + "\nstage," + BATCH_A + ",,,100,UNKNOWN_STAGE,50,\n";
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, csv.lines());
+            assertThat(data.batches()).isEmpty();
         }
 
         @Test
-        void emptyValue_notQuoted() {
-            assertThat(DiagnosticsCsvWriter.escape("")).isEqualTo("");
+        void emptyFirstColumn_isIgnored() {
+            String csv = MetricsCsvWriter.HEADER + "\n,batch,10,8,,,\n";
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(JOB_ID, csv.lines());
+            assertThat(data.batches()).isEmpty();
         }
     }
 
     @Nested
-    class ParseLine {
+    class ExclusionCsvRoundTrip {
+
+        @Test
+        void plainValue_notQuoted() {
+            assertThat(ExclusionCsvWriter.escape("hello")).isEqualTo("hello");
+        }
+
+        @Test
+        void valueWithComma_quoted() {
+            assertThat(ExclusionCsvWriter.escape("a,b")).isEqualTo("\"a,b\"");
+        }
+
+        @Test
+        void valueWithQuote_doubled() {
+            assertThat(ExclusionCsvWriter.escape("say \"hi\"")).isEqualTo("\"say \"\"hi\"\"\"");
+        }
+
+        @Test
+        void emptyValue_notQuoted() {
+            assertThat(ExclusionCsvWriter.escape("")).isEqualTo("");
+        }
 
         @Test
         void simpleFields() {
-            String[] cols = DiagnosticsCsvReader.parseLine("a,b,c");
+            String[] cols = ExclusionCsvReader.parseLine("a,b,c");
             assertThat(cols).containsExactly("a", "b", "c");
         }
 
         @Test
         void quotedFieldWithComma() {
-            String[] cols = DiagnosticsCsvReader.parseLine("a,\"x,y\",c");
+            String[] cols = ExclusionCsvReader.parseLine("a,\"x,y\",c");
             assertThat(cols).containsExactly("a", "x,y", "c");
         }
 
         @Test
         void emptyFields() {
-            String[] cols = DiagnosticsCsvReader.parseLine("a,,c");
+            String[] cols = ExclusionCsvReader.parseLine("a,,c");
             assertThat(cols).containsExactly("a", "", "c");
         }
 
         @Test
         void headerLineParsesToExpectedColumnCount() {
-            String[] cols = DiagnosticsCsvReader.parseLine(DiagnosticsCsvWriter.HEADER);
-            assertThat(cols).hasSize(15);
+            String[] cols = ExclusionCsvReader.parseLine(ExclusionCsvWriter.HEADER);
+            assertThat(cols).hasSize(5);
+        }
+
+        @Test
+        void nullValue_returnsEmpty() {
+            assertThat(ExclusionCsvWriter.escape(null)).isEqualTo("");
+        }
+
+        @Test
+        void quotedFieldContainingDoubleQuote() {
+            String[] cols = ExclusionCsvReader.parseLine("a,\"say \"\"hi\"\"\",c");
+            assertThat(cols).containsExactly("a", "say \"hi\"", "c");
+        }
+
+        @Test
+        void trailingComma_producesEmptyLastField() {
+            String[] cols = ExclusionCsvReader.parseLine("a,b,");
+            assertThat(cols).containsExactly("a", "b", "");
+        }
+
+        @Test
+        void readAll_skipsRowWithTooFewColumns() {
+            String csv = ExclusionCsvWriter.HEADER + "\np1,CONSENT";
+            assertThat(ExclusionCsvReader.readAll(csv.lines())).isEmpty();
+        }
+
+        @Test
+        void readAll_skipsRowWithEmptyReasonColumn() {
+            String csv = ExclusionCsvWriter.HEADER + "\np1,,grp,,";
+            assertThat(ExclusionCsvReader.readAll(csv.lines())).isEmpty();
+        }
+
+        @Test
+        void readAll_skipsRowWithUnrecognizedReason() {
+            String csv = ExclusionCsvWriter.HEADER + "\np1,UNKNOWN_REASON,grp,,";
+            assertThat(ExclusionCsvReader.readAll(csv.lines())).isEmpty();
+        }
+
+        @Test
+        void exclusionRecord_roundTrips() throws IOException {
+            var records = List.of(
+                    new ExclusionRecord("p1", ExclusionKind.CONSENT, "grp-1", null, null),
+                    new ExclusionRecord("p2", ExclusionKind.MUST_HAVE_RESOURCE, "grp-2", null, "attr;ref"),
+                    new ExclusionRecord(null, ExclusionKind.REFERENCE_NOT_FOUND, null, "Observation/obs-1", null)
+            );
+
+            StringWriter sw = new StringWriter();
+            try (BufferedWriter bw = new BufferedWriter(sw)) {
+                bw.write(ExclusionCsvWriter.HEADER);
+                bw.newLine();
+                ExclusionCsvWriter.write(bw, records);
+            }
+
+            List<ExclusionRecord> loaded = ExclusionCsvReader.readAll(sw.toString().lines());
+
+            assertThat(loaded).hasSize(3);
+            assertThat(loaded.get(0).patientId()).isEqualTo("p1");
+            assertThat(loaded.get(0).reason()).isEqualTo(ExclusionKind.CONSENT);
+            assertThat(loaded.get(0).groupRef()).isEqualTo("grp-1");
+            assertThat(loaded.get(0).resourceId()).isNull();
+            assertThat(loaded.get(1).patientId()).isEqualTo("p2");
+            assertThat(loaded.get(1).reason()).isEqualTo(ExclusionKind.MUST_HAVE_RESOURCE);
+            assertThat(loaded.get(1).attributeRef()).isEqualTo("attr;ref");
+            assertThat(loaded.get(2).patientId()).isNull();
+            assertThat(loaded.get(2).resourceId()).isEqualTo("Observation/obs-1");
+        }
+
+        @Test
+        void valueWithNewline_quoted() {
+            assertThat(ExclusionCsvWriter.escape("line1\nline2")).isEqualTo("\"line1\nline2\"");
+        }
+
+        @Test
+        void quotedFieldAtEndOfLine_noCommaAfterClosingQuote() {
+            String[] cols = ExclusionCsvReader.parseLine("a,\"val\"");
+            assertThat(cols).containsExactly("a", "val", "");
+        }
+
+        @Test
+        void emptyInput_returnsSingleEmptyField() {
+            String[] cols = ExclusionCsvReader.parseLine("");
+            assertThat(cols).containsExactly("");
         }
     }
 }

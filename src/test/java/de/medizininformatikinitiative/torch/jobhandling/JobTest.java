@@ -57,6 +57,7 @@ public class JobTest {
                 state.finishNow(WorkUnitStatus.FINISHED),
                 Optional.empty(),
                 Optional.empty(),
+                List.of(),
                 List.of()
         );
     }
@@ -1027,6 +1028,26 @@ public class JobTest {
             assertThatThrownBy(job::resume)
                     .isInstanceOf(StateConflictException.class)
                     .hasMessageContaining(job.status().display());
+        }
+    }
+
+    @Nested
+    class NullExclusionsDefaultTests {
+
+        @Test
+        void batchResult_withNullExclusions_defaultsToEmptyList() {
+            UUID jobId = UUID.randomUUID();
+            BatchState init = BatchState.init();
+            BatchState state = init.finishNow(WorkUnitStatus.FINISHED);
+            var result = new BatchResult(jobId, init.batchId(), state, Optional.empty(), Optional.empty(), null, List.of());
+            assertThat(result.exclusions()).isEmpty();
+        }
+
+        @Test
+        void coreResult_withNullExclusions_defaultsToEmptyList() {
+            UUID jobId = UUID.randomUUID();
+            var result = new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED, Optional.empty(), null);
+            assertThat(result.exclusions()).isEmpty();
         }
     }
 }
