@@ -28,16 +28,15 @@ request.
 
 ```mermaid
 flowchart TD
-	Start[Start Core Attribute Processing] --> Load[Load all core resources in single FHIR search request]
+	Start[Start Core Attribute Processing] --> Load["Load all core resources<br/>in single FHIR search request"]
 	Load --> Profile[Profile check on resources]
 	Profile --> MustHave[Must-have check on resources]
 	MustHave --> Check{Any must-have condition violated?}
 	Check -->|yes| Stop[Stop extraction for job]
-    Check -->|no| Global[At least one resource fulfills must-have condition]
+    Check -->|no| Global["At least one resource<br/>fulfills must-have condition"]
 	Global --> Complete[Core processing complete]
-	style Stop fill: #ffcccc
-	style Complete fill: #ccffcc
-    style CoreWorkflow fill: #e1f5fe
+	class Stop errorNode
+	class Complete successNode
 ```
 
 ## 2. Directly Loaded Patient Attribute Groups
@@ -47,9 +46,8 @@ Patient attribute groups are loaded and processed for each patient.
 All resources from a patient attribute group are loaded and processed in a single fhir search request
 and then assigned to their patient.
 
-- First the consent is checked for each of the loaded resources and only resources that pass the consent check are processed further.
-    - When **no consent** key is defined, all resources are considered to be consenting by
-      default.
+- Each loaded resource is filtered against the patient's consent window; only resources within the consent period are processed further.
+    - When no consent codes are present in the cohort definition, all resources are considered consented by default.
 - A profile and must-have check is done on every resource.
 
 - If after the group processing a must-have condition is violated, the respective patient is marked for deletion. Once all patients are processed,
@@ -57,29 +55,28 @@ and then assigned to their patient.
 
 ```mermaid
 flowchart TD
-	Start[Start Patient Attribute Processing] --> ForEach[For each patient]
-	ForEach --> Load[Load patient resources in single FHIR search request]
+	Start[Start Patient Attribute Processing] --> ForEach[For each group]
+	ForEach --> Load["Load patient resources<br/>in single FHIR search request"]
 	Load --> Assign[Assign resources to patient]
-	Assign --> Consent[Consent check on patient resources]
-	Consent --> ConsentKey{Consent key defined?}
-	ConsentKey -->|no| AllConsent[All resources considered consenting by default]
-	ConsentKey -->|yes| OnlyConsent[Process only consenting resources]
-	AllConsent --> ProfileCheck[Profile and must-have check on every resource]
+	Assign --> Consent["Filter resources against<br/>patient consent window"]
+	Consent --> ConsentCodes{Consent codes in cohort definition?}
+	ConsentCodes -->|no| AllConsent["All resources considered<br/>consented by default"]
+	ConsentCodes -->|yes| OnlyConsent["Only resources within<br/>consent window are processed"]
+	AllConsent --> ProfileCheck["Profile and must-have<br/>check on every resource"]
 	OnlyConsent --> ProfileCheck
-    ProfileCheck --> MustHaveViolated{Group processing violated must-have condition?}
+    ProfileCheck --> MustHaveViolated{"Group processing violated<br/>must-have condition?"}
 	MustHaveViolated -->|yes| MarkDelete[Mark patient for deletion]
 	MustHaveViolated -->|no| PatientComplete[Patient processing complete]
 	MarkDelete --> MorePatients{More patients to process?}
 	PatientComplete --> MorePatients
 	MorePatients -->|yes| ForEach
-	MorePatients -->|no| DeleteMarked[Delete marked patient resources from batch]
+	MorePatients -->|no| DeleteMarked["Delete marked patient<br/>resources from batch"]
 	DeleteMarked --> AnyLeft{Any patients left in batch?}
 	AnyLeft -->|no| DeleteBatch[Delete entire batch]
 	AnyLeft -->|yes| BatchComplete[Batch processing complete]
-	style MarkDelete fill: #ffeeaa
-	style DeleteBatch fill: #ffcccc
-	style BatchComplete fill: #ccffcc
-    style PatientWorkflow fill: #f3e5f5
+	class MarkDelete warnNode
+	class DeleteBatch errorNode
+	class BatchComplete successNode
 ```
 
 

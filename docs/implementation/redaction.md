@@ -89,7 +89,7 @@ removing any unnecessary or disallowed data while preserving essential reference
 ```mermaid
 flowchart TD
 	A[FHIR Resource + Profiles] --> B[Profile Association]
-    B --> C[Multiple Profiles per Resource Supported]
+    B --> C["Multiple Profiles per<br/>Resource Supported"]
     C --> D[Recursive Element Walk]
     D --> E[Element Evaluation]
     E --> F[Handle Slicing]
@@ -117,12 +117,9 @@ flowchart TD
     W -->|Yes| D
 	W -->|No| X[Redacted Resource]
     X --> Y[Strict Profile Adherence Achieved]
-    style A fill: #e1f5fe
-    style B fill: #f3e5f5
-    style G fill: #fff3e0
-    style I fill: #fff3e0
-    style Q fill: #ffcdd2
-    style T fill: #fff3e0
-    style U fill: #ffcdd2
-    style Y fill: #c8e6c9
+    class A infoNode
+    class B assocNode
+    class G,I,T sliceNode
+    class Q,U errorNode
+    class Y successNode
 ```

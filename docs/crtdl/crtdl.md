@@ -33,8 +33,56 @@ Alternatively you can specify a list of patient IDs which TORCH will use to extr
 The cohort evaluation strategy can be set using the TORCH_USE_CQL setting in
 the [enviroment variables](./../configuration.md#environment-variables).
 
-Torch uses the [Consent Key](consent-key.md) to enforce consent rules during the cohort selection and data extraction
-process.
+Consent rules are embedded directly in the cohort definition as inclusion criteria entries with `context.code = "Einwilligung"`. When consent codes are present, TORCH filters resources against each patient's consent window during direct load and reference resolution — resources outside the window are excluded. See [Consent Handling](../implementation/consent.md) for the full evaluation logic.
+
+#### Consent Codes in the Cohort Definition
+
+Each consent code is a MII OID provision code listed under a `context.code = "Einwilligung"` criterion in `inclusionCriteria`. The two required codes for FDPG Zentrale Analyse — `MDAT wissenschaftlich nutzen` (`.8`, validity gate) and `MDAT erheben` (`.6`, data-extraction window) — must both be present:
+
+```json
+{
+  "inclusionCriteria": [
+    [
+      {
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        },
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ]
+      }
+    ],
+    [
+      {
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        },
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+            "display": "MDAT erheben",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ]
+      }
+    ]
+  ]
+}
+```
+
+If no `Einwilligung` entries are present, TORCH skips consent enforcement entirely and treats all resources as consented.
 
 ---
 ### Data Extraction Selection

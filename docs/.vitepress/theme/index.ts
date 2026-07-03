@@ -2,6 +2,7 @@ import DefaultTheme, {VPBadge} from 'vitepress/theme'
 import type {Theme} from 'vitepress'
 
 import 'vitepress-openapi/dist/style.css'
+import './mermaid-nodes.css'
 
 export default {
     extends: DefaultTheme,
