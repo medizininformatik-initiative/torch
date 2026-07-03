@@ -1,6 +1,6 @@
 services:
   torch-data-store:
-    image: samply/blaze:1.10.0@sha256:4d6e55b357c71886b6e9baed6a8ed5ec1918f6ceee4e4f950659f223e69b92c9
+    image: samply/blaze:1.10.1@sha256:dcc951be40714a4eee5f78db08b90a5a9ea9d4a172f716bdb419f5c1a2feebc6
     environment:
       BASE_URL: ${TORCH_DATA_STORE_BASE_URL:-http://torch-data-store:8080}
       JAVA_TOOL_OPTIONS: "-Xmx2g"
