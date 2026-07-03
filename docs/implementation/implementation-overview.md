@@ -26,7 +26,7 @@ flowchart TD
     B -->|no| C[Error]
     B -->|yes| D{cohort given as parameter?}
     D -->|no| E[Execute Cohort Selection CCDL]
-    D -->|yes| F[Handle directly loaded Core Attribute Groups]
+    D -->|yes| F["Handle directly loaded<br/>Core Attribute Groups"]
     E --> G{Which method?}
     G --> H[CQL]
     G --> I[Flare]
@@ -35,9 +35,9 @@ flowchart TD
     J --> F
     F --> K[Resolve References]
     K --> L[Cascading Delete]
-    L --> M[Initialize patient batch with preprocessed core data]
+    L --> M["Initialize patient batch<br/>with preprocessed core data"]
     M --> N[Fetch and build batch consent]
-    N --> O[Handle directly loaded Patient Attribute Groups]
+    N --> O["Handle directly loaded<br/>Patient Attribute Groups"]
     O --> P[Resolve References]
     P --> Q[Cascading Delete]
     Q --> R[Extraction]
@@ -50,6 +50,6 @@ flowchart TD
     W --> X[Cascading Delete]
     X --> Y[Extraction]
     Y --> T
-    style C fill: #ffcccc
-    style U fill: #ccffcc
+    class C errorNode
+    class U successNode
 ```

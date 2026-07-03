@@ -60,8 +60,7 @@ export default withMermaid({
                     {
                         text: 'CRTDL', link: '/crtdl/crtdl',
                         items: [
-                            {text: 'Filter', link: '/crtdl/filter'},
-                            {text: 'Consent Key', link: '/crtdl/consent-key'}
+                            {text: 'Filter', link: '/crtdl/filter'}
                         ]
 
                     },

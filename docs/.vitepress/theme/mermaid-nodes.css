@@ -1,0 +1,33 @@
+/* Theme-aware colors for semantic mermaid flowchart nodes (tagged via `class <node> <name>`
+   in the diagram source instead of a hardcoded `style` directive, so they can adapt to
+   VitePress's html.dark toggle the same way the drawio SVG diagrams do). */
+
+.mermaid .errorNode > * { fill: #ffcccc !important; }
+.mermaid .errorNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .errorNode > * { fill: #4d1f1f !important; }
+html.dark .mermaid .errorNode .nodeLabel { color: #ffd9d9 !important; }
+
+.mermaid .successNode > * { fill: #ccffcc !important; }
+.mermaid .successNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .successNode > * { fill: #1f4d1f !important; }
+html.dark .mermaid .successNode .nodeLabel { color: #d9ffd9 !important; }
+
+.mermaid .warnNode > * { fill: #ffeeaa !important; }
+.mermaid .warnNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .warnNode > * { fill: #4d3d14 !important; }
+html.dark .mermaid .warnNode .nodeLabel { color: #ffe9b3 !important; }
+
+.mermaid .sliceNode > * { fill: #fff3e0 !important; }
+.mermaid .sliceNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .sliceNode > * { fill: #40331f !important; }
+html.dark .mermaid .sliceNode .nodeLabel { color: #f0dcc0 !important; }
+
+.mermaid .infoNode > * { fill: #e1f5fe !important; }
+.mermaid .infoNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .infoNode > * { fill: #163a4d !important; }
+html.dark .mermaid .infoNode .nodeLabel { color: #cdeeff !important; }
+
+.mermaid .assocNode > * { fill: #f3e5f5 !important; }
+.mermaid .assocNode .nodeLabel { color: #000 !important; }
+html.dark .mermaid .assocNode > * { fill: #3d2a41 !important; }
+html.dark .mermaid .assocNode .nodeLabel { color: #eccfee !important; }
