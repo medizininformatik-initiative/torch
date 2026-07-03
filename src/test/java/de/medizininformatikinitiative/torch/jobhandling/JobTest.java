@@ -793,6 +793,25 @@ public class JobTest {
         }
 
         @Test
+        void cohortSuccessPreservesVersion() {
+            UUID batchId = UUID.randomUUID();
+
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_GET_COHORT)
+                    .withCohortState(WorkUnitState.startNow())
+                    .incrementVersion()
+                    .incrementVersion()
+                    .incrementVersion();
+
+            Job updated = job.onCohortSuccess(
+                    java.util.Map.of(batchId, new BatchState(batchId, WorkUnitState.initNow())),
+                    1
+            );
+
+            assertThat(updated.version()).isEqualTo(job.version());
+        }
+
+        @Test
         void cohortSuccessEmptySkipsToCore() {
             Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
                     .withStatus(JobStatus.RUNNING_GET_COHORT)

@@ -549,7 +549,7 @@ public record Job(
                 parameters,
                 priority,
                 coreState,
-                0L
+                version
         );
     }
 
