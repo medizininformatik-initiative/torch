@@ -91,6 +91,9 @@
         <mxCell id="note2" value="Only retro modifier denies (.45/.46 deny) can reduce the retro-extended period — prospective denies (.6 deny) cannot." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;" parent="1" vertex="1">
           <mxGeometry x="10" y="600" width="780" height="16" as="geometry" />
         </mxCell>
+        <mxCell id="note3" value=".45/.46 only have this effect if explicitly requested alongside .6 in the CRTDL cohort definition — otherwise they are not evaluated at all." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;fontSize=11;fontStyle=2" parent="1" vertex="1">
+          <mxGeometry x="10" y="620" width="780" height="16" as="geometry" />
+        </mxCell>
       </root>
     </mxGraphModel>
   </diagram>

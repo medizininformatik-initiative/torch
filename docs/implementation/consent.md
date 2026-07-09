@@ -3,7 +3,7 @@
 TORCH implements **privacy-aware consent handling** to ensure that the extracted data strictly complies with patient
 permissions and applicable regulations.
 
-> **v1.0.0-beta.1 — FDPG-Project consent scope clarified**
+> **since v1.0.0-beta.1 — FDPG-Project consent scope clarified**
 >
 > As of this release, TORCH exclusively evaluates the two MII consent provision codes required for
 > FDPG "Zentrale Analyse" (centralised data extraction for researchers):
@@ -25,9 +25,11 @@ permissions and applicable regulations.
 
 - TORCH supports the [FHIR Consent](https://www.hl7.org/fhir/consent.html) resource as the canonical way to represent
   patient consent.
-- The MII broad consent model typically represents a signing event as a FHIR Consent resource, with each consented
-  policy code encoded as a sibling provision nested inside a single top-level deny provision. Sites may produce
-  multiple Consent resources per signing event.
+- The MII broad consent model encodes each consented policy code as a sibling provision nested inside a single
+  top-level deny provision. TORCH does not assume what real-world event a given Consent resource represents (an
+  initial signing, a revocation, a recalculated consent, etc.) — it reads the permit and deny provisions directly
+  and calculates the effective consent periods from them. A patient may have multiple Consent resources, each
+  contributing its own provisions.
 - Consent records define:
     - **Who** has granted consent
     - **What** data may be accessed
@@ -61,6 +63,8 @@ Each entry in the config describes a **prospective code** with:
 | MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU | `2.16.840.1.113883.3.1937.777.24.5.3.46`  | Retrospective modifier for `.6` (optional)    |
 
 `.8` and `.6` are declared as mutually required — both must appear together in the CRTDL cohort definition.
+The retrospective modifiers `.45` and `.46` are optional and only take effect if they are also explicitly included
+in the CRTDL cohort definition — being listed in `consent-code-config.json` is not sufficient on its own.
 Codes not listed in `consent-code-config.json` are silently ignored.
 
 ---
@@ -80,10 +84,12 @@ Before any data extraction:
 4. **Fetch from FHIR** — **Active** Consent resources are fetched for the supported codes, plus any retro modifier codes
    that were explicitly requested in the CRTDL.
 5. **Adjust by Encounter** — for data-period codes (non-gate codes, i.e. `.6`), the start of each permitted provision
-   is shifted to the start of the earliest overlapping Encounter if that Encounter start is earlier. Gate codes
-   (`.8`) are never encounter-adjusted by design.
-6. **Apply retrospective modifiers** — within each Consent resource independently: if a permitted `.6` provision
-   overlaps in time with a permitted retro modifier provision (`.45`/`.46`) **in the same resource**, the `.6`
+   is shifted to the start of the earliest overlapping Encounter if that Encounter start is earlier. Encounters
+   without both a start and end date are ignored i.e. an open-ended (ongoing) encounter cannot anchor the shift. Gate
+   codes (`.8`) are never encounter-adjusted by design.
+6. **Apply retrospective modifiers** — only for modifier codes (`.45`/`.46`) explicitly requested in the CRTDL
+   cohort definition (see step 4). Within each Consent resource independently: if a permitted `.6` provision
+   overlaps in time with a permitted retro modifier provision **in the same resource**, the `.6`
    provision's start is shifted to `1900-01-01`. Retro modifier denies (`.45`/`.46` deny) in the same resource
    subtract from the retro-extended period before it is recorded. Modifiers and their denies from a different
    Consent resource have no effect.
@@ -106,14 +112,14 @@ The diagram below shows two patients — **MII BC1** (encounter adjustment appli
 <img src="../drawio/consent/consent_encounter.svg" class="diagram-light" alt="Consent timeline showing encounter-based start adjustment">
 <img src="../drawio/consent/consent_encounter_dark.svg" class="diagram-dark" alt="Consent timeline showing encounter-based start adjustment">
 
-In BC1, the `.6` window is extended back to the start of the overlapping encounter (ENC 1), making additional
-historical resources (R9–R11) eligible for extraction compared to BC2 where the window starts at `bcStart`.
+In BC1, the `.6` window is extended back to the start of the overlapping encounter (ENC 1), making an additional
+historical resource (R3) eligible for extraction compared to BC2 where the window starts at `bcStart`.
 
 ---
 
 ## 4. Validity Gate vs. Data-Extraction Window
 
-`.8` (MDAT wissenschaftlich nutzen) and `.6` (MDAT erheben) play distinct roles:
+`.8` (MDAT wissenschaftlich nutzen EU DSGVO NIVEAU) and `.6` (MDAT erheben) play distinct roles:
 
 | Code | Role             | What it controls                                                          |
 |------|------------------|---------------------------------------------------------------------------|
@@ -122,6 +128,10 @@ historical resources (R9–R11) eligible for extraction compared to BC2 where th
 
 Both must be present in the CRTDL. If `.8` fails the gate check (e.g. the patient's consent has expired) the
 patient is excluded entirely — `.6` is not evaluated.
+
+Both codes' periods are taken at face value from the Consent resource — TORCH does not derive or validate them.
+For the MII broad consent, `.8` is expected to span the signing day to signing day + 30 years, and `.6` the
+signing day to signing day + 5 years.
 
 ---
 
@@ -218,6 +228,86 @@ Consent codes are embedded in the `cohortDefinition` as inclusion criteria entri
             "version": "1.0.7"
           }
         ]
+      }
+    ]
+  ]
+}
+```
+
+To additionally request the retrospective modifiers `.45`/`.46` for a patient, include them alongside `.6` in the
+cohort definition. TORCH ignores the Boolean grouping of inclusion criteria (see pipeline step 1) and only extracts
+the individual codes present — the retro modifiers only take effect when included like this in the CRTDL (see
+sections 2 and 5):
+
+```json
+{
+  "inclusionCriteria": [
+    [
+      {
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8",
+            "display": "MDAT wissenschaftlich nutzen EU DSGVO NIVEAU",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ],
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        }
+      }
+    ],
+    [
+      {
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6",
+            "display": "MDAT erheben",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ],
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.46",
+            "display": "MDAT retrospektiv wissenschaftlich nutzen EU DSGVO NIVEAU",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ],
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        }
+      },
+      {
+        "termCodes": [
+          {
+            "code": "2.16.840.1.113883.3.1937.777.24.5.3.45",
+            "display": "MDAT retrospektiv speichern verarbeiten",
+            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+            "version": "1.0.7"
+          }
+        ],
+        "context": {
+          "code": "Einwilligung",
+          "display": "Einwilligung",
+          "system": "fdpg.mii.cds",
+          "version": "1.0.0"
+        }
       }
     ]
   ]
