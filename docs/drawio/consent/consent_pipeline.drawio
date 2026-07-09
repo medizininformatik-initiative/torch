@@ -22,26 +22,26 @@
         <mxCell id="s4" value="4. Encounter adjustment&amp;#xa;(shift .6 start to earliest overlapping Encounter)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
           <mxGeometry x="190" y="356" width="340" height="56" as="geometry" />
         </mxCell>
-        <mxCell id="s5" value="5. Apply retro modifiers per resource&amp;#xa;(.45/.46: extend .6 start to 1900-01-01)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-          <mxGeometry x="190" y="436" width="340" height="56" as="geometry" />
+        <mxCell id="s5" value="5. Apply retro modifiers per resource&amp;#xa;(.45/.46 only if requested in CRTDL)&amp;#xa;shifts .6 start to 1900-01-01" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
+          <mxGeometry x="190" y="436" width="340" height="72" as="geometry" />
         </mxCell>
         <mxCell id="s6" value="6. Merge permits (full-package only)&amp;#xa;&amp;amp; subtract global denies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-          <mxGeometry x="190" y="516" width="340" height="56" as="geometry" />
+          <mxGeometry x="190" y="532" width="340" height="56" as="geometry" />
         </mxCell>
         <mxCell id="s7" value="7. Gate check (.8):&amp;#xa;today within permit period?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" parent="1" vertex="1">
-          <mxGeometry x="230" y="606" width="260" height="72" as="geometry" />
+          <mxGeometry x="230" y="622" width="260" height="72" as="geometry" />
         </mxCell>
         <mxCell id="err7" value="Exclude patient" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" parent="1" vertex="1">
-          <mxGeometry x="540" y="624" width="170" height="36" as="geometry" />
+          <mxGeometry x="540" y="640" width="170" height="36" as="geometry" />
         </mxCell>
         <mxCell id="s8" value="8. Intersect data periods (.6)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-          <mxGeometry x="190" y="716" width="340" height="48" as="geometry" />
+          <mxGeometry x="190" y="732" width="340" height="48" as="geometry" />
         </mxCell>
         <mxCell id="s9" value="9. Enforce during data extraction" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" parent="1" vertex="1">
-          <mxGeometry x="190" y="796" width="340" height="48" as="geometry" />
+          <mxGeometry x="190" y="812" width="340" height="48" as="geometry" />
         </mxCell>
         <mxCell id="s10" value="Patient data-extraction window" style="ellipse;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" parent="1" vertex="1">
-          <mxGeometry x="200" y="876" width="320" height="44" as="geometry" />
+          <mxGeometry x="200" y="892" width="320" height="44" as="geometry" />
         </mxCell>
         <mxCell id="e01" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" parent="1" source="s0" target="s1" edge="1">
           <mxGeometry relative="1" as="geometry" />

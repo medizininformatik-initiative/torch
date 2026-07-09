@@ -25,8 +25,8 @@
         <mxCell id="bc1_e0" value="ENC 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
           <mxGeometry x="66" y="152" width="42" height="16" as="geometry" />
         </mxCell>
-        <mxCell id="bc1_e1" value="&lt;font&gt;ENC 1/BC ENC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
-          <mxGeometry x="155" y="152" width="90" height="16" as="geometry" />
+        <mxCell id="bc1_e1" value="ENC 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="155" y="152" width="64" height="16" as="geometry" />
         </mxCell>
         <mxCell id="bc1_e2" value="ENC 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
           <mxGeometry x="270" y="152" width="64" height="16" as="geometry" />
@@ -154,14 +154,14 @@
         <mxCell id="bc2_bce" value="bcEnd" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="430" y="408" width="50" height="14" as="geometry" />
         </mxCell>
-        <mxCell id="note1" value="R3–R11 included in BC1 (within encounter-adjusted window) but R3–R4 and R9–R11 excluded in BC2 (outside bcStart window)." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
+        <mxCell id="note1" value="R3 is included in BC1 (encounter-adjusted window) but excluded in BC2 (window starts at bcStart)." style="text;html=1;align=left;verticalAlign=middle;whiteSpace=wrap;rounded=0;" parent="1" vertex="1">
           <mxGeometry x="10" y="434" width="780" height="16" as="geometry" />
         </mxCell>
         <mxCell id="esdCVZMDUop7Pje9OVMV-1" value="ENC 0" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
           <mxGeometry x="66" y="320" width="42" height="16" as="geometry" />
         </mxCell>
-        <mxCell id="esdCVZMDUop7Pje9OVMV-2" value="&lt;font&gt;ENC 1/BC ENC&lt;/font&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
-          <mxGeometry x="155" y="320" width="90" height="16" as="geometry" />
+        <mxCell id="esdCVZMDUop7Pje9OVMV-2" value="ENC 1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
+          <mxGeometry x="155" y="320" width="64" height="16" as="geometry" />
         </mxCell>
         <mxCell id="esdCVZMDUop7Pje9OVMV-3" value="ENC 2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=9;" parent="1" vertex="1">
           <mxGeometry x="270" y="320" width="64" height="16" as="geometry" />
