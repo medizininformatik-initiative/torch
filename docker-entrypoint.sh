@@ -4,11 +4,12 @@ TRUSTSTORE_FILE=${TRUSTSTORE_FILE:-""}
 TRUSTSTORE_PASS=${TRUSTSTORE_PASS:-changeit}
 KEY_PASS=${KEY_PASS:-changeit}
 GENERATED_TRUSTSTORE="/app/truststore/self-signed-truststore.jks"
+LOADER_PATH=${LOADER_PATH:-/app/plugins}
 
 if [ -n "$TRUSTSTORE_FILE" ]; then
 
     echo "# TRUSTSTORE_FILE is set -> starting torch with pre-configured truststore: $TRUSTSTORE_FILE"
-    java -Djavax.net.ssl.trustStore="$TRUSTSTORE_FILE" -Djavax.net.ssl.trustStorePassword="$TRUSTSTORE_PASS" -jar torch.jar
+    java -Djavax.net.ssl.trustStore="$TRUSTSTORE_FILE" -Djavax.net.ssl.trustStorePassword="$TRUSTSTORE_PASS" -Dloader.path="$LOADER_PATH" -cp torch.jar org.springframework.boot.loader.launch.PropertiesLauncher
 
 else
 
@@ -34,11 +35,11 @@ else
 
         done
 
-        java -Djavax.net.ssl.trustStore="$GENERATED_TRUSTSTORE" -Djavax.net.ssl.trustStorePassword="$TRUSTSTORE_PASS" -jar torch.jar
+        java -Djavax.net.ssl.trustStore="$GENERATED_TRUSTSTORE" -Djavax.net.ssl.trustStorePassword="$TRUSTSTORE_PASS" -Dloader.path="$LOADER_PATH" -cp torch.jar org.springframework.boot.loader.launch.PropertiesLauncher
 
     else
         echo "# No CA *.pem cert files found in /app/certs -> starting torch without own CAs"
-        java -jar torch.jar
+        java -Dloader.path="$LOADER_PATH" -cp torch.jar org.springframework.boot.loader.launch.PropertiesLauncher
     fi
 
 fi

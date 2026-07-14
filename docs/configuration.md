@@ -56,6 +56,14 @@ File that maps FHIR Resource Types to their associated time fields used to check
 
 ---
 
+#### `LOADER_PATH` <Badge type="warning" text="Since 1.0.0-beta.6"/>
+
+Directory scanned for additional jars added to the classpath at startup, used to swap the `ConsentEvaluator` implementation (default: MII Broad Consent) without rebuilding TORCH — drop a replacement jar in this directory in place of `torch-consent-mii.jar` and restart. See [Consent extension point](https://github.com/medizininformatik-initiative/torch/blob/main/ARCHITECTURE.md#consent-extension-point-consentevaluator) in `ARCHITECTURE.md`.
+
+**Default:** `/app/plugins`
+
+---
+
 #### `TORCH_FHIR_USER` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
 The username used for authentication with the FHIR server.

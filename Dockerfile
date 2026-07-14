@@ -6,10 +6,15 @@ ENV JAVA_TOOL_OPTIONS="-Xmx4g"
 ENV CERTIFICATE_PATH=/app/certs
 ENV TRUSTSTORE_PATH=/app/truststore
 
-COPY target/torch.jar /app/
-COPY mappings  /app/mappings
-COPY ontology /app/ontology
-COPY search-parameters.json /app/
+COPY torch-app/target/torch.jar /app/
+COPY torch-app/mappings  /app/mappings
+COPY torch-app/ontology /app/ontology
+COPY torch-app/search-parameters.json /app/
+
+# Default consent implementation, packaged as a separate, swappable jar rather than bundled into
+# torch.jar -- replace it in this directory (or point LOADER_PATH elsewhere) to use a different
+# ConsentEvaluator implementation without rebuilding torch-app. See issue #1068.
+COPY torch-consent-mii/target/torch-consent-mii-*.jar /app/plugins/torch-consent-mii.jar
 
 RUN mkdir -p "$CERTIFICATE_PATH" "$TRUSTSTORE_PATH" /app/output \
  && chown -R 1001:1001 /app \

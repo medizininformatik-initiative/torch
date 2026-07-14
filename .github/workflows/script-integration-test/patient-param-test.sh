@@ -5,7 +5,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 echo "➡️ Uploading initial data bundle..."
 
 echo "Root dir: $ROOT_DIR"
-ls "$ROOT_DIR/src/test/resources/BlazeBundle.json"
+ls "$ROOT_DIR/torch-app/src/test/resources/BlazeBundle.json"
 
 
 
@@ -21,7 +21,7 @@ echo "📤 Posting BlazeBundle.json to http://localhost:8083/fhir"
 curl -i -s \
   -X POST "http://localhost:8083/fhir" \
   -H "Content-Type: application/fhir+json" \
-  --data-binary @"$ROOT_DIR/src/test/resources/BlazeBundle.json"
+  --data-binary @"$ROOT_DIR/torch-app/src/test/resources/BlazeBundle.json"
 
 TARGET_SERVER=http://localhost:8084/fhir
 
@@ -30,7 +30,7 @@ echo "➡️ Running extraction and transfer..."
 TORCH_BASE_URL=http://localhost:8080
 
 EXTRACT_SCRIPT="$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh"
-CRTDL="$ROOT_DIR/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json"
+CRTDL="$ROOT_DIR/torch-app/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json"
 
 if [[ -n "${PATIENTS:-}" ]]; then
   echo "👤 Using patients filter: $PATIENTS"

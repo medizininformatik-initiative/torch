@@ -4,14 +4,14 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 SOURCE_SERVER="http://localhost:8083/fhir"
 TARGET_SERVER="http://localhost:8084/fhir"
 COMPOSE_FILE="$ROOT_DIR/.github/workflows/resume-integration-test/docker-compose.yml"
-CRTDL_FILE="$ROOT_DIR/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json"
+CRTDL_FILE="$ROOT_DIR/torch-app/src/test/resources/CRTDL/CRTDL_observation_all_fields_withoutReference.json"
 LOG="/tmp/transfer.log"
 
 # 1. Seed source FHIR server
 echo "➡️ Uploading test data to source FHIR server..."
 curl -s -X POST "$SOURCE_SERVER" \
   -H "Content-Type: application/fhir+json" \
-  --data-binary @"$ROOT_DIR/src/test/resources/BlazeBundle.json" > /dev/null
+  --data-binary @"$ROOT_DIR/torch-app/src/test/resources/BlazeBundle.json" > /dev/null
 
 # 2. Run extraction + transfer script
 echo "➡️ Running extraction and transfer..."
