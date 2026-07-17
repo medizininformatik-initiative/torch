@@ -16,10 +16,10 @@ import java.util.List;
 @Component
 public class ProfileMustHaveChecker {
 
-    private final IFhirPath fhirPathEngine;
+    private final ThreadLocal<IFhirPath> fhirPathEngine;
 
     public ProfileMustHaveChecker(FhirContext ctx) {
-        this.fhirPathEngine = ctx.newFhirPath();
+        this.fhirPathEngine = FhirPathEngines.threadLocal(ctx);
     }
 
     public boolean fulfilled(Resource src, AnnotatedAttributeGroup group) {
@@ -56,7 +56,7 @@ public class ProfileMustHaveChecker {
 
     public Boolean fulfilled(DomainResource src, AnnotatedAttribute attribute) {
         List<Base> elements;
-        elements = fhirPathEngine.evaluate(src, attribute.fhirPath(), Base.class);
+        elements = fhirPathEngine.get().evaluate(src, attribute.fhirPath(), Base.class);
         return !elements.isEmpty();
     }
 }
