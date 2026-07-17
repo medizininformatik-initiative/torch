@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 @Component
 public class ElementCopier {
 
-    private final IFhirPath fhirPathEngine;
+    private final ThreadLocal<IFhirPath> fhirPathEngine;
 
 
     /**
@@ -28,7 +28,7 @@ public class ElementCopier {
      * @param ctx the FHIRContext to use for creating the FhirPathEngine
      */
     public ElementCopier(FhirContext ctx) {
-        this.fhirPathEngine = ctx.newFhirPath();
+        this.fhirPathEngine = FhirPathEngines.threadLocal(ctx);
     }
 
 
@@ -49,7 +49,7 @@ public class ElementCopier {
             for (var child : entry.getValue()) {
 
                 // Evaluate the elements in the source resource for this subpath
-                List<Base> elements = fhirPathEngine.evaluate(src, child.fhirPath(), Base.class);
+                List<Base> elements = fhirPathEngine.get().evaluate(src, child.fhirPath(), Base.class);
                 if (elements.isEmpty()) continue;
 
 

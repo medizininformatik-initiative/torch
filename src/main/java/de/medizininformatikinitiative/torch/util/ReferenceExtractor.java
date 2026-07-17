@@ -23,10 +23,10 @@ import java.util.stream.Stream;
 @Component
 public class ReferenceExtractor {
     private static final Logger logger = LoggerFactory.getLogger(ReferenceExtractor.class);
-    private final IFhirPath fhirPathEngine;
+    private final ThreadLocal<IFhirPath> fhirPathEngine;
 
     public ReferenceExtractor(FhirContext ctx) {
-        this.fhirPathEngine = ctx.newFhirPath();
+        this.fhirPathEngine = FhirPathEngines.threadLocal(ctx);
     }
 
     public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
@@ -70,7 +70,7 @@ public class ReferenceExtractor {
         if (resource == null || annotatedAttribute == null) return List.of();
 
         // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
-        List<Base> elements = fhirPathEngine.evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
+        List<Base> elements = fhirPathEngine.get().evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
 
         List<ExtractionId> references = Optional.ofNullable(elements).orElse(List.of()).stream()
                 .filter(Objects::nonNull)

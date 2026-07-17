@@ -19,6 +19,12 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -456,6 +462,62 @@ class ReferenceExtractorTest {
             assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Error"))
                     .isExactlyInstanceOf(RuntimeException.class)
                     .hasMessage("Unexpected technical error");
+        }
+    }
+
+    @Nested
+    class ConcurrentEvaluation {
+
+        // FHIRPathEngine only appends to its unsynchronized 'log' field when the evaluated
+        // path calls trace(), which is otherwise unused by torch's generated FHIRPaths. Using
+        // it here is what makes the shared-engine race deterministically reproduce.
+        private static final AnnotatedAttribute ATTRIBUTE_TRACE =
+                new AnnotatedAttribute("Condition.subject", "subject.trace('x')", false, List.of());
+
+        @Test
+        void getReferences_underConcurrentLoad_doesNotThrowOrCorruptResults() throws InterruptedException {
+            int threadCount = 16;
+            int iterationsPerThread = 2000;
+
+            ExecutorService pool = Executors.newFixedThreadPool(threadCount);
+            CountDownLatch startLatch = new CountDownLatch(1);
+            AtomicInteger failures = new AtomicInteger();
+
+            List<Future<?>> futures = new java.util.ArrayList<>();
+            for (int t = 0; t < threadCount; t++) {
+                futures.add(pool.submit(() -> {
+                    Condition condition = new Condition();
+                    condition.setId("Condition1");
+                    condition.setSubject(new Reference("Patient/1"));
+                    startLatch.await();
+                    for (int i = 0; i < iterationsPerThread; i++) {
+                        try {
+                            List<ExtractionId> refs = referenceExtractor.getReferences(condition, ATTRIBUTE_TRACE);
+                            if (!refs.equals(List.of(ExtractionId.fromRelativeUrl("Patient/1")))) {
+                                failures.incrementAndGet();
+                            }
+                        } catch (Throwable e) {
+                            failures.incrementAndGet();
+                        }
+                    }
+                    return null;
+                }));
+            }
+
+            startLatch.countDown();
+            for (Future<?> f : futures) {
+                try {
+                    f.get();
+                } catch (Exception e) {
+                    failures.incrementAndGet();
+                }
+            }
+            pool.shutdown();
+            assertThat(pool.awaitTermination(30, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(failures.get())
+                    .as("concurrent evaluate() calls on the shared FHIRPathEngine must neither throw nor return corrupted results")
+                    .isZero();
         }
     }
 
