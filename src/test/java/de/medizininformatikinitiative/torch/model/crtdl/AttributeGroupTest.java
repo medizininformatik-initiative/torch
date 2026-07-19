@@ -28,7 +28,7 @@ class AttributeGroupTest {
         var dateFilter1 = new Filter("date", "dateField1", DATE_START, DATE_END);
         var dateFilter2 = new Filter("date", "dateField2", DATE_START, DATE_END);
 
-        assertThatThrownBy(() -> new AttributeGroup("test", "groupRef", List.of(), List.of(dateFilter1, dateFilter2)))
+        assertThatThrownBy(() -> new AttributeGroup("test", "groupId", List.of(), List.of(dateFilter1, dateFilter2)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("Duplicate date type filter found");
     }
@@ -144,14 +144,14 @@ class AttributeGroupTest {
 
         @Test
         void testTrue() {
-            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", true)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupId", List.of(new Attribute("Patient.name", true)), List.of());
 
             assertThat(attributeGroup.hasMustHave()).isTrue();
         }
 
         @Test
         void testFalse() {
-            var attributeGroup = new AttributeGroup("test", "groupRef", List.of(new Attribute("Patient.name", false)), List.of());
+            var attributeGroup = new AttributeGroup("test", "groupId", List.of(new Attribute("Patient.name", false)), List.of());
 
             assertThat(attributeGroup.hasMustHave()).isFalse();
         }

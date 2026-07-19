@@ -69,13 +69,13 @@ class ProcessCohortWorkUnitTest {
         ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
 
         doThrow(new JobNotFoundException(jobId))
-                .when(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), anyLong());
+                .when(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
 
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
         verifyNoInteractions(cohortQueryService);
-        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), anyLong());
+        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
@@ -95,7 +95,7 @@ class ProcessCohortWorkUnitTest {
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
-        verify(persistence, never()).onCohortSuccess(any(), anyList(), anyLong());
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
     }
 
@@ -112,7 +112,7 @@ class ProcessCohortWorkUnitTest {
 
         verifyNoInteractions(cohortQueryService);
 
-        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), anyLong());
+        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
@@ -130,7 +130,7 @@ class ProcessCohortWorkUnitTest {
                 .doesNotThrowAnyException();
 
         verify(cohortQueryService).runCohortQuery(job.parameters().crtdl());
-        verify(persistence).onCohortSuccess(eq(jobId), eq(ids), anyLong());
+        verify(persistence).onCohortSuccess(eq(jobId), eq(ids));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
@@ -148,7 +148,7 @@ class ProcessCohortWorkUnitTest {
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
-        verify(persistence, never()).onCohortSuccess(any(), anyList(), anyLong());
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
     }
 
@@ -181,6 +181,6 @@ class ProcessCohortWorkUnitTest {
                 .doesNotThrowAnyException();
 
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
-        verify(persistence, never()).onCohortSuccess(any(), anyList(), anyLong());
+        verify(persistence, never()).onCohortSuccess(any(), anyList());
     }
 }

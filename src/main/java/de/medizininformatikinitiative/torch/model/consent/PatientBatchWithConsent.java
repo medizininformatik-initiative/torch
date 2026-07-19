@@ -1,11 +1,15 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -20,51 +24,54 @@ import java.util.stream.Collectors;
  * @param id
  */
 public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, boolean applyConsent,
-                                      ResourceBundle coreBundle, java.util.UUID id) {
+                                      ResourceBundle coreBundle, java.util.UUID id, BatchDiagnostics diagnostics) {
 
     public PatientBatchWithConsent {
         bundles = Map.copyOf(bundles);
         Objects.requireNonNull(coreBundle);
     }
 
-    public PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, UUID id) {
-        this(bundles, false, new ResourceBundle(), id);
+    public PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles, UUID id, BatchDiagnostics diagnostics) {
+        this(bundles, false, new ResourceBundle(), id, diagnostics);
     }
 
     public Boolean isEmpty() {
         return bundles.values().stream().allMatch(PatientResourceBundle::isEmpty);
     }
 
+    public BatchExclusions batchExclusions() {
+        return diagnostics().batchExclusions();
+    }
+
     public static PatientBatchWithConsent fromBatch(PatientBatch batch) {
         return new PatientBatchWithConsent(batch.ids().stream().collect(
-                Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false, new ResourceBundle(), batch.batchId());
+                Collectors.toMap(Function.identity(), PatientResourceBundle::new)), false, new ResourceBundle(), batch.batchId(), batch.diagnostics());
     }
 
     public static PatientBatchWithConsent fromList(List<PatientResourceBundle> batch) {
         return new PatientBatchWithConsent(batch.stream()
-                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false, new ResourceBundle(), UUID.randomUUID());
+                .collect(Collectors.toMap(PatientResourceBundle::patientId, Function.identity())), false, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
     }
 
     public static PatientBatchWithConsent fromBatchAndConsent(PatientBatch batch, Map<String, NonContinuousPeriod> consentPeriodsMap) throws ConsentViolatedException {
-        // Filter only patients that have a consent period (non-empty)
-        Map<String, PatientResourceBundle> filtered = batch.ids().stream()
-                .filter(consentPeriodsMap::containsKey)  // patient has a consent period
-                .filter(id -> !consentPeriodsMap.get(id).isEmpty()) // consent period not empty
-                .collect(Collectors.toMap(
-                        id -> id,
-                        id -> new PatientResourceBundle(id, consentPeriodsMap.get(id), new ResourceBundle())
-                ));
+        Map<String, PatientResourceBundle> fulfilledConsent = new HashMap<>();
+        batch.ids().forEach(id -> {
+            if (consentPeriodsMap.containsKey(id) && !consentPeriodsMap.get(id).isEmpty())
+                fulfilledConsent.put(id, new PatientResourceBundle(id, consentPeriodsMap.get(id), new ResourceBundle()));
+            else
+                batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, id);
+        });
 
-        if (filtered.isEmpty()) {
+        if (fulfilledConsent.isEmpty()) {
             throw new ConsentViolatedException("No patients with valid consent periods found in batch");
         }
 
-        return new PatientBatchWithConsent(filtered, true, new ResourceBundle(), batch.batchId());
+        return new PatientBatchWithConsent(fulfilledConsent, true, new ResourceBundle(), batch.batchId(), batch.diagnostics());
 
     }
 
     public PatientBatch patientBatch() {
-        return new PatientBatch(bundles.keySet().stream().toList(), id);
+        return new PatientBatch(bundles.keySet().stream().toList(), id, diagnostics);
     }
 
     public Collection<String> patientIds() {
@@ -89,7 +96,7 @@ public record PatientBatchWithConsent(Map<String, PatientResourceBundle> bundles
                 .filter(entry -> safeSet.contains(entry.getKey()))
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-        return new PatientBatchWithConsent(filtered, applyConsent, coreBundle, id);
+        return new PatientBatchWithConsent(filtered, applyConsent, coreBundle, id, diagnostics);
     }
 
 }

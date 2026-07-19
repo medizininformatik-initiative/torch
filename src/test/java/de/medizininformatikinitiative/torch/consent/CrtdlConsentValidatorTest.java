@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 
 import de.medizininformatikinitiative.torch.Torch;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
@@ -136,7 +137,8 @@ class CrtdlConsentValidatorTest {
             observation.setSubject(new Reference("Patient/999")); // patientId ≠ 123
 
         // PatientBatchWithConsent with NO entry for "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
+                true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
             boolean result = consentValidator.checkConsent(observation, batch);
 
@@ -150,7 +152,8 @@ class CrtdlConsentValidatorTest {
             noPatientObs.setEffective(new DateTimeType("2022-04-20"));
             // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
 
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
+                true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
             boolean result = consentValidator.checkConsent(noPatientObs, batch);
 
@@ -165,7 +168,8 @@ class CrtdlConsentValidatorTest {
             observation.setEffective(new DateTimeType("2022-04-20"));
 
         // Batch contains only "123", not "999"
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
+                true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
             boolean result = consentValidator.checkConsent(observation, batch);
 
@@ -179,7 +183,7 @@ class CrtdlConsentValidatorTest {
             observation.setEffective(new DateTimeType("2022-04-20"));
 
             PatientBatchWithConsent batch = new PatientBatchWithConsent(
-                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
             assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
         }
@@ -191,7 +195,7 @@ class CrtdlConsentValidatorTest {
             observation.setEffective(new DateTimeType("2018-04-20"));
 
             PatientBatchWithConsent batch = new PatientBatchWithConsent(
-                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID());
+                    Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
             assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
         }

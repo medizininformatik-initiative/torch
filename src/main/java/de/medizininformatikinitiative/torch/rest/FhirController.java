@@ -6,8 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsSummary;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -49,6 +48,10 @@ import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.PATIENT_EXCLUSIONS_FILE;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.REPORTS_DIRECTORY;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.RESOURCE_EXCLUSIONS_FILE;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.SUMMARY_FILE;
 import static de.medizininformatikinitiative.torch.management.OperationOutcomeCreator.createOperationOutcome;
 import static java.util.Objects.requireNonNull;
 import static org.springframework.web.reactive.function.server.RequestPredicates.GET;
@@ -555,18 +558,28 @@ public class FhirController {
                 .put("url", "https://torch.mii.de/fhir/StructureDefinition/torch-job")
                 .set(VALUE_OBJECT, jobNode));
 
-        if (persistence.jobDiagnosticsExists(job.id())) {
+        if (persistence.jobSummaryExists(job.id())) {
             try {
-                JobDiagnostics diag = persistence.loadJobDiagnostics(job.id());
+                JobDiagnosticSummary diag = persistence.loadJobSummary(job.id());
                 extensionArr.add(mapper.createObjectNode()
                         .put("url", "torch-job-diagnostics-summary")
-                        .set(VALUE_OBJECT, mapper.valueToTree(JobDiagnosticsSummary.from(diag))));
-                extensionArr.add(mapper.createObjectNode()
-                        .put("url", "torch-job-diagnostics")
-                        .put("valueUrl", fileServerName + "/" + job.id() + "/reports/job-summary.json"));
+                        .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + SUMMARY_FILE)
+                        .set(VALUE_OBJECT, mapper.valueToTree(diag)));
             } catch (Exception e) {
                 logger.warn("Failed to load diagnostics summary for job {}: {}", job.id(), e.getMessage());
             }
+        }
+
+        if (persistence.resourceExclusionsExists(job.id())) {
+            extensionArr.add(mapper.createObjectNode()
+                    .put("url", "torch-resource-exclusions")
+                    .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + RESOURCE_EXCLUSIONS_FILE));
+        }
+
+        if (persistence.patientExclusionsExists(job.id())) {
+            extensionArr.add(mapper.createObjectNode()
+                    .put("url", "torch-patient-exclusions")
+                    .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + PATIENT_EXCLUSIONS_FILE));
         }
 
         if (!job.issues().isEmpty()) {

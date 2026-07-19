@@ -1,0 +1,96 @@
+{
+    "display": "",
+    "version": "http://json-schema.org/to-be-done/schema#",
+    "cohortDefinition": {
+        "version": "http://to_be_decided.com/draft-1/schema#",
+        "display": "Ausgewählte Merkmale",
+        "inclusionCriteria": [
+            [
+                {
+                    "termCodes": [
+                        {
+                            "code": "263495000",
+                            "display": "Geschlecht",
+                            "system": "http://snomed.info/sct",
+                            "version": ""
+                        }
+                    ],
+                    "context": {
+                        "code": "Patient",
+                        "display": "Patient",
+                        "system": "fdpg.mii.cds",
+                        "version": "1.0.0"
+                    },
+                    "valueFilter": {
+                        "selectedConcepts": [
+                            {
+                                "code": "male",
+                                "display": "Male",
+                                "system": "http://hl7.org/fhir/administrative-gender",
+                                "version": "2099"
+                            },
+                            {
+                                "code": "female",
+                                "display": "Female",
+                                "system": "http://hl7.org/fhir/administrative-gender",
+                                "version": "2099"
+                            }
+                        ],
+                        "type": "concept"
+                    }
+                }
+            ]
+        ]
+    },
+    "dataExtraction": {
+        "attributeGroups": [
+            {
+                "id": "pat",
+                "name": "standard pat",
+                "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert",
+                "attributes": [
+                    {
+                        "attributeRef": "Patient.active",
+                        "mustHave": false
+                    },
+                    {
+                        "attributeRef": "Patient.birthDate",
+                        "mustHave": false
+                    }
+                ]
+            },
+            {
+                "id": "med-adm-group",
+                "name": "MedicationAdministration",
+                "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration",
+                "attributes": [
+                    {
+                        "attributeRef": "MedicationAdministration.subject",
+                        "mustHave": false
+                    },
+                    {
+                        "attributeRef": "MedicationAdministration.partOf",
+                        "mustHave": true,
+                        "linkedGroups": ["proc-group"]
+                    }
+                ]
+            },
+            {
+                "id": "proc-group",
+                "name": "Procedure",
+                "includeReferenceOnly": true,
+                "groupReference": "https://www.medizininformatik-initiative.de/fhir/core/modul-prozedur/StructureDefinition/Procedure",
+                "attributes": [
+                    {
+                        "attributeRef": "Procedure.subject",
+                        "mustHave": false
+                    },
+                    {
+                        "attributeRef": "Procedure.status",
+                        "mustHave": true
+                    }
+                ]
+            }
+        ]
+    }
+}
