@@ -329,6 +329,20 @@ The consent check uses a specific date field per FHIR resource type to determine
 - TORCH treats all data in the FHIR server as MDAT (Medizinische Daten).
 - TORCH does not consider consent versioning — provision codes are assumed to be unique and to retain the same
   meaning across all versions of the consent profile.
+- Everything described in sections 1–7 is specific to the MII Broad Consent model. Institutions with a different
+  consent model are not limited to configuration changes within that model — see
+  [Custom Consent Modules](custom-consent-modules.md).
+
+---
+
+## 9. Extending Consent Handling (`ConsentEvaluator`)
+
+The MII Broad Consent pipeline described above is TORCH's **default** consent implementation, not a fixed part of
+the core application. Consent handling sits behind a `ConsentEvaluator` extension point ([#1068](https://github.com/medizininformatik-initiative/torch/issues/1068)),
+so institutions with a different consent model can supply their own implementation — including one that only
+partially resembles the gate/window/retro-modifier model above — **without forking or rebuilding TORCH**. See
+[Custom Consent Modules](custom-consent-modules.md) for how it's packaged, how to implement and deploy a
+replacement, and how to mount it into the container.
 
 ---
 

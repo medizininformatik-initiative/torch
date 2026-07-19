@@ -71,7 +71,13 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: torch-jar
-          path: target/torch.jar
+          path: torch-app/target/torch.jar
+
+      - name: Upload Torch Consent Mii Jar
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: torch-consent-mii-jar
+          path: torch-consent-mii/target/torch-consent-mii-*.jar
 
       - name: Upload Torch Image
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
@@ -125,7 +131,7 @@ jobs:
         run: sudo apt-get install -y bats
 
       - name: Run docker-entrypoint shell tests
-        run: bats src/test/shell/docker-entrypoint.bats
+        run: bats torch-app/src/test/shell/docker-entrypoint.bats
 
   test:
     needs: build
@@ -159,7 +165,7 @@ jobs:
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7
         with:
-          files: target/site/jacoco/jacoco.xml
+          files: torch-coverage-report/target/site/jacoco-aggregate/jacoco.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
@@ -442,7 +448,13 @@ jobs:
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
           name: torch-jar
-          path: target
+          path: torch-app/target
+
+      - name: Download Torch Consent Mii Jar
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: torch-consent-mii-jar
+          path: torch-consent-mii/target
 
       - name: Download Torch Image
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
@@ -454,7 +466,7 @@ jobs:
         run: docker load --input /tmp/torch.tar
 
       - name: Download Ontology
-        run: mvn -Pdownload-ontology -B process-resources
+        run: mvn -Pdownload-ontology -B -pl torch-app -am compile
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@96fe6ef7f33517b61c61be40b68a1882f3264fb8 # v4

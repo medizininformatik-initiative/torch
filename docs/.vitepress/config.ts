@@ -68,10 +68,12 @@ export default withMermaid({
                         text: 'Implementation',
                         link: '/implementation/implementation-overview',
                         items: [
+                            {text: 'Project Modules', link: '/implementation/modules'},
                             {text: 'Limitations', link: '/implementation/limitations'},
                             {text: 'Error Codes', link: '/implementation/error-codes'},
                             {text: 'Validation', link: '/implementation/validation'},
                             {text: 'Consent', link: '/implementation/consent'},
+                            {text: 'Custom Consent Modules', link: '/implementation/custom-consent-modules'},
                             {text: 'Direct Loading', link: '/implementation/direct-load'},
                             {text: 'Must Have Checking', link: '/implementation/must-have'},
                             {text: 'Cascading Delete', link: '/implementation/cascading-delete'},

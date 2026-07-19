@@ -6,7 +6,7 @@ TARGET_SERVER=http://localhost:8084/fhir
 # 1. Run extraction + transfer script
 echo "➡️ Running extraction and transfer..."
 TORCH_BASE_URL=http://localhost:8080 \
-"$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh" -c "$ROOT_DIR/src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-w-ref.json" -t "$TARGET_SERVER"
+"$ROOT_DIR/scripts/transfer-extraction-to-dup-fhir-server.sh" -c "$ROOT_DIR/torch-app/src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-w-ref.json" -t "$TARGET_SERVER"
 
 # 2. Assertions
 echo -e " Verifying data..."

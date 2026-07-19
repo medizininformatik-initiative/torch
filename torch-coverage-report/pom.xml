@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>de.medizininformatikinitiative</groupId>
+        <artifactId>torch-parent</artifactId>
+        <version>v1.0.0-beta.5</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>torch-coverage-report</artifactId>
+    <packaging>pom</packaging>
+
+    <!-- Aggregates the per-module JaCoCo execution data from torch-consent-api, torch-consent-mii, and
+         torch-app into a single report. torch-app's tests exercise the other two modules' code (they are
+         its dependencies), but plain jacoco:report only ever analyzes the module currently being built,
+         so that coverage is otherwise invisible in torch-consent-api/torch-consent-mii's own reports.
+         See issue #1068. -->
+
+    <dependencies>
+        <dependency>
+            <groupId>de.medizininformatikinitiative</groupId>
+            <artifactId>torch-consent-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>de.medizininformatikinitiative</groupId>
+            <artifactId>torch-consent-mii</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>de.medizininformatikinitiative</groupId>
+            <artifactId>torch-app</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.jacoco</groupId>
+                <artifactId>jacoco-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>prepare-agent</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>report</id>
+                        <phase>none</phase>
+                    </execution>
+                    <execution>
+                        <id>report-aggregate</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>report-aggregate</goal>
+                        </goals>
+                        <configuration>
+                            <!-- Mirrors torch-app's own jacoco:report exclusions so the aggregate doesn't
+                                 penalize coverage for generated OpenAPI schema classes that module already
+                                 excludes from its own report. -->
+                            <excludes>
+                                <exclude>de/medizininformatikinitiative/torch/rest/FhirApi*</exclude>
+                                <exclude>de/medizininformatikinitiative/torch/rest/schema/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

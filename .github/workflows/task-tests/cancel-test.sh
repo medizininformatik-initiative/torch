@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 TORCH_BASE_URL="http://localhost:8080"
 TARGET_SERVER="http://localhost:8084/fhir"
-CRTDL_FILE="$ROOT_DIR/src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-w-ref.json"
+CRTDL_FILE="$ROOT_DIR/torch-app/src/test/resources/CrtdlItTests/CRTDL_test_it-kds-perf-w-ref.json"
 LOG="$(mktemp -t torch-cancel-XXXXXXXXXX.log)"
 
 
