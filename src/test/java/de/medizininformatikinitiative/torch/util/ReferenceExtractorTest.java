@@ -438,12 +438,12 @@ class ReferenceExtractorTest {
             ReferenceExtractor spyExtractor = org.mockito.Mockito.spy(referenceExtractor);
 
             // Simulate the internal call throwing the wrapped exception
-            org.mockito.Mockito.doThrow(new RuntimeException(new MustHaveViolatedException("Simulated violation")))
+            org.mockito.Mockito.doThrow(new RuntimeException(new MustHaveViolatedException.AttributeViolated("Simulated violation", "some.attr.ref")))
                     .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute));
 
             // 3. Assert the unwrapping logic works
             assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Poison"))
-                    .isExactlyInstanceOf(MustHaveViolatedException.class)
+                    .isExactlyInstanceOf(MustHaveViolatedException.AttributeViolated.class)
                     .hasMessageContaining("Simulated violation");
         }
 

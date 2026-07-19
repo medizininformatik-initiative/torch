@@ -29,7 +29,7 @@ public class ReferenceExtractor {
         this.fhirPathEngine = FhirPathEngines.threadLocal(ctx);
     }
 
-    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
+    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException.AttributeViolated {
         // Guard 1: Basic input validation
         if (resource == null || groupMap == null || groupId == null) {
             return List.of();
@@ -52,13 +52,13 @@ public class ReferenceExtractor {
 
                             // ReferenceWrapper should handle its own null-safety, but we pass safe values
                             return new ReferenceWrapper(refAttribute, refs, groupId, relativeUrl);
-                        } catch (MustHaveViolatedException e) {
+                        } catch (MustHaveViolatedException.AttributeViolated e) {
                             throw new RuntimeException(e);
                         }
                     })
                     .toList();
         } catch (RuntimeException e) {
-            if (e.getCause() instanceof MustHaveViolatedException cause) {
+            if (e.getCause() instanceof MustHaveViolatedException.AttributeViolated cause) {
                 throw cause;
             }
             logger.error("Unexpected error during reference extraction", e);
@@ -66,7 +66,7 @@ public class ReferenceExtractor {
         }
     }
 
-    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException.AttributeViolated {
         if (resource == null || annotatedAttribute == null) return List.of();
 
         // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
@@ -88,9 +88,9 @@ public class ReferenceExtractor {
                 .toList();
 
         if (annotatedAttribute.mustHave() && references.isEmpty()) {
-            throw new MustHaveViolatedException(
+            throw new MustHaveViolatedException.AttributeViolated(
                     "No Reference found in required field " + annotatedAttribute.attributeRef() +
-                            " in resource " + resource.getIdElement().getValue()
+                            " in resource " + resource.getIdElement().getValue(), annotatedAttribute.attributeRef()
             );
         }
 

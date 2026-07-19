@@ -17,8 +17,9 @@ public class BlackBoxIntegrationTestEnv {
 
     private final ComposeContainer environment;
 
-    public BlackBoxIntegrationTestEnv(Logger logger) {
+    public BlackBoxIntegrationTestEnv(Logger logger, boolean enforceReferentialIntegrity) {
         environment = new ComposeContainer(new File("src/test/resources/docker-compose.yml"))
+                .withEnv("ENFORCE_REFERENTIAL_INTEGRITY", Boolean.toString(enforceReferentialIntegrity))
                 .withExposedService("blaze", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                 .withLogConsumer("blaze", new Slf4jLogConsumer(logger).withPrefix("blaze"))
                 .withExposedService("torch", 8080, Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))

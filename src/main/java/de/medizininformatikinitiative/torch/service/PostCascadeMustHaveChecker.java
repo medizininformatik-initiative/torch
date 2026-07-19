@@ -35,7 +35,7 @@ public class PostCascadeMustHaveChecker {
                 .collect(Collectors.toSet());
 
         if (!missing.isEmpty()) {
-            throw new MustHaveViolatedException(
+            throw new MustHaveViolatedException.GroupViolated(
                     "Required direct groups missing after cascading delete: " + missing
             );
         }

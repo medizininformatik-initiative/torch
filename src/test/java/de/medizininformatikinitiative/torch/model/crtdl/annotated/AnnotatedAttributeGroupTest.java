@@ -43,12 +43,12 @@ class AnnotatedAttributeGroupTest {
         void oneCode() {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1));
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(), List.of(tokenFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupId", List.of(), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    Query.of("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupRef")))
+                    Query.of("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupId")))
             );
         }
 
@@ -57,32 +57,32 @@ class AnnotatedAttributeGroupTest {
             when(mappingTreeBase.expand("system1", "code1")).thenReturn(Stream.of("code1"));
             when(mappingTreeBase.expand("system2", "code2")).thenReturn(Stream.of("code2"));
             var tokenFilter = new Filter("token", "code", List.of(CODE1, CODE2));
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(), List.of(tokenFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupId", List.of(), List.of(tokenFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    Query.of("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupRef"))),
-                    Query.of("Observation", QueryParams.of("code", codeValue(CODE2)).appendParam("_profile:below", stringValue("groupRef")))
+                    Query.of("Observation", QueryParams.of("code", codeValue(CODE1)).appendParam("_profile:below", stringValue("groupId"))),
+                    Query.of("Observation", QueryParams.of("code", codeValue(CODE2)).appendParam("_profile:below", stringValue("groupId")))
             );
         }
 
         @Test
         void dateFilter() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(), List.of(dateFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupId", List.of(), List.of(dateFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Observation");
 
             assertThat(result).containsExactly(
-                    Query.of("Observation", QueryParams.of("date", dateValue(GREATER_EQUAL, DATE_START)).appendParam("date", dateValue(LESS_EQUAL, DATE_END)).appendParam("_profile:below", stringValue("groupRef")))
+                    Query.of("Observation", QueryParams.of("date", dateValue(GREATER_EQUAL, DATE_START)).appendParam("date", dateValue(LESS_EQUAL, DATE_END)).appendParam("_profile:below", stringValue("groupId")))
             );
         }
 
         @Test
         void filtersIgnoredForPatient() {
             var dateFilter = new Filter("date", "date", DATE_START, DATE_END);
-            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(), List.of(dateFilter));
+            var attributeGroup = new AnnotatedAttributeGroup("test", "Observation", "groupId", List.of(), List.of(dateFilter));
 
             var result = attributeGroup.queries(mappingTreeBase, "Patient");
 

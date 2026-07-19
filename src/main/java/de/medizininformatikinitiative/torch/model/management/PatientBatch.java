@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 
 import java.util.ArrayList;
@@ -9,11 +11,16 @@ import java.util.UUID;
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.multiStringValue;
 import static java.util.Objects.requireNonNull;
 
-public record PatientBatch(List<String> ids, UUID batchId) {
+public record PatientBatch(List<String> ids, UUID batchId, BatchDiagnostics diagnostics) {
 
     public PatientBatch {
         ids = List.copyOf(ids);
         requireNonNull(batchId);
+        requireNonNull(diagnostics);
+    }
+
+    public PatientBatch(List<String> ids, UUID batchId) {
+        this(ids, batchId, BatchDiagnostics.empty().setNumCohortPatients(ids.size()));
     }
 
     public PatientBatch(List<String> ids) {
@@ -26,6 +33,10 @@ public record PatientBatch(List<String> ids, UUID batchId) {
 
     public static PatientBatch of(List<String> ids) {
         return new PatientBatch(ids);
+    }
+
+    public BatchExclusions batchExclusions() {
+        return diagnostics().batchExclusions();
     }
 
     /**
