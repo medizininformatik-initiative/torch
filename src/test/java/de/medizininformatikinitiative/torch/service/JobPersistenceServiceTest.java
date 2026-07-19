@@ -59,10 +59,13 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -1769,6 +1772,31 @@ class JobPersistenceServiceTest {
 
             verify(mockStore).writeDiagnostics(any(), any(), any());
             assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
+        }
+
+        @Test
+        void buildAndSaveDiagnosticsSummary_writesMergedExclusionsAndSummaryBeforeDeletingBatchSources() throws IOException, com.opencsv.exceptions.CsvValidationException {
+            Map<String, BatchDiagnostics> loaded = Map.of("batch1", BatchDiagnostics.empty());
+            when(mockStore.loadAllDiagnostics(any())).thenReturn(loaded);
+
+            service.buildAndSaveDiagnosticsSummary(jobId);
+
+            var order = inOrder(mockStore);
+            order.verify(mockStore).writeMergedExclusions(eq(loaded), any());
+            order.verify(mockStore).writeSummary(any(), any());
+            order.verify(mockStore).deleteBatchDiagnostics(eq(Set.of("batch1")), any());
+        }
+
+        @Test
+        void buildAndSaveDiagnosticsSummary_summaryWriteFails_leavesBatchSourcesUndeleted() throws IOException, com.opencsv.exceptions.CsvValidationException {
+            Map<String, BatchDiagnostics> loaded = Map.of("batch1", BatchDiagnostics.empty());
+            when(mockStore.loadAllDiagnostics(any())).thenReturn(loaded);
+            doThrow(new IOException("disk full")).when(mockStore).writeSummary(any(), any());
+
+            assertThatThrownBy(() -> service.buildAndSaveDiagnosticsSummary(jobId))
+                    .isInstanceOf(IOException.class);
+
+            verify(mockStore, never()).deleteBatchDiagnostics(any(), any());
         }
     }
 

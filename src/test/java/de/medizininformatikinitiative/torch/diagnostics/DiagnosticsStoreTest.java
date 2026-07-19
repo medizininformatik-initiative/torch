@@ -94,6 +94,18 @@ class DiagnosticsStoreTest {
 
             assertThat(io.exists(batchDir)).isFalse();
         }
+
+        @Test
+        void loadAllDiagnostics_leavesPerBatchReportDirectoryInPlace() throws IOException {
+            // loadAllDiagnostics must not delete its source directories itself: callers only delete them
+            // via the separate deleteBatchDiagnostics, once merged output derived from this read is durably written.
+            store.writeDiagnostics(BatchDiagnostics.empty(), jobDir, "batch1");
+            Path batchDir = jobDir.resolve("reports").resolve("batch1");
+
+            store.loadAllDiagnostics(jobDir);
+
+            assertThat(io.exists(batchDir)).isTrue();
+        }
     }
 
     @Nested
