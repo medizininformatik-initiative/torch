@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.fhirpath.IFhirPath;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -29,7 +30,16 @@ public class ReferenceExtractor {
         this.fhirPathEngine = FhirPathEngines.threadLocal(ctx);
     }
 
-    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException {
+    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId) throws MustHaveViolatedException.AttributeViolated {
+        return extract(resource, groupMap, groupId, BatchExclusions.empty(), Optional.empty());
+    }
+
+    /**
+     * @param batchExclusions diagnostics accumulator to note references that fail to parse as a relative URL
+     * @param patId           owning patient id, or empty for a core (non-patient) resource
+     */
+    public List<ReferenceWrapper> extract(Resource resource, Map<String, AnnotatedAttributeGroup> groupMap, String groupId,
+                                          BatchExclusions batchExclusions, Optional<String> patId) throws MustHaveViolatedException.AttributeViolated {
         // Guard 1: Basic input validation
         if (resource == null || groupMap == null || groupId == null) {
             return List.of();
@@ -47,18 +57,23 @@ public class ReferenceExtractor {
                     .filter(Objects::nonNull) // Ensure attribute list doesn't contain nulls
                     .map(refAttribute -> {
                         try {
-                            List<ExtractionId> refs = getReferences(resource, refAttribute);
+                            List<ExtractionId> refs = getReferences(resource, refAttribute, () -> {
+                                String resourceId = resource.getIdElement().getValue();
+                                patId.ifPresentOrElse(
+                                        pat -> batchExclusions.addReferenceInvalidExclusion(groupId, resourceId, refAttribute.attributeRef(), pat),
+                                        () -> batchExclusions.addReferenceInvalidExclusionCore(groupId, resourceId, refAttribute.attributeRef()));
+                            });
                             ExtractionId relativeUrl = ResourceUtils.getRelativeURL(resource);
 
                             // ReferenceWrapper should handle its own null-safety, but we pass safe values
                             return new ReferenceWrapper(refAttribute, refs, groupId, relativeUrl);
-                        } catch (MustHaveViolatedException e) {
+                        } catch (MustHaveViolatedException.AttributeViolated e) {
                             throw new RuntimeException(e);
                         }
                     })
                     .toList();
         } catch (RuntimeException e) {
-            if (e.getCause() instanceof MustHaveViolatedException cause) {
+            if (e.getCause() instanceof MustHaveViolatedException.AttributeViolated cause) {
                 throw cause;
             }
             logger.error("Unexpected error during reference extraction", e);
@@ -66,7 +81,11 @@ public class ReferenceExtractor {
         }
     }
 
-    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException.AttributeViolated {
+        return getReferences(resource, annotatedAttribute, () -> { });
+    }
+
+    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute, Runnable onInvalidReference) throws MustHaveViolatedException.AttributeViolated {
         if (resource == null || annotatedAttribute == null) return List.of();
 
         // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
@@ -82,15 +101,16 @@ public class ReferenceExtractor {
                         logger.debug("Ignoring invalid reference '{}' in {} (attr={}, fhirPath={} due to {})",
                                 refStr, resource.getIdElement().getValue(), annotatedAttribute.attributeRef(),
                                 annotatedAttribute.fhirPath(), ex.getMessage());
+                        onInvalidReference.run();
                         return java.util.stream.Stream.empty();
                     }
                 })
                 .toList();
 
         if (annotatedAttribute.mustHave() && references.isEmpty()) {
-            throw new MustHaveViolatedException(
+            throw new MustHaveViolatedException.AttributeViolated(
                     "No Reference found in required field " + annotatedAttribute.attributeRef() +
-                            " in resource " + resource.getIdElement().getValue()
+                            " in resource " + resource.getIdElement().getValue(), annotatedAttribute.attributeRef()
             );
         }
 

@@ -1,9 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
 import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
@@ -80,9 +82,9 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.empty());
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, batchExclusions))
                     .verifyComplete();
         }
 
@@ -95,9 +97,9 @@ class DirectResourceLoaderTest {
                     .thenReturn(Flux.empty());
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, batchExclusions))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
         }
@@ -117,16 +119,15 @@ class DirectResourceLoaderTest {
             when(profileMustHaveChecker.evaluateFirst(eq(obs), eq(group))).thenReturn(eval);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, batchExclusions))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
 
             verify(bundle).put(obs, "core", false);
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr))).isEmpty();
+            assertThat(batchExclusions.getResourceExclusions()).isEmpty();
         }
 
         @Test
@@ -147,9 +148,9 @@ class DirectResourceLoaderTest {
                     .thenReturn(ok);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, batchExclusions))
                     .verifyComplete();
 
             verify(bundle).put(obs, "core", true);
@@ -173,18 +174,35 @@ class DirectResourceLoaderTest {
                     .thenReturn(violated);
 
             ResourceBundle bundle = mock(ResourceBundle.class);
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, acc))
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroup(group, bundle, batchExclusions))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
 
             verify(bundle).put(obs, "core", false);
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, attr)).orElseThrow().resourcesExcluded())
-                    .isEqualTo(1);
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var exclusion = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(exclusion.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+            assertThat(exclusion.groupId()).isEqualTo(groupRef);
+            assertThat(exclusion.attributeRef()).isEqualTo(attr.attributeRef());
+        }
+
+        @Test
+        void processCoreAttributeGroups_processesEachGroupAndReturnsBundle() {
+            var attr = new AnnotatedAttribute("Observation.code", "Observation.code", false);
+            var group = new AnnotatedAttributeGroup("core", "Observation", "groupRef", List.of(attr), List.of());
+
+            when(dataStore.search(any(Query.class), eq(DomainResource.class)))
+                    .thenReturn(Flux.empty());
+
+            ResourceBundle bundle = mock(ResourceBundle.class);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
+
+            StepVerifier.create(directResourceLoader.processCoreAttributeGroups(List.of(group), bundle, batchExclusions))
+                    .expectNext(bundle)
+                    .verifyComplete();
         }
     }
 
@@ -200,7 +218,8 @@ class DirectResourceLoaderTest {
                     Map.of("1", patientBundle),
                     true,
                     new ResourceBundle(),
-                    UUID.randomUUID()
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty()
             );
             var safeSet = new HashSet<>(List.of("1"));
 
@@ -211,13 +230,10 @@ class DirectResourceLoaderTest {
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
             when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(false);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batchWithConsent.id(), 1);
-
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
                             List.of(group),
                             batchWithConsent,
-                            safeSet,
-                            acc
+                            safeSet
                     ))
                     .assertNext(res -> {
                         assertThat(res.get("1").bundle().cache())
@@ -225,9 +241,47 @@ class DirectResourceLoaderTest {
                     })
                     .verifyComplete();
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.consentResourceBlocked())).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.consentResourceBlocked()).orElseThrow().resourcesExcluded()).isEqualTo(1);
+            assertThat(batchWithConsent.batchExclusions().getResourceExclusions()).hasSize(1);
+            var exclusion = batchWithConsent.batchExclusions().getResourceExclusions().getFirst();
+            assertThat(exclusion.reason()).isEqualTo(ResourceExclusionReason.CONSENT);
+            assertThat(exclusion.groupId()).isEqualTo(group.id());
+            assertThat(exclusion.patientId()).isEqualTo("1");
+        }
+
+        @Test
+        void processPatientAttributeGroups_consentDenied_andPatientIdMissing_dropsResourceWithoutDiagnostic() {
+            var attr = new AnnotatedAttribute("Observation.code", "Observation.code", false);
+            var group = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attr), List.of());
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = new PatientBatchWithConsent(
+                    Map.of("1", patientBundle),
+                    true,
+                    new ResourceBundle(),
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty()
+            );
+            var safeSet = new HashSet<>(List.of("1"));
+
+            Observation observation = new Observation();
+            observation.setId("Observation/xyz");
+            // No subject reference set, so ResourceUtils.patientId(...) throws PatientIdNotFoundException.
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
+            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(false);
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group),
+                            batchWithConsent,
+                            safeSet
+                    ))
+                    .assertNext(res -> {
+                        assertThat(res.get("1").bundle().cache())
+                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
+                    })
+                    .verifyComplete();
+
+            assertThat(batchWithConsent.batchExclusions().getResourceExclusions()).isEmpty();
         }
 
         @Test
@@ -249,13 +303,10 @@ class DirectResourceLoaderTest {
 
             when(profileMustHaveChecker.evaluateFirst(observation, group)).thenReturn(eval);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
                             List.of(group),
                             batchWithConsent,
-                            safeSet,
-                            acc
+                            safeSet
                     ))
                     .assertNext(processedBatch -> {
                         assertThat(processedBatch.get("1").bundle().cache())
@@ -274,11 +325,12 @@ class DirectResourceLoaderTest {
 
             assertThat(safeSet).isEmpty();
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveGroup(group))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveGroup(group)).orElseThrow().patientsExcluded()).isEqualTo(1);
-
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(group, mustHaveAttr))).isEmpty();
+            assertThat(batchWithConsent.batchExclusions().getPatientExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.stage()).isEqualTo(PatientExclusionStage.DIRECT_LOAD);
+                        assertThat(event.patientId()).isEqualTo("1");
+                    });
+            assertThat(batchWithConsent.batchExclusions().getResourceExclusions()).isEmpty();
         }
 
         @Test
@@ -293,7 +345,8 @@ class DirectResourceLoaderTest {
                     Map.of("1", p1, "2", p2),
                     false,
                     new ResourceBundle(),
-                    UUID.randomUUID()
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty()
             );
 
             Observation obs1 = new Observation();
@@ -306,12 +359,9 @@ class DirectResourceLoaderTest {
 
             when(profileMustHaveChecker.evaluateFirst(obs1, group)).thenReturn(eval);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), 2);
-
             StepVerifier.create(directResourceLoader.directLoadPatientCompartment(
                             List.of(group),
-                            batch,
-                            acc
+                            batch
                     ))
                     .assertNext(result -> {
                         assertThat(result.bundles()).containsKey("1");
@@ -331,13 +381,10 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.empty());
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)
@@ -359,13 +406,10 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(new Observation()));
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)
@@ -392,13 +436,10 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)
@@ -423,13 +464,10 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)
@@ -460,13 +498,10 @@ class DirectResourceLoaderTest {
 
             when(profileMustHaveChecker.evaluateFirst(observation, attributeGroup)).thenReturn(eval);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)
@@ -488,10 +523,10 @@ class DirectResourceLoaderTest {
                     })
                     .verifyComplete();
 
-            var diag = acc.snapshot(0);
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(attributeGroup, mustHaveAttr))).isPresent();
-            assertThat(diag.countsFor(CriterionKeys.mustHaveAttribute(attributeGroup, mustHaveAttr)).orElseThrow().resourcesExcluded())
-                    .isEqualTo(1);
+            assertThat(batchWithConsent.batchExclusions().getResourceExclusions()).hasSize(1);
+            var exclusion = batchWithConsent.batchExclusions().getResourceExclusions().getFirst();
+            assertThat(exclusion.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+            assertThat(exclusion.attributeRef()).isEqualTo(mustHaveAttr.attributeRef());
         }
 
         @Test
@@ -509,8 +544,7 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
 
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet, acc).block();
+            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet).block();
 
             assertThat(patient.getMeta().getProfile()).hasSize(1);
             assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
@@ -533,8 +567,7 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(patient));
 
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet, acc).block();
+            directResourceLoader.processPatientAttributeGroups(List.of(patientGroup), batchWithConsent, safeSet).block();
 
             assertThat(patient.getMeta().getProfile()).hasSize(1);
             assertThat(patient.getMeta().getProfile().getFirst().getValue()).isEqualTo(groupRef);
@@ -556,8 +589,7 @@ class DirectResourceLoaderTest {
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-            directResourceLoader.processPatientAttributeGroups(List.of(observationGroup), batchWithConsent, safeSet, acc).block();
+            directResourceLoader.processPatientAttributeGroups(List.of(observationGroup), batchWithConsent, safeSet).block();
 
             assertThat(observation.getMeta().getProfile()).isEmpty();
         }
@@ -581,13 +613,10 @@ class DirectResourceLoaderTest {
 
             when(profileMustHaveChecker.evaluateFirst(observation, attributeGroup)).thenReturn(eval);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
-
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
                     batchWithConsent,
-                    safeSet,
-                    acc
+                    safeSet
             );
 
             StepVerifier.create(result)

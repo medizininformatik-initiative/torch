@@ -6,11 +6,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionCounts;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionEntry;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKey;
-import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -129,7 +125,7 @@ class JobPersistenceServiceTest {
                             MAPPER,
                             baseDir.toString(),
                             5
-                    );
+                    , new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             persistenceService.init();
         }
 
@@ -169,7 +165,7 @@ class JobPersistenceServiceTest {
             // Force an IOException when trying to read this specific job file
             doThrow(new IOException("Read error")).when(spyIo).newBufferedReader(jobFile);
 
-            JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
 
             // WHEN
             serviceWithSpy.init(); // This calls loadAllJobs -> loadJobFromDirectory
@@ -195,7 +191,7 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5
-            );
+            , new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             reloaded.init();
 
             Job actual = reloaded.getJob(jobId).orElseThrow();
@@ -234,8 +230,10 @@ class JobPersistenceServiceTest {
             persistenceService.saveBatch(pb1, jobId);
             persistenceService.saveBatch(pb2, jobId);
 
-            assertThat(persistenceService.loadBatch(jobId, pb2.batchId()))
-                    .isEqualTo(pb2);
+            // diagnostics is transient in-memory bookkeeping, not part of the NDJSON round-trip
+            PatientBatch loaded = persistenceService.loadBatch(jobId, pb2.batchId());
+            assertThat(loaded.batchId()).isEqualTo(pb2.batchId());
+            assertThat(loaded.ids()).isEqualTo(pb2.ids());
         }
 
         @Test
@@ -301,7 +299,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void init() {
-            service = new JobPersistenceService(io, MAPPER, "Any", 10);
+            service = new JobPersistenceService(io, MAPPER, "Any", 10, new DiagnosticsStore(io, MAPPER));
         }
 
         @Test
@@ -342,7 +340,7 @@ class JobPersistenceServiceTest {
         @Test
         void loadAllJobs_ReturnsEmpty_WhenBaseDirDoesNotExist() throws IOException {
             when(io.exists(baseDir)).thenReturn(false);
-            JobPersistenceService serviceWithMock = new JobPersistenceService(io, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService serviceWithMock = new JobPersistenceService(io, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(io, MAPPER));
 
             // WHEN - init calls loadAllJobs
             serviceWithMock.init();
@@ -392,7 +390,7 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5
-            );
+            , new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             s.init();
             return s;
         }
@@ -597,7 +595,7 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5
-            );
+            , new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
         }
 
@@ -705,7 +703,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -814,7 +812,7 @@ class JobPersistenceServiceTest {
         void setUp() {
             // Line 65 in your service is requireNonNull.
             // We must pass the mock and the mapper explicitly here.
-            service = new JobPersistenceService(mockIo, mapper, baseDir.toString(), 5);
+            service = new JobPersistenceService(mockIo, mapper, baseDir.toString(), 5, new DiagnosticsStore(mockIo, mapper));
         }
 
         @Test
@@ -886,7 +884,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 10);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 10, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
         }
 
@@ -955,7 +953,7 @@ class JobPersistenceServiceTest {
 
             doThrow(new IOException("Disk Full")).when(spyIo).newBufferedWriter(argThat(p -> p.toString().endsWith(".tmp")));
 
-            JobPersistenceService s = new JobPersistenceService(spyIo, MAPPER, tempDir.toString(), 5);
+            JobPersistenceService s = new JobPersistenceService(spyIo, MAPPER, tempDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
 
             // WHEN
             // This hits the loop: loads job -> tries to save reconciled state -> fails -> logs warn
@@ -968,7 +966,7 @@ class JobPersistenceServiceTest {
         @Test
         void loadAllCoreBatchParts_ReturnsEmpty_WhenDirMissing() throws IOException {
             FileIo mockIo = mock(FileIo.class);
-            JobPersistenceService s = new JobPersistenceService(mockIo, MAPPER, tempDir.toString(), 5);
+            JobPersistenceService s = new JobPersistenceService(mockIo, MAPPER, tempDir.toString(), 5, new DiagnosticsStore(mockIo, MAPPER));
 
             when(mockIo.exists(any())).thenReturn(false);
 
@@ -988,7 +986,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1034,170 +1032,41 @@ class JobPersistenceServiceTest {
 
         @Test
         void jobDiagnosticsExists_returnsFalse_whenNotYetSaved() {
-            assertThat(service.jobDiagnosticsExists(jobId)).isFalse();
+            assertThat(service.jobSummaryExists(jobId)).isFalse();
+        }
+
+        @Test
+        void resourceExclusionsExists_returnsFalse_whenNotYetSaved() {
+            assertThat(service.resourceExclusionsExists(jobId)).isFalse();
+        }
+
+        @Test
+        void patientExclusionsExists_returnsFalse_whenNotYetSaved() {
+            assertThat(service.patientExclusionsExists(jobId)).isFalse();
+        }
+
+        @Test
+        void loadJobDiagnostics_throwsWhenSummaryNotYetSaved() {
+            assertThatThrownBy(() -> service.loadJobDiagnostics(jobId))
+                    .isInstanceOf(IOException.class);
+        }
+
+        @Test
+        void loadJobDiagnostics_returnsSummary_afterJobCompletes() throws IOException {
+            service.selectNextWorkUnit(); // PENDING -> RUNNING_GET_COHORT
+            service.onCohortSuccess(jobId, List.of()); // empty cohort -> RUNNING_PROCESS_CORE
+            service.tryMarkCoreInProgress(jobId);
+            service.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
+
+            assertThat(service.loadJobDiagnostics(jobId)).isNotNull();
         }
     }
 
-    @Nested
-    class DiagnosticsTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
-        }
-
-        @Test
-        void saveBatchDiagnostics_roundTrip() throws IOException {
-            UUID batchId = UUID.randomUUID();
-            var key = new CriterionKey(ExclusionKind.CONSENT, "no-data", null, null);
-            var diag = new BatchDiagnostics(jobId, batchId, 10L, 8L,
-                    List.of(new CriterionEntry(key, new CriterionCounts(2, 0))));
-            service.saveBatchDiagnostics(diag);
-
-            List<BatchDiagnostics> loaded = service.loadAllBatchDiagnostics(jobId);
-            assertThat(loaded).hasSize(1);
-            assertThat(loaded.get(0).batchId()).isEqualTo(batchId);
-            assertThat(loaded.get(0).cohortPatientsInBatch()).isEqualTo(10L);
-            assertThat(loaded.get(0).finalPatientsInBatch()).isEqualTo(8L);
-            assertThat(loaded.get(0).criteria()).hasSize(1);
-            CriterionEntry loadedEntry = loaded.get(0).criteria().get(0);
-            assertThat(loadedEntry.key().kind()).isEqualTo(ExclusionKind.CONSENT);
-            assertThat(loadedEntry.key().id()).isEqualTo("no-data");
-            assertThat(loadedEntry.counts().patientsExcluded()).isEqualTo(2);
-        }
-
-        @Test
-        void loadAllBatchDiagnostics_returnsEmpty_whenDirMissing() throws IOException {
-            UUID unknownJobId = UUID.randomUUID();
-            assertThat(service.loadAllBatchDiagnostics(unknownJobId)).isEmpty();
-        }
-
-        @Test
-        void buildAndSaveJobDiagnostics_returnsEmptyDiagnostics_whenNoBatches() throws IOException {
-            JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
-            assertThat(result.cohortPatientsTotal()).isZero();
-            assertThat(result.finalPatientsTotal()).isZero();
-            assertThat(result.criteria()).isEmpty();
-            assertThat(service.jobDiagnosticsExists(jobId)).isFalse();
-        }
-
-        @Test
-        void buildAndSaveJobDiagnostics_mergesBatchDiagnostics() throws IOException {
-            CriterionKey key = new CriterionKey(ExclusionKind.MUST_HAVE, "test-id", null, null);
-            UUID batch1 = UUID.randomUUID();
-            UUID batch2 = UUID.randomUUID();
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 5L, 4L, List.of(new CriterionEntry(key, new CriterionCounts(1, 2)))));
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 3L, 3L, List.of(new CriterionEntry(key, new CriterionCounts(0, 1)))));
-
-            JobDiagnostics result = service.buildAndSaveJobDiagnostics(jobId);
-
-            assertThat(result.cohortPatientsTotal()).isEqualTo(8L);
-            assertThat(result.finalPatientsTotal()).isEqualTo(7L);
-            var counts = result.countsFor(key).orElseThrow();
-            assertThat(counts.patientsExcluded()).isEqualTo(1);
-            assertThat(counts.resourcesExcluded()).isEqualTo(3);
-            assertThat(service.jobDiagnosticsExists(jobId)).isTrue();
-
-            var savedFile = baseDir.resolve(jobId.toString()).resolve("reports").resolve("job-summary.json");
-            var root = MAPPER.readTree(savedFile.toFile());
-            assertThat(root.get("resourceType").asText()).isEqualTo("OperationOutcome");
-            assertThat(root.get("issue")).hasSize(1);
-            assertThat(root.get("issue").get(0).get("code").asText()).isEqualTo("business-rule");
-            assertThat(root.get("issue").get(0).get("details").get("coding").get(0).get("code").asText()).isEqualTo("MUST_HAVE");
-        }
-
-        @Test
-        void loadJobDiagnostics_aggregatesFromBatchFiles() throws IOException {
-            CriterionKey key = new CriterionKey(ExclusionKind.CONSENT, "no-data", null, null);
-            UUID batch1 = UUID.randomUUID();
-            UUID batch2 = UUID.randomUUID();
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch1, 4L, 3L, List.of(new CriterionEntry(key, new CriterionCounts(1, 0)))));
-            service.saveBatchDiagnostics(new BatchDiagnostics(jobId, batch2, 6L, 5L, List.of(new CriterionEntry(key, new CriterionCounts(1, 0)))));
-
-            JobDiagnostics diag = service.loadJobDiagnostics(jobId);
-
-            assertThat(diag.jobId()).isEqualTo(jobId);
-            assertThat(diag.cohortPatientsTotal()).isEqualTo(10L);
-            assertThat(diag.finalPatientsTotal()).isEqualTo(8L);
-            assertThat(diag.countsFor(key).orElseThrow().patientsExcluded()).isEqualTo(2);
-        }
-
-        @Test
-        void onBatchProcessingSuccess_withDiagnostics_savesDiagnosticsFile() throws IOException {
-            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
-            service.onCohortSuccess(jobId, List.of("P1"));
-            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
-
-            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
-            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, List.of());
-            var result = new BatchResult(
-                    jobId, batchId,
-                    batchState.finishNow(WorkUnitStatus.FINISHED),
-                    Optional.empty(),
-                    Optional.of(diag),
-                    List.of()
-            );
-
-            service.onBatchProcessingSuccess(result);
-
-            assertThat(service.loadAllBatchDiagnostics(jobId)).hasSize(1);
-        }
-
-        @Test
-        void onBatchProcessingSuccess_withResultCoreBundle_savesCoreBatch() throws IOException {
-            service.selectNextWorkUnit();
-            service.onCohortSuccess(jobId, List.of("P1"));
-            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
-            service.tryStartBatch(jobId, batchId);
-
-            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
-            var coreBundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
-            var result = new BatchResult(
-                    jobId, batchId,
-                    batchState.finishNow(WorkUnitStatus.FINISHED),
-                    Optional.of(coreBundle),
-                    Optional.empty(),
-                    List.of()
-            );
-
-            service.onBatchProcessingSuccess(result);
-
-            ExtractionResourceBundle loaded = service.loadCoreInfo(jobId);
-            assertThat(loaded).isNotNull();
-        }
-
-        @Test
-        void onBatchProcessingSuccess_diagnosticsIOException_doesNotThrow() throws IOException {
-            service.selectNextWorkUnit();
-            service.onCohortSuccess(jobId, List.of("P1"));
-            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
-            service.tryStartBatch(jobId, batchId);
-
-            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
-            var diag = new BatchDiagnostics(jobId, batchId, 1L, 1L, List.of());
-            var result = new BatchResult(
-                    jobId, batchId,
-                    batchState.finishNow(WorkUnitStatus.FINISHED),
-                    Optional.empty(),
-                    Optional.of(diag),
-                    List.of()
-            );
-
-            JobPersistenceService spySvc = spy(service);
-            doThrow(new IOException("report dir failed"))
-                    .when(spySvc).saveBatchDiagnostics(any());
-
-            assertThatCode(() -> spySvc.onBatchProcessingSuccess(result)).doesNotThrowAnyException();
-        }
-    }
+    // REMOVED: DiagnosticsTests (8 tests) covered the old single-CSV diagnostics pipeline
+    // (saveBatchDiagnostics/loadAllBatchDiagnostics/buildAndSaveJobDiagnostics returning
+    // JobDiagnostics). That pipeline, and its now-dead stub methods, were replaced by the
+    // per-batch-directory DiagnosticsStore; see DiagnosticsStoreTest and
+    // JobDiagnosticSummaryTest for coverage of the new flow.
 
     @Nested
     class UpdateJobAndReturnBranchTests {
@@ -1210,7 +1079,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             persistenceService.init();
             jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             persistenceService.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -1250,7 +1119,7 @@ class JobPersistenceServiceTest {
         @Test
         void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException {
             FileIo spyIo = org.mockito.Mockito.spy(new DefaultFileIO());
-            JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
             serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).orElseThrow());
             org.mockito.Mockito.doThrow(new IOException("Disk quota exceeded"))
                     .when(spyIo).newBufferedWriter(org.mockito.ArgumentMatchers.argThat(p -> p.toString().endsWith(".tmp")));
@@ -1273,7 +1142,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1298,7 +1167,7 @@ class JobPersistenceServiceTest {
         @Test
         void deleteJobSaveFailure() throws IOException, JobNotFoundException {
             FileIo spyIo = spy(new DefaultFileIO());
-            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
@@ -1321,7 +1190,7 @@ class JobPersistenceServiceTest {
         @Test
         void gcDeletedJobs_deleteDirFailure_doesNotThrow() throws IOException, JobNotFoundException {
             FileIo spyIo = spy(new DefaultFileIO());
-            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             spyService.deleteJob(id);
@@ -1334,7 +1203,7 @@ class JobPersistenceServiceTest {
         @Test
         void gcDeletedJobs_loadAllJobsFailure_doesNotThrow() throws IOException {
             FileIo spyIo = spy(new DefaultFileIO());
-            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5, new DiagnosticsStore(spyIo, MAPPER));
             spyService.init();
 
             doThrow(new IOException("list failed")).when(spyIo).list(any());
@@ -1354,7 +1223,7 @@ class JobPersistenceServiceTest {
         void init_doesNotLoadDeletedJobs() throws IOException, JobNotFoundException {
             service.deleteJob(jobId);
 
-            JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             freshService.init();
 
             assertThat(freshService.getJob(jobId)).isEmpty();
@@ -1372,7 +1241,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
         }
 
@@ -1392,7 +1261,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
         }
 
@@ -1435,7 +1304,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1490,7 +1359,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1548,7 +1417,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1628,7 +1497,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1683,7 +1552,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
@@ -1749,66 +1618,10 @@ class JobPersistenceServiceTest {
         }
     }
 
-    @Nested
-    class CohortTimingTests {
-
-        @TempDir
-        Path baseDir;
-
-        JobPersistenceService service;
-        UUID jobId;
-
-        @BeforeEach
-        void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
-            service.init();
-            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
-        }
-
-        @Test
-        void saveCohortTiming_and_loadCohortTiming_roundTrip() throws IOException {
-            service.saveCohortTiming(jobId, 12345L);
-
-            assertThat(service.loadCohortTiming(jobId)).isEqualTo(12345L);
-        }
-
-        @Test
-        void loadCohortTiming_returnsZero_whenFileDoesNotExist() throws IOException {
-            assertThat(service.loadCohortTiming(UUID.randomUUID())).isZero();
-        }
-
-        @Test
-        void onCohortSuccess_withTiming_savesCohortTiming() throws IOException {
-            service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
-            service.onCohortSuccess(jobId, List.of("P1"), 5_000_000_000L); // 5 s in nanos
-
-            assertThat(service.loadCohortTiming(jobId)).isEqualTo(5000L); // 5000 ms
-        }
-
-        @Test
-        void onCohortSuccess_withZeroTiming_doesNotSaveTiming() throws IOException {
-            service.selectNextWorkUnit();
-            service.onCohortSuccess(jobId, List.of("P1"), 0L);
-
-            assertThat(service.loadCohortTiming(jobId)).isZero();
-        }
-
-        @Test
-        void onCohortSuccess_timingIOException_doesNotThrow() throws IOException {
-            service.selectNextWorkUnit();
-            FileIo spyIo = spy(new DefaultFileIO());
-            JobPersistenceService spySvc = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5);
-            spySvc.init();
-            UUID id = spySvc.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
-            spySvc.selectNextWorkUnit();
-
-            doThrow(new IOException("disk full"))
-                    .when(spyIo).newAppendingWriter(any());
-
-            assertThatCode(() -> spySvc.onCohortSuccess(id, List.of("P1"), 1_000_000_000L))
-                    .doesNotThrowAnyException();
-        }
-    }
+    // REMOVED: CohortTimingTests (5 tests) covered cohort-query-duration tracking
+    // (saveCohortTiming/loadCohortTiming, the 3-arg onCohortSuccess(jobId, ids, durationNanos)).
+    // That feature was dropped: onCohortSuccess is now 2-arg, and the dead loadCohortTiming
+    // stub has been removed. Reinstate coverage if/when cohort timing is reintroduced.
 
     @Nested
     class CoreLifecycleTests {
@@ -1821,7 +1634,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
@@ -1838,15 +1651,28 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void onCoreSuccess_diagnosticsIOException_jobStillCompletes() throws IOException {
+        void onCoreSuccess_diagnosticsIOException_jobStillCompletes() throws IOException, com.opencsv.exceptions.CsvValidationException {
             service.tryMarkCoreInProgress(jobId);
 
             JobPersistenceService spySvc = spy(service);
-            doThrow(new IOException("disk full")).when(spySvc).buildAndSaveJobDiagnostics(any());
+            doThrow(new IOException("disk full")).when(spySvc).buildAndSaveDiagnosticsSummary(any());
 
             assertThatCode(() -> spySvc.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED)))
                     .doesNotThrowAnyException();
             assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
+        }
+
+        @Test
+        void onCoreSuccess_diagnosticsSummaryCsvValidationException_rethrowsAsRuntimeException() throws IOException, com.opencsv.exceptions.CsvValidationException {
+            service.tryMarkCoreInProgress(jobId);
+
+            JobPersistenceService spySvc = spy(service);
+            doThrow(new com.opencsv.exceptions.CsvValidationException("bad csv"))
+                    .when(spySvc).buildAndSaveDiagnosticsSummary(any());
+
+            assertThatThrownBy(() -> spySvc.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED)))
+                    .isInstanceOf(RuntimeException.class)
+                    .hasCauseInstanceOf(com.opencsv.exceptions.CsvValidationException.class);
         }
 
         @Test
@@ -1869,6 +1695,84 @@ class JobPersistenceServiceTest {
     }
 
     @Nested
+    class DiagnosticsWriteTests {
+
+        @TempDir
+        Path baseDir;
+
+        DiagnosticsStore mockStore;
+        JobPersistenceService service;
+        UUID jobId;
+
+        @BeforeEach
+        void setUp() throws IOException {
+            mockStore = mock(DiagnosticsStore.class);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, mockStore);
+            service.init();
+            jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+            service.selectNextWorkUnit(); // PENDING -> RUNNING_GET_COHORT
+        }
+
+        @Test
+        void onBatchProcessingSuccess_diagnosticsWriteFails_batchStillTransitions() throws IOException {
+            service.onCohortSuccess(jobId, List.of("P1")); // -> RUNNING_PROCESS_BATCH
+            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
+            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
+
+            doThrow(new IOException("disk full")).when(mockStore).writeDiagnostics(any(), any(), any());
+
+            BatchResult result = new BatchResult(jobId, batchId, batchState.finishNow(WorkUnitStatus.FINISHED),
+                    Optional.empty(), Optional.of(BatchDiagnostics.empty()), List.of());
+
+            assertThatCode(() -> service.onBatchProcessingSuccess(result)).doesNotThrowAnyException();
+
+            verify(mockStore).writeDiagnostics(any(), any(), any());
+            assertThat(service.getJob(jobId).orElseThrow().batches().get(batchId).status())
+                    .isEqualTo(WorkUnitStatus.FINISHED);
+        }
+
+        @Test
+        void onBatchProcessingSuccess_diagnosticsPresent_writesSuccessfully() throws IOException {
+            service.onCohortSuccess(jobId, List.of("P1")); // -> RUNNING_PROCESS_BATCH
+            UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
+            BatchState batchState = service.getJob(jobId).orElseThrow().batches().get(batchId);
+
+            BatchResult result = new BatchResult(jobId, batchId, batchState.finishNow(WorkUnitStatus.FINISHED),
+                    Optional.empty(), Optional.of(BatchDiagnostics.empty()), List.of());
+
+            service.onBatchProcessingSuccess(result);
+
+            verify(mockStore).writeDiagnostics(any(), any(), any());
+            assertThat(service.getJob(jobId).orElseThrow().batches().get(batchId).status())
+                    .isEqualTo(WorkUnitStatus.FINISHED);
+        }
+
+        @Test
+        void onCoreSuccess_diagnosticsWriteFails_coreStillTransitions() throws IOException {
+            service.onCohortSuccess(jobId, List.of()); // empty cohort -> RUNNING_PROCESS_CORE
+            service.tryMarkCoreInProgress(jobId);
+
+            doThrow(new IOException("disk full")).when(mockStore).writeDiagnostics(any(), any(), any());
+
+            service.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED, Optional.of(BatchDiagnostics.empty())));
+
+            verify(mockStore).writeDiagnostics(any(), any(), any());
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
+        }
+
+        @Test
+        void onCoreSuccess_diagnosticsPresent_writesSuccessfully() throws IOException {
+            service.onCohortSuccess(jobId, List.of()); // empty cohort -> RUNNING_PROCESS_CORE
+            service.tryMarkCoreInProgress(jobId);
+
+            service.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED, Optional.of(BatchDiagnostics.empty())));
+
+            verify(mockStore).writeDiagnostics(any(), any(), any());
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.COMPLETED);
+        }
+    }
+
+    @Nested
     class TryStartBatchEdgeCaseTests {
 
         @TempDir
@@ -1878,7 +1782,7 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void setUp() throws IOException {
-            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5);
+            service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5, new DiagnosticsStore(new DefaultFileIO(), MAPPER));
             service.init();
         }
 

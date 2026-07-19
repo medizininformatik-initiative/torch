@@ -16,7 +16,7 @@ public class PostCascadeMustHaveChecker {
     public ResourceBundle validate(
             ResourceBundle bundle,
             Collection<AnnotatedAttributeGroup> directGroups
-    ) throws MustHaveViolatedException {
+    ) throws MustHaveViolatedException.GroupViolated {
         Set<String> requiredGroupIds = directGroups.stream()
                 .filter(AnnotatedAttributeGroup::hasMustHave)
                 .map(AnnotatedAttributeGroup::id)
@@ -35,8 +35,8 @@ public class PostCascadeMustHaveChecker {
                 .collect(Collectors.toSet());
 
         if (!missing.isEmpty()) {
-            throw new MustHaveViolatedException(
-                    "Required direct groups missing after cascading delete: " + missing
+            throw new MustHaveViolatedException.GroupViolated(
+                    "Required direct groups missing after cascading delete: " + missing, missing
             );
         }
 

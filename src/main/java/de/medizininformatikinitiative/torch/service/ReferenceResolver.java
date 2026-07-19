@@ -1,7 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -38,7 +37,7 @@ import java.util.stream.Stream;
  * <p>
  * References are extracted, fetched if missing, cached into bundles,
  * and validated according to attribute-group and compartment rules.
- * Diagnostic overloads accept a {@link BatchDiagnosticsAcc} to record resource exclusions.
+ * Diagnostic overloads accept a {@link BatchExclusions} to record resource exclusions.
  */
 @Component
 public class ReferenceResolver {
@@ -70,16 +69,16 @@ public class ReferenceResolver {
      *
      * @param coreBundle core resource bundle to resolve
      * @param groupMap   attribute-group definitions
-     * @param acc        accumulator for recording resource exclusion diagnostics
+     * @param batchExclusions diagnostics accumulator to note newly excluded resources
      * @return the resolved core bundle
      */
-    Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap, BatchDiagnosticsAcc acc) {
+    Mono<ResourceBundle> resolveCoreBundle(ResourceBundle coreBundle, Map<String, AnnotatedAttributeGroup> groupMap, BatchExclusions batchExclusions) {
         return Mono.just(coreBundle.getValidResourceGroups())
                 .map(groups -> groups.stream()
                         .filter(resourceGroup -> !compartmentManager.isInCompartment(resourceGroup))
                         .collect(Collectors.toSet()))
                 .expand(currentGroupSet ->
-                        resolveUnknownCoreRefs(currentGroupSet, coreBundle, groupMap, acc))
+                        resolveUnknownCoreRefs(currentGroupSet, coreBundle, groupMap, batchExclusions))
                 .then(Mono.just(coreBundle));
 
 
@@ -90,11 +89,10 @@ public class ReferenceResolver {
      *
      * @param batch    patient batch including bundles and consent state
      * @param groupMap attribute-group definitions
-     * @param acc      accumulator for recording resource exclusion diagnostics
      * @return resolved patient batch
      */
     Mono<PatientBatchWithConsent> resolvePatientBatch(
-            PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap, BatchDiagnosticsAcc acc) {
+        PatientBatchWithConsent batch, Map<String, AnnotatedAttributeGroup> groupMap) {
         var RGsPerPat = batch.bundles().entrySet().stream().map(entry ->
                         Map.entry(entry.getKey(), entry.getValue()
                                 .getValidResourceGroups().stream()
@@ -103,8 +101,8 @@ public class ReferenceResolver {
                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         // use expand only to recursively resolve in place (mutating the bundles) -> ignoring the return value
-        return Mono.just(RGsPerPat).expand(f -> resolveUnknownPatientBatchRefs(f, batch, groupMap, acc))
-                .then(Mono.just(new PatientBatchWithConsent(batch.bundles(), batch.applyConsent(), batch.coreBundle(), batch.id())));
+        return Mono.just(RGsPerPat).expand(f -> resolveUnknownPatientBatchRefs(f, batch, groupMap))
+                .then(Mono.just(new PatientBatchWithConsent(batch.bundles(), batch.applyConsent(), batch.coreBundle(), batch.id(), batch.diagnostics())));
     }
 
     /**
@@ -113,16 +111,16 @@ public class ReferenceResolver {
      * @param coreRGs    core resource groups to resolve
      * @param coreBundle core bundle
      * @param groupMap   attribute-group definitions
-     * @param acc        accumulator for recording resource exclusion diagnostics
+     * @param batchExclusions diagnostics accumulator to note newly excluded resources
      * @return newly discovered resource groups to resolve next
      */
     public Flux<Set<ResourceGroup>> resolveUnknownCoreRefs(
             Set<ResourceGroup> coreRGs,
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap,
-            BatchDiagnosticsAcc acc) {
+            BatchExclusions batchExclusions) {
 
-        var refsPerRG = loadReferencesByResourceGroup(coreRGs, null, coreBundle, groupMap, acc);
+        var refsPerRG = loadReferencesByResourceGroup(coreRGs, null, coreBundle, groupMap, batchExclusions);
         var unresolvedRefsPerLinkedGroup = refsPerRG.entrySet().stream()
                 .flatMap(e -> e.getValue().stream().flatMap(wrapper -> wrapper.refAttribute().linkedGroups().stream().map(linkedGroupId -> Map.entry(linkedGroupId, wrapper)))
                 ).collect(Collectors.toMap(Map.Entry::getKey, e -> List.of(e.getValue()), (a, b) -> {
@@ -138,7 +136,7 @@ public class ReferenceResolver {
 
             return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewCoreResources(fetchedResources, coreBundle))
-                    .map(fetchedResources -> setUnloadedAsInvalidCore(fetchedResources, unknownRefs, linkedGroupID, coreBundle, acc))
+                    .map(fetchedResources -> setUnloadedAsInvalidCore(fetchedResources, unknownRefs, linkedGroupID, coreBundle, batchExclusions))
                     .doOnNext(this::logMissingRefs);
         }).thenMany(Flux.fromIterable(refsPerRG.entrySet()).concatMap(refsOfRg ->
                 referenceHandler.handleReferences(
@@ -146,7 +144,8 @@ public class ReferenceResolver {
                         null,
                         coreBundle,
                         groupMap,
-                        coreBundle.getValidResourceGroups())
+                        coreBundle.getValidResourceGroups(),
+                        batchExclusions)
         ).collect(Collectors.toSet())).filter(map -> !map.isEmpty());
 
     }
@@ -205,20 +204,15 @@ public class ReferenceResolver {
      * @param expectedRefs     all resources that should have been fetched
      * @param linkedGroupID    ID of the linked group (used to apply the filter during the fetch)
      * @param batch            batch containing the patient bundles and core bundle to mark the resources as invalid in
-     * @param acc              accumulator for recording resource exclusion diagnostics
      * @return the missing reference strings to be further processed
      */
     private Set<ExtractionId> setUnloadedAsInvalid(List<Resource> fetchedResources,
                                                    Map<ReferenceWrapper, String> refToPatHelper,
                                                    List<ExtractionId> expectedRefs,
                                                    String linkedGroupID,
-                                                   PatientBatchWithConsent batch,
-                                                   BatchDiagnosticsAcc acc) {
+                                                   PatientBatchWithConsent batch) {
         Set<ExtractionId> notLoaded = new HashSet<>(expectedRefs);
         fetchedResources.stream().map(r -> new ExtractionId(r.getResourceType().toString(), r.getIdPart())).forEach(notLoaded::remove);
-
-        notLoaded.forEach(missingRef -> acc.incResourcesExcluded(
-                CriterionKeys.referenceNotFound(missingRef.resourceType()), 1));
 
         refToPatHelper.forEach((wrapper, patID) -> wrapper.references().forEach(unknownRef -> {
             if (notLoaded.contains(unknownRef)) {
@@ -230,6 +224,9 @@ public class ReferenceResolver {
                 // resource, the patient bundle is used as "processingBundle".
                 batch.bundles().get(patID).bundle().addResourceGroupValidity(resourceGroup, false);
 
+                // TODO again: is toString correct here?
+                batch.batchExclusions().addReferenceNotFoundExclusion(resourceGroup.groupId(), resourceGroup.resourceId().toString(), patID);
+
             }
         }));
 
@@ -239,28 +236,31 @@ public class ReferenceResolver {
     /**
      * Marks each resource that was not fetched as invalid.
      * <p>
-     * Works the same as {@link #setUnloadedAsInvalid(List, Map, List, String, PatientBatchWithConsent, BatchDiagnosticsAcc)} but here with
+     * Works the same as {@link #setUnloadedAsInvalid(List, Map, List, String, PatientBatchWithConsent)} but here with
      * core resources only.
      *
      * @param fetchedResources resources fetched using FHIRSearch with the filter of the linked group
      * @param expectedRefs     all resources that should have been fetched
      * @param linkedGroupID    ID of the linked group (used to apply the filter during the fetch)
      * @param coreBundle       the core bundle to mark the resources as invalid in
-     * @param acc              accumulator for recording resource exclusion diagnostics
+     * @param batchExclusions diagnostics accumulator to note newly excluded resources
      * @return the missing reference strings to be further processed
      */
     private Set<ExtractionId> setUnloadedAsInvalidCore(List<Resource> fetchedResources,
                                                        List<ExtractionId> expectedRefs,
                                                        String linkedGroupID,
                                                        ResourceBundle coreBundle,
-                                                       BatchDiagnosticsAcc acc) {
+                                                       BatchExclusions batchExclusions) {
         Set<ExtractionId> notLoaded = new HashSet<>(expectedRefs);
         fetchedResources.stream().map(r -> new ExtractionId(r.getResourceType().toString(), r.getIdPart())).forEach(notLoaded::remove);
 
         notLoaded.forEach(missingRef -> {
             ResourceGroup resourceGroup = new ResourceGroup(missingRef, linkedGroupID);
+
             coreBundle.addResourceGroupValidity(resourceGroup, false);
-            acc.incResourcesExcluded(CriterionKeys.referenceNotFound(missingRef.resourceType()), 1);
+
+            // TODO again: is toString the correct method here?
+            batchExclusions.addReferenceNotFoundExclusionCore(resourceGroup.groupId(), resourceGroup.resourceId().toString());
         });
 
         return notLoaded;
@@ -297,7 +297,8 @@ public class ReferenceResolver {
                         patientBundle,
                         batch.coreBundle(),
                         groupMap,
-                        patientBundle.getValidResourceGroups()))
+                        patientBundle.getValidResourceGroups(),
+                        batch.batchExclusions()))
                 .collect(Collectors.toSet())
                 .filter(s -> !s.isEmpty());
 
@@ -329,14 +330,12 @@ public class ReferenceResolver {
      * @param RGsPerPat map from patient ID to a set of resources of which the references should be resolved
      * @param batch     batch containing compartment and core bundles for all patients of the batch
      * @param groupMap  map from attribute-group ID to the corresponding {@link AnnotatedAttributeGroup}
-     * @param acc       accumulator for recording resource exclusion diagnostics
      * @return map from patient ID to set of newly fetched (i.e. still unresolved) resources to be recursively resolved
      */
     public Mono<Map<String, Set<ResourceGroup>>> resolveUnknownPatientBatchRefs(
             Map<String, Set<ResourceGroup>> RGsPerPat,
             PatientBatchWithConsent batch,
-            Map<String, AnnotatedAttributeGroup> groupMap,
-            BatchDiagnosticsAcc acc) {
+            Map<String, AnnotatedAttributeGroup> groupMap) {
         // When grouping by linked group, the connection from reference to patients will be lost.
         // So `refToPatHelper` is later used to find out which newly fetched resource is referenced by which patient in
         // order to put it into the correct patient bundle.
@@ -348,7 +347,7 @@ public class ReferenceResolver {
             var patID = patEntry.getKey();
             var patRGs = patEntry.getValue();
             var patientBundle = batch.bundles().get(patID);
-            var refs = loadReferencesByResourceGroup(patRGs, patientBundle, batch.coreBundle(), groupMap, acc);
+            var refs = loadReferencesByResourceGroup(patRGs, patientBundle, batch.coreBundle(), groupMap, batch.batchExclusions());
             refsPerPatPerRG.put(patID, refs);
             return refs.entrySet().stream().flatMap(rgEntry ->
                     rgEntry.getValue().stream().flatMap(wrapper -> wrapper.refAttribute().linkedGroups().stream().map(linkedGroupId -> {
@@ -377,7 +376,7 @@ public class ReferenceResolver {
 
             return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewResourcesFromPatient(fetchedResources, refsToPat, batch))
-                    .map(fetchedResources -> setUnloadedAsInvalid(fetchedResources, refsToPat, unknownRefs, linkedGroupID, batch, acc))
+                    .map(fetchedResources -> setUnloadedAsInvalid(fetchedResources, refsToPat, unknownRefs, linkedGroupID, batch))
                     .doOnNext(this::logMissingRefs);
         }).thenMany(
                 Flux.fromIterable(refsPerPatPerRG.entrySet())
@@ -399,7 +398,7 @@ public class ReferenceResolver {
      * @param patientBundle  bundle containing patient resources
      * @param coreBundle     bundle containing core resources
      * @param groupMap       map of known attribute groups
-     * @param acc            accumulator for recording resource exclusion diagnostics
+     * @param batchExclusions diagnostics accumulator to note newly excluded resources
      * @return extracted ReferenceWrappers ordered by their respective ResourceGroup
      */
     public Map<ResourceGroup, List<ReferenceWrapper>> loadReferencesByResourceGroup(
@@ -407,10 +406,10 @@ public class ReferenceResolver {
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap,
-            BatchDiagnosticsAcc acc) {
+            BatchExclusions batchExclusions) {
 
         return resourceGroups.parallelStream()
-                .map(resourceGroup -> processResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap, acc))
+                .map(resourceGroup -> extractRefsOfResourceGroup(resourceGroup, patientBundle, coreBundle, groupMap, batchExclusions))
                 .filter(entry -> !entry.getValue().isEmpty())
                 .collect(Collectors.toMap(
                         Map.Entry::getKey,
@@ -430,46 +429,50 @@ public class ReferenceResolver {
      * @param patientBundle bundle containing patient resources
      * @param coreBundle    bundle containing core resources
      * @param groupMap      all known attribute Groups
-     * @param acc           accumulator for recording resource exclusion diagnostics
+     * @param batchExclusions diagnostics accumulator to note newly excluded resources
      * @return extracted References for a ResourceGroup
      */
-    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> processResourceGroup(
+    private Map.Entry<ResourceGroup, List<ReferenceWrapper>> extractRefsOfResourceGroup(
             ResourceGroup resourceGroup,
             @Nullable PatientResourceBundle patientBundle,
             ResourceBundle coreBundle,
             Map<String, AnnotatedAttributeGroup> groupMap,
-            BatchDiagnosticsAcc acc) {
+            BatchExclusions batchExclusions) {
         ResourceBundle processingBundle = (patientBundle == null) ? coreBundle : patientBundle.bundle();
 
         boolean isPatientResource = compartmentManager.isInCompartment(resourceGroup);
 
         if (isPatientResource && patientBundle == null) {
-            return skipDueToMissingPatientBundle(resourceGroup, coreBundle, acc);
+            return skipDueToMissingPatientBundle(resourceGroup, coreBundle, batchExclusions);
         }
+        Optional<String> patId = isPatientResource ? Optional.of(patientBundle.patientId()) : Optional.empty();
 
         Optional<Resource> resource = isPatientResource
                 ? patientBundle.get(resourceGroup.resourceId())
                 : coreBundle.get(resourceGroup.resourceId());
 
-        return resource.map(value -> extractReferences(resourceGroup, value, groupMap, processingBundle, acc)).orElseGet(() -> handleMissingResource(resourceGroup, processingBundle));
+        return resource.map(value ->
+                        extractReferences(resourceGroup, value, groupMap, processingBundle, batchExclusions, patId))
+                .orElseGet(() ->
+                        handleMissingResource(resourceGroup, processingBundle));
     }
 
     /**
      * Invalidates a patient ResourceGroup in core handle processing.
      *
-     * <p>Handles the case that a patient resource was called from in coreBundle Processing.
+     * <p>Handles the case that a patient resource was referenced in core bundle Processing.
      *
      * @param resourceGroup resourceGroup to be handled
      * @param coreBundle    bundle containing core resources
-     * @param acc           accumulator for recording resource exclusion diagnostics
      * @return empty map entry to be handled later
      */
     private Map.Entry<ResourceGroup, List<ReferenceWrapper>> skipDueToMissingPatientBundle(
-            ResourceGroup resourceGroup, ResourceBundle coreBundle, BatchDiagnosticsAcc acc) {
+            ResourceGroup resourceGroup, ResourceBundle coreBundle, BatchExclusions batchExclusions) {
 
         logger.warn("Skipping resourceGroup {}: Patient resource requires a PatientResourceBundle", resourceGroup);
         coreBundle.addResourceGroupValidity(resourceGroup, false);
-        acc.incResourcesExcluded(CriterionKeys.referenceOutsideBatch(resourceGroup.resourceId().resourceType()), 1);
+
+        batchExclusions.addResourceOutsideBatch(resourceGroup.groupId(), resourceGroup.resourceId().toRelativeUrl());
         return Map.entry(resourceGroup, Collections.emptyList());
     }
 
@@ -478,16 +481,19 @@ public class ReferenceResolver {
             Resource resource,
             Map<String, AnnotatedAttributeGroup> groupMap,
             ResourceBundle processingBundle,
-            BatchDiagnosticsAcc acc) {
+            BatchExclusions batchExclusions,
+            Optional<String> patId) {
 
         try {
-            List<ReferenceWrapper> extracted = referenceExtractor.extract(resource, groupMap, resourceGroup.groupId());
+            List<ReferenceWrapper> extracted = referenceExtractor.extract(resource, groupMap, resourceGroup.groupId(), batchExclusions, patId);
             return Map.entry(resourceGroup, extracted);
-        } catch (MustHaveViolatedException e) {
+        } catch (MustHaveViolatedException.AttributeViolated e) {
             processingBundle.addResourceGroupValidity(resourceGroup, false);
             AnnotatedAttributeGroup group = groupMap.get(resourceGroup.groupId());
             if (group != null) {
-                acc.incResourcesExcluded(CriterionKeys.mustHaveGroup(group), 1);
+                patId.ifPresentOrElse(
+                        pat -> batchExclusions.addMustHaveExclusion(resourceGroup.groupId(), resource.getId(), e.getAttributeRef(), pat),
+                        () -> batchExclusions.addMustHaveExclusionCore(resourceGroup.groupId(), resource.getId(), e.getAttributeRef()));
             }
             return Map.entry(resourceGroup, Collections.emptyList());
         }
