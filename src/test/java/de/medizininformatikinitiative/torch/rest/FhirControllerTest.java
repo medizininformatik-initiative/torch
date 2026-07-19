@@ -5,11 +5,12 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
+import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -23,7 +24,6 @@ import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import de.medizininformatikinitiative.torch.util.CrtdlFactory;
-import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -300,16 +300,18 @@ class FhirControllerTest {
                     .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
 
             when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
-            when(jobPersistenceService.jobDiagnosticsExists(any())).thenReturn(true);
-            when(jobPersistenceService.loadJobDiagnostics(any())).thenReturn(
-                    new JobDiagnostics(jobId, 10L, 8L, List.of()));
+            when(jobPersistenceService.jobSummaryExists(any())).thenReturn(true);
+            when(jobPersistenceService.patientExclusionsExists(any())).thenReturn(true);
+            when(jobPersistenceService.resourceExclusionsExists(any())).thenReturn(true);
+            when(jobPersistenceService.loadJobSummary(any())).thenReturn(JobDiagnosticSummary.empty());
 
             client.get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().isOk()
                     .expectBody()
                     .jsonPath("$.output[?(@.type=='OperationOutcome')]").doesNotExist()
                     .jsonPath("$.extension[?(@.url=='torch-job-diagnostics-summary')]").exists()
-                    .jsonPath("$.extension[?(@.url=='torch-job-diagnostics')]").exists();
+                    .jsonPath("$.extension[?(@.url=='torch-resource-exclusions')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-patient-exclusions')]").exists();
         }
 
         @Test

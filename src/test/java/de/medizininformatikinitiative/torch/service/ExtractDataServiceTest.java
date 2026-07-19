@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -130,7 +131,7 @@ class ExtractDataServiceTest {
     class ProcessBatchTests {
 
         @Test
-        void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() throws MustHaveViolatedException {
+        void processBatch_whenNoConsentCodes_happyPath_finishesAndEmitsCoreBundle() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
@@ -144,6 +145,7 @@ class ExtractDataServiceTest {
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
             when(rawBatch.ids()).thenReturn(List.of());
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
             BatchState batchState = mock(BatchState.class);
             BatchState finishedState = mock(BatchState.class);
@@ -155,10 +157,11 @@ class ExtractDataServiceTest {
             when(selection.batch()).thenReturn(rawBatch);
             PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
             when(bwc.keep(any())).thenReturn(bwc);
+            when(bwc.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), any(), any()))
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
                     .thenReturn(Mono.just(bwc));
-            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(Mono.just(bwc));
             when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(bwc);
@@ -218,6 +221,7 @@ class ExtractDataServiceTest {
 
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
             BatchState batchState = mock(BatchState.class);
             BatchState finishedState = mock(BatchState.class);
@@ -230,15 +234,16 @@ class ExtractDataServiceTest {
 
             PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
             when(bwc.id()).thenReturn(batchId);
+            when(bwc.diagnostics()).thenReturn(BatchDiagnostics.empty());
             when(bwc.patientIds()).thenReturn(List.of("p1"));
             when(bwc.keep(any())).thenReturn(bwc);
 
             when(consentHandler.fetchAndBuildConsentInfo(Set.of(termcode), rawBatch))
                     .thenReturn(Mono.just(bwc));
 
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), eq(bwc), any()))
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), eq(bwc)))
                     .thenReturn(Mono.just(bwc));
-            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(Mono.just(bwc));
             when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(bwc);
@@ -286,6 +291,7 @@ class ExtractDataServiceTest {
 
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
             BatchState batchState = mock(BatchState.class);
             when(batchState.batchId()).thenReturn(batchId);
@@ -316,7 +322,7 @@ class ExtractDataServiceTest {
         }
 
         @Test
-        void processBatch_whenExtractedBatchEmpty_returnsSkipped() throws MustHaveViolatedException {
+        void processBatch_whenExtractedBatchEmpty_returnsSkipped() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
@@ -330,6 +336,7 @@ class ExtractDataServiceTest {
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
             when(rawBatch.ids()).thenReturn(List.of());
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
             BatchState batchState = mock(BatchState.class);
             BatchState skippedState = mock(BatchState.class);
@@ -342,10 +349,11 @@ class ExtractDataServiceTest {
 
             PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
             when(bwc.keep(any())).thenReturn(bwc);
+            when(bwc.diagnostics()).thenReturn(BatchDiagnostics.empty());
 
-            when(directResourceLoader.directLoadPatientCompartment(anyList(), any(), any()))
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
                     .thenReturn(Mono.just(bwc));
-            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(Mono.just(bwc));
             when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
                     .thenReturn(bwc);
@@ -356,7 +364,6 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.isEmpty()).thenReturn(true);
-                when(extracted.bundles()).thenReturn(Map.of());
                 when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap())).thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -532,7 +539,7 @@ class ExtractDataServiceTest {
             when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
                     .thenReturn(Mono.just(rb));
 
-            doThrow(new MustHaveViolatedException("required direct core group missing"))
+            doThrow(new MustHaveViolatedException.GroupViolated("required direct core group missing"))
                     .when(postCascadeMustHaveChecker).validate(rb, directNoPatientGroups);
 
             StepVerifier.create(spyService.processCore(job, new ExtractionResourceBundle()))

@@ -124,13 +124,14 @@ The `output` array contains **only FHIR NDJSON Bundle files** — one file per p
 containing one Bundle per patient) and one `core.ndjson`. Non-resource data (diagnostics, issues) is never placed in `output`, because
 downstream consumers process every entry there as a FHIR resource file.
 
-TORCH-specific data is surfaced in the `extension` array. Three extension URLs are defined:
+TORCH-specific data is surfaced in the `extension` array. Four extension URLs are defined:
 
 | `url`                                                     | Content                                                                                                                                      | Present when                                                   |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
 | `https://torch.mii.de/fhir/StructureDefinition/torch-job` | Full serialised job state (batches, timings, version)                                                                                        | Always                                                         |
-| `torch-job-diagnostics-summary`                           | Per-exclusion-kind patient and resource counts, cohort total and final patient total                                                         | Diagnostics were collected (i.e. at least one batch completed) |
-| `torch-job-diagnostics`                                   | `valueUrl` pointing to the full diagnostics OperationOutcome file (per-stage timings, per-criterion counts and timing); see [Job Diagnostics](./diagnostics.md) | Same as above |
+| `torch-job-diagnostics-summary`                           | Cohort total, final patient total and per-stage processing durations; see [Job Diagnostics](./diagnostics.md)                                | Diagnostics were collected (i.e. at least one batch completed) |
+| `torch-resource-exclusions`                               | `valueUrl` pointing to a CSV file containing resource exclusion events; see [Job Diagnostics](./diagnostics.md)                              | Same as above                                                  |
+| `torch-patient-exclusions`                                | `valueUrl` pointing to a CSV file containing patient exclusion events; see [Job Diagnostics](./diagnostics.md)                               | Same as above                                                  |
 | `torch-job-issues`                                        | List of `{severity, msg, diagnostics}` objects recording warnings and errors that occurred during processing (e.g. skipped batches, retries) | At least one issue was recorded                                |
 
 Example completed manifest:
@@ -161,26 +162,56 @@ Example completed manifest:
     },
     {
       "url": "torch-job-diagnostics-summary",
+      "valueUrl": "http://fileserver/<jobId>/reports/job-summary.json",
       "valueObject": {
-        "cohortPatientsTotal": 100,
-        "finalPatientsTotal": 87,
-        "exclusionsByKind": [
-          {
-            "kind": "CONSENT",
-            "patientsExcluded": 5,
-            "resourcesExcluded": 0
+        "Num-Cohort-Patients": 3,
+        "Num-Final-Patients": 0,
+        "Duration-Measurements": {
+          "COPY_REDACT": {
+            "medianNanos": 34400,
+            "averageNanos": 26300
           },
-          {
-            "kind": "MUST_HAVE",
-            "patientsExcluded": 8,
-            "resourcesExcluded": 42
+          "DIRECT_LOAD": {
+            "medianNanos": 17928800,
+            "averageNanos": 9044250
+          },
+          "REFERENCE_RESOLVE": {
+            "medianNanos": 177800,
+            "averageNanos": 155050
+          },
+          "CONSENT_FETCH": {
+            "medianNanos": 56800,
+            "averageNanos": 56800
+          },
+          "CASCADING_DELETE": {
+            "medianNanos": 30600,
+            "averageNanos": 25700
           }
-        ]
+        },
+        "Patient-Exclusions": {
+          "CASCADING_DELETE": 0,
+          "DIRECT_LOAD": 3,
+          "CONSENT": 0
+        },
+        "Resource-Exclusions": {
+          "med-adm-group": {
+            "Must-Have": {
+              "MedicationAdministration.category": 2
+            },
+            "Consent": 0,
+            "Reference-Not-Found": 0,
+            "Resource-Outside-Batch": 0
+          }
+        }
       }
     },
     {
-      "url": "torch-job-diagnostics",
-      "valueUrl": "http://fileserver/<jobId>/reports/job-summary.json"
+      "url": "torch-resource-exclusions",
+      "valueUrl": "http://fileserver/<jobId>/reports/resource-exclusions.csv"
+    },
+    {
+      "url": "torch-patient-exclusions",
+      "valueUrl": "http://fileserver/<jobId>/reports/patient-exclusions.csv"
     },
     {
       "url": "torch-job-issues",

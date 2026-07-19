@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.Path;
@@ -23,6 +24,8 @@ public interface FileIo {
 
     Stream<String> lines(Path path) throws IOException;
 
+    Stream<Path> listDirectories(Path path) throws IOException;
+
     void createDirectories(Path dir) throws IOException;
 
     boolean isDirectory(Path path);
@@ -40,4 +43,6 @@ public interface FileIo {
     void atomicMove(Path source, Path target) throws IOException;
 
     void deleteDir(Path path) throws IOException;
+
+    File createTempFile(File originalFile) throws IOException;
 }

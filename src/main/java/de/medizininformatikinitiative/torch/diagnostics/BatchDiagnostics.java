@@ -1,52 +1,34 @@
 package de.medizininformatikinitiative.torch.diagnostics;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.UUID;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import static java.util.Objects.requireNonNull;
 
 /**
- * Immutable snapshot of diagnostics collected for a single processing batch.
+ * Holds various diagnostics that are recorded during the processing of a single batch.
  *
- * <p>Produced by {@link BatchDiagnosticsAcc#snapshot(long)} at the end of batch processing.
- *
- * @param jobId                 the job this batch belongs to
- * @param batchId               unique identifier of this batch
- * @param cohortPatientsInBatch number of patients in the cohort assigned to this batch
- * @param finalPatientsInBatch  number of patients remaining after all exclusions in this batch
- * @param criteria              per-criterion exclusion counts as an ordered list of entries
- * @param stages                per-stage throughput metrics; may be empty
+ * @param batchExclusions   the exclusion events happening during processing
+ * @param batchDetails      other measurements recorded during processing
  */
-public record BatchDiagnostics(
-        UUID jobId,
-        UUID batchId,
-        long cohortPatientsInBatch,
-        long finalPatientsInBatch,
-        List<CriterionEntry> criteria,
-        Map<PipelineStage, StageCounts> stages
-) {
+public record BatchDiagnostics(BatchExclusions batchExclusions, BatchDetails batchDetails) {
 
     public BatchDiagnostics {
-        criteria = criteria != null ? List.copyOf(criteria) : List.of();
-        stages = stages != null ? Map.copyOf(stages) : Map.of();
+        requireNonNull(batchDetails);
+        requireNonNull(batchExclusions);
     }
 
-    /** Constructor for callers that don't supply stage timings. */
-    public BatchDiagnostics(UUID jobId, UUID batchId, long cohortPatientsInBatch,
-                            long finalPatientsInBatch, List<CriterionEntry> criteria) {
-        this(jobId, batchId, cohortPatientsInBatch, finalPatientsInBatch, criteria, Map.of());
+    public static BatchDiagnostics empty() {
+        return new BatchDiagnostics(BatchExclusions.empty(), BatchDetails.empty());
     }
 
-    /**
-     * Returns the counts for the given criterion, or empty if no exclusions were recorded for it.
-     *
-     * @param key the criterion to look up
-     * @return optional counts for the criterion
-     */
-    public Optional<CriterionCounts> countsFor(CriterionKey key) {
-        return criteria.stream()
-                .filter(e -> e.key().equals(key))
-                .map(CriterionEntry::counts)
-                .findFirst();
+    public BatchDiagnostics setFinalPatientCount(int numFinalPatients) {
+        return new BatchDiagnostics(batchExclusions, batchDetails.setFinalPatientCount(numFinalPatients));
+    }
+
+    public BatchDiagnostics setNumCohortPatients(int numCohortPatients) {
+        return new BatchDiagnostics(batchExclusions, batchDetails.setNumCohortPatients(numCohortPatients));
+    }
+
+    public BatchDiagnostics setBatchDetails(BatchDetails newBatchDetails) {
+        return new BatchDiagnostics(batchExclusions, newBatchDetails);
     }
 }

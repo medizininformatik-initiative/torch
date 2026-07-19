@@ -33,7 +33,7 @@ class CdsBlackBoxIT {
 
     @BeforeAll
     static void setUp() throws IOException {
-        environment = new BlackBoxIntegrationTestEnv(logger);
+        environment = new BlackBoxIntegrationTestEnv(logger, true);
         environment.start();
 
         torchClient = environment.torchClient();
