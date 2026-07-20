@@ -57,6 +57,10 @@ public class BatchCopierRedacter {
      * <p>
      * Groups Attribute Group by Resource to which they should be applied, builds all information needed for extraction and
      * redaction and then applies it to the resources.
+     * <p>
+     * A resource that fails with {@link TargetClassCreationException}, {@link ReflectiveOperationException}, or
+     * {@link RedactionException} is isolated: it is dropped from the bundle and a warning is logged, without failing
+     * the rest of the batch. Any other exception is treated as a programming error and propagates.
      *
      * @param extractionBundle PatientResourceBundle to transform
      * @param groupMap         Immutable AttributeGroup Map shared between all Batches
@@ -82,7 +86,7 @@ public class BatchCopierRedacter {
 
                 extractionBundle.put(transformed);
 
-            } catch (Exception e) {
+            } catch (TargetClassCreationException | ReflectiveOperationException | RedactionException e) {
                 logger.warn("BatchCopierRedacter001: Error transforming resource {}: {}", resourceId, e.getMessage());
                 extractionBundle.put(resourceId);
             }

@@ -30,6 +30,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
@@ -113,6 +114,19 @@ class BatchCopierRedacterTest {
         transformer.transformBundle(extractionBundle, Map.of());
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
+    }
+
+    @Test
+    void transformBundle_propagatesUnexpectedRuntimeException() throws Exception {
+        doThrow(new NullPointerException("bug"))
+                .when(transformer)
+                .transformResource(any());
+
+        assertThatThrownBy(() -> transformer.transformBundle(extractionBundle, Map.of()))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("bug");
+
+        assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isPresent();
     }
 
     @Nested
