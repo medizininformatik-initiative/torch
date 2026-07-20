@@ -45,18 +45,6 @@ public record NonContinuousPeriod(List<Period> periods) {
         return new NonContinuousPeriod(merged);
     }
 
-    public NonContinuousPeriod update(Period encounterPeriod) {
-        return new NonContinuousPeriod(
-                periods.stream()
-                        .map(consentPeriod -> {
-                            if (consentPeriod.isStartBetween(encounterPeriod)) {
-                                return new Period(encounterPeriod.start(), consentPeriod.end());
-                            }
-                            return consentPeriod;
-                        }).toList()
-        );
-    }
-
     public boolean within(Period resourcePeriod) {
         return periods.stream().anyMatch(period ->
                 !resourcePeriod.start().isBefore(period.start()) && !resourcePeriod.end().isAfter(period.end()));
