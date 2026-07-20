@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.cql;
 
+import de.medizininformatikinitiative.torch.exceptions.MeasureReportShapeException;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -40,7 +41,7 @@ public class CqlClient {
 
         return dataStore.transact(measureLibraryBundle)
                 .then(Mono.defer(() -> dataStore.evaluateMeasure(params)))
-                .map(CqlClient::extractSubjectListId)
+                .map(measureReport -> extractSubjectListId(measureReport, measureUri))
                 .map(CqlClient::createPatientQuery)
                 .flux()
                 .flatMap(query -> dataStore.search(query, Patient.class))
@@ -50,12 +51,31 @@ public class CqlClient {
                 });
     }
 
-    private static String extractSubjectListId(MeasureReport measureReport) {
-        return measureReport.getGroupFirstRep()
-                .getPopulationFirstRep()
-                .getSubjectResults()
-                .getReferenceElement()
-                .getIdPart();
+    /**
+     * Extracts the subject list id from a {@link MeasureReport}.
+     * <p>
+     * HAPI's {@code getXxxFirstRep()} accessors silently return empty defaults instead of throwing, so an
+     * ill-shaped report (missing group, population, or subject results reference) would otherwise surface as a
+     * bare {@link NullPointerException} further downstream.
+     *
+     * @throws MeasureReportShapeException if the report has no populated group/population/subjectResults reference
+     */
+    private static String extractSubjectListId(MeasureReport measureReport, String measureUri) {
+        if (!measureReport.hasGroup() || !measureReport.getGroupFirstRep().hasPopulation()) {
+            throw new MeasureReportShapeException(measureUri);
+        }
+
+        var population = measureReport.getGroupFirstRep().getPopulationFirstRep();
+        if (!population.hasSubjectResults()) {
+            throw new MeasureReportShapeException(measureUri);
+        }
+
+        String idPart = population.getSubjectResults().getReferenceElement().getIdPart();
+        if (idPart == null) {
+            throw new MeasureReportShapeException(measureUri);
+        }
+
+        return idPart;
     }
 
     private static Query createPatientQuery(String subjectListId) {
