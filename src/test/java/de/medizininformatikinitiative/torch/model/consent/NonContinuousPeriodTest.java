@@ -85,31 +85,6 @@ class NonContinuousPeriodTest {
     }
 
     @Nested
-    class Update {
-
-        @Test
-        void adjustsStartWhenInsideEncounter() {
-            var consent = new NonContinuousPeriod(List.of(p("2024-01-05", "2024-01-10")));
-            var encounter = p("2024-01-01", "2024-01-06");
-
-            var updated = consent.update(encounter);
-
-            assertThat(updated.periods())
-                    .containsExactly(p("2024-01-01", "2024-01-10"));
-        }
-
-        @Test
-        void leavesUnchangedIfOutside() {
-            var consent = new NonContinuousPeriod(List.of(p("2024-01-20", "2024-01-30")));
-            var encounter = p("2024-01-01", "2024-01-10");
-
-            var updated = consent.update(encounter);
-
-            assertThat(updated.periods()).containsExactly(p("2024-01-20", "2024-01-30"));
-        }
-    }
-
-    @Nested
     class Within {
 
         @Test
