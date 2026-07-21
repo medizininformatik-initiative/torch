@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.management.ElementContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
 import org.hl7.fhir.exceptions.FHIRException;
@@ -38,6 +39,7 @@ public class Redaction {
     private static final String MASKED = "masked";
     private static final Extension ABSENT_REASON_EXTENSION = createAbsentReasonExtension(MASKED);
     private static final String EXTENSION = "extension";
+    private static final String MODIFIER_EXTENSION = "modifierExtension";
     private static final String REFERENCE = "reference";
 
     private final StructureDefinitionHandler structureDefinitionHandler;
@@ -242,13 +244,52 @@ public class Redaction {
 
                     handleReference(child, childContexts.allowedReferences(references));
                 }
+                boolean checkSlices = !EXTENSION.equals(child.getName()) && !MODIFIER_EXTENSION.equals(child.getName());
+                Set<String> matchedSliceIds = checkSlices ? matchedSliceIds(child, childContexts) : Set.of();
                 for (Base value : child.getValues()) {
                     redact(value, childContexts, references);
+                }
+                // Only flag missing required slices if at least one instance matched some slice; otherwise none of
+                // the values addressed slicing at all, and the per-instance masking above already covers them.
+                if (!matchedSliceIds.isEmpty()) {
+                    childContexts.missingRequiredSlices(matchedSliceIds)
+                            .forEach(slice -> addMissingSlice(baseElement, child, slice));
                 }
             } else if (child.getMinCardinality() > 0 || childContexts.required()) {
                 addDataAbsentReason(baseElement, child, types.getFirst());
             }
         });
+    }
+
+    /**
+     * Collects the element ids of slices matched by at least one existing value of {@code child}.
+     * <p>
+     * Must be evaluated before {@code child}'s values are redacted, since redaction wipes the children
+     * of instances that match no slice, which would make them unmatchable afterwards.
+     * </p>
+     */
+    private Set<String> matchedSliceIds(Property child, MultiElementContext childContexts) {
+        return child.getValues().stream()
+                .flatMap(value -> childContexts.matchingSlices(value).stream())
+                .map(ElementContext::elementId)
+                .collect(Collectors.toSet());
+    }
+
+    /**
+     * Appends a masked stub value of the given slice's type, representing a required named slice with no
+     * matching instance among the existing values of {@code child}.
+     * <p>
+     * Slices defined via {@code contentReference} rather than {@code type} carry no type of their own; such a
+     * slice is logged and skipped, since there is no type to build a masked stub from.
+     * </p>
+     */
+    private void addMissingSlice(Base base, Property child, ElementDefinition slice) {
+        List<String> sliceTypes = slice.getType().stream().map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
+        if (sliceTypes.isEmpty()) {
+            logger.warn("Missing type for required slice {} in field {} of {}", slice.getId(), child.getName(), base.fhirType());
+            return;
+        }
+        addDataAbsentReason(base, child, sliceTypes.getFirst());
     }
 
     /**
