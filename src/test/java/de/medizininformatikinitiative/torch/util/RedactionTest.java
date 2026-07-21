@@ -18,6 +18,7 @@ import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
@@ -210,6 +211,34 @@ public class RedactionTest {
 
     }
 
+    /**
+     * Tests a required named slice ({@code min=1}) defined via {@code contentReference} instead of {@code type}
+     * (a valid FHIR construct, e.g. for recursive structures). With no matching instance in the data, the
+     * missing-slice masking has no type to build a stub from and must skip that slice instead of failing.
+     *
+     * @throws IOException when test file not found
+     */
+    @Test
+    void missingRequiredSliceWithoutType() throws IOException, RedactionException {
+        Observation src = new Observation();
+        Meta meta = new Meta();
+        meta.addProfile("http://example.org/fhir/StructureDefinition/observation-with-typeless-required-slice");
+        src.setMeta(meta);
+        src.setStatus(Observation.ObservationStatus.FINAL);
+        src.setCode(new CodeableConcept(new Coding("http://loinc.org", "85353-1", "Vital signs panel")));
+        Observation.ObservationComponentComponent heartRate = new Observation.ObservationComponentComponent();
+        heartRate.setCode(new CodeableConcept(new Coding("http://loinc.org", "8867-4", "Heart rate")));
+        src.setComponent(List.of(heartRate));
+
+        StructureDefinitionHandler definitionHandler = new StructureDefinitionHandler(new File("src/test/resources/StructureDefinitions/"), new ResourceReader(integrationTestSetup.fhirContext()));
+        definitionHandler.processDirectory();
+        Redaction redaction = new Redaction(definitionHandler);
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of("http://example.org/fhir/StructureDefinition/observation-with-typeless-required-slice"), Map.of(), new CopyTreeNode("dummy"));
+        DomainResource tgt = redaction.redact(wrapper);
+
+        assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+    }
+
     @Nested
     class ConditionTest {
 
@@ -268,10 +297,11 @@ public class RedactionTest {
          * @param resource Todesursache1.json does only contain the who icd10 (who) which is not currently allowed in diagnosis profile
          *                 Todesursache2.json does contain 2 legal codings icd10 and sct from two different profiles
          *                 Todesursache3.json does not contain the required icd 10 (who)
+         *                 Todesursache4.json only contains one of the two required category.coding slices (snomed, missing loinc)
          * @throws IOException when test file not found
          */
         @ParameterizedTest
-        @ValueSource(strings = {"Todesursache1.json", "Todesursache2.json", "Todesursache3.json"})
+        @ValueSource(strings = {"Todesursache1.json", "Todesursache2.json", "Todesursache3.json", "Todesursache4.json"})
         void testMultipleProfiles(String resource) throws IOException, RedactionException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
             DomainResource expected = integrationTestSetup.readResource(EXPECTED_OUTPUT_DIR + resource);
@@ -361,6 +391,30 @@ public class RedactionTest {
             dar.setReferenceElement(referenceElement);
             expected.setSubject(dar);
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+        }
+
+        /**
+         * modifierExtension, like extension, is handled by the URL-aware extension pipeline rather than
+         * slice-matching, so it must pass through untouched instead of being checked for missing required slices.
+         */
+        @Test
+        void modifierExtensionSkipsSliceCheck() throws RedactionException {
+            Encounter src = new Encounter();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
+            src.setMeta(meta);
+            src.setStatus(Encounter.EncounterStatus.ARRIVED);
+            src.setClass_(new Coding("Test", "Test", "Test"));
+            src.setId("Encounter/12345");
+            src.setSubject(new Reference("Patient/12345"));
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345")).setUse(new CodeableConcept(new Coding("Test", "Test", "")))));
+            src.addModifierExtension(new Extension("http://example.org/fhir/StructureDefinition/some-modifier-extension", new StringType("value")));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(ENCOUNTER), Map.of("Encounter.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Encounter.diagnosis", ExtractionId.of("Condition/12345")), new CopyTreeNode("dummy"));
+            var redaction = integrationTestSetup.redaction();
+            Encounter tgt = (Encounter) redaction.redact(wrapper);
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
         }
 
         @Test

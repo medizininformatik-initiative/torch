@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.ElementDefinition;
 
 import java.util.Optional;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -43,5 +44,12 @@ public record ElementContext(String elementId, CompiledStructureDefinition defin
     public Optional<ElementContext> matchingSlice(Base dataElement) {
         Optional<ElementDefinition> slice = Slicing.resolveSlicing(dataElement, elementId, definition);
         return slice.map(elementDefinition -> new ElementContext(elementDefinition.getId(), definition));
+    }
+
+    /**
+     * Returns all named slices defined for this element, independent of any specific data instance.
+     */
+    Stream<ElementDefinition> definedSlices() {
+        return Slicing.definedSlices(elementId, definition);
     }
 }

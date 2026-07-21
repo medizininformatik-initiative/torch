@@ -37,10 +37,20 @@ public record MultiElementContext(List<ElementContext> contexts) {
      * @return an {@code Optional} containing the updated {@code MultiElementContext}, or empty if suppressed by the consumer
      */
     public Optional<MultiElementContext> resolveSlices(Base dataElement, Predicate<List<ElementContext>> sliceConsumer) {
-        List<ElementContext> slices = contexts.stream().filter(ElementContext::hasSlicing)
+        List<ElementContext> slices = matchingSlices(dataElement);
+        return sliceConsumer.test(slices) ? Optional.empty() : Optional.of(mergeWithSlices(slices));
+    }
+
+    /**
+     * Returns the slice contexts matching the given data element, across all associated definitions.
+     *
+     * @param dataElement HAPI Base (Element) which should be checked
+     * @return the matching slice contexts, empty if none match
+     */
+    public List<ElementContext> matchingSlices(Base dataElement) {
+        return contexts.stream().filter(ElementContext::hasSlicing)
                 .flatMap(ctx -> ctx.matchingSlice(dataElement).stream())
                 .toList();
-        return sliceConsumer.test(slices) ? Optional.empty() : Optional.of(mergeWithSlices(slices));
     }
 
     public boolean shouldRedactExtension(Extension extension) {
@@ -129,6 +139,20 @@ public record MultiElementContext(List<ElementContext> contexts) {
      */
     public boolean required() {
         return elementDefinitions().anyMatch(elementDefinition -> elementDefinition.getMin() > 0);
+    }
+
+    /**
+     * Determines named slices with minimum cardinality &gt;0 that none of the given matched slice element ids satisfy.
+     *
+     * @param matchedSliceIds element ids of slices matched by at least one existing instance
+     * @return element definitions of required slices with no matching instance
+     */
+    public List<ElementDefinition> missingRequiredSlices(Set<String> matchedSliceIds) {
+        return contexts.stream()
+                .flatMap(ElementContext::definedSlices)
+                .filter(slice -> slice.getMin() > 0)
+                .filter(slice -> !matchedSliceIds.contains(slice.getId()))
+                .toList();
     }
 
     public List<String> workingCodes() {

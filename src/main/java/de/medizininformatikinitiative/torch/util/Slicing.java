@@ -84,6 +84,21 @@ public class Slicing {
     }
 
     /**
+     * Returns all named slices defined for the sliced element identified by {@code elementId}, independent of any
+     * specific data instance.
+     *
+     * @param elementId  Element ID of the sliced (parent) element.
+     * @param definition definition of the Resource to which the element belongs
+     * @return Stream of the named slice ElementDefinitions; empty if the element is not sliced or unknown.
+     */
+    public static Stream<ElementDefinition> definedSlices(String elementId, CompiledStructureDefinition definition) {
+        return definition.elementDefinitionById(elementId)
+                .filter(ElementDefinition::hasSlicing)
+                .map(sliced -> definition.elementDefinitionByPath(sliced.getPath()).filter(ElementDefinition::hasSliceName))
+                .orElseGet(Stream::empty);
+    }
+
+    /**
      * Generates FHIR Path conditions based on the element ID and the snapshot of the StructureDefinition.
      *
      * @param elementID  ElementID that needs to be resolved
