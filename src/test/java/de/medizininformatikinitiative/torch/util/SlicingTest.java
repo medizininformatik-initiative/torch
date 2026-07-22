@@ -6,6 +6,7 @@ import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.StructureDefinition;
+import org.hl7.fhir.r4.model.UriType;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
@@ -59,6 +60,55 @@ class SlicingTest {
                 "relationship.text='Test'"
         );
 
+    }
+
+    @Test
+    void testGenerateConditionsForFHIRPath_ExtensionSlicedByUrl_WithoutUrlChild() {
+        StructureDefinition structureDefinition = new StructureDefinition();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+        ElementDefinition parentElement = new ElementDefinition();
+        parentElement.setId("Condition.extension");
+        parentElement.setPath("Condition.extension");
+        parentElement.getSlicing().addDiscriminator().setPath("url").setType(ElementDefinition.DiscriminatorType.VALUE);
+        snapshot.addElement(parentElement);
+        ElementDefinition sliceElement = new ElementDefinition();
+        sliceElement.setId("Condition.extension:Feststellungsdatum");
+        sliceElement.setPath("Condition.extension");
+        sliceElement.setSliceName("Feststellungsdatum");
+        sliceElement.addType().setCode("Extension").addProfile("https://example.org/fhir/StructureDefinition/feststellungsdatum");
+        snapshot.addElement(sliceElement);
+
+        List<String> result = Slicing.generateConditionsForFHIRPath("Condition.extension:Feststellungsdatum",
+                CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
+
+        assertThat(result).containsExactly("url='https://example.org/fhir/StructureDefinition/feststellungsdatum'");
+    }
+
+    @Test
+    void testGenerateConditionsForFHIRPath_ExtensionSlicedByUrl_WithUrlChild() {
+        StructureDefinition structureDefinition = new StructureDefinition();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+        ElementDefinition parentElement = new ElementDefinition();
+        parentElement.setId("Condition.extension");
+        parentElement.setPath("Condition.extension");
+        parentElement.getSlicing().addDiscriminator().setPath("url").setType(ElementDefinition.DiscriminatorType.VALUE);
+        snapshot.addElement(parentElement);
+        ElementDefinition sliceElement = new ElementDefinition();
+        sliceElement.setId("Condition.extension:Gesamtdosis");
+        sliceElement.setPath("Condition.extension");
+        sliceElement.setSliceName("Gesamtdosis");
+        sliceElement.addType().setCode("Extension").addProfile("https://example.org/fhir/StructureDefinition/gesamtdosis");
+        snapshot.addElement(sliceElement);
+        ElementDefinition urlElement = new ElementDefinition();
+        urlElement.setId("Condition.extension:Gesamtdosis.url");
+        urlElement.setPath("Condition.extension.url");
+        urlElement.setFixed(new UriType("https://example.org/fhir/StructureDefinition/gesamtdosis"));
+        snapshot.addElement(urlElement);
+
+        List<String> result = Slicing.generateConditionsForFHIRPath("Condition.extension:Gesamtdosis",
+                CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
+
+        assertThat(result).containsExactly("url='https://example.org/fhir/StructureDefinition/gesamtdosis'");
     }
 
     @Test

@@ -4,14 +4,21 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
+import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.DateType;
+import org.hl7.fhir.r4.model.ElementDefinition;
+import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Ratio;
+import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -251,6 +258,50 @@ class ElementCopierTest {
         assertThat(copied.hasStrength()).isTrue();
         assertThat(copied.getStrength().getNumerator().getValue()).isEqualByComparingTo("1000");
         assertThat(copied.getStrength().getDenominator().getValue()).isEqualByComparingTo("20");
+    }
+
+    @Test
+    void extensionSlicedByUrlCopiesOnlyRequestedSlice() throws ReflectiveOperationException, FHIRException {
+        // --- Given: a slicing definition like mii-pr-diagnose-condition.json, where extension slices
+        // are discriminated by value/url but have no explicit ".url" child element in the snapshot ---
+        StructureDefinition structureDefinition = new StructureDefinition();
+        StructureDefinition.StructureDefinitionSnapshotComponent snapshot = structureDefinition.getSnapshot();
+        ElementDefinition parent = new ElementDefinition();
+        parent.setId("Condition.extension");
+        parent.setPath("Condition.extension");
+        parent.getSlicing().addDiscriminator().setPath("url").setType(ElementDefinition.DiscriminatorType.VALUE);
+        snapshot.addElement(parent);
+        ElementDefinition feststellungsdatum = new ElementDefinition();
+        feststellungsdatum.setId("Condition.extension:Feststellungsdatum");
+        feststellungsdatum.setPath("Condition.extension");
+        feststellungsdatum.setSliceName("Feststellungsdatum");
+        feststellungsdatum.addType().setCode("Extension").addProfile("https://example.org/fhir/StructureDefinition/feststellungsdatum");
+        snapshot.addElement(feststellungsdatum);
+        ElementDefinition referenzPrimaerdiagnose = new ElementDefinition();
+        referenzPrimaerdiagnose.setId("Condition.extension:ReferenzPrimaerdiagnose");
+        referenzPrimaerdiagnose.setPath("Condition.extension");
+        referenzPrimaerdiagnose.setSliceName("ReferenzPrimaerdiagnose");
+        referenzPrimaerdiagnose.addType().setCode("Extension").addProfile("https://example.org/fhir/StructureDefinition/referenz-primaerdiagnose");
+        snapshot.addElement(referenzPrimaerdiagnose);
+        CompiledStructureDefinition definition = CompiledStructureDefinition.fromStructureDefinition(structureDefinition);
+
+        String[] resolved = FhirPathBuilder.handleSlicingForFhirPath("Condition.extension:Feststellungsdatum", definition);
+
+        Condition src = new Condition();
+        src.addExtension(new Extension("https://example.org/fhir/StructureDefinition/feststellungsdatum", new DateType("2024-01-01")));
+        src.addExtension(new Extension("https://example.org/fhir/StructureDefinition/referenz-primaerdiagnose", new Reference("Condition/other")));
+
+        Condition tgt = new Condition();
+
+        List<AnnotatedAttribute> attrs = List.of(new AnnotatedAttribute("Condition.extension:Feststellungsdatum", resolved[0], false));
+        CopyTreeNode copyTree = AnnotatedAttributeGroup.buildTree(attrs, "Condition");
+
+        // --- When ---
+        copyService.copy(src, tgt, copyTree);
+
+        // --- Then: only the requested Feststellungsdatum extension is copied, not the sibling slice ---
+        assertThat(tgt.getExtension()).hasSize(1);
+        assertThat(tgt.getExtension().get(0).getUrl()).isEqualTo("https://example.org/fhir/StructureDefinition/feststellungsdatum");
     }
 
     @Nested

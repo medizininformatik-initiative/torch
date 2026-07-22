@@ -127,8 +127,14 @@ public class Slicing {
                     // Generate FHIR Path condition based on the discriminator type and path
                     switch (discriminator.getType()) {
                         case VALUE, PATTERN:
-                            logger.trace("Pattern discriminator found");
-                            conditions.addAll(Slicing.collectConditionsfromPattern(elementID, definition, path));
+                            if ("url".equals(path) && isExtensionType(slicedElement.get()) && definition.elementDefinitionById(elementID + ".url").isEmpty()) {
+                                // Extensions are conventionally sliced by url without a fixed value on a .url child
+                                // element; the slice's url is instead carried by its Extension type's profile.
+                                extensionUrlCondition(slicedElement.get()).ifPresent(conditions::add);
+                            } else {
+                                logger.trace("Pattern discriminator found");
+                                conditions.addAll(Slicing.collectConditionsfromPattern(elementID, definition, path));
+                            }
                             break;
                         case EXISTS:
                             conditions.add(path + ".exists()");
@@ -150,6 +156,18 @@ public class Slicing {
         return conditions;
     }
 
+
+    private static boolean isExtensionType(ElementDefinition element) {
+        return element.hasType() && "Extension".equals(element.getType().getFirst().getWorkingCode());
+    }
+
+    private static Optional<String> extensionUrlCondition(ElementDefinition sliceElement) {
+        return sliceElement.getType().stream()
+                .flatMap(type -> type.getProfile().stream())
+                .map(CanonicalType::getValue)
+                .findFirst()
+                .map(url -> "url='" + url + "'");
+    }
 
     static List<String> collectConditionsfromPattern(String elementId, CompiledStructureDefinition definition, String path) {
         List<String> conditions = new ArrayList<>();
