@@ -4,6 +4,17 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.6] - 2026-07-22
+
+### Fixed
+
+- Fix Shared FHIRPathEngine Race Under Concurrent parallelStream Evaluation [#1087](https://github.com/medizininformatik-initiative/torch/pull/1087)
+- Fix Job.initBatches resetting version to 0, breaking optimistic concurrency [#1054](https://github.com/medizininformatik-initiative/torch/pull/1054)
+- Fix CascadingDelete silently skipping must-have escalation for shared reference targets [#1047](https://github.com/medizininformatik-initiative/torch/pull/1047)
+- Fix CascadingDelete retaining reference-only cycles with no live anchor [#1043](https://github.com/medizininformatik-initiative/torch/pull/1043)
+- Log ConsentViolatedException message in ExtractDataService instead of silently swallowing it [#1030](https://github.com/medizininformatik-initiative/torch/pull/1030)
+
+
 ## [v1.0.0-beta.5] - 2026-06-26
 
 ### Fixed

@@ -178,17 +178,17 @@ For container images, we use cosign to sign images. This allows users to confirm
 pipeline and has not been modified after publication.
 
 ```
-cosign verify "ghcr.io/medizininformatik-initiative/torch:v1.0.0" \
+cosign verify "ghcr.io/medizininformatik-initiative/torch:v1.0.0-beta.6" \
 --certificate-identity-regexp "https://github.com/medizininformatik-initiative/torch.*" \
 --certificate-oidc-issuer "https://token.actions.githubusercontent.com" \
---certificate-github-workflow-ref="refs/tags/v1.0.0" \
+--certificate-github-workflow-ref="refs/tags/v1.0.0-beta.6" \
 -o text
 ```
 
 The expected output is:
 
 ```
-Verification for ghcr.io/medizininformatik-initiative/torch:v1.0.0 --
+Verification for ghcr.io/medizininformatik-initiative/torch:v1.0.0-beta.6 --
 The following checks were performed on each of these signatures:
 - The cosign claims were validated
 - Existence of the claims in the transparency log was verified offline
@@ -196,5 +196,5 @@ The following checks were performed on each of these signatures:
 ```
 
 This output ensures that the image was build on the GitHub workflow on the repository
-`medizininformatik-initiative/torch` and tag `v1.0.0`.
+`medizininformatik-initiative/torch` and tag `v1.0.0-beta.6`.
 
