@@ -20,7 +20,7 @@
         <maven.compiler.target>21</maven.compiler.target>
         <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <Hapi.version>8.10.0</Hapi.version>
+        <Hapi.version>8.10.1</Hapi.version>
         <hapi-fhir-core.version>6.9.12</hapi-fhir-core.version>
         <ontology-tag>v4.1.0</ontology-tag>
         <netty.version>4.2.15.Final</netty.version>
