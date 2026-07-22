@@ -14,6 +14,13 @@ It implements the FHIR [Asynchronous Bulk Data Request Pattern][1].
 👉 Visit the [**API Documentation**](./api/api.md) for details on endpoints, request/response formats, and usage
 examples.
 
+### Task API
+
+Jobs can be listed, inspected, reprioritized, paused, resumed, cancelled, and deleted through a FHIR
+[`Task`](https://www.hl7.org/fhir/task.html)-based control API.
+
+👉 Visit the [**Task API Documentation**](./api/task-api.md) for endpoint details and status/priority mappings.
+
 ### CRTDL
 
 The Clinical Resource Transfer Definition Language (CRTDL) is a JSON format used to describe cohorts and data extraction

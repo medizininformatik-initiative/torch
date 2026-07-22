@@ -22,6 +22,9 @@ h2#servers + div,
   <OASpec spec-url="../openapi.json" />
 </ClientOnly>
 
+For a more practical, narrative guide to managing jobs after kick-off (listing, pausing, cancelling, changing
+priority, deleting) than the technical reference above, see the [Task API](./task-api.md) page.
+
 ## Implementation Details
 
 The TORCH REST API follows the [Asynchronous Bulk Data Request Pattern][1].
