@@ -39,7 +39,7 @@ public class TorchPropertiesTest {
 
         @Test
         void flareURLNullShouldThrow() {
-            var flare = new TorchProperties.Flare(null);
+            var flare = new TorchProperties.Flare(null, null);
 
             assertThatThrownBy(() -> new TorchProperties(
                     new TorchProperties.Base("http://base-url"),
@@ -62,7 +62,7 @@ public class TorchPropertiesTest {
 
         @Test
         void flareURLBlankShouldThrow() {
-            var flare = new TorchProperties.Flare("  ");
+            var flare = new TorchProperties.Flare("  ", null);
 
             assertThatThrownBy(() -> new TorchProperties(
                     new TorchProperties.Base("http://base-url"),
@@ -85,7 +85,7 @@ public class TorchPropertiesTest {
 
         @Test
         void flareURLSetPasses() {
-            var flare = new TorchProperties.Flare("http://flare-url");
+            var flare = new TorchProperties.Flare("http://flare-url", null);
 
             assertThatCode(() -> new TorchProperties(
                     new TorchProperties.Base("http://base-url"),
@@ -107,7 +107,7 @@ public class TorchPropertiesTest {
 
         @Test
         void flareIgnoredWithCQL() {
-            var flare = new TorchProperties.Flare(null);
+            var flare = new TorchProperties.Flare(null, null);
 
             assertThatCode(() -> new TorchProperties(
                     new TorchProperties.Base("http://base-url"),
@@ -158,7 +158,7 @@ public class TorchPropertiesTest {
         void defaultsWhenUserPasswordAndOauthNull() {
             FhirProperties fhir = new FhirProperties(
                     "http://fhir-url",
-                    new FhirProperties.Max(5),
+                    new FhirProperties.Max(5, 30),
                     new FhirProperties.Page(10),
                     null, // oauth is null
                     new FhirProperties.Disable(true),
@@ -199,7 +199,7 @@ public class TorchPropertiesTest {
         void defaultOauthAndCredentials() {
             var fhir = new FhirProperties(
                     "http://fhir-url",
-                    new FhirProperties.Max(3),
+                    new FhirProperties.Max(3, 30),
                     new FhirProperties.Page(5),
                     null,
                     new FhirProperties.Disable(false),

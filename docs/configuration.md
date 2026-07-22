@@ -112,6 +112,14 @@ Maximum number of concurrent connections allowed to the FHIR server. Must be at 
 
 ---
 
+#### `TORCH_FHIR_MAX_IDLE_TIME_SECONDS` <Badge type="warning" text="Since 1.0.0-beta.7"/>
+
+Maximum time a pooled connection to the FHIR server may sit idle before it is evicted instead of reused. Keep this below the idle/keepalive timeout of any reverse proxy in front of the FHIR server to avoid `PrematureCloseException` from reusing a connection the proxy has already closed.
+
+**Default:** `30`
+
+---
+
 #### `TORCH_FHIR_PAGE_COUNT` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
 Number of entries per page in FHIR search responses.
@@ -133,6 +141,14 @@ Set to `true` to disable the use of the Asynchronous Interaction Request Pattern
 Base URL of the FLARE server used in the pipeline.
 
 **Default:** – (none)
+
+---
+
+#### `TORCH_FLARE_MAX_IDLE_TIME_SECONDS` <Badge type="warning" text="Since 1.0.0-beta.7"/>
+
+Maximum time a pooled connection to the FLARE server may sit idle before it is evicted instead of reused. Keep this below the idle/keepalive timeout of any reverse proxy in front of the FLARE server to avoid `PrematureCloseException` from reusing a connection the proxy has already closed.
+
+**Default:** `30`
 
 ---
 

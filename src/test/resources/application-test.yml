@@ -16,12 +16,15 @@ torch:
       count: 500
     max:
       connections: 4
+      idleTimeSeconds: 30
     disable:
       async: false
     testPopulation:
       path: src/test/resources/BlazeBundle.json
   flare:
     url:
+    max:
+      idleTimeSeconds: 30
   results:
     dir: output/
   batchsize: 2

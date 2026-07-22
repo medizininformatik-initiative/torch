@@ -20,6 +20,7 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
 import java.time.Clock;
+import java.time.Duration;
 
 import static org.springframework.security.oauth2.core.AuthorizationGrantType.CLIENT_CREDENTIALS;
 import static org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames.REGISTRATION_ID;
@@ -30,17 +31,23 @@ public class WebConfig {
     private static final Logger logger = LoggerFactory.getLogger(WebConfig.class);
 
     @Bean
-    public ConnectionProvider flareConnectionProvider() {
+    public ConnectionProvider flareConnectionProvider(TorchProperties torchProperties) {
+        Duration maxIdleTime = Duration.ofSeconds(torchProperties.flare().max().idleTimeSeconds());
         return ConnectionProvider.builder("flare-pool")
                 .maxConnections(4)
                 .pendingAcquireMaxCount(500)
+                .maxIdleTime(maxIdleTime)
+                .evictInBackground(maxIdleTime)
                 .build();
     }
 
     @Bean
     public ConnectionProvider fhirConnectionProvider(FhirProperties fhirProperties) {
+        Duration maxIdleTime = Duration.ofSeconds(fhirProperties.max().idleTimeSeconds());
         return ConnectionProvider.builder("fhir-pool")
                 .maxConnections(fhirProperties.max().connections())
+                .maxIdleTime(maxIdleTime)
+                .evictInBackground(maxIdleTime)
                 .build();
     }
 

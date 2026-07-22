@@ -14,7 +14,7 @@ class FhirPropertiesTest {
         void defaultsWhenUserPasswordAndOauthNull() {
             FhirProperties fhir = new FhirProperties(
                     "http://fhir-url",
-                    new FhirProperties.Max(5),
+                    new FhirProperties.Max(5, 30),
                     new FhirProperties.Page(10),
                     null, // oauth is null
                     new FhirProperties.Disable(true),
@@ -55,7 +55,7 @@ class FhirPropertiesTest {
         void stripsTrailingSlashes() {
             var fhir = new FhirProperties(
                     "http://fhir-url/////",
-                    new FhirProperties.Max(3),
+                    new FhirProperties.Max(3, 30),
                     new FhirProperties.Page(5),
                     null,
                     new FhirProperties.Disable(false),
@@ -70,7 +70,7 @@ class FhirPropertiesTest {
         void defaultOauthAndCredentials() {
             var fhir = new FhirProperties(
                     "http://fhir-url",
-                    new FhirProperties.Max(3),
+                    new FhirProperties.Max(3, 30),
                     new FhirProperties.Page(5),
                     null,
                     new FhirProperties.Disable(false),

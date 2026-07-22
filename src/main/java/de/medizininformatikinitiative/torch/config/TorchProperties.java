@@ -68,11 +68,17 @@ public record TorchProperties(
     }
 
 
-    public record Flare(String url) {
+    public record Flare(String url, @Valid Max max) {
         public Flare {
             if (!ConfigUtils.isNotSet(url)) {
                 url = ConfigUtils.removeTrailingSlashes(url);
             }
+            if (max == null) {
+                max = new Max(30);
+            }
+        }
+
+        public record Max(@Min(value = 1, message = "Max idle time must be at least 1 second") int idleTimeSeconds) {
         }
     }
 

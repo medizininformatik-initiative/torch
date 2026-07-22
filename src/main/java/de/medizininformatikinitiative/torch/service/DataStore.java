@@ -62,15 +62,16 @@ public class DataStore {
      * Retries:
      * - HTTP status based (5xx, 404, 429) via WebClientResponseException
      * - Transport problems like "prematurely closed connection" via WebClientRequestException causes
-     * Does try for 1h max at max 5min intervals (9 calls around 8min)
+     * Does try for ~1h max at max 5min intervals (9 calls around 8min, then capped at 5min each)
      */
-    private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(20, Duration.ofSeconds(1))
+    private static final int MAX_RETRY_ATTEMPTS = 20;
+    private static final RetryBackoffSpec RETRY_SPEC = Retry.backoff(MAX_RETRY_ATTEMPTS, Duration.ofSeconds(1))
             .maxBackoff(Duration.ofMinutes(5))
             .filter(RetryabilityUtil::isRetryable)
             .doBeforeRetry(rs -> logger.warn(
                     "Retrying DataStore call (attempt {} of {}) due to: {}",
                     rs.totalRetries() + 1,
-                    5,
+                    MAX_RETRY_ATTEMPTS,
                     RetryabilityUtil.rootCauseMessage(rs.failure())
             ));
     public static final String APPLICATION_FHIR_JSON = "application/fhir+json";
