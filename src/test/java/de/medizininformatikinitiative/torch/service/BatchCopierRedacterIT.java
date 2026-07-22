@@ -360,7 +360,7 @@ class BatchCopierRedacterIT {
         void testResourceWithKnownGroups() throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
-            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of(ExtractionId.fromRelativeUrl("Patient/VHF00006"))), conditionGroup.copyTree().get()));
+            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of(ExtractionId.fromRelativeUrl("Patient/VHF00006"))), conditionGroup.copyTree().get(), Map.of()));
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
     }

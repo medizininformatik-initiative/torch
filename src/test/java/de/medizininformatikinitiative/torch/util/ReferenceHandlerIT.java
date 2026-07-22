@@ -145,7 +145,7 @@ class ReferenceHandlerIT {
         @Test
         void testHandleReferences_invalidResource() {
             referenceAttribute = new AnnotatedAttribute("Encounter.evidence", "Encounter.evidence", true, List.of("Medication1"));
-            ReferenceWrapper refWrapper = new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("MedicationAdministration/parent"));
+            ReferenceWrapper refWrapper = new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), List.of(), "EncounterGroup", ExtractionId.fromRelativeUrl("MedicationAdministration/parent"));
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
@@ -164,7 +164,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), List.of(), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
@@ -181,7 +181,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), List.of(), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()
@@ -203,7 +203,7 @@ class ReferenceHandlerIT {
             Patient testPatient = parser.parseResource(Patient.class, PATIENT);
             patientBundle.put(testPatient);
 
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(REFERENCE_MEDICATION), List.of(), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .assertNext(medication -> assertThat(medication.getFirst()).isEqualTo(new ResourceGroup(REFERENCE_MEDICATION, "Medication1")))
@@ -220,7 +220,7 @@ class ReferenceHandlerIT {
             ResourceBundle coreBundle = new ResourceBundle();
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(testResource);
-            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
+            Flux<List<ResourceGroup>> result = referenceHandler.handleReferenceAttribute(new ReferenceWrapper(referenceAttribute, List.of(PAT_REFERENCE), List.of(), "EncounterGroup", ExtractionId.fromRelativeUrl("Encounter/parent")), null, coreBundle, attributeGroupMap);
 
             StepVerifier.create(result)
                     .expectError()

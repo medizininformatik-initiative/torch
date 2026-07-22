@@ -47,7 +47,7 @@ class ReferenceHandlerTest {
         @Test
         void refNotInAnyBundle_mustHaveFalse_returnsEmptyList() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
 
             StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of()))
@@ -58,7 +58,7 @@ class ReferenceHandlerTest {
         @Test
         void refNotInAnyBundle_mustHaveTrue_errorsWithMustHaveViolated() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
 
             StepVerifier.create(referenceHandler.handleReferenceAttribute(wrapper, null, coreBundle, Map.of()))
@@ -71,7 +71,7 @@ class ReferenceHandlerTest {
             var med = new Medication();
             med.setId("m1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.put(med);
             var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
@@ -88,7 +88,7 @@ class ReferenceHandlerTest {
             obs.setId("obs1");
             var patRef = ExtractionId.fromRelativeUrl("Observation/obs1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(patRef), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(patRef), List.of(), "grp", OBS_ID);
             var patientBundle = new PatientResourceBundle("p1");
             patientBundle.put(obs);
             var coreBundle = new ResourceBundle();
@@ -105,7 +105,7 @@ class ReferenceHandlerTest {
             var med = new Medication();
             med.setId("m1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.put(med);
             var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
@@ -121,7 +121,7 @@ class ReferenceHandlerTest {
             var med = new Medication();
             med.setId("m1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.put(med);
             var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
@@ -140,7 +140,7 @@ class ReferenceHandlerTest {
         @Test
         void unprocessedRef_notInBundle_mustHaveFalse_completesEmpty() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
 
             StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
@@ -150,7 +150,7 @@ class ReferenceHandlerTest {
         @Test
         void alreadyValidAttribute_skipsReprocessing_completesEmpty() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeValid(wrapper.toResourceAttributeGroup());
 
@@ -161,7 +161,7 @@ class ReferenceHandlerTest {
         @Test
         void invalidAttribute_mustHaveFalse_completesEmpty() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
@@ -174,7 +174,7 @@ class ReferenceHandlerTest {
             var med = new Medication();
             med.setId("m1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.put(med);
             var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
@@ -191,7 +191,7 @@ class ReferenceHandlerTest {
             var med = new Medication();
             med.setId("m1");
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.put(med);
             var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
@@ -206,7 +206,7 @@ class ReferenceHandlerTest {
         @Test
         void invalidAttribute_mustHaveTrue_errorsAndMarksParentInvalid() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
-            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), List.of(), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
