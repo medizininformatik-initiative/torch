@@ -64,7 +64,7 @@ class WebConfigTest {
         var oauth = new FhirProperties.Oauth(oauthIssuer, oauthClient);
         return new FhirProperties(
                 url,
-                new FhirProperties.Max(5),
+                new FhirProperties.Max(5, 30),
                 page,
                 oauth,
                 new FhirProperties.Disable(false),
@@ -96,7 +96,7 @@ class WebConfigTest {
         var mapping = new TorchProperties.Mapping("type-to-consent.json");
 
 
-        var flare = new TorchProperties.Flare("http://flare-url");
+        var flare = new TorchProperties.Flare("http://flare-url", null);
         var results = new TorchProperties.Results("results-dir");
 
         return new TorchProperties(
@@ -124,7 +124,7 @@ class WebConfigTest {
         var oauth = new FhirProperties.Oauth(oauthIssuer, oauthClient);
         return new FhirProperties(
                 "http://localhost/fhir",
-                new FhirProperties.Max(5),
+                new FhirProperties.Max(5, 30),
                 page,
                 oauth,
                 new FhirProperties.Disable(false),

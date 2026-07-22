@@ -54,6 +54,7 @@ public record FhirProperties(
         }
     }
 
-    public record Max(@Min(value = 1, message = "Max connections must be at least 1") int connections) {
+    public record Max(@Min(value = 1, message = "Max connections must be at least 1") int connections,
+                       @Min(value = 1, message = "Max idle time must be at least 1 second") int idleTimeSeconds) {
     }
 }

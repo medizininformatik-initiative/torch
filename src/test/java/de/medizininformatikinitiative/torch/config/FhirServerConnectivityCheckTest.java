@@ -14,7 +14,7 @@ class FhirServerConnectivityCheckTest {
     private FhirProperties fhirProperties(String url) {
         return new FhirProperties(
                 url,
-                new FhirProperties.Max(5),
+                new FhirProperties.Max(5, 30),
                 new FhirProperties.Page(10),
                 new FhirProperties.Oauth(new FhirProperties.Oauth.Issuer(""), new FhirProperties.Oauth.Client("", "")),
                 new FhirProperties.Disable(false),

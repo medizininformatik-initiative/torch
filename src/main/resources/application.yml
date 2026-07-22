@@ -26,10 +26,13 @@ torch:
       count: 500
     max:
       connections: 5
+      idleTimeSeconds: 30
     disable:
       async: false
   flare:
     url:
+    max:
+      idleTimeSeconds: 30
   results:
     dir: output/
   batchsize: 500
