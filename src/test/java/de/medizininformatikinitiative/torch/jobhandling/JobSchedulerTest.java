@@ -172,7 +172,10 @@ class JobSchedulerTest {
     void executeBlocking_ignoresDeletedJob() throws Exception {
         JobScheduler scheduler = newScheduler(newCtx());
         ProcessBatchWorkUnit mockWu = mock(ProcessBatchWorkUnit.class);
+        Job mockJob = mock(Job.class);
         UUID jobId = UUID.randomUUID();
+        when(mockWu.job()).thenReturn(mockJob);
+        when(mockJob.id()).thenReturn(jobId);
         when(mockWu.execute(any())).thenReturn(Mono.error(new JobNotFoundException(jobId)));
 
         Method executeBlocking = JobScheduler.class.getDeclaredMethod("executeBlocking", WorkUnit.class);

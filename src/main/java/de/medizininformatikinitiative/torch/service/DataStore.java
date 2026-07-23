@@ -269,7 +269,7 @@ public class DataStore {
     public Mono<MeasureReport> evaluateMeasure(Parameters params) {
         var start = System.nanoTime();
         var measureUrn = params.getParameter("measure").getValue().toString();
-        logger.debug("Evaluate Measure with URN {}...", measureUrn);
+        logger.info("Evaluate Measure with URN {}...", measureUrn);
 
         return client.post()
                 .uri("/Measure/$evaluate-measure")
@@ -281,7 +281,7 @@ public class DataStore {
                 .bodyToMono(String.class)
                 .flatMap(body -> parseResource(MeasureReport.class, body))
                 .onErrorResume(AsyncException.class, e -> pollStatus(e.getStatusUrl(), measureUrn, start))
-                .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {} in {} seconds.",
+                .doOnSuccess(measureReport -> logger.info("Successfully evaluated Measure with URN {} in {} seconds.",
                         measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start))))
                 .doOnError(error -> logger.error("DATASTORE_04 Error occurred while evaluating Measure with URN {}: {}", measureUrn, error.getMessage()));
     }
@@ -298,7 +298,7 @@ public class DataStore {
         return client.get().uri(statusUrl)
                 .retrieve()
                 .onStatus(status -> status.isSameCodeAs(ACCEPTED) || RetryabilityUtil.shouldRetry(status), response -> {
-                    logger.trace("Evaluation of measure with URN {} is still in progress for {} seconds.",
+                    logger.info("Evaluation of measure with URN {} is still in progress for {} seconds.",
                             measureUrn, "%.1f".formatted(TimeUtils.durationSecondsSince(start)));
                     return Mono.error(new AsyncRetryException());
                 })
