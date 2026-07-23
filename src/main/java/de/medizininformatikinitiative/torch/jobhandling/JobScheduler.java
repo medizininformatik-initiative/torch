@@ -4,7 +4,10 @@ package de.medizininformatikinitiative.torch.jobhandling;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.ProcessBatchWorkUnit;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.ProcessCohortWorkUnit;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnit;
+import de.medizininformatikinitiative.torch.util.TimeUtils;
 import jakarta.annotation.PreDestroy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +23,7 @@ import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Schedules and executes {@link WorkUnit}s using a fixed-size worker pool.
@@ -35,6 +39,7 @@ public class JobScheduler {
     private final ExecutorService executor;
     private final JobExecutionContext ctx;
     private volatile boolean running = false;
+    private final AtomicInteger activeWorkers = new AtomicInteger();
 
 
     static long RETRY_SLEEP_MS = 1000;
@@ -148,23 +153,41 @@ public class JobScheduler {
     }
 
     void executeBlocking(WorkUnit wu) throws IOException {
-        wu.execute(ctx)
-                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                .onErrorResume(t -> {
-                    if (RetryabilityUtil.isRetryable(t)) {
-                        logger.warn("Work unit for job {} failed (retryable): {}", wu.job().id(), RetryabilityUtil.rootCauseMessage(t));
-                    } else {
-                        logger.error("Work unit for job {} failed", wu.job().id(), t);
-                    }
-                    return Mono.fromCallable(() -> {
-                                ctx.persistence().onJobError(wu.job().id(), List.of(), t);
-                                return 0;
-                            })
-                            .subscribeOn(Schedulers.boundedElastic())
-                            .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
-                            .then();
-                })
-                .block();
+        var start = System.nanoTime();
+        var phase = phaseOf(wu);
+        var jobId = wu.job().id();
+        int busy = activeWorkers.incrementAndGet();
+        logger.info("Starting {} for job {} ({}/{} workers busy)", phase, jobId, busy, maxConcurrency);
+        try {
+            wu.execute(ctx)
+                    .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
+                    .onErrorResume(t -> {
+                        if (RetryabilityUtil.isRetryable(t)) {
+                            logger.warn("Work unit for job {} failed (retryable): {}", wu.job().id(), RetryabilityUtil.rootCauseMessage(t));
+                        } else {
+                            logger.error("Work unit for job {} failed", wu.job().id(), t);
+                        }
+                        return Mono.fromCallable(() -> {
+                                    ctx.persistence().onJobError(wu.job().id(), List.of(), t);
+                                    return 0;
+                                })
+                                .subscribeOn(Schedulers.boundedElastic())
+                                .onErrorResume(JobNotFoundException.class, e -> Mono.empty())
+                                .then();
+                    })
+                    .block();
+        } finally {
+            activeWorkers.decrementAndGet();
+            logger.info("Finished {} for job {} in {} seconds", phase, jobId,
+                    "%.1f".formatted(TimeUtils.durationSecondsSince(start)));
+        }
+    }
+
+    private static String phaseOf(WorkUnit wu) {
+        if (wu instanceof ProcessCohortWorkUnit) {
+            return "cohort query";
+        }
+        return wu instanceof ProcessBatchWorkUnit ? "batch processing" : "core processing";
     }
 
 }
