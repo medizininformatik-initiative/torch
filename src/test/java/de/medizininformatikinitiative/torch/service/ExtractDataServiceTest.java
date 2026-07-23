@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -286,6 +287,7 @@ class ExtractDataServiceTest {
 
             PatientBatch rawBatch = mock(PatientBatch.class);
             when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of("p1", "p2"));
 
             BatchState batchState = mock(BatchState.class);
             when(batchState.batchId()).thenReturn(batchId);
@@ -309,6 +311,9 @@ class ExtractDataServiceTest {
                         assertThat(res.issues()).hasSize(1);
                         assertThat(res.issues().get(0).severity()).isEqualTo(Severity.WARNING);
                         assertThat(res.issues().get(0).msg()).contains("skipped");
+                        assertThat(res.exclusions()).hasSize(2);
+                        assertThat(res.exclusions().get(0).reason()).isEqualTo(ExclusionKind.CONSENT);
+                        assertThat(res.exclusions().get(1).reason()).isEqualTo(ExclusionKind.CONSENT);
                     })
                     .verifyComplete();
 

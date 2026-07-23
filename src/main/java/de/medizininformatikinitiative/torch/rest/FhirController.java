@@ -6,8 +6,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -381,12 +379,11 @@ public class FhirController {
                             .bodyValue(fhirContext.newJsonParser().encodeResourceToString(createOperationOutcome(e)));
                 }
             }
-            case PAUSED, PENDING, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, RUNNING_GET_COHORT ->
-                    accepted()
-                            .header("X-Progress", xProgress(job))
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                                    OperationOutcomeCreator.fromJob(job)));
+            case PAUSED, PENDING, RUNNING_PROCESS_BATCH, RUNNING_PROCESS_CORE, RUNNING_GET_COHORT -> accepted()
+                    .header("X-Progress", xProgress(job))
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
+                            OperationOutcomeCreator.fromJob(job)));
             case TEMP_FAILED ->
                     ServerResponse.status(503).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
                             OperationOutcomeCreator.fromJob(job)));
@@ -557,10 +554,10 @@ public class FhirController {
 
         if (persistence.jobDiagnosticsExists(job.id())) {
             try {
-                JobDiagnostics diag = persistence.loadJobDiagnostics(job.id());
-                extensionArr.add(mapper.createObjectNode()
-                        .put("url", "torch-job-diagnostics-summary")
-                        .set(VALUE_OBJECT, mapper.valueToTree(JobDiagnosticsSummary.from(diag))));
+                persistence.loadJobDiagnosticsSummary(job.id()).ifPresent(summary ->
+                        extensionArr.add(mapper.createObjectNode()
+                                .put("url", "torch-job-diagnostics-summary")
+                                .set(VALUE_OBJECT, mapper.valueToTree(summary))));
                 extensionArr.add(mapper.createObjectNode()
                         .put("url", "torch-job-diagnostics")
                         .put("valueUrl", fileServerName + "/" + job.id() + "/reports/job-summary.json"));

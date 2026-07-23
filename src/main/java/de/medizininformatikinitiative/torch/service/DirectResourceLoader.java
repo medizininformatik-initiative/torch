@@ -1,12 +1,14 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionAcc;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionKind;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionRecord;
 import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
@@ -16,7 +18,6 @@ import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.DomainResource;
-import org.hl7.fhir.r4.model.Patient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,32 +59,25 @@ public class DirectResourceLoader {
     }
 
     /**
-     * Extracts resources grouped by Patient ID for a given batch.
-     *
-     * @param attributeGroups CRTDL to be applied on batch
-     * @param batch           Batch of Patient IDs
-     * @param acc             diagnostics accumulator (per batch)
-     * @return Mono containing processed PatientBatchWithConsent
+     * Returns the semicolon-joined attributeRef values of must-have attributes in the group.
      */
-    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
-            List<AnnotatedAttributeGroup> attributeGroups,
-            PatientBatchWithConsent batch,
-            BatchDiagnosticsAcc acc) {
-
-        logger.trace("Starting collectResourcesByPatientReference");
-        logger.trace("Patients Received: {}", batch);
-
-        return processBatchWithConsent(attributeGroups, batch, acc);
+    private static String mustHaveAttributeRefs(AnnotatedAttributeGroup group) {
+        return group.attributes().stream()
+                .filter(AnnotatedAttribute::mustHave)
+                .map(AnnotatedAttribute::attributeRef)
+                .sorted()
+                .reduce((a, b) -> a + ";" + b)
+                .orElse(null);
     }
 
     private Mono<PatientBatchWithConsent> processBatchWithConsent(
             List<AnnotatedAttributeGroup> attributeGroups,
             PatientBatchWithConsent patientBatchWithConsent,
-            BatchDiagnosticsAcc acc) {
+            ExclusionAcc writer) {
 
         Set<String> safeSet = new ConcurrentSkipListSet<>(patientBatchWithConsent.patientBatch().ids());
 
-        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet, acc)
+        return processPatientAttributeGroups(attributeGroups, patientBatchWithConsent, safeSet, writer)
                 .doOnNext(__ -> {
                     logger.debug("{} out of {} patients passed checks",
                             safeSet.size(),
@@ -108,47 +102,52 @@ public class DirectResourceLoader {
         );
     }
 
-    private Mono<DomainResource> applyConsent(DomainResource resource,
-                                              PatientBatchWithConsent patientBatchWithConsent,
-                                              BatchDiagnosticsAcc acc) {
-        long start = System.nanoTime();
-        boolean allowed = !patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent);
-        acc.recordDuration(CriterionKeys.consentResourceBlocked(), System.nanoTime() - start);
-        if (allowed) {
-            return Mono.just(resource);
-        }
-        logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-        acc.incResourcesExcluded(CriterionKeys.consentResourceBlocked(), 1);
-        return Mono.empty();
+    /**
+     * Extracts resources grouped by Patient ID for a given batch.
+     *
+     * @param attributeGroups CRTDL to be applied on batch
+     * @param batch           Batch of Patient IDs
+     * @param writer          exclusionwriter
+     * @return Mono containing processed PatientBatchWithConsent
+     */
+    public Mono<PatientBatchWithConsent> directLoadPatientCompartment(
+            List<AnnotatedAttributeGroup> attributeGroups,
+            PatientBatchWithConsent batch,
+            ExclusionAcc writer) {
+
+        logger.trace("Starting collectResourcesByPatientReference");
+        logger.trace("Patients Received: {}", batch);
+
+        return processBatchWithConsent(attributeGroups, batch, writer);
     }
 
     public Mono<PatientBatchWithConsent> processPatientAttributeGroups(
             List<AnnotatedAttributeGroup> groups,
             PatientBatchWithConsent batch,
             Set<String> safeSet,
-            BatchDiagnosticsAcc acc) {
+            ExclusionAcc writer) {
 
         logger.debug("Process {} patient attribute groups over {} patients...",
                 groups.size(), batch.patientBatch().ids().size());
 
         return Flux.fromIterable(groups)
-                .concatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet, acc))
+                .concatMap(group -> processPatientSingleAttributeGroup(group, batch, safeSet, writer))
                 .then().thenReturn(batch);
     }
 
     public Mono<ResourceBundle> processCoreAttributeGroups(
             List<AnnotatedAttributeGroup> attributeGroups,
             ResourceBundle coreResourceBundle,
-            BatchDiagnosticsAcc acc) {
+            ExclusionAcc writer) {
 
         return Flux.fromIterable(attributeGroups)
-                .concatMap(group -> processCoreAttributeGroup(group, coreResourceBundle, acc))
+                .concatMap(group -> processCoreAttributeGroup(group, coreResourceBundle, writer))
                 .then().thenReturn(coreResourceBundle);
     }
 
     public Mono<Void> processCoreAttributeGroup(AnnotatedAttributeGroup group,
                                                 ResourceBundle resourceBundle,
-                                                BatchDiagnosticsAcc acc) {
+                                                ExclusionAcc writer) {
         logger.debug("Process core attribute group {}...", group.id());
 
         AtomicBoolean atLeastOneResource = new AtomicBoolean(!group.hasMustHave());
@@ -161,8 +160,10 @@ public class DirectResourceLoader {
 
                     if (valid) {
                         atLeastOneResource.set(true);
-                    } else if (eval instanceof MustHaveEvaluation.Violated v) {
-                        acc.incResourcesExcluded(CriterionKeys.mustHaveAttribute(group, v.firstViolated()), 1);
+                    } else if (eval instanceof MustHaveEvaluation.Violated(AnnotatedAttribute firstViolated)) {
+                        String resourceId = resource.getResourceType() + "/" + resource.getIdPart();
+                        writer.record(new ExclusionRecord(null, ExclusionKind.MUST_HAVE_FIELD,
+                                group.groupReference(), resourceId, firstViolated.attributeRef()));
                     }
 
                     resourceBundle.put(resource, group.id(), valid);
@@ -194,22 +195,46 @@ public class DirectResourceLoader {
         }
     }
 
+    private Mono<DomainResource> applyConsent(DomainResource resource,
+                                              PatientBatchWithConsent patientBatchWithConsent,
+                                              ExclusionAcc writer) {
+        boolean allowed = !patientBatchWithConsent.applyConsent()
+                || consentValidator.checkConsent(resource, patientBatchWithConsent);
+        if (allowed) {
+            return Mono.just(resource);
+        }
+        logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+        String patientId = null;
+        try {
+            patientId = ResourceUtils.patientId(resource);
+        } catch (PatientIdNotFoundException ignored) {
+            //patient is present anyways making this catch effectively just a compiler level required catch,
+            // our business logic catches it before.
+        }
+        String resourceId = resource.getResourceType() + "/" + resource.getIdPart();
+        writer.record(new ExclusionRecord(patientId, ExclusionKind.CONSENT, null, resourceId, null));
+        return Mono.empty();
+    }
+
     /**
      * Fetches all resources for a single attribute group in a batch and adds them to the patient bundles.
      *
      * @param group   Annotated Attribute Group to be processed
      * @param batch   patient batch containing the PatientResourceBundles to be filled
      * @param safeSet patients that have survived must-have checks so far
-     * @param acc     diagnostics accumulator (per batch)
+     * @param writer  ExclusionWriter
      * @return Patient batch containing a bundle per Patient Resource
      */
-    private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(AnnotatedAttributeGroup group,
-                                                                             PatientBatchWithConsent batch,
-                                                                             Set<String> safeSet,
-                                                                             BatchDiagnosticsAcc acc) {
+    private Mono<PatientBatchWithConsent> processPatientSingleAttributeGroup(
+            AnnotatedAttributeGroup group,
+            PatientBatchWithConsent batch,
+            Set<String> safeSet,
+            ExclusionAcc writer) {
+
         logger.debug("Process patient attribute group {}...", group.id());
 
         Set<String> safeGroup = new HashSet<>();
+        Set<String> hadAnyResource = new HashSet<>();
 
         // snapshot of who is currently alive before this group executes
         Set<String> aliveBeforeGroup = new HashSet<>(safeSet);
@@ -223,13 +248,13 @@ public class DirectResourceLoader {
 
         var resourceFlux = groupQueries(group)
                 .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
-                .concatMap(resource -> applyConsent(resource, batch, acc));
+                .concatMap(resource -> applyConsent(resource, batch, writer));
 
         if (AnnotatedAttributeGroup.PATIENT.equals(group.resourceType())) {
             String targetProfile = group.groupReference();
             resourceFlux = resourceFlux.map(resource -> {
-                ((Patient) resource).getMeta().getProfile().clear();
-                ((Patient) resource).getMeta().addProfile(targetProfile);
+                resource.getMeta().getProfile().clear();
+                resource.getMeta().addProfile(targetProfile);
                 return resource;
             });
         }
@@ -245,18 +270,21 @@ public class DirectResourceLoader {
 
                     MustHaveEvaluation eval = profileMustHaveChecker.evaluateFirst(tuple.resource, group);
 
-                    // Not applicable (profile mismatch etc.) -> not counted as must-have failure
                     if (eval instanceof MustHaveEvaluation.NotApplicable) {
                         bundle.put(tuple.resource, group.id(), false);
                         return;
                     }
 
+                    hadAnyResource.add(tuple.patientId);
+
                     if (eval instanceof MustHaveEvaluation.Fulfilled) {
                         safeGroup.add(tuple.patientId);
                         bundle.put(tuple.resource, group.id(), true);
-                    } else if (eval instanceof MustHaveEvaluation.Violated v) {
+                    } else if (eval instanceof MustHaveEvaluation.Violated(AnnotatedAttribute firstViolated)) {
                         bundle.put(tuple.resource, group.id(), false);
-                        acc.incResourcesExcluded(CriterionKeys.mustHaveAttribute(group, v.firstViolated()), 1);
+                        String resourceId = tuple.resource.getResourceType() + "/" + tuple.resource.getIdPart();
+                        writer.record(new ExclusionRecord(tuple.patientId, ExclusionKind.MUST_HAVE_FIELD,
+                                group.groupReference(), resourceId, firstViolated.attributeRef()));
                     }
                 })
                 .doFinally(signal -> {
@@ -264,8 +292,12 @@ public class DirectResourceLoader {
                         Set<String> removed = new HashSet<>(aliveBeforeGroup);
                         removed.removeAll(safeGroup);
 
-                        if (!removed.isEmpty()) {
-                            acc.incPatientsExcluded(CriterionKeys.mustHaveGroup(group), removed.size());
+                        for (String patientId : removed) {
+                            ExclusionKind kind = hadAnyResource.contains(patientId)
+                                    ? ExclusionKind.MUST_HAVE_FIELD
+                                    : ExclusionKind.MUST_HAVE_RESOURCE;
+                            writer.record(new ExclusionRecord(patientId, kind,
+                                    group.groupReference(), null, mustHaveAttributeRefs(group)));
                         }
                     }
                     safeSet.retainAll(safeGroup);
@@ -277,5 +309,4 @@ public class DirectResourceLoader {
                         batch.id()
                 ));
     }
-
 }

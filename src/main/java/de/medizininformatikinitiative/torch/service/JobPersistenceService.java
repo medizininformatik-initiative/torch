@@ -1,11 +1,16 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvReader;
-import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvWriter;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionCsvReader;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionCsvWriter;
+import de.medizininformatikinitiative.torch.diagnostics.ExclusionRecord;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsMapper;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsSummary;
+import de.medizininformatikinitiative.torch.diagnostics.MetricsCsvReader;
+import de.medizininformatikinitiative.torch.diagnostics.MetricsCsvWriter;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -38,7 +43,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -89,7 +93,9 @@ public class JobPersistenceService {
 
     private static final String REPORT_DIR_NAME = "reports";
     private static final String REPORT_JOB_FILE_NAME = "job-summary.json";
-    private static final String DIAGNOSTICS_CSV_FILE_NAME = "diagnostics.csv";
+    private static final String REPORT_EXCLUSION_SUMMARY_FILE_NAME = "job-exclusion-summary.json";
+    private static final String METRICS_CSV_FILE_NAME = "metrics.csv";
+    private static final String EXCLUSIONS_CSV_FILE_NAME = "exclusions.csv";
 
     private Path reportDir(UUID jobId) {
         return jobDir(jobId).resolve(REPORT_DIR_NAME);
@@ -99,8 +105,16 @@ public class JobPersistenceService {
         return reportDir(jobId).resolve(REPORT_JOB_FILE_NAME);
     }
 
-    private Path diagnosticsCsvFile(UUID jobId) {
-        return reportDir(jobId).resolve(DIAGNOSTICS_CSV_FILE_NAME);
+    private Path jobExclusionSummaryFile(UUID jobId) {
+        return reportDir(jobId).resolve(REPORT_EXCLUSION_SUMMARY_FILE_NAME);
+    }
+
+    private Path metricsCsvFile(UUID jobId) {
+        return reportDir(jobId).resolve(METRICS_CSV_FILE_NAME);
+    }
+
+    private Path exclusionsCsvFile(UUID jobId) {
+        return reportDir(jobId).resolve(EXCLUSIONS_CSV_FILE_NAME);
     }
 
     /**
@@ -469,6 +483,15 @@ public class JobPersistenceService {
                 }
             });
 
+            if (!result.exclusions().isEmpty()) {
+                try {
+                    saveExclusions(jobId, result.exclusions());
+                } catch (IOException e) {
+                    logger.warn("Failed to save exclusions for batch {}: {}",
+                            result.batchId(), e.getMessage(), e);
+                }
+            }
+
             return new JobAndResult<>(
                     job.onBatchProcessingSuccess(result),
                     null
@@ -503,6 +526,15 @@ public class JobPersistenceService {
                             result.jobId(), e.getMessage(), e);
                 }
             });
+
+            if (!result.exclusions().isEmpty()) {
+                try {
+                    saveExclusions(result.jobId(), result.exclusions());
+                } catch (IOException e) {
+                    logger.warn("Failed to save core exclusions for job {}: {}",
+                            result.jobId(), e.getMessage(), e);
+                }
+            }
 
             Job updated = job.onCoreSuccess(result);
             if (updated.status() == JobStatus.COMPLETED) {
@@ -690,88 +722,139 @@ public class JobPersistenceService {
     //--------------------------------------------------------------------------
 
     public void saveBatchDiagnostics(BatchDiagnostics report) throws IOException {
-        saveDiagnostics(report, false);
+        saveMetrics(report, false);
     }
 
     public void saveCoreResourceDiagnostics(BatchDiagnostics report) throws IOException {
-        saveDiagnostics(report, true);
+        saveMetrics(report, true);
     }
 
-    private void saveDiagnostics(BatchDiagnostics report, boolean isCore) throws IOException {
-        UUID jobId = report.jobId();
+    private void saveMetrics(BatchDiagnostics report, boolean isCore) throws IOException {
+        appendReportCsv(
+                report.jobId(),
+                metricsCsvFile(report.jobId()),
+                MetricsCsvWriter.HEADER,
+                writer -> {
+                    if (isCore) {
+                        MetricsCsvWriter.writeCore(writer, report);
+                    } else {
+                        MetricsCsvWriter.writeBatch(writer, report);
+                    }
+                }
+        );
+    }
+
+    public void saveExclusions(UUID jobId, List<ExclusionRecord> records) throws IOException {
+        appendReportCsv(
+                jobId,
+                exclusionsCsvFile(jobId),
+                ExclusionCsvWriter.HEADER,
+                writer -> ExclusionCsvWriter.write(writer, records)
+        );
+    }
+
+    void saveCohortTiming(UUID jobId, long durationMs) throws IOException {
+        appendReportCsv(
+                jobId,
+                metricsCsvFile(jobId),
+                MetricsCsvWriter.HEADER,
+                writer -> MetricsCsvWriter.writeCohort(writer, durationMs)
+        );
+    }
+
+    private void appendReportCsv(
+            UUID jobId,
+            Path csv,
+            String header,
+            CsvAppend append
+    ) throws IOException {
         io.createDirectories(reportDir(jobId));
 
-        Path csv = diagnosticsCsvFile(jobId);
         boolean writeHeader = !io.exists(csv);
-        try (BufferedWriter w = io.newAppendingWriter(csv)) {
+
+        try (BufferedWriter writer = io.newAppendingWriter(csv)) {
             if (writeHeader) {
-                w.write(DiagnosticsCsvWriter.HEADER);
-                w.newLine();
+                writer.write(header);
+                writer.newLine();
             }
-            if (isCore) {
-                DiagnosticsCsvWriter.writeCore(w, report);
-            } else {
-                DiagnosticsCsvWriter.writeBatch(w, report);
-            }
+
+            append.writeTo(writer);
+        }
+    }
+
+    @FunctionalInterface
+    private interface CsvAppend {
+        void writeTo(BufferedWriter writer) throws IOException;
+    }
+
+    public List<ExclusionRecord> loadExclusions(UUID jobId) throws IOException {
+        Path csv = exclusionsCsvFile(jobId);
+        if (!io.exists(csv)) return List.of();
+        try (Stream<String> lines = io.lines(csv)) {
+            return ExclusionCsvReader.readAll(lines);
         }
     }
 
     public List<BatchDiagnostics> loadAllBatchDiagnostics(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
+        Path csv = metricsCsvFile(jobId);
         if (!io.exists(csv)) return List.of();
         try (Stream<String> lines = io.lines(csv)) {
-            return DiagnosticsCsvReader.readAll(jobId, lines).batches();
+            return MetricsCsvReader.readAll(jobId, lines).batches();
         }
     }
 
     public JobDiagnostics loadJobDiagnostics(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
-        if (!io.exists(csv)) return new JobDiagnostics(jobId, 0L, 0L, List.of());
+        Path csv = metricsCsvFile(jobId);
+        if (!io.exists(csv)) return new JobDiagnostics(jobId, 0L, 0L, Map.of(), 0L);
         try (Stream<String> lines = io.lines(csv)) {
-            DiagnosticsCsvReader.CsvData data = DiagnosticsCsvReader.readAll(jobId, lines);
+            MetricsCsvReader.CsvData data = MetricsCsvReader.readAll(jobId, lines);
             return JobDiagnostics.fromBatches(jobId, data.batches(), data.cohortQueryDurationMs());
         }
     }
 
-    void saveCohortTiming(UUID jobId, long durationMs) throws IOException {
-        io.createDirectories(reportDir(jobId));
-        Path csv = diagnosticsCsvFile(jobId);
-        boolean writeHeader = !io.exists(csv);
-        try (BufferedWriter w = io.newAppendingWriter(csv)) {
-            if (writeHeader) {
-                w.write(DiagnosticsCsvWriter.HEADER);
-                w.newLine();
-            }
-            DiagnosticsCsvWriter.writeCohort(w, durationMs);
-        }
-    }
-
     long loadCohortTiming(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
+        Path csv = metricsCsvFile(jobId);
         if (!io.exists(csv)) return 0L;
         try (Stream<String> lines = io.lines(csv)) {
-            return DiagnosticsCsvReader.readAll(jobId, lines).cohortQueryDurationMs();
+            return MetricsCsvReader.readAll(jobId, lines).cohortQueryDurationMs();
         }
     }
 
     public JobDiagnostics buildAndSaveJobDiagnostics(UUID jobId) throws IOException {
         JobDiagnostics jobReport = loadJobDiagnostics(jobId);
 
-        if (jobReport.criteria().isEmpty()) {
+        if (jobReport.stages().isEmpty() && jobReport.cohortPatientsTotal() == 0) {
             logger.debug("No batch diagnostics found for job {} — skipping job summary creation", jobId);
             return jobReport;
         }
+
+        List<ExclusionRecord> exclusions = loadExclusions(jobId);
 
         ensureDirectoryStructure(jobId);
         Path file = jobReportFile(jobId);
         Path tmp = file.resolveSibling(REPORT_JOB_FILE_NAME + ".tmp");
 
         try (Writer writer = io.newBufferedWriter(tmp)) {
-            mapper.writeValue(writer, diagnosticsMapper.toOperationOutcome(jobReport));
+            mapper.writeValue(writer, diagnosticsMapper.toOperationOutcome(jobReport, exclusions));
         }
         io.atomicMove(tmp, file);
 
+        Path summaryFile = jobExclusionSummaryFile(jobId);
+        Path summaryTmp = summaryFile.resolveSibling(REPORT_EXCLUSION_SUMMARY_FILE_NAME + ".tmp");
+        try (Writer writer = io.newBufferedWriter(summaryTmp)) {
+            mapper.writeValue(writer, JobDiagnosticsSummary.from(jobReport, exclusions));
+        }
+        io.atomicMove(summaryTmp, summaryFile);
+
         return jobReport;
+    }
+
+    public Optional<JobDiagnosticsSummary> loadJobDiagnosticsSummary(UUID jobId) throws IOException {
+        Path file = jobExclusionSummaryFile(jobId);
+        if (!io.exists(file)) return Optional.empty();
+        try (var reader = io.newBufferedReader(file)) {
+            return Optional.of(mapper.readValue(reader, JobDiagnosticsSummary.class));
+        }
     }
 
     // -------------------------------------------------------------------------
