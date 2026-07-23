@@ -1,7 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
-import de.medizininformatikinitiative.torch.diagnostics.CriterionKeys;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -28,13 +28,13 @@ import reactor.test.StepVerifier;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.when;
 
@@ -68,16 +68,16 @@ class ReferenceResolverTest {
     @Nested
     class LoadRefsByRG {
 
-        BatchDiagnosticsAcc acc;
+        BatchExclusions batchExclusions;
 
         @BeforeEach
         void setUpAcc() {
-            acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
+            batchExclusions = BatchExclusions.empty();
         }
 
         @Test
         void emptyResourceGroups_returnsEmptyMap() {
-            var result = resolver.loadReferencesByResourceGroup(Set.of(), null, new ResourceBundle(), Map.of(), acc);
+            var result = resolver.loadReferencesByResourceGroup(Set.of(), null, new ResourceBundle(), Map.of(), batchExclusions);
             assertThat(result).isEmpty();
         }
 
@@ -87,14 +87,16 @@ class ReferenceResolverTest {
             var rg = new ResourceGroup(COND_ID, GROUP_ID);
             when(compartmentManager.isInCompartment(rg)).thenReturn(true);
 
-            var result = resolver.loadReferencesByResourceGroup(Set.of(rg), null, coreBundle, Map.of(), acc);
+            var result = resolver.loadReferencesByResourceGroup(Set.of(rg), null, coreBundle, Map.of(), batchExclusions);
 
             assertThat(result).isEmpty();
             assertThat(coreBundle.isValidResourceGroup(rg)).isFalse();
-            var snapshot = acc.snapshot(0);
-            var expectedKey = CriterionKeys.referenceOutsideBatch(COND_ID.resourceType());
-            assertThat(snapshot.countsFor(expectedKey)).isPresent();
-            assertThat(snapshot.countsFor(expectedKey).orElseThrow().resourcesExcluded()).isEqualTo(1);
+            assertThat(batchExclusions.getResourceExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.RESOURCE_OUTSIDE_BATCH);
+                        assertThat(event.groupId()).isEqualTo(GROUP_ID);
+                        assertThat(event.resourceId()).isEqualTo(COND_ID.toString());
+                    });
         }
 
         @Test
@@ -104,7 +106,7 @@ class ReferenceResolverTest {
             coreBundle.put(OBS_ID); // puts Optional.empty() → triggers handleMissingResource
             when(compartmentManager.isInCompartment(rg)).thenReturn(false);
 
-            var result = resolver.loadReferencesByResourceGroup(Set.of(rg), null, coreBundle, Map.of(), acc);
+            var result = resolver.loadReferencesByResourceGroup(Set.of(rg), null, coreBundle, Map.of(), batchExclusions);
 
             assertThat(result).isEmpty();
             assertThat(coreBundle.isValidResourceGroup(rg)).isFalse();
@@ -119,18 +121,45 @@ class ReferenceResolverTest {
             AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(GROUP_ID, "Observation",
                     "http://example.org/Profile", List.of(), List.of());
             when(compartmentManager.isInCompartment(rg)).thenReturn(false);
-            when(referenceExtractor.extract(any(), anyMap(), anyString()))
-                    .thenThrow(new MustHaveViolatedException("must-have violated"));
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any()))
+                    .thenThrow(new MustHaveViolatedException.AttributeViolated("must-have violated", "someAttribute"));
 
             var result = resolver.loadReferencesByResourceGroup(
-                    Set.of(rg), null, coreBundle, Map.of(GROUP_ID, group), acc);
+                    Set.of(rg), null, coreBundle, Map.of(GROUP_ID, group), batchExclusions);
 
             assertThat(result).isEmpty();
             assertThat(coreBundle.isValidResourceGroup(rg)).isFalse();
-            var snapshot = acc.snapshot(0);
-            var expectedKey = CriterionKeys.mustHaveGroup(group);
-            assertThat(snapshot.countsFor(expectedKey)).isPresent();
-            assertThat(snapshot.countsFor(expectedKey).orElseThrow().resourcesExcluded()).isEqualTo(1);
+            assertThat(batchExclusions.getResourceExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+                        assertThat(event.groupId()).isEqualTo(GROUP_ID);
+                        assertThat(event.attributeRef()).isEqualTo("someAttribute");
+                    });
+        }
+
+        @Test
+        void mustHaveViolated_patientScope_marksInvalidAndRecordsPatientDiagnostics() throws Exception {
+            var obs = (Observation) new Observation().setId("obs-1");
+            var prb = new PatientResourceBundle("p1");
+            prb.bundle().put(obs);
+            var rg = new ResourceGroup(OBS_ID, GROUP_ID);
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(GROUP_ID, "Observation",
+                    "http://example.org/Profile", List.of(), List.of());
+            when(compartmentManager.isInCompartment(rg)).thenReturn(true);
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any()))
+                    .thenThrow(new MustHaveViolatedException.AttributeViolated("must-have violated", "someAttribute"));
+
+            var result = resolver.loadReferencesByResourceGroup(
+                    Set.of(rg), prb, new ResourceBundle(), Map.of(GROUP_ID, group), batchExclusions);
+
+            assertThat(result).isEmpty();
+            assertThat(prb.bundle().isValidResourceGroup(rg)).isFalse();
+            assertThat(batchExclusions.getResourceExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+                        assertThat(event.patientId()).isEqualTo("p1");
+                        assertThat(event.attributeRef()).isEqualTo("someAttribute");
+                    });
         }
     }
 
@@ -144,15 +173,15 @@ class ReferenceResolverTest {
         @Test
         void emptyBundle_returnsBundle() {
             var coreBundle = new ResourceBundle();
-            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), BatchDiagnosticsAcc.noop()).block();
+            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), BatchExclusions.empty()).block();
             assertThat(result).isSameAs(coreBundle);
         }
 
         @Test
         void withAcc_emptyBundle_returnsBundle() {
             var coreBundle = new ResourceBundle();
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 0);
-            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), acc).block();
+            var batchExclusions = BatchExclusions.empty();
+            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), batchExclusions).block();
             assertThat(result).isSameAs(coreBundle);
         }
 
@@ -163,9 +192,9 @@ class ReferenceResolverTest {
             coreBundle.put(obs);
             coreBundle.addResourceGroupValidity(new ResourceGroup(OBS_ID, GROUP_ID), true);
             when(compartmentManager.isInCompartment(any(ResourceGroup.class))).thenReturn(false);
-            when(referenceExtractor.extract(any(), anyMap(), anyString())).thenReturn(List.of());
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any())).thenReturn(List.of());
 
-            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), BatchDiagnosticsAcc.noop()).block();
+            var result = resolver.resolveCoreBundle(coreBundle, Map.of(), BatchExclusions.empty()).block();
 
             assertThat(result).isSameAs(coreBundle);
         }
@@ -181,15 +210,15 @@ class ReferenceResolverTest {
         @Test
         void emptyGroups_completesEmpty() {
             var coreBundle = new ResourceBundle();
-            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(), coreBundle, Map.of(), BatchDiagnosticsAcc.noop()))
+            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(), coreBundle, Map.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
         @Test
         void emptyGroups_withAcc_completesEmpty() {
             var coreBundle = new ResourceBundle();
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 0);
-            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(), coreBundle, Map.of(), acc))
+            var batchExclusions = BatchExclusions.empty();
+            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(), coreBundle, Map.of(), batchExclusions))
                     .verifyComplete();
         }
 
@@ -200,10 +229,76 @@ class ReferenceResolverTest {
             coreBundle.put(obs);
             var rg = new ResourceGroup(OBS_ID, GROUP_ID);
             when(compartmentManager.isInCompartment(rg)).thenReturn(false);
-            when(referenceExtractor.extract(any(), anyMap(), anyString())).thenReturn(List.of());
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any())).thenReturn(List.of());
 
-            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, Map.of(), BatchDiagnosticsAcc.noop()))
+            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, Map.of(), BatchExclusions.empty()))
                     .verifyComplete();
+        }
+
+        @Test
+        void groupWithLinkedRef_fetchesAndRecordsNotFoundWhenMissing() throws Exception {
+            var obs = (Observation) new Observation().setId("obs-1");
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(obs);
+            var rg = new ResourceGroup(OBS_ID, GROUP_ID);
+            when(compartmentManager.isInCompartment(rg)).thenReturn(false);
+
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("linkedGrp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(COND_ID), GROUP_ID, OBS_ID);
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any())).thenReturn(List.of(wrapper));
+            when(bundleLoader.fetchUnknownResources(eq(List.of(COND_ID)), eq("linkedGrp"), anyMap()))
+                    .thenReturn(Mono.just(List.of()));
+            when(referenceHandler.handleReferences(any(), isNull(), eq(coreBundle), anyMap(), anySet(), any()))
+                    .thenReturn(Flux.empty());
+
+            var batchExclusions = BatchExclusions.empty();
+            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, Map.of(), batchExclusions))
+                    .verifyComplete();
+
+            assertThat(batchExclusions.getResourceExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REFERENCE_NOT_FOUND);
+                        assertThat(event.groupId()).isEqualTo("linkedGrp");
+                        assertThat(event.resourceId()).isEqualTo(COND_ID.toString());
+                    });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // resolveUnknownPatientBatchRefs
+    // -------------------------------------------------------------------------
+
+    @Nested
+    class ResolveUnknownPatientBatchRefs {
+
+        @Test
+        void groupWithLinkedRef_fetchesAndRecordsNotFoundWhenMissing() throws Exception {
+            var obs = (Observation) new Observation().setId("obs-1");
+            var prb = new PatientResourceBundle("p1");
+            prb.bundle().put(obs);
+            var rg = new ResourceGroup(OBS_ID, GROUP_ID);
+            when(compartmentManager.isInCompartment(rg)).thenReturn(true);
+
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", false, List.of("linkedGrp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(COND_ID), GROUP_ID, OBS_ID);
+            when(referenceExtractor.extract(any(), anyMap(), anyString(), any(), any())).thenReturn(List.of(wrapper));
+            when(bundleLoader.fetchUnknownResources(eq(List.of(COND_ID)), eq("linkedGrp"), anyMap()))
+                    .thenReturn(Mono.just(List.of()));
+            when(referenceHandler.handleReferences(any(), eq(prb), any(), anyMap(), anySet(), any()))
+                    .thenReturn(Flux.empty());
+
+            var bwc = PatientBatchWithConsent.fromList(List.of(prb));
+            var rgsPerPat = Map.of("p1", Set.of(rg));
+
+            StepVerifier.create(resolver.resolveUnknownPatientBatchRefs(rgsPerPat, bwc, Map.of()))
+                    .verifyComplete();
+
+            assertThat(bwc.batchExclusions().getResourceExclusions())
+                    .anySatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REFERENCE_NOT_FOUND);
+                        assertThat(event.patientId()).isEqualTo("p1");
+                        assertThat(event.groupId()).isEqualTo("linkedGrp");
+                    });
         }
     }
 
@@ -217,9 +312,8 @@ class ReferenceResolverTest {
         @Test
         void emptyBatch_returnsEquivalentBatch() {
             var bwc = PatientBatchWithConsent.fromList(List.of());
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 0);
 
-            var result = resolver.resolvePatientBatch(bwc, Map.of(), acc).block();
+            var result = resolver.resolvePatientBatch(bwc, Map.of()).block();
 
             assertThat(result).isNotNull();
             assertThat(result.bundles()).isEmpty();
@@ -229,9 +323,8 @@ class ReferenceResolverTest {
         void batchWithOnePatient_noRefs_returnsUpdatedBatch() {
             var prb = new PatientResourceBundle("p1");
             var bwc = PatientBatchWithConsent.fromList(List.of(prb));
-            var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
 
-            var result = resolver.resolvePatientBatch(bwc, Map.of(), acc).block();
+            var result = resolver.resolvePatientBatch(bwc, Map.of()).block();
 
             assertThat(result).isNotNull();
             assertThat(result.bundles()).containsKey("p1");

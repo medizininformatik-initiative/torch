@@ -52,6 +52,11 @@ public class DefaultFileIO implements FileIo {
     }
 
     @Override
+    public Stream<Path> listDirectories(Path dir) throws IOException { // TODO improve?
+        return Files.list(dir).filter(elem -> elem.toFile().isDirectory());
+    }
+
+    @Override
     public void atomicMove(Path source, Path target) throws IOException {
         try {
             Files.move(source, target,

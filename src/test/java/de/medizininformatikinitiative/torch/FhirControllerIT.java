@@ -4,7 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.type.TypeFactory;
 import de.medizininformatikinitiative.torch.cql.CqlClient;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
@@ -178,16 +178,10 @@ class FhirControllerIT {
 
             PatientBatchWithConsent patients = PatientBatchWithConsent.fromBatch(PatientBatch.of("3"));
 
-            // Use a deterministic job id in tests if you prefer; random is fine for IT.
-            UUID jobId = UUID.randomUUID();
-
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, patients.id(), patients.patientBatch().ids().size());
-
             Mono<PatientBatchWithConsent> collectedResourcesMono =
                     transformer.directLoadPatientCompartment(
                             annotatedCrtdl.dataExtraction().attributeGroups(),
-                            patients,
-                            acc
+                            patients
                     );
 
             PatientBatchWithConsent result = collectedResourcesMono.block();
@@ -195,10 +189,6 @@ class FhirControllerIT {
 
             // Must-have violated at patient-level → patient removed
             assertThat(result.bundles()).isEmpty();
-
-            // Optional: if you expose a snapshot:
-            // BatchDiagnostics diag = acc.snapshot(result.patientBatch().ids().size());
-            // assertThat(diag.criteria()).isNotEmpty();
         }
     }
 
@@ -208,11 +198,11 @@ class FhirControllerIT {
             Crtdl crtdl = objectMapper.readValue(fis, Crtdl.class);
             AnnotatedCrtdl annotatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 0);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
             Mono<ResourceBundle> collectedResourcesMono =
                     transformer.processCoreAttributeGroups(
                             annotatedCrtdl.dataExtraction().attributeGroups(),
-                            new ResourceBundle(), acc
+                            new ResourceBundle(), batchExclusions
                     );
 
             StepVerifier.create(collectedResourcesMono)
@@ -243,9 +233,8 @@ class FhirControllerIT {
         }
         AnnotatedCrtdl annotatedCrtdl = validatorService.validateAndAnnotate(crtdl);
 
-        var acc = new BatchDiagnosticsAcc(UUID.randomUUID(), UUID.randomUUID(), 1);
         PatientBatchWithConsent result = transformer.directLoadPatientCompartment(
-                annotatedCrtdl.dataExtraction().attributeGroups(), batch, acc
+                annotatedCrtdl.dataExtraction().attributeGroups(), batch
         ).block();
 
         assertThat(result).isNotNull();

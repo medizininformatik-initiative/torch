@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.model.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -82,7 +83,7 @@ class PatientBatchWithConsentFromConsentTest {
     @Test
     void twoArgConstructorSetsApplyConsentFalse() {
         UUID id = UUID.randomUUID();
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(), id);
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(), id, BatchDiagnostics.empty());
         assertThat(batch.applyConsent()).isFalse();
         assertThat(batch.id()).isEqualTo(id);
     }
@@ -90,7 +91,7 @@ class PatientBatchWithConsentFromConsentTest {
     @Test
     void isEmptyTrueWhenAllBundlesEmpty() {
         var bundle = new PatientResourceBundle("p1", NonContinuousPeriod.of(), new ResourceBundle());
-        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of("p1", bundle), UUID.randomUUID());
+        PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of("p1", bundle), UUID.randomUUID(), BatchDiagnostics.empty());
         assertThat(batch.isEmpty()).isTrue();
     }
 

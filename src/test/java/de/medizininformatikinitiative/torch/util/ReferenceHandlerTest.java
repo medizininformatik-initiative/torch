@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -143,7 +145,7 @@ class ReferenceHandlerTest {
             var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -154,7 +156,7 @@ class ReferenceHandlerTest {
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeValid(wrapper.toResourceAttributeGroup());
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -165,8 +167,28 @@ class ReferenceHandlerTest {
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
+        }
+
+        @Test
+        void unresolvedMustHaveReference_swallowsErrorAndRecordsCoreMustHaveExclusion() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            var batchExclusions = BatchExclusions.empty();
+
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), batchExclusions))
+                    .verifyComplete();
+
+            assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var event = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+            assertThat(event.groupId()).isEqualTo("grp");
+            assertThat(event.resourceId()).isEqualTo(OBS_ID.toString());
+            assertThat(event.attributeRef()).isEqualTo("Obs.ref");
+            assertThat(event.patientId()).isEmpty();
         }
 
         @Test
@@ -181,7 +203,7 @@ class ReferenceHandlerTest {
             when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(true);
 
             StepVerifier.create(referenceHandler.handleReferences(
-                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of()))
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(), BatchExclusions.empty()))
                     .assertNext(rg -> assertThat(rg.resourceId()).isEqualTo(MED_ID))
                     .verifyComplete();
         }
@@ -199,22 +221,51 @@ class ReferenceHandlerTest {
             var knownGroup = new ResourceGroup(MED_ID, "grp");
 
             StepVerifier.create(referenceHandler.handleReferences(
-                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(knownGroup)))
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(knownGroup), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
         @Test
-        void invalidAttribute_mustHaveTrue_errorsAndMarksParentInvalid() {
+        void invalidAttribute_mustHaveTrue_swallowsErrorAndMarksParentInvalid() {
             var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
             var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
+            var batchExclusions = BatchExclusions.empty();
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
-                    .expectError(MustHaveViolatedException.class)
-                    .verify();
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), batchExclusions))
+                    .verifyComplete();
 
             assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var event = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+            assertThat(event.groupId()).isEqualTo("grp");
+            assertThat(event.resourceId()).isEqualTo(OBS_ID.toString());
+            assertThat(event.attributeRef()).isEqualTo("Obs.ref");
+            assertThat(event.patientId()).isEmpty();
+        }
+
+        @Test
+        void invalidAttribute_mustHaveTrue_patientBundle_swallowsErrorAndRecordsPatientMustHaveExclusion() {
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var patientBundle = new PatientResourceBundle("p1");
+            patientBundle.bundle().setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
+            var coreBundle = new ResourceBundle();
+            var batchExclusions = BatchExclusions.empty();
+
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), patientBundle, coreBundle, Map.of(), Set.of(), batchExclusions))
+                    .verifyComplete();
+
+            assertThat(patientBundle.bundle().isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var event = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.MUST_HAVE);
+            assertThat(event.groupId()).isEqualTo("grp");
+            assertThat(event.resourceId()).isEqualTo(OBS_ID.toString());
+            assertThat(event.attributeRef()).isEqualTo("Obs.ref");
+            assertThat(event.patientId()).isEqualTo("p1");
         }
     }
 }
