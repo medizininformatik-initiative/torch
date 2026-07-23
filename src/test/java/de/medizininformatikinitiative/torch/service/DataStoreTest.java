@@ -31,7 +31,9 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static de.medizininformatikinitiative.torch.service.DataStoreIT.createBundleFromQuery;
 import static java.util.Objects.requireNonNull;
@@ -224,6 +226,45 @@ class DataStoreTest {
         }
 
         @Test
+        @DisplayName("parses first page off the Netty event-loop thread")
+        void firstPageParsedOffEventLoopThread() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(PATIENT_BUNDLE));
+
+            var threadName = new AtomicReference<String>();
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class)
+                    .doOnNext(resource -> threadName.set(Thread.currentThread().getName()));
+
+            StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+            assertThat(threadName.get()).startsWith("boundedElastic-");
+        }
+
+        @Test
+        @DisplayName("parses next page off the Netty event-loop thread")
+        void nextPageParsedOffEventLoopThread() {
+            String nextUrl = baseUrl + "/Patient?page=2";
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(PATIENT_BUNDLE_WITH_NEXT.formatted(nextUrl)));
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(PATIENT_BUNDLE_LAST_PAGE));
+
+            var threadNames = new CopyOnWriteArrayList<String>();
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class)
+                    .doOnNext(resource -> threadNames.add(Thread.currentThread().getName()));
+
+            StepVerifier.create(result).expectNextCount(2).verifyComplete();
+
+            assertThat(threadNames.get(1)).startsWith("boundedElastic-");
+        }
+
+        @Test
         void operationOutcomeReturnsError() {
             mockStore.enqueue(new MockResponse()
                     .setResponseCode(200)
@@ -413,6 +454,22 @@ class DataStoreTest {
             StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
         }
 
+        @Test
+        @DisplayName("parses batch bundle off the Netty event-loop thread")
+        void parsedOffEventLoopThread() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody(BATCH_RESPONSE));
+
+            var threadName = new AtomicReference<String>();
+            var result = dataStore.executeBundle(createBundleFromQuery("Patient?_id=1,2"))
+                    .doOnNext(resources -> threadName.set(Thread.currentThread().getName()));
+
+            StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+            assertThat(threadName.get()).startsWith("boundedElastic-");
+        }
 
     }
 
@@ -631,6 +688,20 @@ class DataStoreTest {
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
                         .verifyComplete();
             }
+
+            @Test
+            @DisplayName("parses polled status bundle off the Netty event-loop thread")
+            void parsedOffEventLoopThread() {
+                mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseSuccess, new AtomicInteger(0)));
+
+                var threadName = new AtomicReference<String>();
+                var result = dataStore.evaluateMeasure(params("uri-152349"))
+                        .doOnNext(resource -> threadName.set(Thread.currentThread().getName()));
+
+                StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+                assertThat(threadName.get()).startsWith("boundedElastic-");
+            }
         }
 
         @Nested
@@ -669,6 +740,20 @@ class DataStoreTest {
                 StepVerifier.create(result)
                         .expectNextMatches(resource -> resource.getResourceType() == MeasureReport)
                         .verifyComplete();
+            }
+
+            @Test
+            @DisplayName("parses measure report off the Netty event-loop thread")
+            void parsedOffEventLoopThread() {
+                mockStore.setDispatcher(dispatcher(responseSuccess, batchResponseSuccess));
+
+                var threadName = new AtomicReference<String>();
+                var result = dataStore.evaluateMeasure(params("uri-152349"))
+                        .doOnNext(resource -> threadName.set(Thread.currentThread().getName()));
+
+                StepVerifier.create(result).expectNextCount(1).verifyComplete();
+
+                assertThat(threadName.get()).startsWith("boundedElastic-");
             }
         }
     }

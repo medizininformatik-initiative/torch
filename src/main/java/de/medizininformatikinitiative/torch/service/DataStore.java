@@ -25,6 +25,7 @@ import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
@@ -132,6 +133,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC)
+                .publishOn(Schedulers.boundedElastic())
                 .map(body -> fhirContext.newJsonParser().parseResource(Bundle.class, body))
                 .map(this::extractResourcesFromBundle)
                 .defaultIfEmpty(List.of())
@@ -189,6 +191,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC) // retry first page
+                .publishOn(Schedulers.boundedElastic())
                 .map(body -> fhirContext.newJsonParser().parseResource(body))
                 .flatMap(resource -> {
                     if (resource instanceof Bundle bundle) {
@@ -239,6 +242,7 @@ public class DataStore {
                 .retrieve()
                 .bodyToMono(String.class)
                 .retryWhen(RETRY_SPEC) // retry this page only
+                .publishOn(Schedulers.boundedElastic())
                 .map(body ->
                         fhirContext.newJsonParser().parseResource(Bundle.class, body)
                 );
@@ -279,6 +283,7 @@ public class DataStore {
                 .retrieve()
                 .onStatus(status -> status.isSameCodeAs(ACCEPTED), response -> Mono.error(handleAcceptedResponse(response)))
                 .bodyToMono(String.class)
+                .publishOn(Schedulers.boundedElastic())
                 .flatMap(body -> parseResource(MeasureReport.class, body))
                 .onErrorResume(AsyncException.class, e -> pollStatus(e.getStatusUrl(), measureUrn, start))
                 .doOnSuccess(measureReport -> logger.debug("Successfully evaluated Measure with URN {} in {} seconds.",
@@ -304,6 +309,7 @@ public class DataStore {
                 })
                 .bodyToMono(String.class)
                 .retryWhen(ASYNC_POLL_SPEC)
+                .publishOn(Schedulers.boundedElastic())
                 .flatMap(body -> parseResource(Bundle.class, body))
                 .flatMap(bundle -> {
                     var entry = bundle.getEntryFirstRep();
