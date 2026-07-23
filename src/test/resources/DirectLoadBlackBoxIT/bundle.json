@@ -1,0 +1,374 @@
+{
+    "resourceType": "Bundle",
+    "type": "transaction",
+    "entry": [
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-3",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Organization",
+                "id": "orga-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization"
+                    ]
+                },
+                "name": "Foo Bar GmbH"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Organization/orga-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Organization",
+                "id": "orga-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization"
+                    ]
+                },
+                "name": "Foo Bar GmbH"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Organization/orga-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Medication",
+                "id": "med-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                            "code": "N06AA25"
+                        }
+                    ]
+                },
+                "manufacturer": {
+                    "reference": "Organization/orga-1"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Medication/med-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Medication",
+                "id": "med-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                            "code": "N06AA"
+                        }
+                    ]
+                },
+                "manufacturer": {
+                    "reference": "Organization/orga-2"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Medication/med-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Medication",
+                "id": "med-3",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                            "code": "N06AA25"
+                        }
+                    ]
+                },
+                "manufacturer": {
+                    "reference": "Organization/orga-3"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Medication/med-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationAdministration",
+                "id": "med-adm-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration"
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/pat-1"
+                },
+                "medicationReference": {
+                    "reference": "Medication/med-1"
+                },
+                "partOf": {
+                    "reference": "Procedure/proc-1"
+                },
+                "effectiveDateTime": "2022-01-01T00:00:00+01:00"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationAdministration/med-adm-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Procedure",
+                "id": "proc-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-prozedur/StructureDefinition/Procedure"
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/pat-1"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/proc-1"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationAdministration",
+                "id": "med-adm-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration"
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/pat-2"
+                },
+                "medicationReference": {
+                    "reference": "Medication/med-2"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationAdministration/med-adm-2"
+            }
+        },
+        {
+            "resource": {
+                "patient": {
+                    "reference": "Patient/pat-1"
+                },
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://loinc.org",
+                                "code": "59284-0"
+                            }
+                        ]
+                    }
+                ],
+                "provision": {
+                    "provision": [
+                        {
+                            "type": "permit",
+                            "code": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "period": {
+                                "start": "2021-01-01T00:00:00+01:00",
+                                "end": "2050-12-31T00:00:00+01:00"
+                            }
+                        },
+                        {
+                            "type": "permit",
+                            "code": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "period": {
+                                "start": "2021-01-01T00:00:00+01:00",
+                                "end": "2050-12-31T00:00:00+01:00"
+                            }
+                        }
+                    ],
+                    "type": "permit",
+                    "period": {
+                        "start": "2021-01-01T00:00:00+01:00",
+                        "end": "2050-12-31T00:00:00+01:00"
+                    }
+                },
+                "resourceType": "Consent",
+                "dateTime": "2021-01-01T00:00:00+01:00",
+                "status": "active",
+                "id": "cons-1",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"
+                    ]
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Consent/cons-1"
+            }
+        },
+        {
+            "resource": {
+                "patient": {
+                    "reference": "Patient/pat-2"
+                },
+                "category": [
+                    {
+                        "coding": [
+                            {
+                                "system": "http://loinc.org",
+                                "code": "59284-0"
+                            }
+                        ]
+                    }
+                ],
+                "provision": {
+                    "provision": [
+                        {
+                            "type": "permit",
+                            "code": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.8"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "period": {
+                                "start": "2021-01-01T00:00:00+01:00",
+                                "end": "2050-12-31T00:00:00+01:00"
+                            }
+                        },
+                        {
+                            "type": "permit",
+                            "code": [
+                                {
+                                    "coding": [
+                                        {
+                                            "system": "urn:oid:2.16.840.1.113883.3.1937.777.24.5.3",
+                                            "code": "2.16.840.1.113883.3.1937.777.24.5.3.6"
+                                        }
+                                    ]
+                                }
+                            ],
+                            "period": {
+                                "start": "2021-01-01T00:00:00+01:00",
+                                "end": "2050-12-31T00:00:00+01:00"
+                            }
+                        }
+                    ],
+                    "type": "permit",
+                    "period": {
+                        "start": "2021-01-01T00:00:00+01:00",
+                        "end": "2050-12-31T00:00:00+01:00"
+                    }
+                },
+                "resourceType": "Consent",
+                "dateTime": "2021-01-01T00:00:00+01:00",
+                "status": "active",
+                "id": "cons-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung"
+                    ]
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Consent/cons-2"
+            }
+        }
+    ]
+}

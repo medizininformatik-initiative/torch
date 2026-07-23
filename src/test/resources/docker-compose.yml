@@ -9,6 +9,7 @@ services:
       JAVA_TOOL_OPTIONS: -Xmx1g
       DB_BLOCK_CACHE_SIZE: 0
       DB_RESOURCE_CACHE_SIZE: 0
+      ENFORCE_REFERENTIAL_INTEGRITY: ${ENFORCE_REFERENTIAL_INTEGRITY:-true}
     ports:
       - "8080"
     healthcheck:

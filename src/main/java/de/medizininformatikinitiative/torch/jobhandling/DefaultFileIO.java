@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.jobhandling;
 
 import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
 import java.nio.file.AtomicMoveNotSupportedException;
@@ -52,6 +53,11 @@ public class DefaultFileIO implements FileIo {
     }
 
     @Override
+    public Stream<Path> listDirectories(Path dir) throws IOException {
+        return Files.list(dir).filter(elem -> elem.toFile().isDirectory());
+    }
+
+    @Override
     public void atomicMove(Path source, Path target) throws IOException {
         try {
             Files.move(source, target,
@@ -79,5 +85,10 @@ public class DefaultFileIO implements FileIo {
                 Files.deleteIfExists(path);
             }
         }
+    }
+
+    @Override
+    public File createTempFile(File originalFile) {
+        return new File(originalFile.getAbsolutePath() + ".tmp");
     }
 }

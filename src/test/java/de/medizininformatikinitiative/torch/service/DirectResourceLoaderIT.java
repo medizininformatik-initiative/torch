@@ -2,7 +2,6 @@ package de.medizininformatikinitiative.torch.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.Torch;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
@@ -83,14 +82,9 @@ class DirectResourceLoaderIT {
         PatientBatchWithConsent bwc =
                 PatientBatchWithConsent.fromBatch(new PatientBatch(List.of("1", "2", "4", "VHF00006")));
 
-        // create a minimal acc for IT context
-        UUID jobId = UUID.randomUUID();
-        BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, bwc.id(), bwc.patientBatch().ids().size());
-
         Mono<PatientBatchWithConsent> result = dLoader.directLoadPatientCompartment(
                 crtdl.dataExtraction().attributeGroups(),
-                bwc,
-                acc
+                bwc
         );
 
         StepVerifier.create(result)

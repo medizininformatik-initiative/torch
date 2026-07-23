@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
@@ -90,6 +91,7 @@ public class ConsentFetcher {
                 .collectMultimap(Map.Entry::getKey, Map.Entry::getValue)
                 .flatMap(consentsByPatient -> {
                     if (consentsByPatient.isEmpty()) {
+                        batch.ids().forEach(pat -> batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, pat));
                         return Mono.error(new ConsentViolatedException("No valid consentPeriods found for any patients in batch " + batch.ids()));
                     }
 
@@ -121,6 +123,7 @@ public class ConsentFetcher {
                                     .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
                     if (provisionsByPatient.isEmpty()) {
+                        batch.ids().forEach(pat -> batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, pat));
                         return Mono.error(new ConsentViolatedException(
                                 "All patients in batch " + batch.ids() + " have no valid consentPeriods"));
                     }

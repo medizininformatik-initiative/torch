@@ -45,7 +45,9 @@ public class JobManifestSchema {
             description = """
                     TORCH-specific extension. Known URLs:
                     - https://torch.mii.de/fhir/StructureDefinition/torch-job — full job state (valueObject)
-                    - torch-job-diagnostics-summary — per-kind exclusion counts, cohort and final patient totals (valueObject, omitted when no diagnostics)
+                    - torch-job-diagnostics-summary — Cohort total, final patient total and per-stage processing durations
+                    - torch-patient-exclusions — pointing to a CSV file containing patient exclusion events
+                    - torch-resource-exclusions — pointing to a CSV file containing resource exclusion events
                     - torch-job-issues — list of warnings/errors recorded during processing (valueObject, omitted when empty)
                     """
     )

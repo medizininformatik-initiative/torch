@@ -36,8 +36,9 @@ public class ReferenceHandler {
         ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
         if (referenceWrapper.refAttribute().mustHave() && validRGs.isEmpty()) {
             processingBundle.setResourceAttributeInValid(referenceAttribute);
-            return Flux.error(new MustHaveViolatedException(
-                    "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
+            return Flux.error(new MustHaveViolatedException.AttributeViolated(
+                    "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references(),
+                    referenceWrapper.refAttribute().attributeRef()
             ));
         }
         processingBundle.setResourceAttributeValid(referenceAttribute);
@@ -172,8 +173,9 @@ public class ReferenceHandler {
                 if (Boolean.FALSE.equals(isValid)) {
                     if (reference.refAttribute().mustHave()) {
                         processingBundleForParent.addResourceGroupValidity(parentGroup, false);
-                        throw new MustHaveViolatedException(
-                                "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup);
+                        throw new MustHaveViolatedException.AttributeViolated(
+                                "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup,
+                                reference.refAttribute().attributeRef());
                     }
 
                 } else {

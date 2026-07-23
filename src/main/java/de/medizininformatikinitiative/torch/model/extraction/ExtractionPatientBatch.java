@@ -32,6 +32,10 @@ public record ExtractionPatientBatch(Map<String, ExtractionResourceBundle> bundl
         return bundles.values().stream().allMatch(ExtractionResourceBundle::isEmpty);
     }
 
+    public int getNumPatients() {
+        return bundles.size();
+    }
+
     public void writeToFhirBundles(FhirContext fhirContext, Writer out, String extractionId) throws IOException {
         for (Bundle fhirBundle : bundles.values().stream().map(bundle -> bundle.toFhirBundle(extractionId)).toList()) {
             fhirContext.newJsonParser().setPrettyPrint(false).encodeResourceToWriter(fhirBundle, out);
