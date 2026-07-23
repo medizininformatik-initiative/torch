@@ -3,11 +3,13 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Consent;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -18,7 +20,12 @@ import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Resource Utils to extract referenceValidity and IDs from Resources
@@ -112,6 +119,45 @@ public class ResourceUtils {
         } catch (NullPointerException e) {
             throw new IllegalArgumentException("Resource cannot be null");
         }
+    }
+
+    /**
+     * Reads the {@code identifier} values of a resource generically, without depending on a resource-type-specific
+     * {@code getIdentifier()} accessor.
+     *
+     * @param resource resource to read identifiers from
+     * @return the resource's identifier values, or an empty list if it has none
+     */
+    public static List<Identifier> getIdentifiers(Resource resource) {
+        return resource.children().stream()
+                .filter(child -> "identifier".equals(child.getName()))
+                .flatMap(child -> child.getValues().stream())
+                .filter(Identifier.class::isInstance)
+                .map(Identifier.class::cast)
+                .toList();
+    }
+
+    /**
+     * Indexes resources by their {@code identifier} values, so a {@code Reference.identifier}-only value can be
+     * resolved back to the resource(s) it refers to. A given identifier may index more than one resource if the
+     * same identifier value happens to be shared across resources in the collection.
+     *
+     * @param resources resources to index, e.g. all resources currently held by a bundle
+     * @return identifier to the {@link ExtractionId}s of resources carrying it
+     */
+    public static Map<IdentifierReference, Set<ExtractionId>> indexByIdentifier(Collection<Resource> resources) {
+        Map<IdentifierReference, Set<ExtractionId>> index = new HashMap<>();
+        for (Resource resource : resources) {
+            ExtractionId id = getRelativeURL(resource);
+            for (Identifier identifier : getIdentifiers(resource)) {
+                if (!identifier.hasValue()) {
+                    continue;
+                }
+                IdentifierReference key = new IdentifierReference(identifier.getSystem(), identifier.getValue());
+                index.computeIfAbsent(key, k -> new HashSet<>()).add(id);
+            }
+        }
+        return index;
     }
 
     /**

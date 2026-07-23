@@ -3,7 +3,9 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractedReferences;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
 import org.hl7.fhir.r4.model.Condition;
@@ -27,6 +29,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class ReferenceExtractorTest {
@@ -212,7 +215,7 @@ class ReferenceExtractorTest {
             Condition condition = new Condition();
             condition.setId("Condition1");
             condition.setSubject(new Reference("Patient/1"));
-            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE)).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
+            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE).references()).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
         }
 
         @Test
@@ -221,13 +224,16 @@ class ReferenceExtractorTest {
             condition.setId("Condition/1");
 
             // resource == null
-            assertThat(referenceExtractor.getReferences(null, ATTRIBUTE_OPTIONAL)).isEmpty();
+            assertThat(referenceExtractor.getReferences(null, ATTRIBUTE_OPTIONAL).references()).isEmpty();
+            assertThat(referenceExtractor.getReferences(null, ATTRIBUTE_OPTIONAL).identifierReferences()).isEmpty();
 
             // annotatedAttribute == null
-            assertThat(referenceExtractor.getReferences(condition, null)).isEmpty();
+            assertThat(referenceExtractor.getReferences(condition, null).references()).isEmpty();
+            assertThat(referenceExtractor.getReferences(condition, null).identifierReferences()).isEmpty();
 
             // both null
-            assertThat(referenceExtractor.getReferences(null, null)).isEmpty();
+            assertThat(referenceExtractor.getReferences(null, null).references()).isEmpty();
+            assertThat(referenceExtractor.getReferences(null, null).identifierReferences()).isEmpty();
         }
 
         @Test
@@ -235,7 +241,7 @@ class ReferenceExtractorTest {
             Condition condition = new Condition();
             condition.setId("Condition1");
             itSetup.structureDefinitionHandler().getDefinition(DIAG_URL);
-            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL)).isEmpty();
+            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL).references()).isEmpty();
         }
 
         @Test
@@ -245,7 +251,7 @@ class ReferenceExtractorTest {
             condition.setSubject(new Reference("INVALID_REFERENCE_FORMAT"));
 
             List<ExtractionId> result =
-                    referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
+                    referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL).references();
             assertThat(result).isEmpty();
         }
 
@@ -263,7 +269,7 @@ class ReferenceExtractorTest {
             condition.setId("Condition1");
             condition.setSubject(new Reference("Patient/1"));
 
-            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_RESOURCE)).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
+            assertThat(referenceExtractor.getReferences(condition, ATTRIBUTE_RESOURCE).references()).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
         }
 
         @Test
@@ -271,13 +277,33 @@ class ReferenceExtractorTest {
             Encounter encounter = new Encounter();
             encounter.setId("Encounter1");
             encounter.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/1"))));
-            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly(ExtractionId.fromRelativeUrl("Condition/1"));
+            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS).references()).containsExactly(ExtractionId.fromRelativeUrl("Condition/1"));
         }
 
         @Test
         void successRecursiveEncounter2() throws MustHaveViolatedException {
             Encounter encounter = itSetup.fhirContext().newJsonParser().parseResource(Encounter.class, encounterString);
-            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS)).containsExactly(ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-1"), ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-2"));
+            assertThat(referenceExtractor.getReferences(encounter, ATTRIBUTE_DIAGNOSIS).references()).containsExactly(ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-1"), ExtractionId.fromRelativeUrl("Condition/torch-test-diag-enc-diag-diag-2"));
+        }
+
+        @Test
+        void identifierOnlyReferenceIsCollectedAsPending() throws MustHaveViolatedException {
+            Condition condition = new Condition();
+            condition.setId("Condition1");
+            condition.setSubject(new Reference().setIdentifier(new org.hl7.fhir.r4.model.Identifier().setSystem("http://system").setValue("val-1")));
+
+            ExtractedReferences result = referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE);
+            assertThat(result.references()).isEmpty();
+            assertThat(result.identifierReferences()).containsExactly(new IdentifierReference("http://system", "val-1"));
+        }
+
+        @Test
+        void identifierOnlyReferenceDoesNotTriggerMustHaveViolation() {
+            Condition condition = new Condition();
+            condition.setId("Condition1");
+            condition.setSubject(new Reference().setIdentifier(new org.hl7.fhir.r4.model.Identifier().setSystem("http://system").setValue("val-1")));
+
+            assertThatCode(() -> referenceExtractor.getReferences(condition, ATTRIBUTE_MUST_HAVE)).doesNotThrowAnyException();
         }
 
     }
@@ -293,8 +319,8 @@ class ReferenceExtractorTest {
             condition.setAsserter(new Reference("Asserter/1"));
 
             assertThat(referenceExtractor.extract(condition, GROUPS, "Test")).containsExactly(
-                    new ReferenceWrapper(ATTRIBUTE_MUST_HAVE, List.of(ExtractionId.fromRelativeUrl("Patient/1")), "Test", ExtractionId.fromRelativeUrl("Condition/1")),
-                    new ReferenceWrapper(ATTRIBUTE_2, List.of(ExtractionId.fromRelativeUrl("Asserter/1")), "Test", ExtractionId.fromRelativeUrl("Condition/1")));
+                    new ReferenceWrapper(ATTRIBUTE_MUST_HAVE, List.of(ExtractionId.fromRelativeUrl("Patient/1")), List.of(), "Test", ExtractionId.fromRelativeUrl("Condition/1")),
+                    new ReferenceWrapper(ATTRIBUTE_2, List.of(ExtractionId.fromRelativeUrl("Asserter/1")), List.of(), "Test", ExtractionId.fromRelativeUrl("Condition/1")));
         }
 
         @Test
@@ -312,9 +338,10 @@ class ReferenceExtractorTest {
         void shouldCollectSingleReference() {
             Reference reference = new Reference("Patient/123");
 
-            List<String> result = referenceExtractor.collectReferences(reference);
+            List<Reference> result = referenceExtractor.collectReferences(reference);
 
             assertThat(result)
+                    .extracting(Reference::getReference)
                     .containsExactly("Patient/123");
         }
 
@@ -322,7 +349,7 @@ class ReferenceExtractorTest {
         void shouldReturnEmptyListWhenReferenceIsEmpty() {
             Reference reference = new Reference(); // no reference set
 
-            List<String> result = referenceExtractor.collectReferences(reference);
+            List<Reference> result = referenceExtractor.collectReferences(reference);
 
             assertThat(result)
                     .isEmpty();
@@ -332,7 +359,7 @@ class ReferenceExtractorTest {
         void shouldReturnEmptyListForPrimitiveElement() {
             StringType primitive = new StringType("hello");
 
-            List<String> result = referenceExtractor.collectReferences(primitive);
+            List<Reference> result = referenceExtractor.collectReferences(primitive);
 
             assertThat(result)
                     .isEmpty();
@@ -347,10 +374,29 @@ class ReferenceExtractorTest {
             // Add another nested reference through performer
             observation.addPerformer(new Reference("Practitioner/456"));
 
-            List<String> result = referenceExtractor.collectReferences(observation);
+            List<Reference> result = referenceExtractor.collectReferences(observation);
 
             assertThat(result)
+                    .extracting(Reference::getReference)
                     .containsExactlyInAnyOrder("Patient/123", "Practitioner/456");
+        }
+
+        @Test
+        void shouldCollectIdentifierOnlyReference() {
+            Reference reference = new Reference().setIdentifier(new org.hl7.fhir.r4.model.Identifier().setSystem("http://system").setValue("val-1"));
+
+            List<Reference> result = referenceExtractor.collectReferences(reference);
+
+            assertThat(result).containsExactly(reference);
+        }
+
+        @Test
+        void shouldNotCollectIdentifierWithoutValue() {
+            Reference reference = new Reference().setIdentifier(new org.hl7.fhir.r4.model.Identifier().setSystem("http://system"));
+
+            List<Reference> result = referenceExtractor.collectReferences(reference);
+
+            assertThat(result).isEmpty();
         }
 
     }
@@ -367,7 +413,7 @@ class ReferenceExtractorTest {
             // depending on how the parser built the object.
             refWithNull.setReference(null);
 
-            List<String> result = referenceExtractor.collectReferences(refWithNull);
+            List<Reference> result = referenceExtractor.collectReferences(refWithNull);
 
             assertThat(result).isEmpty();
         }
@@ -375,7 +421,7 @@ class ReferenceExtractorTest {
         @Test
         void collectReferences_withNullElement_shouldReturnEmptyList() {
             // Tests the guard at the start of the recursive method
-            List<String> result = referenceExtractor.collectReferences(null);
+            List<Reference> result = referenceExtractor.collectReferences(null);
             assertThat(result).isEmpty();
         }
 
@@ -414,7 +460,7 @@ class ReferenceExtractorTest {
             condition.setId("C1");
             condition.setSubject(new Reference("Patient/1"));
 
-            List<ExtractionId> result = referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL);
+            List<ExtractionId> result = referenceExtractor.getReferences(condition, ATTRIBUTE_OPTIONAL).references();
 
             assertThat(result).containsExactly(ExtractionId.fromRelativeUrl("Patient/1"));
         }
@@ -492,7 +538,7 @@ class ReferenceExtractorTest {
                     startLatch.await();
                     for (int i = 0; i < iterationsPerThread; i++) {
                         try {
-                            List<ExtractionId> refs = referenceExtractor.getReferences(condition, ATTRIBUTE_TRACE);
+                            List<ExtractionId> refs = referenceExtractor.getReferences(condition, ATTRIBUTE_TRACE).references();
                             if (!refs.equals(List.of(ExtractionId.fromRelativeUrl("Patient/1")))) {
                                 failures.incrementAndGet();
                             }

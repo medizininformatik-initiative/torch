@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.ElementContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
@@ -20,6 +21,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -56,25 +58,35 @@ public class Redaction {
     /**
      * Removes disallowed {@link Reference} values from the given property.
      * <p>
-     * If a reference is not in the provided {@code references} set, it is removed entirely.
+     * A literal reference is removed if its resolved {@link ExtractionId} is not in {@code allowed}. A
+     * {@code Reference.identifier}-only value is looked up in {@code identifierIndex} and removed unless at least
+     * one of the resources carrying that identifier is in {@code allowed}.
      * </p>
      *
-     * @param child   the property containing reference values
-     * @param allowed the set of allowed reference strings
+     * @param child           the property containing reference values
+     * @param allowed         the set of allowed reference targets
+     * @param identifierIndex index of bundle resources by identifier, used to resolve identifier-only references
      */
-    private void handleReference(Property child, Set<ExtractionId> allowed) {
+    private void handleReference(Property child, Set<ExtractionId> allowed, Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
         child.getValues().forEach(referenceValue -> {
-            if (!(referenceValue instanceof Reference reference) || !reference.hasReference()) {
+            if (!(referenceValue instanceof Reference reference)) {
                 return;
             }
 
-            String refString = reference.getReference();
             boolean isAllowed;
-            try {
-                ExtractionId id = ExtractionId.fromRelativeUrl(refString);
-                isAllowed = allowed.contains(id);
-            } catch (IllegalArgumentException ex) {
-                isAllowed = false;
+            if (reference.hasReference()) {
+                try {
+                    ExtractionId id = ExtractionId.fromRelativeUrl(reference.getReference());
+                    isAllowed = allowed.contains(id);
+                } catch (IllegalArgumentException ex) {
+                    isAllowed = false;
+                }
+            } else if (reference.hasIdentifier() && reference.getIdentifier().hasValue()) {
+                var identifier = reference.getIdentifier();
+                IdentifierReference key = new IdentifierReference(identifier.getSystem(), identifier.getValue());
+                isAllowed = !Collections.disjoint(identifierIndex.getOrDefault(key, Set.of()), allowed);
+            } else {
+                return;
             }
 
             if (!isAllowed) {
@@ -123,7 +135,7 @@ public class Redaction {
             throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
         }
         meta.setProfile(resourceProfiles);
-        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references());
+        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references(), wrapper.identifierIndex());
         return resource;
     }
 
@@ -137,11 +149,12 @@ public class Redaction {
      *
      * @param context    the element context used to evaluate and process extensions
      * @param references Map of allowed references
+     * @param identifierIndex index of bundle resources by identifier, used to resolve identifier-only references
      */
-    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
+    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references, Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
         MultiElementContext extensionsContext = context.descend(EXTENSION);
         removeUnknownExtensions(base, extensionsContext);
-        redactKnownExtensions(base, extensionsContext, references);
+        redactKnownExtensions(base, extensionsContext, references, identifierIndex);
     }
 
     /**
@@ -160,9 +173,10 @@ public class Redaction {
      * @param base       the FHIR element whose remaining extensions should be processed
      * @param context    the context for redacting extensions
      * @param references Map of allowed references
+     * @param identifierIndex index of bundle resources by identifier, used to resolve identifier-only references
      */
-    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
-        getExtensions(base).forEach(extension -> redactChildren(extension, context, references));
+    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references, Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
+        getExtensions(base).forEach(extension -> redactChildren(extension, context, references, identifierIndex));
     }
 
     private List<Extension> getExtensions(Base base) {
@@ -184,12 +198,13 @@ public class Redaction {
      * @param dataElement the FHIR {@link Base} element to redact
      * @param context     element ID and associated structure definitions
      * @param references  Map of allowed references
+     * @param identifierIndex index of bundle resources by identifier, used to resolve identifier-only references
      */
-    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
+    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<ExtractionId>> references, Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
         handleSlicing(dataElement, context).ifPresent(updatedContext -> {
-            redactExtensions(dataElement, updatedContext, references);
+            redactExtensions(dataElement, updatedContext, references, identifierIndex);
             if (!dataElement.isPrimitive()) {
-                redactChildren(dataElement, updatedContext, references);
+                redactChildren(dataElement, updatedContext, references, identifierIndex);
             }
         });
     }
@@ -232,8 +247,9 @@ public class Redaction {
      * @param baseElement element whose children should be redacted
      * @param contexts    element ID and associated structure definitions
      * @param references  Map of allowed references
+     * @param identifierIndex index of bundle resources by identifier, used to resolve identifier-only references
      */
-    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<ExtractionId>> references) {
+    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<ExtractionId>> references, Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
 
         baseElement.children().forEach(child -> {
             MultiElementContext childContexts = contexts.descend(child.getName());
@@ -242,12 +258,12 @@ public class Redaction {
             if (child.hasValues()) {
                 if (types.stream().anyMatch(type -> type.contains("Reference"))) {
 
-                    handleReference(child, childContexts.allowedReferences(references));
+                    handleReference(child, childContexts.allowedReferences(references), identifierIndex);
                 }
                 boolean checkSlices = !EXTENSION.equals(child.getName()) && !MODIFIER_EXTENSION.equals(child.getName());
                 Set<String> matchedSliceIds = checkSlices ? matchedSliceIds(child, childContexts) : Set.of();
                 for (Base value : child.getValues()) {
-                    redact(value, childContexts, references);
+                    redact(value, childContexts, references, identifierIndex);
                 }
                 // Only flag missing required slices if at least one instance matched some slice; otherwise none of
                 // the values addressed slicing at all, and the per-instance masking above already covers them.

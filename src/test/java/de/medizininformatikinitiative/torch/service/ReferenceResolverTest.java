@@ -8,17 +8,21 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Observation;
+import org.hl7.fhir.r4.model.Patient;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
@@ -35,7 +39,9 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -204,6 +210,40 @@ class ReferenceResolverTest {
 
             StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, Map.of(), BatchDiagnosticsAcc.noop()))
                     .verifyComplete();
+        }
+
+        @Test
+        void identifierOnlyReference_resolvesAndMergesIntoReplayedWrapper() throws Exception {
+            var obs = (Observation) new Observation().setId("obs-1");
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(obs);
+            var rg = new ResourceGroup(OBS_ID, GROUP_ID);
+
+            var identifierRef = new IdentifierReference("http://system", "val-1");
+            var refAttribute = new AnnotatedAttribute("Observation.subject", "Observation.subject", false, List.of("linkedGroup"));
+            var wrapper = new ReferenceWrapper(refAttribute, List.of(), List.of(identifierRef), GROUP_ID, OBS_ID);
+
+            var patient = new Patient();
+            patient.setId("Patient/42");
+            patient.addIdentifier(new Identifier().setSystem("http://system").setValue("val-1"));
+
+            when(compartmentManager.isInCompartment(rg)).thenReturn(false);
+            when(referenceExtractor.extract(any(), anyMap(), anyString())).thenReturn(List.of(wrapper));
+            when(bundleLoader.fetchUnknownResources(eq(List.of()), eq("linkedGroup"), anyMap()))
+                    .thenReturn(Mono.just(List.of()));
+            when(bundleLoader.fetchByIdentifier(eq(List.of(identifierRef)), eq("linkedGroup"), anyMap()))
+                    .thenReturn(Mono.just(List.of(patient)));
+            when(referenceHandler.handleReferences(any(), isNull(), eq(coreBundle), anyMap(), anySet()))
+                    .thenReturn(Flux.empty());
+
+            StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, Map.of(), BatchDiagnosticsAcc.noop()))
+                    .verifyComplete();
+
+            @SuppressWarnings("unchecked")
+            ArgumentCaptor<List<ReferenceWrapper>> captor = ArgumentCaptor.forClass(List.class);
+            verify(referenceHandler).handleReferences(captor.capture(), isNull(), eq(coreBundle), anyMap(), anySet());
+            assertThat(captor.getValue()).hasSize(1);
+            assertThat(captor.getValue().getFirst().references()).containsExactly(ExtractionId.fromRelativeUrl("Patient/42"));
         }
     }
 

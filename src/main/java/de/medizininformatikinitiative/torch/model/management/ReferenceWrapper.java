@@ -2,11 +2,13 @@ package de.medizininformatikinitiative.torch.model.management;
 
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 
 import java.util.List;
 
 public record ReferenceWrapper(AnnotatedAttribute refAttribute,
-                               List<ExtractionId> references, String groupId, ExtractionId resourceId) {
+                               List<ExtractionId> references, List<IdentifierReference> identifierReferences,
+                               String groupId, ExtractionId resourceId) {
 
     /**
      * @return the ResourceAttribute from which the reference was extracted

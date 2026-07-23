@@ -1,11 +1,21 @@
 package de.medizininformatikinitiative.torch.util;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
-import org.hl7.fhir.r4.model.*;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
+import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -19,8 +29,12 @@ class ResourceUtilsTest {
     class GetMethodWithOneParam {
 
         static class MultiOverload {
-            public void doSomething() {}
-            public void doSomething(String s) { s.hashCode(); }
+            public void doSomething() {
+            }
+
+            public void doSomething(String s) {
+                s.hashCode();
+            }
         }
 
         @Test
@@ -117,5 +131,66 @@ class ResourceUtilsTest {
 
         Bundle bundle = new Bundle();
         assertThrows(PatientIdNotFoundException.class, () -> ResourceUtils.getPatientIdFromBundle(bundle));
+    }
+
+    @Nested
+    class GetIdentifiers {
+
+        @Test
+        void returnsIdentifiersOfResource() {
+            Patient patient = new Patient();
+            patient.addIdentifier(new Identifier().setSystem("http://system").setValue("val-1"));
+
+            assertThat(ResourceUtils.getIdentifiers(patient))
+                    .extracting(Identifier::getValue)
+                    .containsExactly("val-1");
+        }
+
+        @Test
+        void returnsEmptyListWhenResourceHasNoIdentifiers() {
+            Encounter encounter = new Encounter();
+
+            assertThat(ResourceUtils.getIdentifiers(encounter)).isEmpty();
+        }
+    }
+
+    @Nested
+    class IndexByIdentifier {
+
+        @Test
+        void indexesResourcesByIdentifier() {
+            Patient patient = new Patient();
+            patient.setId("Patient/1");
+            patient.addIdentifier(new Identifier().setSystem("http://system").setValue("val-1"));
+
+            var index = ResourceUtils.indexByIdentifier(List.of(patient));
+
+            assertThat(index).containsEntry(new IdentifierReference("http://system", "val-1"),
+                    Set.of(ExtractionId.fromRelativeUrl("Patient/1")));
+        }
+
+        @Test
+        void mapsSharedIdentifierToMultipleResources() {
+            Patient patient1 = new Patient();
+            patient1.setId("Patient/1");
+            patient1.addIdentifier(new Identifier().setSystem("http://system").setValue("val-1"));
+            Patient patient2 = new Patient();
+            patient2.setId("Patient/2");
+            patient2.addIdentifier(new Identifier().setSystem("http://system").setValue("val-1"));
+
+            var index = ResourceUtils.indexByIdentifier(List.of(patient1, patient2));
+
+            assertThat(index).containsEntry(new IdentifierReference("http://system", "val-1"),
+                    Set.of(ExtractionId.fromRelativeUrl("Patient/1"), ExtractionId.fromRelativeUrl("Patient/2")));
+        }
+
+        @Test
+        void ignoresIdentifiersWithoutValue() {
+            Patient patient = new Patient();
+            patient.setId("Patient/1");
+            patient.addIdentifier(new Identifier().setSystem("http://system"));
+
+            assertThat(ResourceUtils.indexByIdentifier(List.of(patient))).isEmpty();
+        }
     }
 }

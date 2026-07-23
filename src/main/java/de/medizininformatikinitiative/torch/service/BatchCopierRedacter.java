@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttri
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
@@ -40,16 +42,35 @@ public class BatchCopierRedacter {
 
     /**
      * Transforms a batch of patients reactively.
+     * <p>
+     * A patient resource may hold an identifier-only reference to a resource cached in the batch's shared
+     * {@code coreBundle} rather than in that patient's own bundle (e.g. a reference to a core resource). The
+     * identifier index is therefore built once from every patient bundle plus the shared core bundle, so such a
+     * reference resolves the same way a literal one already does via the (separately maintained) allowed-reference
+     * bookkeeping.
      *
      * @param batch    Mono of PatientBatchWithConsent to be handled.
      * @param groupMap Immutable AttributeGroup Map shared between all Batches.
      * @return Mono of transformed batch.
      */
     public ExtractionPatientBatch transformBatch(ExtractionPatientBatch batch, Map<String, AnnotatedAttributeGroup> groupMap) {
+        Map<IdentifierReference, Set<ExtractionId>> identifierIndex = buildIdentifierIndex(batch);
+
         batch.bundles().values().parallelStream().forEach(
-                bundle -> transformBundle(bundle, groupMap)
+                bundle -> transformBundle(bundle, groupMap, identifierIndex)
         );
         return batch;
+    }
+
+    /**
+     * Indexes every resource of the batch by identifier: each patient bundle plus the batch's shared core bundle.
+     */
+    Map<IdentifierReference, Set<ExtractionId>> buildIdentifierIndex(ExtractionPatientBatch batch) {
+        return ResourceUtils.indexByIdentifier(
+                Stream.concat(
+                        batch.bundles().values().stream().flatMap(bundle -> bundle.cache().values().stream()),
+                        batch.coreBundle().cache().values().stream()
+                ).flatMap(Optional::stream).toList());
     }
 
     /**
@@ -67,6 +88,15 @@ public class BatchCopierRedacter {
      * @return Mono of Transformed PatientResourceBundle
      */
     public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+        Map<IdentifierReference, Set<ExtractionId>> identifierIndex = ResourceUtils.indexByIdentifier(
+                extractionBundle.cache().values().stream().flatMap(Optional::stream).toList());
+        return transformBundle(extractionBundle, groupMap, identifierIndex);
+    }
+
+    private ExtractionResourceBundle transformBundle(
+            ExtractionResourceBundle extractionBundle,
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            Map<IdentifierReference, Set<ExtractionId>> identifierIndex) {
         Map<ExtractionId, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
 
         infoMap.keySet().parallelStream().forEach(resourceId -> {
@@ -80,7 +110,7 @@ public class BatchCopierRedacter {
 
             try {
                 ExtractionRedactionWrapper wrapper =
-                        createWrapper(resource, info, groupMap);
+                        createWrapper(resource, info, groupMap, identifierIndex);
 
                 Resource transformed = transformResource(wrapper);
 
@@ -98,7 +128,8 @@ public class BatchCopierRedacter {
     ExtractionRedactionWrapper createWrapper(
             Resource resource,
             ResourceExtractionInfo info,
-            Map<String, AnnotatedAttributeGroup> groupMap
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            Map<IdentifierReference, Set<ExtractionId>> identifierIndex
     ) {
         CopyTreeNode copyTree = new CopyTreeNode(resource.getClass().getSimpleName());
         Set<String> groupProfiles = new HashSet<>();
@@ -115,7 +146,8 @@ public class BatchCopierRedacter {
                 (DomainResource) resource,
                 groupProfiles,
                 info.attributeToReferences(),
-                copyTree
+                copyTree,
+                identifierIndex
         );
     }
 
