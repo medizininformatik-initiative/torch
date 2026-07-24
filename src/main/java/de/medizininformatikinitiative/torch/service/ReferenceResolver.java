@@ -134,7 +134,7 @@ public class ReferenceResolver {
         return Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             var linkedGroupID = e.getKey();
             var unknownWrappers = e.getValue();
-            var unknownRefs = getRefsFromWrappers(unknownWrappers);
+            var unknownRefs = getRefsFromWrappers(unknownWrappers, groupMap.get(linkedGroupID));
 
             return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewCoreResources(fetchedResources, coreBundle))
@@ -309,8 +309,30 @@ public class ReferenceResolver {
         return newValidRGs.map(RGs -> Map.entry(patID, RGs));
     }
 
-    private List<ExtractionId> getRefsFromWrappers(List<ReferenceWrapper> wrappers) {
-        return wrappers.stream().flatMap(wrapper -> wrapper.references().stream()).toList();
+    /**
+     * Flattens the references of the given wrappers, keeping only those whose actual resource type (parsed from the
+     * reference itself) matches the linked group being fetched.
+     * <p>
+     * A single reference attribute can be polymorphic (e.g. {@code Encounter.diagnosis.condition} is
+     * {@code Reference(Condition|Procedure)}) and declare {@code linkedGroups} of different resource types. Without
+     * this filter, references would also be queried against linked groups of a type they can never match, wasting a
+     * FHIRSearch call and producing spurious "reference not loaded" warnings.
+     * <p>
+     * If {@code linkedGroup} is {@code null}, no reference can be matched to it, so an empty list is returned.
+     *
+     * @param wrappers    reference wrappers to flatten
+     * @param linkedGroup attribute group being fetched, or {@code null} if unknown
+     * @return references matching {@code linkedGroup}'s resource type
+     */
+    private List<ExtractionId> getRefsFromWrappers(List<ReferenceWrapper> wrappers, @Nullable AnnotatedAttributeGroup linkedGroup) {
+        if (linkedGroup == null) {
+            return List.of();
+        }
+        String linkedResourceType = linkedGroup.resourceType();
+        return wrappers.stream()
+                .flatMap(wrapper -> wrapper.references().stream())
+                .filter(ref -> ref.resourceType().equals(linkedResourceType))
+                .toList();
     }
 
     /**
@@ -372,7 +394,7 @@ public class ReferenceResolver {
         Flux<Map.Entry<String, Set<ResourceGroup>>> newRGsPerPat = Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             String linkedGroupID = e.getKey();
             List<ReferenceWrapper> unknownWrappers = e.getValue();
-            var unknownRefs = getRefsFromWrappers(unknownWrappers);
+            var unknownRefs = getRefsFromWrappers(unknownWrappers, groupMap.get(linkedGroupID));
             var refsToPat = refToPatHelper.get(linkedGroupID);
 
             return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
