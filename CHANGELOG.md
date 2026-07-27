@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.7] - 2026-07-27
+
+### Added
+
+- Add INFO-Level Visibility Into Long-Running Cohort Queries And Job Wait Times [#1119](https://github.com/medizininformatik-initiative/torch/pull/1119)
+- Support Deactivation Of Consent Calculation [#1131](https://github.com/medizininformatik-initiative/torch/pull/1131)
+
+### Changed
+
+- Update hapi to v8.10.1 [#1118](https://github.com/medizininformatik-initiative/torch/pull/1118)
+- Parameterize Torch Service Environment Variables In docker-compose.yml [#1128](https://github.com/medizininformatik-initiative/torch/pull/1128)
+
+### Fixed
+
+- Fix Extension Slices Missing URL Filter in Generated FHIRPath [#1108](https://github.com/medizininformatik-initiative/torch/pull/1108)
+- FHIR WebClient connection pool has no idle timeout [#1107](https://github.com/medizininformatik-initiative/torch/pull/1107)
+- Fix Reference Resolution Querying Wrong Resource Type For Polymorphic Linked References [#1121](https://github.com/medizininformatik-initiative/torch/pull/1121)
+- Omit Empty FHIR Elements Left By Partial Attribute Copies [#1137](https://github.com/medizininformatik-initiative/torch/pull/1137)
+
+### Documentation
+
+- Improve TASK API Documentation [#1117](https://github.com/medizininformatik-initiative/torch/pull/1117)
+
+
 ## [v1.0.0-beta.6] - 2026-07-22
 
 ### Fixed
