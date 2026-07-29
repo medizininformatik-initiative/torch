@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
@@ -52,6 +53,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
@@ -82,6 +84,8 @@ class ExtractDataServiceTest {
     DataStore dataStore;
     @Mock
     PostCascadeMustHaveChecker postCascadeMustHaveChecker;
+    @Mock
+    TorchProperties torchProperties;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -117,7 +121,8 @@ class ExtractDataServiceTest {
                 batchToCoreWriter,
                 consentHandler,
                 dataStore,
-                postCascadeMustHaveChecker
+                postCascadeMustHaveChecker,
+                torchProperties
         );
         spyService = Mockito.spy(service);
     }
@@ -265,6 +270,74 @@ class ExtractDataServiceTest {
                 mocked.verify(() -> ExtractionPatientBatch.of(any()));
 
                 verify(consentHandler).fetchAndBuildConsentInfo(Set.of(termcode), rawBatch);
+            }
+        }
+
+        @Test
+        void processBatch_whenDisableConsentCalculationTrue_skipsConsentHandlerEvenWithConsentCodes() {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            // Mock crtdl to have consent codes, to prove the flag overrides their presence.
+            // Stub is lenient because the disabled branch never even reads consentCodes().
+            AnnotatedCrtdl crtdl = mock(AnnotatedCrtdl.class);
+            TermCode termcode = new TermCode("sys", "val");
+            lenient().when(crtdl.consentCodes()).thenReturn(Optional.of(Set.of(termcode)));
+
+            JobParameters params = mock(JobParameters.class);
+            when(params.crtdl()).thenReturn(crtdl);
+
+            Job job = jobWithParameters(jobId, JobStatus.PENDING, params);
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(crtdl)).thenReturn(groups);
+            when(groups.directPatientCompartmentGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState finishedState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(finishedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            when(torchProperties.disableConsentCalculation()).thenReturn(true);
+
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any(), any()))
+                    .thenReturn(Mono.just(bwc));
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap(), any()))
+                    .thenReturn(Mono.just(bwc));
+            when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(bwc);
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any()))
+                        .thenReturn(ofResult);
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                        .thenReturn(extracted);
+
+                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> assertThat(res.batchState()).isSameAs(finishedState))
+                        .verifyComplete();
+
+                verifyNoInteractions(consentHandler);
             }
         }
 

@@ -32,7 +32,8 @@ public class TorchPropertiesTest {
                     "conceptTreeFile",
                     "dseMappingTreeFile",
                     "search-parameters.json",
-                    false // useCql=false
+                    false, // useCql=false
+                    false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
         }
@@ -55,6 +56,7 @@ public class TorchPropertiesTest {
                     "conceptTreeFile",
                     "dseMappingTreeFile",
                     "search-parameters.json",
+                    false,
                     false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
@@ -78,6 +80,7 @@ public class TorchPropertiesTest {
                     "conceptTreeFile",
                     "dseMappingTreeFile",
                     "search-parameters.json",
+                    false,
                     false
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
@@ -101,6 +104,7 @@ public class TorchPropertiesTest {
                     "conceptTreeFile",
                     "dseMappingTreeFile",
                     "search-parameters.json",
+                    false,
                     false
             )).doesNotThrowAnyException();
         }
@@ -123,7 +127,8 @@ public class TorchPropertiesTest {
                     "conceptTreeFile",
                     "dseMappingTreeFile",
                     "search-parameters.json",
-                    true
+                    true,
+                    false
             )).doesNotThrowAnyException();
         }
 

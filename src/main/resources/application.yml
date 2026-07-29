@@ -42,6 +42,7 @@ torch:
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
   bufferSize: 100
+  disableConsentCalculation: ${DISABLE_CONSENT_CALCULATION:false}
   output:
     file:
       server:

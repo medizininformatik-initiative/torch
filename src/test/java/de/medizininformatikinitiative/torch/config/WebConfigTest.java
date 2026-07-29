@@ -113,7 +113,8 @@ class WebConfigTest {
                 "conceptTree.json",
                 "dseMappingTree.json",
                 "search-parameters.json",
-                false // useCql
+                false, // useCql
+                false // disableConsentCalculation
         );
     }
 

@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
@@ -72,6 +73,7 @@ public class ExtractDataService {
     private final PatientBatchToCoreBundleWriter batchToCoreWriter;
     private final DataStore dataStore;
     private final PostCascadeMustHaveChecker postCascadeMustHaveChecker;
+    private final TorchProperties torchProperties;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -82,7 +84,8 @@ public class ExtractDataService {
                               PatientBatchToCoreBundleWriter writer,
                               ConsentHandler consentHandler,
                               DataStore dataStore,
-                              PostCascadeMustHaveChecker postCascadeMustHaveChecker) {
+                              PostCascadeMustHaveChecker postCascadeMustHaveChecker,
+                              TorchProperties torchProperties) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -93,6 +96,7 @@ public class ExtractDataService {
         this.consentHandler = requireNonNull(consentHandler);
         this.dataStore = requireNonNull(dataStore);
         this.postCascadeMustHaveChecker = requireNonNull(postCascadeMustHaveChecker);
+        this.torchProperties = requireNonNull(torchProperties);
     }
 
     private static void logMemory(UUID id) {
@@ -118,6 +122,9 @@ public class ExtractDataService {
      * <p>If consent resolution raises {@link ConsentViolatedException}, the batch is converted
      * into a skipped result with diagnostics and a warning issue. Any other error bubbles up.
      *
+     * <p>If {@code torch.disableConsentCalculation} is set, consent resolution is skipped entirely
+     * and every patient in the batch is treated as fully consented.
+     *
      * @param selection identifies the job and batch to process
      * @return mono emitting the resulting {@link BatchResult}, or an error
      */
@@ -131,10 +138,13 @@ public class ExtractDataService {
         BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batch.batchId(), batch.ids().size());
         long consentStart = System.nanoTime();
 
+        Mono<PatientBatchWithConsent> unconsented = Mono.just(PatientBatchWithConsent.fromBatch(batch));
         Mono<PatientBatchWithConsent> batchWithConsent =
-                crtdl.consentCodes()
-                        .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
-                        .orElse(Mono.just(PatientBatchWithConsent.fromBatch(batch)))
+                (torchProperties.disableConsentCalculation()
+                        ? unconsented
+                        : crtdl.consentCodes()
+                                .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
+                                .orElse(unconsented))
                         .doOnNext(bwc -> acc.recordStage(PipelineStage.CONSENT_FETCH,
                                 System.nanoTime() - consentStart, bwc.patientIds().size()))
                         .onErrorResume(ConsentViolatedException.class, ex -> {
