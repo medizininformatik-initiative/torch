@@ -31,12 +31,10 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
                         ? ctx.cohortQueryService().runCohortQuery(job.parameters().crtdl())
                         : Mono.just(job.parameters().paramBatch());
 
-        long cohortQueryStart = System.nanoTime();
-
         return patientIdsMono
                 .flatMap(ids ->
                         Mono.fromCallable(() -> {
-                                    ctx.persistence().onCohortSuccess(job.id(), ids, System.nanoTime() - cohortQueryStart);
+                                    ctx.persistence().onCohortSuccess(job.id(), ids);
                                     return 0;
                                 })
                                 .subscribeOn(Schedulers.boundedElastic())

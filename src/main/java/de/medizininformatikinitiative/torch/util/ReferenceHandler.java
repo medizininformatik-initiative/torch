@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -12,6 +13,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 
 import javax.annotation.Nullable;
 import java.util.ArrayList;
@@ -36,8 +38,9 @@ public class ReferenceHandler {
         ResourceAttribute referenceAttribute = referenceWrapper.toResourceAttributeGroup();
         if (referenceWrapper.refAttribute().mustHave() && validRGs.isEmpty()) {
             processingBundle.setResourceAttributeInValid(referenceAttribute);
-            return Flux.error(new MustHaveViolatedException(
-                    "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references()
+            return Flux.error(new MustHaveViolatedException.AttributeViolated(
+                    "MustHave condition violated: No valid references were resolved for " + referenceWrapper.references(),
+                    referenceWrapper.refAttribute().attributeRef()
             ));
         }
         processingBundle.setResourceAttributeValid(referenceAttribute);
@@ -49,37 +52,39 @@ public class ReferenceHandler {
      * @param patientBundle ResourceBundle containing patient information (Optional for core bundle)
      * @param coreBundle    coreResourceBundle containing the core Resources
      * @param groupMap      cache containing all known attributeGroups
+     * @param batchExclusions diagnostics accumulator to note a must-have violation on the parent group
      * @return newly added ResourceGroups to be processed
      */
     public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
                                                 Map<String, AnnotatedAttributeGroup> groupMap,
-                                                Set<ResourceGroup> knownGroups) {
+                                                Set<ResourceGroup> knownGroups,
+                                                BatchExclusions batchExclusions) {
         ResourceBundle processingBundleForParent = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
         ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
 
-        List<ReferenceWrapper> unprocessedReferences;
-        try {
-            unprocessedReferences = filterUnprocessedReferences(references, processingBundleForParent);
-        } catch (MustHaveViolatedException e) {
-            return Flux.error(e);
-        }
-        return Flux.fromIterable(unprocessedReferences)
-                .concatMap(ref -> handleReferenceAttribute(ref, patientBundle, coreBundle, groupMap).doOnNext(
-                        resourceGroupList -> {
-                            ResourceAttribute referenceAttribute = ref.toResourceAttributeGroup();
-                            resourceGroupList.forEach(resourceGroup -> processingBundleForParent.addAttributeToChild(referenceAttribute, resourceGroup));
-                        }
-                ))
-                .collectList()
-                .flatMapMany(results -> Flux.fromIterable(results.stream()
-                        .flatMap(List::stream)
-                        .toList()))
+        return Mono.fromCallable(() -> filterUnprocessedReferences(references, processingBundleForParent))
+                .flatMapMany(unprocessedReferences -> Flux.fromIterable(unprocessedReferences)
+                        .concatMap(ref -> handleReferenceAttribute(ref, patientBundle, coreBundle, groupMap).doOnNext(
+                                resourceGroupList -> {
+                                    ResourceAttribute referenceAttribute = ref.toResourceAttributeGroup();
+                                    resourceGroupList.forEach(resourceGroup -> processingBundleForParent.addAttributeToChild(referenceAttribute, resourceGroup));
+                                }
+                        ))
+                        .collectList()
+                        .flatMapMany(results -> Flux.fromIterable(results.stream()
+                                .flatMap(List::stream)
+                                .toList())))
                 .filter(group -> !knownGroups.contains(group))
-                .onErrorResume(MustHaveViolatedException.class, e -> {
+                .onErrorResume(MustHaveViolatedException.AttributeViolated.class, e -> {
                     processingBundleForParent.addResourceGroupValidity(parentGroup, false);
                     logger.warn("MustHaveViolatedException occurred. Stopping resource processing: {}", e.getMessage());
+                    if (patientBundle != null) {
+                        batchExclusions.addMustHaveExclusion(parentGroup.groupId(), parentGroup.resourceId().toString(), e.getAttributeRef(), patientBundle.patientId());
+                    } else {
+                        batchExclusions.addMustHaveExclusionCore(parentGroup.groupId(), parentGroup.resourceId().toString(), e.getAttributeRef());
+                    }
                     return Flux.empty();
                 });
     }
@@ -172,8 +177,9 @@ public class ReferenceHandler {
                 if (Boolean.FALSE.equals(isValid)) {
                     if (reference.refAttribute().mustHave()) {
                         processingBundleForParent.addResourceGroupValidity(parentGroup, false);
-                        throw new MustHaveViolatedException(
-                                "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup);
+                        throw new MustHaveViolatedException.AttributeViolated(
+                                "Must-have attribute violated for reference: " + reference + " in group: " + parentGroup,
+                                reference.refAttribute().attributeRef());
                     }
 
                 } else {

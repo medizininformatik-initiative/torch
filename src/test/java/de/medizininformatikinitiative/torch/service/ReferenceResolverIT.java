@@ -1,7 +1,8 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.Torch;
-import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnosticsAcc;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -142,7 +143,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_ORG_GROUP_2, linkedOrgAG_2);
 
 
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchDiagnosticsAcc.noop()).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchExclusions.empty()).block();
 
 
             assertThat(resultBundle).isNotNull();
@@ -182,7 +183,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
 
 
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchDiagnosticsAcc.noop()).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchExclusions.empty()).block();
 
 
             assertThat(resultBundle).isNotNull();
@@ -221,7 +222,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_ORG_GROUP_2, linkedOrgAG_2);
 
 
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchDiagnosticsAcc.noop()).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchExclusions.empty()).block();
 
 
             assertThat(resultBundle).isNotNull();
@@ -262,11 +263,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
             groupMap.put(LINKED_ORG_GROUP_2, linkedOrgAG_2);
 
-            UUID jobId = UUID.randomUUID();
-            UUID batchId = UUID.randomUUID();
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, 1);
-
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, acc).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchExclusions.empty()).block();
 
             assertThat(resultBundle).isNotNull();
             assertThat(resultBundle.resourceGroupValidity()).containsOnly(
@@ -292,11 +289,9 @@ public class ReferenceResolverIT {
             groupMap.put(MED_GROUP, medAG);
             groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
 
-            UUID jobId = UUID.randomUUID();
-            UUID batchId = UUID.randomUUID();
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(jobId, batchId, 1);
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, acc).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, batchExclusions).block();
 
             assertThat(resultBundle).isNotNull();
             assertThat(resultBundle.resourceGroupValidity().get(rgFromResource(med, MED_GROUP))).isTrue();
@@ -304,8 +299,7 @@ public class ReferenceResolverIT {
             var org1Rg = new ResourceGroup(ORG_ID_1, LINKED_ORG_GROUP_1);
             assertThat(resultBundle.resourceGroupValidity().get(org1Rg)).isFalse();
             // Diagnostics should record the missing reference
-            var snapshot = acc.snapshot(0);
-            assertThat(snapshot.criteria()).isNotEmpty();
+            assertThat(batchExclusions.getResourceExclusions()).isNotEmpty();
         }
 
         @Test
@@ -325,7 +319,7 @@ public class ReferenceResolverIT {
             groupMap.put(MED_GROUP, medAG);
             groupMap.put(LINKED_ORG_GROUP_1, linkedOrgAG_1);
 
-            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchDiagnosticsAcc.noop()).block();
+            var resultBundle = referenceResolver.resolveCoreBundle(resourceBundle, groupMap, BatchExclusions.empty()).block();
 
             assertThat(resultBundle).isNotNull();
             assertThat(resultBundle.resourceGroupValidity().get(rgFromResource(med, MED_GROUP))).isTrue();
@@ -415,7 +409,7 @@ public class ReferenceResolverIT {
             patBundles.get(PAT_ID_1.id()).bundle().put(cond);
             patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
             patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(cond, COND_GROUP), true);
-            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
+            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID(), BatchDiagnostics.empty());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
             AnnotatedAttribute cond_encounter = new AnnotatedAttribute(ENCOUNTER_PATH, ENCOUNTER_PATH, false, List.of(LINKED_GROUP_1));
@@ -434,8 +428,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedEncAG_1);
             groupMap.put(LINKED_GROUP_2, linkedEncAG_2);
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
 
 
             assertThat(resultBatch).isNotNull();
@@ -473,7 +466,7 @@ public class ReferenceResolverIT {
             patBundles.get(PAT_ID_1.id()).bundle().put(enc);
             patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
             patBundles.get(PAT_ID_1.id()).bundle().addResourceGroupValidity(rgFromResource(enc, ENC_GROUP), true);
-            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID());
+            var batch = new PatientBatchWithConsent(patBundles, false, coreBundle, UUID.randomUUID(), BatchDiagnostics.empty());
 
             Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
             AnnotatedAttribute encReason = new AnnotatedAttribute(REASON_PATH, REASON_PATH, false, List.of(LINKED_GROUP_1));
@@ -489,8 +482,7 @@ public class ReferenceResolverIT {
             groupMap.put(LINKED_GROUP_1, linkedCondAG);
 
 
-            BatchDiagnosticsAcc acc = new BatchDiagnosticsAcc(UUID.randomUUID(), batch.id(), batch.bundles().size());
-            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap, acc).block();
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
 
 
             assertThat(resultBatch).isNotNull();

@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -19,6 +21,7 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -304,6 +307,54 @@ class ReferenceExtractorTest {
             assertThatThrownBy(() -> referenceExtractor.extract(condition, GROUPS, "Test")).isInstanceOf(MustHaveViolatedException.class);
         }
 
+        @Test
+        void recordsReferenceInvalidExclusion_whenReferenceStringMalformed() throws MustHaveViolatedException {
+            AnnotatedAttribute optionalRef = new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("SubjectGroup"));
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Malformed", "Condition", DIAG_URL, List.of(optionalRef), List.of());
+            Map<String, AnnotatedAttributeGroup> localGroups = Map.of("Malformed", group);
+
+            Condition condition = new Condition();
+            condition.setId("Condition/1");
+            condition.setSubject(new Reference("INVALID_REFERENCE_FORMAT"));
+
+            BatchExclusions batchExclusions = BatchExclusions.empty();
+            List<ReferenceWrapper> result = referenceExtractor.extract(condition, localGroups, "Malformed", batchExclusions, Optional.of("pat1"));
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().references()).isEmpty();
+
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var event = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REFERENCE_INVALID);
+            assertThat(event.groupId()).isEqualTo("Malformed");
+            assertThat(event.attributeRef()).isEqualTo("Condition.subject");
+            assertThat(event.patientId()).isEqualTo("pat1");
+        }
+
+        @Test
+        void recordsReferenceInvalidExclusionCore_whenReferenceStringMalformed_andNoPatientId() throws MustHaveViolatedException {
+            AnnotatedAttribute optionalRef = new AnnotatedAttribute("Condition.subject", "Condition.subject", false, List.of("SubjectGroup"));
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup("Malformed", "Condition", DIAG_URL, List.of(optionalRef), List.of());
+            Map<String, AnnotatedAttributeGroup> localGroups = Map.of("Malformed", group);
+
+            Condition condition = new Condition();
+            condition.setId("Condition/1");
+            condition.setSubject(new Reference("INVALID_REFERENCE_FORMAT"));
+
+            BatchExclusions batchExclusions = BatchExclusions.empty();
+            List<ReferenceWrapper> result = referenceExtractor.extract(condition, localGroups, "Malformed", batchExclusions, Optional.empty());
+
+            assertThat(result).hasSize(1);
+            assertThat(result.getFirst().references()).isEmpty();
+
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
+            var event = batchExclusions.getResourceExclusions().getFirst();
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REFERENCE_INVALID);
+            assertThat(event.groupId()).isEqualTo("Malformed");
+            assertThat(event.attributeRef()).isEqualTo("Condition.subject");
+            assertThat(event.patientId()).isEqualTo("");
+        }
+
     }
 
     @Nested
@@ -438,12 +489,12 @@ class ReferenceExtractorTest {
             ReferenceExtractor spyExtractor = org.mockito.Mockito.spy(referenceExtractor);
 
             // Simulate the internal call throwing the wrapped exception
-            org.mockito.Mockito.doThrow(new RuntimeException(new MustHaveViolatedException("Simulated violation")))
-                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute));
+            org.mockito.Mockito.doThrow(new RuntimeException(new MustHaveViolatedException.AttributeViolated("Simulated violation", "Condition.subject")))
+                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute), org.mockito.ArgumentMatchers.any());
 
             // 3. Assert the unwrapping logic works
             assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Poison"))
-                    .isExactlyInstanceOf(MustHaveViolatedException.class)
+                    .isExactlyInstanceOf(MustHaveViolatedException.AttributeViolated.class)
                     .hasMessageContaining("Simulated violation");
         }
 
@@ -457,7 +508,7 @@ class ReferenceExtractorTest {
 
             // Simulate a generic RuntimeException without a MustHaveViolatedException cause
             org.mockito.Mockito.doThrow(new RuntimeException("Unexpected technical error"))
-                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute));
+                    .when(spyExtractor).getReferences(org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.eq(attribute), org.mockito.ArgumentMatchers.any());
 
             assertThatThrownBy(() -> spyExtractor.extract(new Condition(), localGroups, "Error"))
                     .isExactlyInstanceOf(RuntimeException.class)

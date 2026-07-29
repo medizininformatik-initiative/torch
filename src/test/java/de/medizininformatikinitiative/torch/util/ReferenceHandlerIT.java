@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
 import ca.uhn.fhir.parser.IParser;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -150,12 +151,15 @@ class ReferenceHandlerIT {
             Medication testResource = parser.parseResource(Medication.class, MEDICATION);
             coreBundle.put(new ResourceGroupWrapper(testResource, Set.of()));
             coreBundle.setResourceAttributeInValid(refWrapper.toResourceAttributeGroup());
+            BatchExclusions batchExclusions = BatchExclusions.empty();
 
-            Flux<ResourceGroup> result = referenceHandler.handleReferences(List.of(refWrapper), null, coreBundle, attributeGroupMap, Set.of());
+            Flux<ResourceGroup> result = referenceHandler.handleReferences(List.of(refWrapper), null, coreBundle, attributeGroupMap, Set.of(), batchExclusions);
 
             StepVerifier.create(result)
-                    .expectError(MustHaveViolatedException.class)
-                    .verify();
+                    .verifyComplete();
+
+            assertThat(coreBundle.isValidResourceGroup(refWrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).hasSize(1);
         }
 
         @Test

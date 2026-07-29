@@ -1,11 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.opencsv.exceptions.CsvValidationException;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvReader;
-import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsCsvWriter;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticsMapper;
+import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -38,7 +38,6 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -64,20 +63,22 @@ public class JobPersistenceService {
 
     private final FileIo io;
     private final ObjectMapper mapper;
-    private final JobDiagnosticsMapper diagnosticsMapper;
     private final Path baseDir;
     private final Map<UUID, Job> jobRegistry = new ConcurrentHashMap<>();
     private final int batchSize;
+
+    private final DiagnosticsStore diagnosticsStore;
 
     public JobPersistenceService(
             FileIo io,
             ObjectMapper mapper,
             @Value("${torch.results.dir}") String dir,
-            @Value("${torch.batchsize}") int batchSize
+            @Value("${torch.batchsize}") int batchSize,
+            DiagnosticsStore diagnosticsStore
     ) {
         this.io = requireNonNull(io);
         this.mapper = requireNonNull(mapper);
-        this.diagnosticsMapper = new JobDiagnosticsMapper(mapper);
+        this.diagnosticsStore = requireNonNull(diagnosticsStore);
         this.baseDir = Paths.get(dir).toAbsolutePath();
         this.batchSize = batchSize;
     }
@@ -87,21 +88,6 @@ public class JobPersistenceService {
         jobRegistry.put(job.id(), job);
     }
 
-    private static final String REPORT_DIR_NAME = "reports";
-    private static final String REPORT_JOB_FILE_NAME = "job-summary.json";
-    private static final String DIAGNOSTICS_CSV_FILE_NAME = "diagnostics.csv";
-
-    private Path reportDir(UUID jobId) {
-        return jobDir(jobId).resolve(REPORT_DIR_NAME);
-    }
-
-    private Path jobReportFile(UUID jobId) {
-        return reportDir(jobId).resolve(REPORT_JOB_FILE_NAME);
-    }
-
-    private Path diagnosticsCsvFile(UUID jobId) {
-        return reportDir(jobId).resolve(DIAGNOSTICS_CSV_FILE_NAME);
-    }
 
     /**
      * Initializes the persistence layer and in-memory registry.
@@ -395,30 +381,11 @@ public class JobPersistenceService {
     /**
      * Applies cohort success: persists batches and advances job state.
      *
-     * @param jobId job id
-     * @param ids   cohort ids
-     */
-    public void onCohortSuccess(UUID jobId, List<String> ids) {
-        onCohortSuccess(jobId, ids, 0L);
-    }
-
-    /**
-     * Applies cohort success with cohort-query timing: persists batches, timing, and advances job state.
-     *
      * @param jobId                    job id
      * @param ids                      cohort ids
-     * @param cohortQueryDurationNanos wall-clock time of the cohort query; 0 means not recorded
      */
-    public void onCohortSuccess(UUID jobId, List<String> ids, long cohortQueryDurationNanos) {
+    public void onCohortSuccess(UUID jobId, List<String> ids) {
         List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
-
-        if (cohortQueryDurationNanos > 0) {
-            try {
-                saveCohortTiming(jobId, cohortQueryDurationNanos / 1_000_000);
-            } catch (IOException e) {
-                logger.warn("Failed to save cohort timing for job {}: {}", jobId, e.getMessage(), e);
-            }
-        }
 
         updateJobAndReturn(jobId, job -> {
             Map<UUID, BatchState> stateMap = new HashMap<>();
@@ -462,7 +429,7 @@ public class JobPersistenceService {
 
             result.diagnostics().ifPresent(diag -> {
                 try {
-                    saveBatchDiagnostics(diag);
+                    diagnosticsStore.writeDiagnostics(diag, jobDir(jobId), result.batchId().toString());
                 } catch (IOException e) {
                     logger.warn("Failed to save batch diagnostics for batch {}: {}",
                             result.batchId(), e.getMessage(), e);
@@ -497,7 +464,7 @@ public class JobPersistenceService {
         updateJobAndReturn(result.jobId(), job -> {
             result.diagnostics().ifPresent(diag -> {
                 try {
-                    saveCoreResourceDiagnostics(diag);
+                    diagnosticsStore.writeDiagnostics(diag, jobDir(job.id()), "core");
                 } catch (IOException e) {
                     logger.warn("Failed to save core diagnostics for job {}: {}",
                             result.jobId(), e.getMessage(), e);
@@ -507,10 +474,12 @@ public class JobPersistenceService {
             Job updated = job.onCoreSuccess(result);
             if (updated.status() == JobStatus.COMPLETED) {
                 try {
-                    buildAndSaveJobDiagnostics(result.jobId());
+                    buildAndSaveDiagnosticsSummary(result.jobId());
                 } catch (IOException e) {
                     logger.warn("Failed to build job diagnostics summary for job {}: {}",
                             result.jobId(), e.getMessage(), e);
+                } catch (CsvValidationException e) {
+                    throw new RuntimeException(e); // TODO
                 }
             }
             return new JobAndResult<>(updated, null);
@@ -685,93 +654,21 @@ public class JobPersistenceService {
         }
     }
 
-    // -------------------------------------------------------------------------
-    // Diagnostics
-    //--------------------------------------------------------------------------
 
-    public void saveBatchDiagnostics(BatchDiagnostics report) throws IOException {
-        saveDiagnostics(report, false);
+    public JobDiagnosticSummary loadJobDiagnostics(UUID jobId) throws IOException {
+        return diagnosticsStore.readSummary(jobDir(jobId));
     }
 
-    public void saveCoreResourceDiagnostics(BatchDiagnostics report) throws IOException {
-        saveDiagnostics(report, true);
-    }
+    public void buildAndSaveDiagnosticsSummary(UUID jobId) throws IOException, CsvValidationException {
+        Map<String, BatchDiagnostics> batchDiagnostics = diagnosticsStore.loadAllDiagnostics(jobDir(jobId));
+        JobDiagnosticSummary summary = JobDiagnosticSummary.empty().initFromBatches(batchDiagnostics.values().stream().toList());
 
-    private void saveDiagnostics(BatchDiagnostics report, boolean isCore) throws IOException {
-        UUID jobId = report.jobId();
-        io.createDirectories(reportDir(jobId));
+        diagnosticsStore.writeMergedExclusions(batchDiagnostics, jobDir(jobId));
+        diagnosticsStore.writeSummary(summary, jobDir(jobId));
 
-        Path csv = diagnosticsCsvFile(jobId);
-        boolean writeHeader = !io.exists(csv);
-        try (BufferedWriter w = io.newAppendingWriter(csv)) {
-            if (writeHeader) {
-                w.write(DiagnosticsCsvWriter.HEADER);
-                w.newLine();
-            }
-            if (isCore) {
-                DiagnosticsCsvWriter.writeCore(w, report);
-            } else {
-                DiagnosticsCsvWriter.writeBatch(w, report);
-            }
-        }
-    }
-
-    public List<BatchDiagnostics> loadAllBatchDiagnostics(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
-        if (!io.exists(csv)) return List.of();
-        try (Stream<String> lines = io.lines(csv)) {
-            return DiagnosticsCsvReader.readAll(jobId, lines).batches();
-        }
-    }
-
-    public JobDiagnostics loadJobDiagnostics(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
-        if (!io.exists(csv)) return new JobDiagnostics(jobId, 0L, 0L, List.of());
-        try (Stream<String> lines = io.lines(csv)) {
-            DiagnosticsCsvReader.CsvData data = DiagnosticsCsvReader.readAll(jobId, lines);
-            return JobDiagnostics.fromBatches(jobId, data.batches(), data.cohortQueryDurationMs());
-        }
-    }
-
-    void saveCohortTiming(UUID jobId, long durationMs) throws IOException {
-        io.createDirectories(reportDir(jobId));
-        Path csv = diagnosticsCsvFile(jobId);
-        boolean writeHeader = !io.exists(csv);
-        try (BufferedWriter w = io.newAppendingWriter(csv)) {
-            if (writeHeader) {
-                w.write(DiagnosticsCsvWriter.HEADER);
-                w.newLine();
-            }
-            DiagnosticsCsvWriter.writeCohort(w, durationMs);
-        }
-    }
-
-    long loadCohortTiming(UUID jobId) throws IOException {
-        Path csv = diagnosticsCsvFile(jobId);
-        if (!io.exists(csv)) return 0L;
-        try (Stream<String> lines = io.lines(csv)) {
-            return DiagnosticsCsvReader.readAll(jobId, lines).cohortQueryDurationMs();
-        }
-    }
-
-    public JobDiagnostics buildAndSaveJobDiagnostics(UUID jobId) throws IOException {
-        JobDiagnostics jobReport = loadJobDiagnostics(jobId);
-
-        if (jobReport.criteria().isEmpty()) {
-            logger.debug("No batch diagnostics found for job {} — skipping job summary creation", jobId);
-            return jobReport;
-        }
-
-        ensureDirectoryStructure(jobId);
-        Path file = jobReportFile(jobId);
-        Path tmp = file.resolveSibling(REPORT_JOB_FILE_NAME + ".tmp");
-
-        try (Writer writer = io.newBufferedWriter(tmp)) {
-            mapper.writeValue(writer, diagnosticsMapper.toOperationOutcome(jobReport));
-        }
-        io.atomicMove(tmp, file);
-
-        return jobReport;
+        // Only remove the per-batch source directories once the merge above is durably written,
+        // so a failed write leaves the per-batch data recoverable instead of silently lost.
+        diagnosticsStore.deleteBatchDiagnostics(batchDiagnostics.keySet(), jobDir(jobId));
     }
 
     // -------------------------------------------------------------------------
@@ -828,11 +725,19 @@ public class JobPersistenceService {
         io.createDirectories(jobDir(jobId));
         io.createDirectories(batchDir(jobId));
         io.createDirectories(coreBatchDir(jobId));
-        io.createDirectories(reportDir(jobId));
+        diagnosticsStore.ensureDirectoryStructure(jobDir(jobId));
     }
 
-    public boolean jobDiagnosticsExists(UUID jobId) {
-        return io.exists(jobReportFile(jobId));
+    public boolean jobSummaryExists(UUID jobId) {
+        return diagnosticsStore.jobSummaryExists(jobDir(jobId));
+    }
+
+    public boolean resourceExclusionsExists(UUID jobId) {
+        return diagnosticsStore.resourceExclusionsExists(jobDir(jobId));
+    }
+
+    public boolean patientExclusionsExists(UUID jobId) {
+        return diagnosticsStore.patientExclusionsExists(jobDir(jobId));
     }
 
     @FunctionalInterface

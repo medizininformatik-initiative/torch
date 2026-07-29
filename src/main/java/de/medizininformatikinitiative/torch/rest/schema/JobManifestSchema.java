@@ -46,6 +46,8 @@ public class JobManifestSchema {
                     TORCH-specific extension. Known URLs:
                     - https://torch.mii.de/fhir/StructureDefinition/torch-job — full job state (valueObject)
                     - torch-job-diagnostics-summary — per-kind exclusion counts, cohort and final patient totals (valueObject, omitted when no diagnostics)
+                    - torch-resource-exclusions — download URL of the resource-exclusions.csv report (valueUrl, omitted when no diagnostics)
+                    - torch-patient-exclusions — download URL of the patient-exclusions.csv report (valueUrl, omitted when no diagnostics)
                     - torch-job-issues — list of warnings/errors recorded during processing (valueObject, omitted when empty)
                     """
     )
@@ -56,5 +58,11 @@ public class JobManifestSchema {
 
         @Schema(description = "Content depends on the extension URL; see description above")
         public Object valueObject;
+
+        @Schema(
+                description = "Download URL; set instead of valueObject for URL-only extensions",
+                example = "https://fileserver/jobs/<jobId>/reports/resource-exclusions.csv"
+        )
+        public String valueUrl;
     }
 }

@@ -23,6 +23,8 @@ public interface FileIo {
 
     Stream<String> lines(Path path) throws IOException;
 
+    Stream<Path> listDirectories(Path path) throws IOException;
+
     void createDirectories(Path dir) throws IOException;
 
     boolean isDirectory(Path path);

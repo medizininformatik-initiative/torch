@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.jobhandling.result;
 
+import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
@@ -23,7 +24,7 @@ import static java.util.Objects.requireNonNull;
  */
 public record BatchResult(UUID jobId, UUID batchId, BatchState batchState,
                           Optional<ExtractionResourceBundle> resultCoreBundle,
-                          Optional<de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics> diagnostics,
+                          Optional<BatchDiagnostics> diagnostics,
                           List<Issue> issues) {
 
     public BatchResult {
@@ -32,5 +33,6 @@ public record BatchResult(UUID jobId, UUID batchId, BatchState batchState,
         requireNonNull(batchState);
         requireNonNull(resultCoreBundle);
         requireNonNull(issues);
+        requireNonNull(diagnostics);
     }
 }

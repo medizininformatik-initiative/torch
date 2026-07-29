@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
-import de.medizininformatikinitiative.torch.diagnostics.JobDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -300,16 +300,18 @@ class FhirControllerTest {
                     .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
 
             when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
-            when(jobPersistenceService.jobDiagnosticsExists(any())).thenReturn(true);
-            when(jobPersistenceService.loadJobDiagnostics(any())).thenReturn(
-                    new JobDiagnostics(jobId, 10L, 8L, List.of()));
+            when(jobPersistenceService.jobSummaryExists(any())).thenReturn(true);
+            when(jobPersistenceService.loadJobDiagnostics(any())).thenReturn(JobDiagnosticSummary.empty());
+            when(jobPersistenceService.resourceExclusionsExists(any())).thenReturn(true);
+            when(jobPersistenceService.patientExclusionsExists(any())).thenReturn(true);
 
             client.get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().isOk()
                     .expectBody()
                     .jsonPath("$.output[?(@.type=='OperationOutcome')]").doesNotExist()
                     .jsonPath("$.extension[?(@.url=='torch-job-diagnostics-summary')]").exists()
-                    .jsonPath("$.extension[?(@.url=='torch-job-diagnostics')]").exists();
+                    .jsonPath("$.extension[?(@.url=='torch-resource-exclusions')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-patient-exclusions')]").exists();
         }
 
         @Test
