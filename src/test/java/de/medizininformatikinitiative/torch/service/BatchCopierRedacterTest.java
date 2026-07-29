@@ -5,12 +5,17 @@ import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.util.ElementCopier;
 import de.medizininformatikinitiative.torch.util.Redaction;
+import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Resource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -19,13 +24,12 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.hl7.fhir.r4.model.Patient;
-import org.hl7.fhir.r4.model.Resource;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -84,7 +88,7 @@ class BatchCopierRedacterTest {
         // but createWrapper must not run real logic
         doReturn(mock(ExtractionRedactionWrapper.class))
                 .when(transformer)
-                .createWrapper(any(), any(), any());
+                .createWrapper(any(), any(), any(), any());
     }
 
     @ParameterizedTest
@@ -147,7 +151,7 @@ class BatchCopierRedacterTest {
                     List.of(new AnnotatedAttribute("Patient.id", "Patient.id", false)), List.of());
             var info = new ResourceExtractionInfo(Set.of("G1"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of("G1", group));
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", group), Map.of());
 
             assertThat(wrapper.resource()).isSameAs(patient);
             assertThat(wrapper.profiles()).containsExactly("http://profile/Patient");
@@ -159,7 +163,7 @@ class BatchCopierRedacterTest {
             patient.setId("p1");
             var info = new ResourceExtractionInfo(Set.of("unknown-group"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of());
+            var wrapper = real.createWrapper(patient, info, Map.of(), Map.of());
 
             assertThat(wrapper.resource()).isSameAs(patient);
             assertThat(wrapper.profiles()).isEmpty();
@@ -175,7 +179,7 @@ class BatchCopierRedacterTest {
                     List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
             var info = new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of("G1", g1, "G2", g2));
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", g1, "G2", g2), Map.of());
 
             assertThat(wrapper.profiles()).containsExactlyInAnyOrder("http://profile/P1", "http://profile/P2");
         }
@@ -188,11 +192,55 @@ class BatchCopierRedacterTest {
         void returnsTransformedResource() throws Exception {
             var patient = new Patient();
             patient.setId("dummy");
-            var wrapper = new ExtractionRedactionWrapper(patient, Set.of(), Map.of(), new CopyTreeNode("Patient"));
+            var wrapper = new ExtractionRedactionWrapper(patient, Set.of(), Map.of(), new CopyTreeNode("Patient"), Map.of());
 
             var result = transformer.transformResource(wrapper);
 
             assertThat(result).isNotNull().isInstanceOf(Patient.class);
+        }
+    }
+
+    @Nested
+    class BuildIdentifierIndex {
+
+        private BatchCopierRedacter real;
+
+        @BeforeEach
+        void setUpReal() {
+            real = new BatchCopierRedacter(copier, redaction);
+        }
+
+        /**
+         * A patient resource may hold an identifier-only reference to a resource that lives only in the batch's
+         * shared core bundle (not in that patient's own bundle) — e.g. a reference to a core resource. The index
+         * has to span both, or such a reference would incorrectly appear unresolvable at redaction time.
+         */
+        @Test
+        void indexesResourcesFromBothPatientAndCoreBundles() {
+            var patientOnlyResource = new Patient();
+            patientOnlyResource.setId("Patient/p1");
+            patientOnlyResource.addIdentifier(new Identifier().setSystem("http://system").setValue("patient-val"));
+
+            var coreOnlyResource = new Patient();
+            coreOnlyResource.setId("Patient/core-1");
+            coreOnlyResource.addIdentifier(new Identifier().setSystem("http://system").setValue("core-val"));
+
+            var patientBundleCache = new ConcurrentHashMap<ExtractionId, Optional<Resource>>();
+            patientBundleCache.put(ExtractionId.fromRelativeUrl("Patient/p1"), Optional.of(patientOnlyResource));
+            var patientBundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(), patientBundleCache);
+
+            var coreBundleCache = new ConcurrentHashMap<ExtractionId, Optional<Resource>>();
+            coreBundleCache.put(ExtractionId.fromRelativeUrl("Patient/core-1"), Optional.of(coreOnlyResource));
+            var coreBundle = new ExtractionResourceBundle(new ConcurrentHashMap<>(), coreBundleCache);
+
+            var batch = new ExtractionPatientBatch(Map.of("p1", patientBundle), coreBundle, UUID.randomUUID());
+
+            var index = real.buildIdentifierIndex(batch);
+
+            assertThat(index).containsEntry(new IdentifierReference("http://system", "patient-val"),
+                    Set.of(ExtractionId.fromRelativeUrl("Patient/p1")));
+            assertThat(index).containsEntry(new IdentifierReference("http://system", "core-val"),
+                    Set.of(ExtractionId.fromRelativeUrl("Patient/core-1")));
         }
     }
 }

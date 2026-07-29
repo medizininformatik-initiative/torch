@@ -7,10 +7,12 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
@@ -18,6 +20,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Mono;
@@ -35,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -57,7 +61,7 @@ class ReferenceBundleLoaderTest {
     @BeforeEach
     void setup() {
         referenceBundleLoader = new ReferenceBundleLoader(compartmentManager, dataStore, consentValidator, pageCount, mappingTree);
-        referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), "Encounter1", ExtractionId.fromRelativeUrl("Encounter/123"));
+        referenceWrapper = new ReferenceWrapper(referenceAttribute, List.of(OBSERVATION_REF), List.of(), "Encounter1", ExtractionId.fromRelativeUrl("Encounter/123"));
     }
 
     @Test
@@ -88,6 +92,56 @@ class ReferenceBundleLoaderTest {
                 .assertNext(resources -> {
                     assertThat(resources).hasSize(1);
                     assertThat(resources.getFirst().getResourceType().name()).isEqualTo("Patient");
+                    assertThat(resources.getFirst().getIdElement().getIdPart()).isEqualTo("42");
+                })
+                .verifyComplete();
+    }
+
+    @Test
+    void fetchByIdentifier_buildsIdentifierSearchQuery() {
+        // given
+        AnnotatedAttributeGroup mockGroup = mock(AnnotatedAttributeGroup.class);
+        when(mockGroup.resourceType()).thenReturn("Patient");
+        when(mockGroup.queries(any(), any())).thenReturn(List.of(de.medizininformatikinitiative.torch.model.fhir.Query.ofType("Patient")));
+        Map<String, AnnotatedAttributeGroup> groupMap = Map.of("linkedGroup", mockGroup);
+
+        when(dataStore.executeBundle(any())).thenReturn(Mono.just(List.of()));
+
+        List<IdentifierReference> refs = List.of(new IdentifierReference("http://system", "val-1"));
+
+        // when
+        StepVerifier.create(referenceBundleLoader.fetchByIdentifier(refs, "linkedGroup", groupMap))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        // then
+        ArgumentCaptor<Bundle> bundleCaptor = ArgumentCaptor.forClass(Bundle.class);
+        verify(dataStore).executeBundle(bundleCaptor.capture());
+        String url = bundleCaptor.getValue().getEntryFirstRep().getRequest().getUrl();
+        assertThat(url).isEqualTo("Patient?identifier=http://system|val-1&_count=4");
+    }
+
+    @Test
+    void fetchByIdentifier_skipsMalformedFetchedResourcesWithoutId() {
+        // given
+        AnnotatedAttributeGroup mockGroup = mock(AnnotatedAttributeGroup.class);
+        when(mockGroup.resourceType()).thenReturn("Patient");
+        when(mockGroup.queries(any(), any())).thenReturn(List.of());
+        Map<String, AnnotatedAttributeGroup> groupMap = Map.of("linkedGroup", mockGroup);
+
+        Resource malformed = new org.hl7.fhir.r4.model.Patient(); // no id set
+        org.hl7.fhir.r4.model.Patient ok = new org.hl7.fhir.r4.model.Patient();
+        ok.setId("Patient/42");
+
+        when(dataStore.executeBundle(any()))
+                .thenReturn(Mono.just(List.of(malformed, ok)));
+
+        List<IdentifierReference> refs = List.of(new IdentifierReference("http://system", "val-1"));
+
+        // when / then
+        StepVerifier.create(referenceBundleLoader.fetchByIdentifier(refs, "linkedGroup", groupMap))
+                .assertNext(resources -> {
+                    assertThat(resources).hasSize(1);
                     assertThat(resources.getFirst().getIdElement().getIdPart()).isEqualTo("42");
                 })
                 .verifyComplete();
@@ -173,6 +227,22 @@ class ReferenceBundleLoaderTest {
                     Set.of(REF_3));
         }
 
+    }
+
+    @Nested
+    class TestChunkIdentifierRefs {
+        IdentifierReference ref1 = new IdentifierReference("http://system", "val-1");
+        IdentifierReference ref2 = new IdentifierReference("http://system", "val-2");
+        IdentifierReference ref3 = new IdentifierReference("http://system", "val-3");
+
+        @Test
+        void withChunking() {
+            var chunks = referenceBundleLoader.chunkIdentifierRefs(List.of(ref1, ref2, ref3), 2);
+
+            assertThat(chunks).containsExactly(
+                    Set.of(ref1, ref2),
+                    Set.of(ref3));
+        }
     }
 
     @Nested

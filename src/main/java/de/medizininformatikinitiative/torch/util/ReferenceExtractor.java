@@ -5,7 +5,9 @@ import ca.uhn.fhir.fhirpath.IFhirPath;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractedReferences;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Reference;
@@ -47,11 +49,11 @@ public class ReferenceExtractor {
                     .filter(Objects::nonNull) // Ensure attribute list doesn't contain nulls
                     .map(refAttribute -> {
                         try {
-                            List<ExtractionId> refs = getReferences(resource, refAttribute);
+                            ExtractedReferences extracted = getReferences(resource, refAttribute);
                             ExtractionId relativeUrl = ResourceUtils.getRelativeURL(resource);
 
                             // ReferenceWrapper should handle its own null-safety, but we pass safe values
-                            return new ReferenceWrapper(refAttribute, refs, groupId, relativeUrl);
+                            return new ReferenceWrapper(refAttribute, extracted.references(), extracted.identifierReferences(), groupId, relativeUrl);
                         } catch (MustHaveViolatedException e) {
                             throw new RuntimeException(e);
                         }
@@ -66,52 +68,67 @@ public class ReferenceExtractor {
         }
     }
 
-    List<ExtractionId> getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
-        if (resource == null || annotatedAttribute == null) return List.of();
+    ExtractedReferences getReferences(Resource resource, AnnotatedAttribute annotatedAttribute) throws MustHaveViolatedException {
+        if (resource == null || annotatedAttribute == null) return new ExtractedReferences(List.of(), List.of());
 
         // Evaluate FHIRPath - library usually returns empty list, but we stream it safely
         List<Base> elements = fhirPathEngine.get().evaluate(resource, annotatedAttribute.fhirPath(), Base.class);
 
-        List<ExtractionId> references = Optional.ofNullable(elements).orElse(List.of()).stream()
+        List<Reference> collectedReferences = Optional.ofNullable(elements).orElse(List.of()).stream()
                 .filter(Objects::nonNull)
                 .flatMap(element -> collectReferences(element).stream())
-                .flatMap(refStr -> {
+                .toList();
+
+        List<ExtractionId> references = collectedReferences.stream()
+                .filter(Reference::hasReference)
+                .flatMap(ref -> {
+                    String refStr = ref.getReference();
                     try {
-                        return java.util.stream.Stream.of(ExtractionId.fromRelativeUrl(refStr));
+                        return Stream.of(ExtractionId.fromRelativeUrl(refStr));
                     } catch (IllegalArgumentException ex) {
                         logger.debug("Ignoring invalid reference '{}' in {} (attr={}, fhirPath={} due to {})",
                                 refStr, resource.getIdElement().getValue(), annotatedAttribute.attributeRef(),
                                 annotatedAttribute.fhirPath(), ex.getMessage());
-                        return java.util.stream.Stream.empty();
+                        return Stream.empty();
                     }
                 })
                 .toList();
 
-        if (annotatedAttribute.mustHave() && references.isEmpty()) {
+        List<IdentifierReference> identifierReferences = collectedReferences.stream()
+                .filter(ref -> !ref.hasReference())
+                .map(ref -> new IdentifierReference(ref.getIdentifier().getSystem(), ref.getIdentifier().getValue()))
+                .toList();
+
+        if (annotatedAttribute.mustHave() && references.isEmpty() && identifierReferences.isEmpty()) {
             throw new MustHaveViolatedException(
                     "No Reference found in required field " + annotatedAttribute.attributeRef() +
                             " in resource " + resource.getIdElement().getValue()
             );
         }
 
-        return references;
+        return new ExtractedReferences(references, identifierReferences);
     }
 
     /**
-     * Recursively collect all references from any Base element.
+     * Recursively collect all references (literal or identifier-only) from any Base element.
      * Hardened against null elements and null reference strings.
      */
-    public List<String> collectReferences(Base element) {
+    public List<Reference> collectReferences(Base element) {
         if (element == null) {
             return List.of();
         }
 
         // Logic check: Pattern matching ensures 'ref' is non-null
-        if (element instanceof Reference ref && ref.hasReference()) {
-            String refString = ref.getReference();
-            // List.of(refString) would throw NPE if refString is null.
-            // Stream.ofNullable().toList() is the safest way to return 0 or 1 items.
-            return Stream.ofNullable(refString).toList();
+        if (element instanceof Reference ref) {
+            // A literal reference with a null string (bypassing hasReference()) and an identifier without a
+            // value are both treated as no usable reference at all.
+            if (ref.hasReference() && ref.getReference() != null) {
+                return List.of(ref);
+            }
+            if (ref.hasIdentifier() && ref.getIdentifier().hasValue()) {
+                return List.of(ref);
+            }
+            return List.of();
         }
 
         // Logic check: FHIR primitives don't have children

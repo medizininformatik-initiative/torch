@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.IdentifierReference;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ReferenceWrapper;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -14,6 +15,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ReferenceExtractor;
 import de.medizininformatikinitiative.torch.util.ReferenceHandler;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
+import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -107,6 +110,11 @@ public class ReferenceResolver {
                 .then(Mono.just(new PatientBatchWithConsent(batch.bundles(), batch.applyConsent(), batch.coreBundle(), batch.id())));
     }
 
+    private static Map<IdentifierReference, ExtractionId> toExtractionIdMap(Map<IdentifierReference, Resource> matches) {
+        return matches.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> ResourceUtils.getRelativeURL(e.getValue())));
+    }
+
     /**
      * Resolves unknown references for core resource groups.
      *
@@ -131,18 +139,24 @@ public class ReferenceResolver {
                     return merged;
                 }));
 
+        Map<String, Map<IdentifierReference, ExtractionId>> resolvedIdentifiersPerLinkedGroup = new HashMap<>();
+
         return Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             var linkedGroupID = e.getKey();
             var unknownWrappers = e.getValue();
             var unknownRefs = getRefsFromWrappers(unknownWrappers);
+            var identifierRefs = getIdentifierRefsFromWrappers(unknownWrappers);
 
-            return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
+            Mono<Set<ExtractionId>> idFetch = bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewCoreResources(fetchedResources, coreBundle))
                     .map(fetchedResources -> setUnloadedAsInvalidCore(fetchedResources, unknownRefs, linkedGroupID, coreBundle, acc))
                     .doOnNext(this::logMissingRefs);
+
+            return idFetch.then(resolveIdentifiersForCore(identifierRefs, linkedGroupID, groupMap, coreBundle, acc)
+                    .doOnNext(resolved -> resolvedIdentifiersPerLinkedGroup.put(linkedGroupID, resolved)));
         }).thenMany(Flux.fromIterable(refsPerRG.entrySet()).concatMap(refsOfRg ->
                 referenceHandler.handleReferences(
-                        refsOfRg.getValue(),
+                        withResolvedIdentifiers(refsOfRg.getValue(), resolvedIdentifiersPerLinkedGroup),
                         null,
                         coreBundle,
                         groupMap,
@@ -314,6 +328,126 @@ public class ReferenceResolver {
     }
 
     /**
+     * Fetches resources referenced only by a {@code Reference.identifier} for a single linked group, caching newly
+     * fetched resources into the core bundle the same way {@link #cacheNewCoreResources} does for literal references.
+     *
+     * @return resolved identifiers mapped to the {@link ExtractionId} of the resource they matched
+     */
+    private Mono<Map<IdentifierReference, ExtractionId>> resolveIdentifiersForCore(
+            List<IdentifierReference> identifierRefs,
+            String linkedGroupID,
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            ResourceBundle coreBundle,
+            BatchDiagnosticsAcc acc) {
+
+        return fetchAndMatchIdentifiers(identifierRefs, linkedGroupID, groupMap, acc)
+                .map(matches -> {
+                    matches.values().forEach(resource -> bundleLoader.cacheSearchResults(null, coreBundle, false, resource));
+                    return toExtractionIdMap(matches);
+                });
+    }
+
+    private List<IdentifierReference> getIdentifierRefsFromWrappers(List<ReferenceWrapper> wrappers) {
+        return wrappers.stream().flatMap(wrapper -> wrapper.identifierReferences().stream()).toList();
+    }
+
+    /**
+     * Fetches resources by identifier for a single linked group and matches the response back to the identifiers
+     * that were searched for.
+     * <p>
+     * An identifier search, unlike an {@code _id=} search, can match zero, one, or more than one resource per
+     * identifier since identifiers are not guaranteed unique in a FHIR store. Only identifiers that match exactly
+     * one resource are resolved; unmatched and ambiguous identifiers are logged and counted as excluded, the same
+     * way a missing literal reference is.
+     *
+     * @return resolved identifiers mapped to the resource they unambiguously matched
+     */
+    private Mono<Map<IdentifierReference, Resource>> fetchAndMatchIdentifiers(
+            List<IdentifierReference> identifierRefs,
+            String linkedGroupID,
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            BatchDiagnosticsAcc acc) {
+
+        if (identifierRefs.isEmpty()) {
+            return Mono.just(Map.of());
+        }
+        Set<IdentifierReference> requested = new HashSet<>(identifierRefs);
+
+        return bundleLoader.fetchByIdentifier(identifierRefs, linkedGroupID, groupMap)
+                .map(fetchedResources -> matchIdentifierReferences(fetchedResources, requested))
+                .doOnNext(matches -> logUnresolvedIdentifiers(requested, matches.keySet(), linkedGroupID, groupMap, acc));
+    }
+
+    private Map<IdentifierReference, Resource> matchIdentifierReferences(List<Resource> fetchedResources, Set<IdentifierReference> requested) {
+        Map<IdentifierReference, List<Resource>> candidates = new HashMap<>();
+        fetchedResources.forEach(resource ->
+                ResourceUtils.getIdentifiers(resource).stream()
+                        .filter(Identifier::hasValue)
+                        .map(identifier -> new IdentifierReference(identifier.getSystem(), identifier.getValue()))
+                        .filter(requested::contains)
+                        .forEach(identifierRef -> candidates.computeIfAbsent(identifierRef, k -> new ArrayList<>()).add(resource)));
+
+        return candidates.entrySet().stream()
+                .filter(e -> e.getValue().size() == 1)
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> e.getValue().getFirst()));
+    }
+
+    private void logUnresolvedIdentifiers(Set<IdentifierReference> requested, Set<IdentifierReference> resolved,
+                                          String linkedGroupID, Map<String, AnnotatedAttributeGroup> groupMap, BatchDiagnosticsAcc acc) {
+        Set<IdentifierReference> unresolved = new HashSet<>(requested);
+        unresolved.removeAll(resolved);
+        if (unresolved.isEmpty()) {
+            return;
+        }
+
+        String resourceType = groupMap.get(linkedGroupID).resourceType();
+        unresolved.forEach(ref -> acc.incResourcesExcluded(CriterionKeys.referenceNotFound(resourceType), 1));
+        logger.warn("Some identifier references were not (unambiguously) resolved: {}", unresolved);
+    }
+
+    /**
+     * Merges resolved identifier references into each wrapper's {@code references()}, so that
+     * {@link ReferenceHandler#handleReferences} can treat them exactly like literal references. Identifiers that
+     * did not resolve under any of the wrapper's linked groups are simply left out, with the same effect as a
+     * missing literal reference.
+     */
+    private Map<ResourceGroup, List<ReferenceWrapper>> withResolvedIdentifiers(
+            Map<ResourceGroup, List<ReferenceWrapper>> refsPerRG,
+            Map<String, Map<IdentifierReference, ExtractionId>> resolvedIdentifiersPerLinkedGroup) {
+        return refsPerRG.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> withResolvedIdentifiers(e.getValue(), resolvedIdentifiersPerLinkedGroup)));
+    }
+
+    private List<ReferenceWrapper> withResolvedIdentifiers(
+            List<ReferenceWrapper> wrappers,
+            Map<String, Map<IdentifierReference, ExtractionId>> resolvedIdentifiersPerLinkedGroup) {
+        return wrappers.stream().map(wrapper -> withResolvedIdentifiers(wrapper, resolvedIdentifiersPerLinkedGroup)).toList();
+    }
+
+    private ReferenceWrapper withResolvedIdentifiers(
+            ReferenceWrapper wrapper,
+            Map<String, Map<IdentifierReference, ExtractionId>> resolvedIdentifiersPerLinkedGroup) {
+        if (wrapper.identifierReferences().isEmpty()) {
+            return wrapper;
+        }
+
+        List<ExtractionId> resolved = wrapper.refAttribute().linkedGroups().stream()
+                .map(resolvedIdentifiersPerLinkedGroup::get)
+                .filter(Objects::nonNull)
+                .flatMap(resolvedForGroup -> wrapper.identifierReferences().stream()
+                        .map(resolvedForGroup::get)
+                        .filter(Objects::nonNull))
+                .toList();
+        if (resolved.isEmpty()) {
+            return wrapper;
+        }
+
+        List<ExtractionId> merged = new ArrayList<>(wrapper.references());
+        merged.addAll(resolved);
+        return new ReferenceWrapper(wrapper.refAttribute(), merged, wrapper.identifierReferences(), wrapper.groupId(), wrapper.resourceId());
+    }
+
+    /**
      * Resolves references of each resource in {@code RGsPerPat}.
      * <p>
      * Reference strings are extracted and grouped by linked attribute group. All references of one group and one FHIR type are
@@ -369,19 +503,25 @@ public class ReferenceResolver {
                     return merged;
                 }));
 
+        Map<String, Map<IdentifierReference, ExtractionId>> resolvedIdentifiersPerLinkedGroup = new HashMap<>();
+
         Flux<Map.Entry<String, Set<ResourceGroup>>> newRGsPerPat = Flux.fromIterable(unresolvedRefsPerLinkedGroup.entrySet()).concatMap(e -> {
             String linkedGroupID = e.getKey();
             List<ReferenceWrapper> unknownWrappers = e.getValue();
             var unknownRefs = getRefsFromWrappers(unknownWrappers);
+            var identifierRefs = getIdentifierRefsFromWrappers(unknownWrappers);
             var refsToPat = refToPatHelper.get(linkedGroupID);
 
-            return bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
+            Mono<Set<ExtractionId>> idFetch = bundleLoader.fetchUnknownResources(unknownRefs, linkedGroupID, groupMap)
                     .map(fetchedResources -> cacheNewResourcesFromPatient(fetchedResources, refsToPat, batch))
                     .map(fetchedResources -> setUnloadedAsInvalid(fetchedResources, refsToPat, unknownRefs, linkedGroupID, batch, acc))
                     .doOnNext(this::logMissingRefs);
+
+            return idFetch.then(resolveIdentifiersForPatient(identifierRefs, linkedGroupID, groupMap, batch, refsToPat, acc)
+                    .doOnNext(resolved -> resolvedIdentifiersPerLinkedGroup.put(linkedGroupID, resolved)));
         }).thenMany(
                 Flux.fromIterable(refsPerPatPerRG.entrySet())
-                        .concatMap(e -> handleReferencesForPatient(e.getKey(), e.getValue(), batch, groupMap)
+                        .concatMap(e -> handleReferencesForPatient(e.getKey(), withResolvedIdentifiers(e.getValue(), resolvedIdentifiersPerLinkedGroup), batch, groupMap)
                         ));
 
         return newRGsPerPat.collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
@@ -389,6 +529,37 @@ public class ReferenceResolver {
             merged.addAll(b);
             return merged;
         })).filter(map -> !map.isEmpty());
+    }
+
+    /**
+     * Fetches resources referenced only by a {@code Reference.identifier} for a single linked group, caching newly
+     * fetched resources into the correct patient (or core) bundle the same way {@link #cacheNewResourcesFromPatient}
+     * does for literal references.
+     *
+     * @return resolved identifiers mapped to the {@link ExtractionId} of the resource they matched
+     */
+    private Mono<Map<IdentifierReference, ExtractionId>> resolveIdentifiersForPatient(
+            List<IdentifierReference> identifierRefs,
+            String linkedGroupID,
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            PatientBatchWithConsent batch,
+            Map<ReferenceWrapper, String> refToPatHelper,
+            BatchDiagnosticsAcc acc) {
+
+        Map<IdentifierReference, String> identifierRefToPatient = refToPatHelper.entrySet().stream()
+                .flatMap(e -> e.getKey().identifierReferences().stream().map(ref -> Map.entry(ref, e.getValue())))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a));
+
+        return fetchAndMatchIdentifiers(identifierRefs, linkedGroupID, groupMap, acc)
+                .map(matches -> {
+                    matches.forEach((identifierRef, resource) -> {
+                        String patID = identifierRefToPatient.get(identifierRef);
+                        if (patID != null) {
+                            bundleLoader.cacheSearchResults(batch.bundles().get(patID), batch.coreBundle(), batch.applyConsent(), resource);
+                        }
+                    });
+                    return toExtractionIdMap(matches);
+                });
     }
 
 
