@@ -78,7 +78,8 @@ class FhirControllerTest {
             10, 5, 100,
             "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
             "search-parameters.json",
-            true
+            true,
+            false
     );
 
     WebTestClient client;

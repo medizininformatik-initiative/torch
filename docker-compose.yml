@@ -60,6 +60,7 @@ services:
       TORCH_MAPPINGSFILE: ${TORCH_MAPPINGSFILE:-/app/ontology/mapping_cql.json}
       TORCH_CONCEPTTREEFILE: ${TORCH_CONCEPTTREEFILE:-/app/ontology/mapping_tree.json}
       TORCH_USECQL: ${TORCH_USECQL:-false}
+      DISABLE_CONSENT_CALCULATION: ${TORCH_DISABLE_CONSENT_CALCULATION:-false}
 
     volumes:
       - "torch-data-store:/app/output"   # Shared volume with torch-nginx
