@@ -69,8 +69,10 @@ public class ElementCopier {
                 }
             }
 
-            // Set the field on the target reflectively
-            CopyUtils.setFieldReflectively(tgt, fieldName, processed.values().stream().toList());
+            // Set the field on the target reflectively, dropping instances left empty because none of the
+            // requested sub-elements matched (an absent field is handled correctly downstream by Redaction,
+            // whereas an empty element violates the FHIR ele-1 invariant)
+            CopyUtils.setFieldReflectively(tgt, fieldName, processed.values().stream().filter(base -> !base.isEmpty()).toList());
         }
     }
 
