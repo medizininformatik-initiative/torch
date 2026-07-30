@@ -79,10 +79,33 @@ class ElementCopierTest {
                 .setType(new CodeableConcept().addCoding(new Coding().setCode("official"))));
         expected.addIdentifier(new Identifier()
                 .setSystem("http://temp.org")
-                .setValue("TEMP-999")
-                .setType(new CodeableConcept())); // coding filtered out
+                .setValue("TEMP-999")); // type omitted: coding filtered out left it empty
 
         assertThat(tgt.equalsDeep(expected)).isTrue();
+    }
+
+    @Test
+    void omitsElementLeftEmptyByPartialCopy() throws ReflectiveOperationException {
+        // --- Given: maritalStatus has a coding, but no extension ---
+        Patient src = new Patient();
+        src.setMaritalStatus(new CodeableConcept().addCoding(new Coding()
+                .setSystem("http://terminology.hl7.org/CodeSystem/v3-MaritalStatus").setCode("M")));
+
+        Patient tgt = new Patient();
+
+        // --- Copy Tree: only the (non-matching) extension is requested, not coding/text ---
+        CopyTreeNode copyTree = new CopyTreeNode("Patient", "", List.of(
+                new CopyTreeNode("maritalStatus", "", List.of(
+                        new CopyTreeNode("extension", ".where(url='http://example.org/unused')", List.of())
+                ))
+        ));
+
+        // --- When ---
+        copyService.copy(src, tgt, copyTree);
+
+        // --- Then: none of the requested sub-elements matched, so maritalStatus must be entirely
+        // absent rather than an empty CodeableConcept ({}), which would violate FHIR's ele-1 invariant ---
+        assertThat(tgt.hasMaritalStatus()).isFalse();
     }
 
     @Test
