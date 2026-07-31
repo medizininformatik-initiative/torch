@@ -57,6 +57,17 @@ public record MultiElementContext(List<ElementContext> contexts) {
         return !isDataAbsentReason(extension) && !hasSlice(extension);
     }
 
+    /**
+     * Checks whether at least one context resolves an {@link ElementDefinition} for this element.
+     * <p>
+     * A composite extension's own internal slicing (e.g. an extension nested inside another extension)
+     * is defined in that extension's own StructureDefinition, not the containing profile's, so it
+     * commonly can't be resolved here at all.
+     */
+    public boolean isResolvable() {
+        return contexts.stream().anyMatch(ctx -> ctx.elementDefinition().isPresent());
+    }
+
     public boolean ignoreSlicingInRedaction() {
         return contexts.stream()
                 .map(ElementContext::elementId)

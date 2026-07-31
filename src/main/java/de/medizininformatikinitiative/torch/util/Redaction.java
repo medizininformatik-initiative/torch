@@ -146,23 +146,42 @@ public class Redaction {
 
     /**
      * Removes extensions from the given FHIR element that are not allowed by slicing rules.
+     * <p>
+     * Skipped when {@code base} is itself an {@link Extension} whose own nested extension slot can't be
+     * resolved: a composite extension's internal slicing (e.g. an extension nested inside another
+     * extension) is defined in that extension's own StructureDefinition, not the containing profile's,
+     * so Torch commonly has no information to judge such children and must not delete them.
      *
      * @param base    the FHIR element from which unknown extensions should be removed
      * @param context the context containing allowed extensions for validation
      */
     private void removeUnknownExtensions(Base base, MultiElementContext context) {
+        if (base instanceof Extension && !context.isResolvable()) {
+            return;
+        }
         getExtensions(base).stream().filter(context::shouldRedactExtension).forEach(extension -> base.removeChild(EXTENSION, extension));
     }
 
     /**
      * Redacts known extensions of the given FHIR element using the provided structure definitions.
+     * <p>
+     * An extension left with neither a value nor nested extensions afterward is removed: {@link Base#isEmpty()}
+     * treats a {@code url}-only extension as non-empty since {@code url} technically counts as a child per
+     * FHIR's own model, but HAPI's serializers write nothing for such an extension anyway, so leaving it in
+     * place produces a container that appears empty on the wire (violating {@code ele-1}) despite passing
+     * {@code isEmpty()}.
      *
      * @param base       the FHIR element whose remaining extensions should be processed
      * @param context    the context for redacting extensions
      * @param references Map of allowed references
      */
     private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
-        getExtensions(base).forEach(extension -> redactChildren(extension, context, references));
+        getExtensions(base).forEach(extension -> {
+            redactChildren(extension, context, references);
+            if (!extension.hasValue() && !extension.hasExtension()) {
+                base.removeChild(EXTENSION, extension);
+            }
+        });
     }
 
     private List<Extension> getExtensions(Base base) {
@@ -202,7 +221,15 @@ public class Redaction {
      * @return updated ElementContexts if valid, otherwise Optional empty if element was removed due to slicing
      */
     private Optional<MultiElementContext> handleSlicing(Base dataElement, MultiElementContext context) {
-        if (dataElement instanceof Extension || !context.hasSlicing() || context.ignoreSlicingInRedaction()) {
+        if (dataElement instanceof Extension extension) {
+            // Extensions are never wiped here for failing to match a slice — that's already handled by
+            // removeUnknownExtensions at the parent level. But the context must still be narrowed to the
+            // matched slice (if any), so that checks against the extension's own nested content (e.g. a
+            // composite extension's sub-extensions) resolve against the right element ID instead of an
+            // unqualified path that can never resolve.
+            return Optional.of(context.mergeWithSlices(context.matchingSlices(extension)));
+        }
+        if (!context.hasSlicing() || context.ignoreSlicingInRedaction()) {
             return Optional.of(context);
         }
         return context.resolveSlices(dataElement, slices -> {
