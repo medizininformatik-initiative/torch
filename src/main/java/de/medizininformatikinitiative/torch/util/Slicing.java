@@ -56,15 +56,20 @@ public class Slicing {
             for (ElementDefinition.ElementDefinitionSlicingDiscriminatorComponent discriminator : slicingDiscriminator) {
                 if ("url".equals(discriminator.getPath()) && "VALUE".equals(discriminator.getType().toString())) {
                     if ("Extension".equals(element.getType().getFirst().getWorkingCode())) {
-                        UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
                         List<CanonicalType> profiles = element.getType().stream().flatMap(type -> type.getProfile().stream()).toList();
-                        // Check if any profile matches the base type URL
-                        boolean anyMatchBaseUrl = profiles.stream().anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
-                        if (anyMatchBaseUrl) {
-                            continue;
-                        } else {
-                            foundSlice = false;
-                            break;
+                        // A slice referencing its own standalone StructureDefinition (e.g. a composite extension)
+                        // is matched by profile URL. A slice with no declared profile (e.g. a nested sub-extension
+                        // sliced by a fixed value on its own .url child) has nothing to compare here, so it falls
+                        // through to the normal discriminator resolution below instead of being declared "no match".
+                        if (!profiles.isEmpty()) {
+                            UriType baseTypeUrl = (UriType) base.getNamedProperty("url").getValues().getFirst();
+                            boolean anyMatchBaseUrl = profiles.stream().anyMatch(profile -> profile.getValue().equals(baseTypeUrl.getValue()));
+                            if (anyMatchBaseUrl) {
+                                continue;
+                            } else {
+                                foundSlice = false;
+                                break;
+                            }
                         }
                     }
                 }

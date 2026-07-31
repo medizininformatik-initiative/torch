@@ -498,6 +498,217 @@ class BatchCopierRedacterIT {
             assertThat(out.getAddressFirstRep().getPostalCode()).isEqualTo("10178");
         }
 
+        @Test
+        void dischargeDispositionOmittedWhenOnlyUnmatchedSubFieldRequested() {
+            // GIVEN: real-world instance carries dischargeDisposition only via the German
+            // "Entlassungsgrund" extension (nested composite extension), not via .coding
+            String encounterJson = """
+                    {
+                      "resourceType": "Encounter",
+                      "id": "enc-discharge",
+                      "meta": {
+                        "profile": ["https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"]
+                      },
+                      "status": "finished",
+                      "hospitalization": {
+                        "dischargeDisposition": {
+                          "extension": [ {
+                            "url": "http://fhir.de/StructureDefinition/Entlassungsgrund",
+                            "extension": [
+                              { "url": "ErsteUndZweiteStelle", "valueCoding": { "code": "01", "system": "http://fhir.de/CodeSystem/dkgev/EntlassungsgrundErsteUndZweiteStelle" } },
+                              { "url": "DritteStelle", "valueCoding": { "code": "1", "system": "http://fhir.de/CodeSystem/dkgev/EntlassungsgrundDritteStelle" } }
+                            ]
+                          } ]
+                        }
+                      }
+                    }""";
+
+            Encounter encounter = parser.parseResource(Encounter.class, encounterJson);
+
+            // CRTDL only asks for the standard "coding" representation of dischargeDisposition,
+            // which this instance never populates.
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(
+                    "Encounter1", "Encounter",
+                    "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+                    List.of(
+                            new AnnotatedAttribute("Encounter.id", "Encounter.id", false),
+                            new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", false),
+                            new AnnotatedAttribute("Encounter.hospitalization.dischargeDisposition.coding", "Encounter.hospitalization.dischargeDisposition.coding", false)),
+                    List.of());
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group));
+
+            assertThat(result.cache()).hasSize(1);
+            Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge")).orElseThrow();
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(out);
+
+            // Regression for #1136: an unmatched sub-element must leave the whole container absent,
+            // never emitted as an empty object ("dischargeDisposition":{}), which violates FHIR's ele-1 invariant.
+            assertThat(actualJson).doesNotContain("dischargeDisposition");
+            assertThat(out.hasHospitalization()).isFalse();
+        }
+
+        @Test
+        void nestedExtensionContentSurvivesRedactionWhenWholeDischargeDispositionRequested() {
+            // GIVEN: the same composite "Entlassungsgrund" extension (an extension nested inside
+            // another extension), but this time the whole dischargeDisposition is requested wholesale
+            String encounterJson = """
+                    {
+                      "resourceType": "Encounter",
+                      "id": "enc-discharge-2",
+                      "meta": {
+                        "profile": ["https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"]
+                      },
+                      "status": "finished",
+                      "hospitalization": {
+                        "dischargeDisposition": {
+                          "extension": [ {
+                            "url": "http://fhir.de/StructureDefinition/Entlassungsgrund",
+                            "extension": [
+                              { "url": "ErsteUndZweiteStelle", "valueCoding": { "code": "01", "system": "http://fhir.de/CodeSystem/dkgev/EntlassungsgrundErsteUndZweiteStelle" } },
+                              { "url": "DritteStelle", "valueCoding": { "code": "1", "system": "http://fhir.de/CodeSystem/dkgev/EntlassungsgrundDritteStelle" } }
+                            ]
+                          } ]
+                        }
+                      }
+                    }""";
+
+            Encounter encounter = parser.parseResource(Encounter.class, encounterJson);
+
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(
+                    "Encounter1", "Encounter",
+                    "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+                    List.of(
+                            new AnnotatedAttribute("Encounter.id", "Encounter.id", false),
+                            new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", false),
+                            new AnnotatedAttribute("Encounter.hospitalization.dischargeDisposition", "Encounter.hospitalization.dischargeDisposition", false)),
+                    List.of());
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group));
+
+            assertThat(result.cache()).hasSize(1);
+            Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge-2")).orElseThrow();
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(out);
+
+            // Regression for #1138: redaction must not strip a composite extension's own nested
+            // extensions just because their definition lives in that extension's own StructureDefinition
+            // (unresolvable here), rather than the containing profile's.
+            assertThat(actualJson).doesNotContain("\"dischargeDisposition\": { }");
+            assertThat(actualJson).contains("\"code\": \"01\"");
+            assertThat(actualJson).contains("\"code\": \"1\"");
+        }
+
+        @Test
+        void dischargeDispositionOmittedWhenCompositeExtensionHasNoMeaningfulContent() {
+            // GIVEN: a malformed source where the composite "Entlassungsgrund" extension carries only its
+            // own url and none of its nested sub-extensions
+            String encounterJson = """
+                    {
+                      "resourceType": "Encounter",
+                      "id": "enc-discharge-3",
+                      "meta": {
+                        "profile": ["https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"]
+                      },
+                      "status": "finished",
+                      "hospitalization": {
+                        "dischargeDisposition": {
+                          "extension": [ { "url": "http://fhir.de/StructureDefinition/Entlassungsgrund" } ]
+                        }
+                      }
+                    }""";
+
+            Encounter encounter = parser.parseResource(Encounter.class, encounterJson);
+
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(
+                    "Encounter1", "Encounter",
+                    "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+                    List.of(
+                            new AnnotatedAttribute("Encounter.id", "Encounter.id", false),
+                            new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", false),
+                            new AnnotatedAttribute("Encounter.hospitalization.dischargeDisposition", "Encounter.hospitalization.dischargeDisposition", false)),
+                    List.of());
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group));
+
+            assertThat(result.cache()).hasSize(1);
+            Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge-3")).orElseThrow();
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(out);
+
+            // Regression for #1138: a url-only extension (no value, no children) is invisible to HAPI's
+            // serializer despite Base#isEmpty() reporting it as non-empty. Left in place, the containing
+            // dischargeDisposition would still serialize as an empty object ("dischargeDisposition":{}),
+            // violating ele-1. It must be removed so the whole container is correctly omitted instead.
+            //
+            // Asserted on the serialized JSON rather than object state: hospitalization.dischargeDisposition
+            // stays a non-null (but now internally empty) reference at the Java level — it's HAPI's own
+            // serializer that omits an isEmpty() composite from the wire, not Torch clearing the field.
+            assertThat(actualJson).doesNotContain("dischargeDisposition");
+        }
+
+        @Test
+        void trulyUnknownNestedExtensionStillStrippedWhenCompositeExtensionIsResolvable() {
+            // GIVEN: unlike "Entlassungsgrund", the composite "Aufnahmegrund" extension has its own nested
+            // sub-extensions (ErsteUndZweiteStelle/DritteStelle/VierteStelle) fully inlined in this same
+            // profile's snapshot, so they ARE resolvable here. One recognized sub-extension plus one
+            // genuinely unrecognized one is attached.
+            String encounterJson = """
+                    {
+                      "resourceType": "Encounter",
+                      "id": "enc-admission",
+                      "meta": {
+                        "profile": ["https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung"]
+                      },
+                      "status": "finished",
+                      "extension": [ {
+                        "url": "http://fhir.de/StructureDefinition/Aufnahmegrund",
+                        "extension": [
+                          { "url": "ErsteUndZweiteStelle", "valueCoding": { "code": "01", "system": "http://fhir.de/CodeSystem/dkgev/AufnahmeanlassErsteUndZweiteStelle" } },
+                          { "url": "notARealSubExtension", "valueString": "garbage" }
+                        ]
+                      } ]
+                    }""";
+
+            Encounter encounter = parser.parseResource(Encounter.class, encounterJson);
+
+            AnnotatedAttributeGroup group = new AnnotatedAttributeGroup(
+                    "Encounter1", "Encounter",
+                    "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung",
+                    List.of(
+                            new AnnotatedAttribute("Encounter.id", "Encounter.id", false),
+                            new AnnotatedAttribute("Encounter.meta.profile", "Encounter.meta.profile", false),
+                            new AnnotatedAttribute("Encounter.extension:Aufnahmegrund", "Encounter.extension.where(url='http://fhir.de/StructureDefinition/Aufnahmegrund')", false)),
+                    List.of());
+
+            PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
+            bundle.put(encounter, "Encounter1", true);
+
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group));
+
+            assertThat(result.cache()).hasSize(1);
+            Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-admission")).orElseThrow();
+            String actualJson = parser.setPrettyPrint(true).encodeResourceToString(out);
+
+            // The recognized sub-extension survives, but the genuinely unknown one must still be stripped:
+            // when a composite extension's own nesting IS resolvable, ordinary unknown-extension removal
+            // must keep working, not be bypassed by the #1138 guard meant for the unresolvable case.
+            assertThat(actualJson).contains("\"code\": \"01\"");
+            assertThat(actualJson).doesNotContain("notARealSubExtension");
+            assertThat(actualJson).doesNotContain("garbage");
+        }
+
         @Nested
         class transformBatch {
             @Test
