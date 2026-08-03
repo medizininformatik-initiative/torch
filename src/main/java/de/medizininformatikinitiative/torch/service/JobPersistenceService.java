@@ -474,7 +474,12 @@ public class JobPersistenceService {
             Job updated = job.onCoreSuccess(result);
             if (updated.status() == JobStatus.COMPLETED) {
                 try {
-                    buildAndSaveDiagnosticsSummary(result.jobId());
+                    JobDiagnosticSummary summary = buildAndSaveDiagnosticsSummary(result.jobId());
+                    Optional<String> mismatch = summary.verifyPatientCounts();
+                    if (mismatch.isPresent()) {
+                        logger.warn("Job {} diagnostics inconsistency: {}", result.jobId(), mismatch.get());
+                        updated = updated.withIssuesAdded(List.of(Issue.simple(Severity.WARNING, mismatch.get())));
+                    }
                 } catch (IOException | CsvValidationException e) {
                     logger.warn("Failed to build job diagnostics summary for job {}: {}",
                             result.jobId(), e.getMessage(), e);
@@ -656,7 +661,7 @@ public class JobPersistenceService {
         return diagnosticsStore.readSummary(jobDir(jobId));
     }
 
-    public void buildAndSaveDiagnosticsSummary(UUID jobId) throws IOException, CsvValidationException {
+    public JobDiagnosticSummary buildAndSaveDiagnosticsSummary(UUID jobId) throws IOException, CsvValidationException {
         Map<String, BatchDiagnostics> batchDiagnostics = diagnosticsStore.loadAllDiagnostics(jobDir(jobId));
         JobDiagnosticSummary summary = JobDiagnosticSummary.initFromBatches(batchDiagnostics.values().stream().toList());
 
@@ -664,6 +669,8 @@ public class JobPersistenceService {
         diagnosticsStore.writeSummary(summary, jobDir(jobId));
 
         diagnosticsStore.deleteIntermediateDiagnostics(jobDir(jobId));
+
+        return summary;
     }
 
     // -------------------------------------------------------------------------

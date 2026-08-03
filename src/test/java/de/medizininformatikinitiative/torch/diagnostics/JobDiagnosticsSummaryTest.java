@@ -220,5 +220,29 @@ public class JobDiagnosticsSummaryTest {
         assertThat(summary.numFinalPatients()).isEqualTo(NUM_1+NUM_2);
     }
 
+    @Nested
+    class TestVerifyPatientCounts {
+
+        @Test
+        void countsMatch_returnsEmpty() {
+            var batch = BatchDiagnostics.empty().setNumCohortPatients(5).setFinalPatientCount(3);
+            batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, "pat-1");
+            batch.batchExclusions().addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, "pat-2");
+
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(batch));
+
+            assertThat(summary.verifyPatientCounts()).isEmpty();
+        }
+
+        @Test
+        void countsMismatch_returnsDescription() {
+            var batch = BatchDiagnostics.empty().setNumCohortPatients(5).setFinalPatientCount(3);
+            batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, "pat-1");
+
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(batch));
+
+            assertThat(summary.verifyPatientCounts()).isPresent();
+        }
+    }
 
 }

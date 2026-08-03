@@ -8,6 +8,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
@@ -47,6 +48,24 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
         var finalPatients = sumFinalPatients(batchDiagnostics);
 
         return new JobDiagnosticSummary(cohortPatients, finalPatients, durations, patientExclusions, resourcesExclusions);
+    }
+
+    /**
+     * Verifies that every cohort patient is accounted for by either surviving extraction or being excluded.
+     *
+     * @return a description of the mismatch if {@code numCohortPatients} does not equal {@code numFinalPatients} plus
+     * the sum of all recorded patient exclusions, or empty if the counts agree
+     */
+    public Optional<String> verifyPatientCounts() {
+        int totalExcluded = patientSummaries.values().stream().mapToInt(Integer::intValue).sum();
+        int accountedFor = numFinalPatients + totalExcluded;
+
+        if (accountedFor != numCohortPatients) {
+            return Optional.of("Cohort patient count %d does not match final patient count %d plus recorded exclusions %d (%d)"
+                    .formatted(numCohortPatients, numFinalPatients, totalExcluded, accountedFor));
+        }
+
+        return Optional.empty();
     }
 
     /**

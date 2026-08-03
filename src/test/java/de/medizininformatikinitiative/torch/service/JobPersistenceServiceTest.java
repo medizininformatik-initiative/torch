@@ -1174,6 +1174,48 @@ class JobPersistenceServiceTest {
             return new BatchResult(jobId, batchId, batchState, Optional.empty(),
                     Optional.of(diagnostics), List.of());
         }
+
+        @Test
+        void onCoreSuccess_patientCountsConsistent_noWarningIssueAdded() throws IOException {
+            var jobId = persistenceService.createJob(new AnnotatedCrtdl(
+                    JsonNodeFactory.instance.objectNode(),
+                    new AnnotatedDataExtraction(List.of()),
+                    Optional.empty()), List.of(), "");
+
+            var details = new BatchDetails(Map.of(), 2, 1);
+            var batchExclusions = BatchExclusions.empty();
+            batchExclusions.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
+            var diagnostics = new BatchDiagnostics(batchExclusions, details);
+
+            persistenceService.selectNextInternal(jobId);
+            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics, jobId, UUID.randomUUID()));
+            persistenceService.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
+
+            assertThat(persistenceService.getJob(jobId).orElseThrow().issues())
+                    .noneMatch(issue -> issue.severity() == Severity.WARNING && issue.msg().contains("Cohort patient count"));
+        }
+
+        @Test
+        void onCoreSuccess_patientCountsMismatch_addsWarningIssue() throws IOException {
+            var jobId = persistenceService.createJob(new AnnotatedCrtdl(
+                    JsonNodeFactory.instance.objectNode(),
+                    new AnnotatedDataExtraction(List.of()),
+                    Optional.empty()), List.of(), "");
+
+            var details = new BatchDetails(Map.of(), 2, 1);
+            var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details);
+
+            persistenceService.selectNextInternal(jobId);
+            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics, jobId, UUID.randomUUID()));
+            persistenceService.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
+
+            var job = persistenceService.getJob(jobId).orElseThrow();
+            assertThat(job.status()).isEqualTo(JobStatus.COMPLETED);
+            assertThat(job.issues())
+                    .anyMatch(issue -> issue.severity() == Severity.WARNING && issue.msg().contains("Cohort patient count"));
+        }
     }
 
     @Nested
