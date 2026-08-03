@@ -47,6 +47,10 @@ torch:
     file:
       server:
         url: http://localhost:8080/output
+  jvm-metrics-logger:
+    interval: PT5M
+    warn-factor: 5
+    warn-threshold: 80
 logging:
   level:
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
