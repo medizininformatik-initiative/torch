@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.7.1] - 2026-08-03
+
+### Fixed
+
+- Fix Redaction Stripping Nested Content From Composite Extensions [#1139](https://github.com/medizininformatik-initiative/torch/pull/1139)
+
+
 ## [v1.0.0-beta.7] - 2026-07-27
 
 ### Added
