@@ -235,6 +235,33 @@ Must include an explicit scheme (`http://` or `https://`). TORCH will fail at st
 
 ---
 
+#### `TORCH_JVM_METRICS_LOGGER_INTERVAL` <Badge type="warning" text="Since 1.0.0"/>
+
+The interval at which JVM heap, non-heap, and GC metrics are logged at `DEBUG` level when heap usage is
+below `TORCH_JVM_METRICS_LOGGER_WARN_THRESHOLD`. Must be an ISO-8601 duration string.
+Note that the `DEBUG` line is only visible when `LOG_LEVEL_DE_MEDIZININFORMATIKINITIATIVE_TORCH` is set to `debug` or lower.
+
+**Default:** `PT5M`
+
+---
+
+#### `TORCH_JVM_METRICS_LOGGER_WARN_FACTOR` <Badge type="warning" text="Since 1.0.0"/>
+
+How many times more frequently metrics are logged at `WARN` level compared to `TORCH_JVM_METRICS_LOGGER_INTERVAL`
+when heap usage is at or above `TORCH_JVM_METRICS_LOGGER_WARN_THRESHOLD`. Must be a positive integer.
+
+**Default:** `5`
+
+---
+
+#### `TORCH_JVM_METRICS_LOGGER_WARN_THRESHOLD` <Badge type="warning" text="Since 1.0.0"/>
+
+The heap usage percentage (1-99) at or above which metrics are logged at `WARN` level and at the shorter warn interval.
+
+**Default:** `80`
+
+---
+
 #### `LOG_LEVEL_DE_MEDIZININFORMATIKINITIATIVE_TORCH` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
 Logging level for core TORCH functionality (`error`/ `warn`/ `info`/ `debug`/ `trace`).
