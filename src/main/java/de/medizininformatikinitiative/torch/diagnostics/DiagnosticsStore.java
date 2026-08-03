@@ -165,8 +165,7 @@ public class DiagnosticsStore {
     }
 
     /**
-     * Reads the separately stored diagnostics of all batches and deletes the intermediate batch report directories at
-     * the end.
+     * Reads the separately stored diagnostics of all batches.
      *
      * @param jobDir                    the directory of the job
      * @return                          a new map from Batch-ID to its read batch diagnostics
@@ -186,11 +185,19 @@ public class DiagnosticsStore {
             diagnosticsPerBatch.put(batchId, diagnostics);
         }
 
-        for(Path batchDir : batchReportDirs) {
+        return diagnosticsPerBatch;
+    }
+
+    /**
+     * Deletes the intermediate batch report directories.
+     *
+     * @param jobDir        the directory of the job
+     * @throws IOException  if deleting the batch report directories goes wrong
+     */
+    public void deleteIntermediateDiagnostics(Path jobDir) throws IOException {
+        for(Path batchDir : io.listDirectories(reportDir(jobDir)).toList()) {
             io.deleteDir(reportDir(jobDir).resolve(batchDir));
         }
-
-        return diagnosticsPerBatch;
     }
 
     /**

@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -352,6 +353,7 @@ public class ExtractDataService {
                         postCascadeMustHaveChecker.validate(entry.getValue().bundle(), directPatientGroups);
                         return true;
                     } catch (MustHaveViolatedException e) {
+                        batch.batchExclusions().addPatientExclusion(PatientExclusionStage.CASCADING_DELETE, entry.getKey());
                         return false;
                     }
                 })

@@ -662,6 +662,8 @@ public class JobPersistenceService {
 
         diagnosticsStore.writeMergedExclusions(batchDiagnostics, jobDir(jobId));
         diagnosticsStore.writeSummary(summary, jobDir(jobId));
+
+        diagnosticsStore.deleteIntermediateDiagnostics(jobDir(jobId));
     }
 
     // -------------------------------------------------------------------------
