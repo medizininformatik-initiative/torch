@@ -294,14 +294,26 @@ Maximum allowed in-memory size for Spring codecs when processing data.
 
 ## Monitoring <Badge type="warning" text="Since 1.0.0-alpha.13"/>
 
-Torch allows monitoring using the Spring boot default actuator endpoints.
+Torch exposes a Prometheus-compatible metrics endpoint at `/actuator/prometheus`, on the same port as
+the application (`SERVER_PORT`, default `8080`; `8086` in the bundled `docker-compose.yml` stack). It is
+backed by the Spring Boot actuator; see the
+[Spring documentation](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html) for the
+underlying mechanism and available JVM/HTTP metrics. Custom Torch-specific metrics (job/batch timings) may
+be added over time.
 
-See [Spring documentation](https://docs.spring.io/spring-boot/reference/actuator/endpoints.html)
+A minimal Prometheus scrape config:
 
-Custom metrics might be added with time.
+```yaml
+scrape_configs:
+- job_name: 'torch'
+  metrics_path: '/actuator/prometheus'
+  static_configs:
+  - targets: [ 'localhost:8086' ]
+```
 
-For an example setup see [application-test.yml](https://github.com/medizininformatik-initiative/torch/blob/main/src/test/resources/application-test.yml)
-**Note**: Be Careful with exposing these endpoints outside
+**Note:** the endpoint has no authentication in front of it — restrict access at the network or
+infrastructure layer (e.g. bind the port to an internal network only). Never expose it directly on a
+public interface.
 
 ## Setting up SSL Certificates
 

@@ -56,6 +56,11 @@ logging:
     de.medizininformatikinitiative.torch: ${LOG_LEVEL:info}
     ca.uhn.fhir: error
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
 
 spring:
   profiles:
