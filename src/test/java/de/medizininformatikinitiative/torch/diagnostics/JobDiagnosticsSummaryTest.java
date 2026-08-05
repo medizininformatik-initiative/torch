@@ -9,6 +9,7 @@ import java.util.List;
 
 import static de.medizininformatikinitiative.torch.TestUtils.toMillis;
 import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.CASCADING_DELETE;
+import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.COHORT_QUERY;
 import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.DIRECT_LOAD;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -35,10 +36,32 @@ public class JobDiagnosticsSummaryTest {
 
             var summary  = JobDiagnosticSummary.initFromBatches(List.of(batch1, batch2, batch3));
 
-            assertThat(summary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+            assertThat(summary.durationSummaries().keySet()).containsExactlyInAnyOrderElementsOf(perBatchStages());
             assertThat(summary.durationSummaries().values()).allMatch(durationSummary ->
                     durationSummary.medianMs().equals(toMillis(NANOS_2)) &&
                     durationSummary.averageMs().equals(toMillis((NANOS_1+NANOS_2+NANOS_3)/3)));
+        }
+
+        @Test
+        void testCohortQueryDurationExcludedFromDurationSummaries() {
+            var batch = BatchDiagnostics.empty();
+            batch.batchDetails().nanosElapsed().put(COHORT_QUERY, NANOS_1);
+
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(batch));
+
+            assertThat(summary.cohortQueryDurationMs()).isEqualTo(toMillis(NANOS_1));
+            assertThat(summary.durationSummaries()).doesNotContainKey(COHORT_QUERY);
+        }
+
+        @Test
+        void testCohortQueryDurationAbsentWhenNotRecorded() {
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(BatchDiagnostics.empty()));
+
+            assertThat(summary.cohortQueryDurationMs()).isNull();
+        }
+
+        private static List<PipelineStage> perBatchStages() {
+            return Arrays.stream(PipelineStage.values()).filter(stage -> stage != COHORT_QUERY).toList();
         }
 
         @Test

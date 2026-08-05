@@ -24,6 +24,7 @@ import java.util.UUID;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.anyList;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.eq;
@@ -69,13 +70,13 @@ class ProcessCohortWorkUnitTest {
         ProcessCohortWorkUnit wu = new ProcessCohortWorkUnit(job);
 
         doThrow(new JobNotFoundException(jobId))
-                .when(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
+                .when(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), eq(Optional.empty()));
 
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
         verifyNoInteractions(cohortQueryService);
-        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
+        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), eq(Optional.empty()));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
@@ -95,7 +96,7 @@ class ProcessCohortWorkUnitTest {
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
-        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence, never()).onCohortSuccess(any(), anyList(), any());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
     }
 
@@ -112,12 +113,12 @@ class ProcessCohortWorkUnitTest {
 
         verifyNoInteractions(cohortQueryService);
 
-        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch));
+        verify(persistence).onCohortSuccess(eq(jobId), eq(paramBatch), eq(Optional.empty()));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
     @Test
-    void execute_whenParamBatchEmpty_runsCohortQuery_andPersistsCohortSuccess() throws JobNotFoundException {
+    void execute_whenParamBatchEmpty_runsCohortQuery_andPersistsCohortSuccessWithDuration() throws JobNotFoundException {
         UUID jobId = UUID.randomUUID();
         Job job = jobWithParams(jobId, List.of());
 
@@ -130,7 +131,7 @@ class ProcessCohortWorkUnitTest {
                 .doesNotThrowAnyException();
 
         verify(cohortQueryService).runCohortQuery(job.parameters().crtdl());
-        verify(persistence).onCohortSuccess(eq(jobId), eq(ids));
+        verify(persistence).onCohortSuccess(eq(jobId), eq(ids), argThat(Optional::isPresent));
         verify(persistence, never()).onCohortError(any(), anyList(), any());
     }
 
@@ -148,7 +149,7 @@ class ProcessCohortWorkUnitTest {
         assertThatCode(() -> wu.execute(ctx()).block())
                 .doesNotThrowAnyException();
 
-        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence, never()).onCohortSuccess(any(), anyList(), any());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
     }
 
@@ -164,7 +165,7 @@ class ProcessCohortWorkUnitTest {
 
         assertThatCode(() -> wu.execute(ctx()).block()).doesNotThrowAnyException();
 
-        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence, never()).onCohortSuccess(any(), anyList(), any());
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
     }
 
@@ -181,6 +182,6 @@ class ProcessCohortWorkUnitTest {
                 .doesNotThrowAnyException();
 
         verify(persistence).onCohortError(eq(jobId), eq(List.of()), any(Exception.class));
-        verify(persistence, never()).onCohortSuccess(any(), anyList());
+        verify(persistence, never()).onCohortSuccess(any(), anyList(), any());
     }
 }

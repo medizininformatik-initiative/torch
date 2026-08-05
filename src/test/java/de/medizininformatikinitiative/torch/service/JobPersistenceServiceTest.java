@@ -733,7 +733,7 @@ class JobPersistenceServiceTest {
         void onCohortSuccess_CreatesBatchesAndUpdatesState() {
             List<String> patientIds = List.of("P1", "P2", "P3");
 
-            service.onCohortSuccess(jobId, patientIds);
+            service.onCohortSuccess(jobId, patientIds, Optional.empty());
 
             Job job = service.getJob(jobId).orElseThrow();
             assertThat(job.cohortSize()).isEqualTo(3);
@@ -743,7 +743,7 @@ class JobPersistenceServiceTest {
 
         @Test
         void onCohortSuccess_EmptyCohort_TransitionsToCore() {
-            service.onCohortSuccess(jobId, List.of());
+            service.onCohortSuccess(jobId, List.of(), Optional.empty());
 
             Job job = service.getJob(jobId).orElseThrow();
             assertThat(job.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
@@ -752,7 +752,7 @@ class JobPersistenceServiceTest {
 
         @Test
         void tryStartBatch_TransitionsStatus() {
-            service.onCohortSuccess(jobId, List.of("P1"));
+            service.onCohortSuccess(jobId, List.of("P1"), Optional.empty());
             UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
 
             boolean started = service.tryStartBatch(jobId, batchId);
@@ -779,7 +779,7 @@ class JobPersistenceServiceTest {
 
         @Test
         void onBatchError_PersistsIssues() {
-            service.onCohortSuccess(jobId, List.of("P1"));
+            service.onCohortSuccess(jobId, List.of("P1"), Optional.empty());
             UUID batchId = service.getJob(jobId).orElseThrow().batches().keySet().iterator().next();
 
             service.onBatchError(jobId, batchId, List.of(new Issue(Severity.ERROR, "Fail", "Detail")), new RuntimeException("Error"));
@@ -1092,7 +1092,7 @@ class JobPersistenceServiceTest {
                     Optional.empty()), List.of(), "");
 
             persistenceService.selectNextInternal(jobId);
-            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics_1, jobId, UUID.randomUUID()));
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics_2, jobId, UUID.randomUUID()));
             persistenceService.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
@@ -1122,7 +1122,7 @@ class JobPersistenceServiceTest {
             var batchId2 = UUID.randomUUID();
 
             persistenceService.selectNextInternal(jobId);
-            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics_1, jobId, batchId1));
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics_2, jobId, batchId2));
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics_2, jobId, batchId2));
@@ -1188,7 +1188,7 @@ class JobPersistenceServiceTest {
             var diagnostics = new BatchDiagnostics(batchExclusions, details);
 
             persistenceService.selectNextInternal(jobId);
-            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics, jobId, UUID.randomUUID()));
             persistenceService.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
 
@@ -1207,7 +1207,7 @@ class JobPersistenceServiceTest {
             var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details);
 
             persistenceService.selectNextInternal(jobId);
-            persistenceService.onCohortSuccess(jobId, List.of());
+            persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());
             persistenceService.onBatchProcessingSuccess(createBatchResult(diagnostics, jobId, UUID.randomUUID()));
             persistenceService.onCoreSuccess(new CoreResult(jobId, List.of(), WorkUnitStatus.FINISHED));
 
@@ -1812,7 +1812,7 @@ class JobPersistenceServiceTest {
             doThrow(new IOException("disk full"))
                     .when(spyIo).newAppendingWriter(any());
 
-            assertThatCode(() -> spySvc.onCohortSuccess(id, List.of("P1")))
+            assertThatCode(() -> spySvc.onCohortSuccess(id, List.of("P1"), Optional.empty()))
                     .doesNotThrowAnyException();
         }
     }
@@ -1833,7 +1833,7 @@ class JobPersistenceServiceTest {
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
-            service.onCohortSuccess(jobId, List.of()); // empty cohort → RUNNING_PROCESS_CORE
+            service.onCohortSuccess(jobId, List.of(), Optional.empty()); // empty cohort → RUNNING_PROCESS_CORE
         }
 
         @Test

@@ -11,6 +11,9 @@ A JSON object containing the following fields:
 - `Num-Cohort-Patients`: the number of patients of the initial cohort before extraction.
 - `Num-Final-Patients`: the number of patients after extraction, which can be smaller when patients were discarded due to
 consent violations or other reasons (see [Patient Exclusions](#patient-exclusions)).
+- `Cohort-Query-Duration-Ms`: the amount of milliseconds the job-wide cohort query took to run, or absent if patient
+IDs were supplied directly instead of being determined by a cohort query. This is a single job-wide measurement, not
+a per-batch one, and is therefore not part of `Duration-Measurements`.
 - `Duration-Measurements`: the per-stage average and median amount of milliseconds it took each batch in the job to finish the stage.
 Stages are: `CONSENT_FETCH`, `DIRECT_LOAD`, `REFERENCE_RESOLVE`, `CASCADING_DELETE`, `COPY_REDACT`.
 

@@ -14,6 +14,7 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +26,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 public class DiagnosticsBlackBoxIT {
 
     private static final Logger logger = LoggerFactory.getLogger(SpecificBlackBoxIT.class);
+
+    private static final PipelineStage[] PER_BATCH_STAGES = Arrays.stream(PipelineStage.values())
+            .filter(stage -> stage != PipelineStage.COHORT_QUERY)
+            .toArray(PipelineStage[]::new);
 
     private static BlackBoxIntegrationTestEnv environment;
     private static TorchClient torchClient;
@@ -95,7 +100,8 @@ public class DiagnosticsBlackBoxIT {
         var jobSummary = optionalSummary.get();
         assertThat(jobSummary.numCohortPatients()).isEqualTo(3);
         assertThat(jobSummary.numFinalPatients()).isEqualTo(2);
-        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+        assertThat(jobSummary.cohortQueryDurationMs()).isGreaterThanOrEqualTo(0);
+        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PER_BATCH_STAGES);
         assertThat(jobSummary.durationSummaries().values()).allSatisfy(duration -> {
             assertThat(duration.averageMs()).isGreaterThanOrEqualTo(0);
             assertThat(duration.medianMs()).isGreaterThanOrEqualTo(0);
@@ -147,7 +153,8 @@ public class DiagnosticsBlackBoxIT {
         var jobSummary = optionalSummary.get();
         assertThat(jobSummary.numCohortPatients()).isEqualTo(3);
         assertThat(jobSummary.numFinalPatients()).isEqualTo(0);
-        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+        assertThat(jobSummary.cohortQueryDurationMs()).isGreaterThanOrEqualTo(0);
+        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PER_BATCH_STAGES);
         assertThat(jobSummary.durationSummaries().values()).allSatisfy(duration -> {
             assertThat(duration.averageMs()).isGreaterThanOrEqualTo(0);
             assertThat(duration.medianMs()).isGreaterThanOrEqualTo(0);
@@ -201,7 +208,8 @@ public class DiagnosticsBlackBoxIT {
         var jobSummary = optionalSummary.get();
         assertThat(jobSummary.numCohortPatients()).isEqualTo(3);
         assertThat(jobSummary.numFinalPatients()).isEqualTo(3);
-        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+        assertThat(jobSummary.cohortQueryDurationMs()).isGreaterThanOrEqualTo(0);
+        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PER_BATCH_STAGES);
         assertThat(jobSummary.durationSummaries().values()).allSatisfy(duration -> {
             assertThat(duration.averageMs()).isGreaterThanOrEqualTo(0);
             assertThat(duration.medianMs()).isGreaterThanOrEqualTo(0);
