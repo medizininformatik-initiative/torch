@@ -77,6 +77,7 @@ public class ConsentFetcher {
                 .concatMap(consent -> {
                     try {
                         String patientId = ResourceUtils.patientId(consent);
+                        batch.diagnostics().consentAudit().add(patientId, ConsentAuditMinimizer.minimize(consent));
                         DateTimeType consentTime = consent.getDateTimeElement();
                         if (consentTime.isEmpty()) {
                             logger.warn("Skipping consent resource {} due to missing consent date", consent.getId());

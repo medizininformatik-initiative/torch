@@ -141,6 +141,34 @@ class ConsentFetcherTest {
     }
 
     @Test
+    void capturesConsentInAuditTrailEvenWhenBatchIsSkipped() {
+        // consent with ACTIVE status but missing dateTime -> fetchConsentInfo errors out
+        Consent consent = new Consent();
+        consent.setStatus(Consent.ConsentState.ACTIVE);
+        consent.setId("cons-no-date");
+        consent.setDateTimeElement(new DateTimeType());
+
+        when(dataStore.search(any(), any())).thenReturn(Flux.just(consent));
+
+        PatientBatch batch = new PatientBatch(List.of("patient1"));
+
+        try (MockedStatic<ResourceUtils> mocked = mockStatic(ResourceUtils.class)) {
+            mocked.when(() -> ResourceUtils.patientId(consent)).thenReturn("patient1");
+
+            StepVerifier.create(consentFetcher.fetchConsentInfo(CODES, batch))
+                    .expectError(ConsentViolatedException.class)
+                    .verify();
+        }
+
+        // the audit entry must survive even though the whole batch ends up skipped
+        assertThat(batch.diagnostics().consentAudit().entries()).singleElement().satisfies(entry -> {
+            assertThat(entry.patientId()).isEqualTo("patient1");
+            assertThat(entry.resource()).isInstanceOf(Consent.class);
+            assertThat(entry.resource().getIdPart()).isEqualTo("cons-no-date");
+        });
+    }
+
+    @Test
     void failsWhenExtractProvisionsThrows() throws PatientIdNotFoundException, ConsentViolatedException {
         Consent consent = new Consent();
         consent.setStatus(Consent.ConsentState.ACTIVE);

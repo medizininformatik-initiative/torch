@@ -1,9 +1,13 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
+import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.Consent;
+import org.hl7.fhir.r4.model.Encounter;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -11,6 +15,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -104,5 +109,69 @@ class ResultFileManagerTest {
         Path ndjson = tempDir.resolve("jobY").resolve(batchId + ".ndjson");
         assertThat(ndjson).exists();
         assertThat(Files.readAllLines(ndjson)).containsExactly("{\"resourceType\":\"Bundle\"}");
+    }
+
+    @Test
+    void saveConsentBatchToNDJSON_skipsWhenAuditEmpty() throws IOException {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+
+        UUID batchId = UUID.randomUUID();
+        manager.saveConsentBatchToNDJSON("jobZ", batchId, ConsentAudit.empty());
+
+        Path ndjson = tempDir.resolve("jobZ").resolve(batchId + "_consent.ndjson");
+        assertThat(ndjson).doesNotExist();
+    }
+
+    @Test
+    void saveConsentBatchToNDJSON_writesOneCollectionBundlePerPatient() throws IOException {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+
+        UUID batchId = UUID.randomUUID();
+        ConsentAudit audit = ConsentAudit.empty();
+
+        Consent consent1 = new Consent();
+        consent1.setId("consent-1");
+        Encounter encounter1 = new Encounter();
+        encounter1.setId("encounter-1");
+        audit.add("patient-1", consent1);
+        audit.add("patient-1", encounter1);
+
+        Consent consent2 = new Consent();
+        consent2.setId("consent-2");
+        audit.add("patient-2", consent2);
+
+        manager.saveConsentBatchToNDJSON("jobZ", batchId, audit);
+
+        Path ndjson = tempDir.resolve("jobZ").resolve(batchId + "_consent.ndjson");
+        assertThat(ndjson).exists();
+
+        List<String> lines = Files.readAllLines(ndjson);
+        assertThat(lines).hasSize(2);
+
+        List<Bundle> bundles = lines.stream()
+                .map(line -> ctx.newJsonParser().parseResource(Bundle.class, line))
+                .toList();
+
+        assertThat(bundles).allMatch(b -> b.getType() == Bundle.BundleType.COLLECTION);
+        assertThat(bundles.stream().map(b -> b.getEntry().size()).sorted().toList())
+                .containsExactly(1, 2);
+    }
+
+    @Test
+    void consentAuditExists_trueAfterWrite_falseOtherwise() throws IOException {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+
+        UUID writtenBatchId = UUID.randomUUID();
+        UUID missingBatchId = UUID.randomUUID();
+        ConsentAudit audit = ConsentAudit.empty();
+        audit.add("patient-1", new Consent().setId("consent-1"));
+
+        manager.saveConsentBatchToNDJSON("jobZ", writtenBatchId, audit);
+
+        assertThat(manager.consentAuditExists("jobZ", writtenBatchId)).isTrue();
+        assertThat(manager.consentAuditExists("jobZ", missingBatchId)).isFalse();
     }
 }

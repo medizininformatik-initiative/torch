@@ -1,21 +1,38 @@
 package de.medizininformatikinitiative.torch.taskhandling;
 
+import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Period;
 import org.hl7.fhir.r4.model.Task;
+import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.stereotype.Component;
 
 import java.util.Date;
+
+import static java.util.Objects.requireNonNull;
 
 @Component
 public class JobTaskMapper {
 
     private static final String TORCH_STATUS_SYSTEM =
             "https://medizininformatik-initiative.de/torch/job-status";
+
+    private final ResultFileManager resultFileManager;
+    private final String fileServerName;
+
+    /**
+     * @param resultFileManager used to check which batches have a consent audit trail on disk
+     * @param properties        provides the file server base URL for building consent audit download links
+     */
+    public JobTaskMapper(ResultFileManager resultFileManager, TorchProperties properties) {
+        this.resultFileManager = requireNonNull(resultFileManager);
+        this.fileServerName = properties.output().file().server().url();
+    }
 
     public Task toFhirTask(Job job) {
         Task task = new Task();
@@ -48,6 +65,17 @@ public class JobTaskMapper {
         task.setExecutionPeriod(period);
 
         task.setDescription("TORCH Job " + job.id());
+
+        if (job.status() == JobStatus.COMPLETED) {
+            job.batches().keySet().forEach(batchId -> {
+                if (resultFileManager.consentAuditExists(job.id().toString(), batchId)) {
+                    Task.TaskOutputComponent output = new Task.TaskOutputComponent();
+                    output.setType(new CodeableConcept().setText("Consent audit NDJSON"));
+                    output.setValue(new UrlType(fileServerName + "/" + job.id() + "/" + batchId + ResultFileManager.CONSENT_NDJSON));
+                    task.addOutput(output);
+                }
+            });
+        }
 
         return task;
     }
