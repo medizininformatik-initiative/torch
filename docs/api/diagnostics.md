@@ -58,6 +58,7 @@ A CSV file where each row represents a single resource exclusion event that occu
 "fe95e52b-7db6-428b-b610-df697b13dae0","MUST_HAVE","med-adm-group","MedicationAdministration.category","MedicationAdministration/med-adm-1","pat-1"
 "fe95e52b-7db6-428b-b610-df697b13dae0","MUST_HAVE","med-adm-group","MedicationAdministration.category","MedicationAdministration/med-adm-2","pat-2"
 "3e8ed3b3-92b2-431c-b311-5fda0aa18460","CONSENT","med-adm-group","","MedicationAdministration/med-adm-3","pat-3"
+"3e8ed3b3-92b2-431c-b311-5fda0aa18460","CASCADING_DELETE","med-adm-group","","MedicationAdministration/med-adm-4","pat-3"
 ```
 
 ### Explanation
@@ -78,9 +79,12 @@ A CSV file where each row represents a single resource exclusion event that occu
 - `REFERENCE_NOT_FOUND`: A referenced resource could not be fetched (i.e. if referential integrity on the FHIR server is violated)
 - `RESOURCE_OUTSIDE_BATCH`: A patient resource was referenced during core processing (Should usually not happen at all. 
 Might indicate FHIR profile violations or bugs in TORCH).
+- `CASCADING_DELETE`: The resource was not itself invalid, but was removed because a resource it depended on (directly or
+transitively) was invalidated. The `Attribute` field is always empty for this reason - see
+[Cascading Delete](../implementation/cascading-delete.md) for how invalidation propagates through the reference graph.
 
-Due to possibly complex interconnections between attribute groups and chained must-have constraints, it is not trivial
-to find a single reason for why a resource is excluded during cascading delete. Therefore, such resources are not noted
-as resource exclusion events. Since each such chain has some origin where a resource was invalidated *before* cascading 
-delete, resources of the origin of such chains are still marked as usual by the reasons stated above, which can help
-deducing why resources are missing that are not marked as excluded.
+Each chain of cascading invalidation has an origin where a resource was invalidated *before* cascading delete ran; that
+origin resource is marked by one of the other reasons stated above (e.g. `MUST_HAVE`, `REFERENCE_NOT_FOUND`), not
+`CASCADING_DELETE`. This includes the case where a must-have reference resolves to a target that itself turns out
+invalid: that is discovered and reported (as `MUST_HAVE`) during reference resolution, before cascading delete ever
+runs, even though the underlying cause is transitive.

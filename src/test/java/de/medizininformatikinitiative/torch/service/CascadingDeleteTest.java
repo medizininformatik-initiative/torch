@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -13,11 +15,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 class CascadingDeleteTest {
 
@@ -88,6 +92,87 @@ class CascadingDeleteTest {
             assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
             assertThat(patientBatchWithConsent.bundles()).containsExactly(Map.entry("Core", new PatientResourceBundle("Core", resourceBundle)));
         }
+
+        @Test
+        void recordsCascadingDeleteExclusionForNewlyInvalidatedGroupOnly() {
+            // resourceGroup is the root cause (already invalid before handlePatientBatch runs) and must
+            // NOT get its own CASCADING_DELETE event here - it already has its own event from an earlier
+            // pipeline stage. resourceGroup2 is newly invalidated by the cascade and must be recorded,
+            // attributed to the owning patient id.
+            // parentResourceGroup1 is the unreferenced root here, so it must be directly loaded (refOnly == false)
+            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", "", List.of(), List.of(), false));
+
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.addResourceGroupValidity(resourceGroup, false);
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+            PatientBatchWithConsent patientBatchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("pat-1", resourceBundle)));
+
+            cascadingDelete.handlePatientBatch(patientBatchWithConsent, groupMap);
+
+            assertThat(patientBatchWithConsent.batchExclusions().getResourceExclusions())
+                    .extracting(ResourceExclusionEvent::groupId, ResourceExclusionEvent::resourceId, ResourceExclusionEvent::attributeRef)
+                    .containsExactly(tuple(resourceGroup2.groupId(), resourceGroup2.resourceId().toRelativeUrl(), ""));
+            assertThat(patientBatchWithConsent.batchExclusions().getResourceExclusions())
+                    .allSatisfy(event -> {
+                        assertThat(event.reason()).isEqualTo(ResourceExclusionReason.CASCADING_DELETE);
+                        assertThat(event.patientId()).isEqualTo("pat-1");
+                    });
+        }
+
+        @Test
+        void recordsCascadingDeleteExclusionAttributedToCorrectPatient() {
+            // Two independent patients, each triggering their own cascade, verify each patient's newly
+            // invalidated group is attributed to ITS OWN patient id and not cross-attributed by the
+            // shared parallelStream in handlePatientBatch.
+            groupMap.put("group3", new AnnotatedAttributeGroup("", "group3", "", "", List.of(), List.of(), false));
+
+            resourceBundle.addAttributeToParent(resourceAttribute, parentResourceGroup1);
+            resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
+            resourceBundle.addAttributeToParent(resourceAttribute2, resourceGroup);
+            resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
+            resourceBundle.setResourceAttributeValid(resourceAttribute);
+            resourceBundle.setResourceAttributeValid(resourceAttribute2);
+            resourceBundle.addResourceGroupValidity(resourceGroup, false);
+            resourceBundle.addResourceGroupValidity(resourceGroup2, true);
+            resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
+
+            ResourceBundle resourceBundleP2 = new ResourceBundle();
+            ResourceAttribute resourceAttributeP2 = new ResourceAttribute(rid("r/test1-p2"), new AnnotatedAttribute("test", "test", false));
+            ResourceAttribute resourceAttribute2P2 = new ResourceAttribute(rid("r/test2-p2"), new AnnotatedAttribute("test", "test", false));
+            ResourceGroup parentResourceGroupP2 = new ResourceGroup(rid("r/resourceP1-p2"), "group3");
+            ResourceGroup resourceGroupP2 = new ResourceGroup(rid("r/resource1-p2"), "group1");
+            ResourceGroup resourceGroup2P2 = new ResourceGroup(rid("r/resource2-p2"), "group2");
+
+            resourceBundleP2.addAttributeToParent(resourceAttributeP2, parentResourceGroupP2);
+            resourceBundleP2.addAttributeToChild(resourceAttributeP2, resourceGroupP2);
+            resourceBundleP2.addAttributeToParent(resourceAttribute2P2, resourceGroupP2);
+            resourceBundleP2.addAttributeToChild(resourceAttribute2P2, resourceGroup2P2);
+            resourceBundleP2.setResourceAttributeValid(resourceAttributeP2);
+            resourceBundleP2.setResourceAttributeValid(resourceAttribute2P2);
+            resourceBundleP2.addResourceGroupValidity(resourceGroupP2, false);
+            resourceBundleP2.addResourceGroupValidity(resourceGroup2P2, true);
+            resourceBundleP2.addResourceGroupValidity(parentResourceGroupP2, true);
+
+            PatientBatchWithConsent patientBatchWithConsent = PatientBatchWithConsent.fromList(List.of(
+                    new PatientResourceBundle("pat-1", resourceBundle),
+                    new PatientResourceBundle("pat-2", resourceBundleP2)));
+
+            cascadingDelete.handlePatientBatch(patientBatchWithConsent, groupMap);
+
+            assertThat(patientBatchWithConsent.batchExclusions().getResourceExclusions())
+                    .extracting(ResourceExclusionEvent::groupId, ResourceExclusionEvent::resourceId,
+                            ResourceExclusionEvent::patientId, ResourceExclusionEvent::attributeRef)
+                    .containsExactlyInAnyOrder(
+                            tuple(resourceGroup2.groupId(), resourceGroup2.resourceId().toRelativeUrl(), "pat-1", ""),
+                            tuple(resourceGroup2P2.groupId(), resourceGroup2P2.resourceId().toRelativeUrl(), "pat-2", ""));
+        }
     }
 
     @Nested
@@ -109,7 +194,7 @@ class CascadingDeleteTest {
             resourceBundle.addResourceGroupValidity(resourceGroup2, true);
             resourceBundle.addResourceGroupValidity(parentResourceGroup1, true);
 
-            cascadingDelete.handleBundle(resourceBundle, groupMap);
+            Set<ResourceGroup> newlyInvalidatedGroups = cascadingDelete.handleBundle(resourceBundle, groupMap);
 
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute2);
@@ -117,6 +202,9 @@ class CascadingDeleteTest {
             assertThat(resourceBundle.resourceAttributeValid(resourceAttribute2)).isFalse();
             assertThat(resourceBundle.isValidResourceGroup(parentResourceGroup1)).isTrue();
             assertThat(resourceBundle.isValidResourceGroup(resourceGroup2)).isFalse();
+            // resourceGroup was already invalid before handleBundle ran (the root cause) and must not be
+            // re-reported; only resourceGroup2, newly invalidated by the cascade, is returned.
+            assertThat(newlyInvalidatedGroups).containsExactly(resourceGroup2);
         }
 
         @Test
@@ -236,10 +324,13 @@ class CascadingDeleteTest {
             resourceBundle.addResourceGroupValidity(a, true);
             resourceBundle.addResourceGroupValidity(b, true);
 
-            cascadingDelete.handleBundle(resourceBundle, groupMap);
+            Set<ResourceGroup> newlyInvalidatedGroups = cascadingDelete.handleBundle(resourceBundle, groupMap);
 
             assertThat(resourceBundle.isValidResourceGroup(a)).isFalse();
             assertThat(resourceBundle.isValidResourceGroup(b)).isFalse();
+            // d is the root cause (already invalid before handleBundle ran) and must not be re-reported;
+            // a and b are only caught by the sweepUnfoundedCycles mark-and-sweep pass, not the main BFS.
+            assertThat(newlyInvalidatedGroups).containsExactly(a, b);
         }
 
         @Test
@@ -444,7 +535,7 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup, new HashSet<>());
 
             assertThat(resourceBundle.childResourceGroupToResourceAttributesMap()).doesNotContainKey(resourceGroup);
             assertThat(result).isEmpty();
@@ -460,9 +551,11 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(mustHaveAttribute, resourceGroup);
             resourceBundle.setResourceAttributeValid(mustHaveAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
+            Set<ResourceGroup> newInvalidRGs = new HashSet<>();
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup, newInvalidRGs);
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
+            assertThat(newInvalidRGs).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2);
         }
 
         @Test
@@ -491,9 +584,11 @@ class CascadingDeleteTest {
             resourceBundle.setResourceAttributeValid(mustHaveAttribute2);
             resourceBundle.setResourceAttributeValid(mustHaveAttribute3);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
+            Set<ResourceGroup> newInvalidRGs = new HashSet<>();
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup, newInvalidRGs);
 
             assertThat(result).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2, parentResourceGroup3);
+            assertThat(newInvalidRGs).containsExactlyInAnyOrder(parentResourceGroup1, parentResourceGroup2, parentResourceGroup3);
         }
 
         @Test
@@ -508,10 +603,12 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(mustHaveAttribute, resourceGroup2);
             resourceBundle.setResourceAttributeValid(mustHaveAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup);
+            Set<ResourceGroup> newInvalidRGs = new HashSet<>();
+            Set<ResourceGroup> result = cascadingDelete.handleParents(resourceBundle, resourceGroup, newInvalidRGs);
 
             assertThat(result).isEmpty();
             assertThat(resourceBundle.resourceAttributeValid(mustHaveAttribute)).isTrue();
+            assertThat(newInvalidRGs).isEmpty();
         }
     }
 
@@ -525,7 +622,7 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2, new HashSet<>());
 
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).containsKey(resourceAttribute);
             assertThat(result).isEmpty();
@@ -538,12 +635,14 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result1 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
-            Set<ResourceGroup> result2 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroup> newInvalidRGs = new HashSet<>();
+            Set<ResourceGroup> result1 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2, newInvalidRGs);
+            Set<ResourceGroup> result2 = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1, newInvalidRGs);
 
             assertThat(result1).isEmpty();
             assertThat(result2).contains(resourceGroup);
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(newInvalidRGs).containsExactly(resourceGroup);
         }
 
         @Test
@@ -552,10 +651,12 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(resourceAttribute, resourceGroup);
             resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1);
+            Set<ResourceGroup> newInvalidRGs = new HashSet<>();
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup1, newInvalidRGs);
 
             assertThat(result).contains(resourceGroup);
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);
+            assertThat(newInvalidRGs).containsExactly(resourceGroup);
         }
 
         @Test
@@ -564,7 +665,7 @@ class CascadingDeleteTest {
             resourceBundle.addAttributeToChild(resourceAttribute2, resourceGroup2);
             resourceBundle.setResourceAttributeValid(resourceAttribute);
 
-            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2);
+            Set<ResourceGroup> result = cascadingDelete.handleChildren(resourceBundle, groupMap, parentResourceGroup2, new HashSet<>());
 
             assertThat(result).isEmpty();
             assertThat(resourceBundle.resourceAttributeToChildResourceGroup()).doesNotContainKey(resourceAttribute);

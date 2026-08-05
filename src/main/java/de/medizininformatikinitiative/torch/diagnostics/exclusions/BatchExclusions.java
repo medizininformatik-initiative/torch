@@ -93,6 +93,14 @@ public class BatchExclusions {
         resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.RESOURCE_OUTSIDE_BATCH, groupId, resourceId, "", ""));
     }
 
+    public void addCascadingDeleteExclusion(String groupId, String resourceId, String patientId) {
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, patientId, ""));
+    }
+
+    public void addCascadingDeleteExclusionCore(String groupId, String resourceId) {
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, "", ""));
+    }
+
     public void addPatientExclusion(PatientExclusionStage stage, String patientId) {
         patientExclusions.add(new PatientExclusionEvent(stage, patientId));
     }

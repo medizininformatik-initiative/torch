@@ -123,9 +123,10 @@ public class DiagnosticsBlackBoxIT {
         // - notes pat-1 as patient exclusion at CASCADING_DELETE because it has a 'partOf', but this procedure is invalid
         //   which invalidates the medication-administration and due to this being also must-have, the patient is invalid
         // - notes pat-2 and pat-3 as patient exclusions at DIRECT_LOAD because both have no procedure
-        // - notes only med-adm-2 as resource exclusion due to MUST_HAVE because it has no 'partOf', whereas the med-adm-1
-        //   does have a 'partOf', which gets only later excluded during cascading delete, where cannot be explicitly
-        //   marked as resource exclusion
+        // - notes med-adm-2 as resource exclusion due to MUST_HAVE because it has no 'partOf' at all, and med-adm-1
+        //   also as MUST_HAVE (not CASCADING_DELETE): its 'partOf' points to proc-1, but proc-1's own must-have
+        //   ('status') is already known to be violated by the time med-adm-1's reference to it is resolved, so the
+        //   violation is discovered synchronously during reference resolution, not later during cascading delete
 
         var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/DirectLoadBlackBoxIT/CRTDL_must-have.json")).block();
         assertThat(statusUrl).isNotNull();
@@ -160,15 +161,19 @@ public class DiagnosticsBlackBoxIT {
             assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(0);
             assertThat(groupSummary.resOutsideBatchExclusions()).isEqualTo(0);
             assertThat(groupSummary.consentExclusions()).isEqualTo(0);
-            assertThat(groupSummary.mustHaveExclusions()).containsExactly(Map.entry("MedicationAdministration.partOf", 1));
+            assertThat(groupSummary.mustHaveExclusions()).containsExactly(Map.entry("MedicationAdministration.partOf", 2));
+            assertThat(groupSummary.cascadingDeleteExclusions()).isEqualTo(0);
         });
 
         assertThat(exclusions.getPatientExclusions()).containsExactlyInAnyOrder(
                 new PatientExclusionEvent(PatientExclusionStage.CASCADING_DELETE, "pat-1"),
                 new PatientExclusionEvent(PatientExclusionStage.DIRECT_LOAD, "pat-2"),
                 new PatientExclusionEvent(PatientExclusionStage.DIRECT_LOAD, "pat-3"));
-        assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.partOf"));
+        assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
+                new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
+                        "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.partOf"),
+                new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
+                        "med-adm-group", "MedicationAdministration/med-adm-1", "pat-1", "MedicationAdministration.partOf"));
     }
 
     @Test
@@ -216,5 +221,84 @@ public class DiagnosticsBlackBoxIT {
         assertThat(exclusions.getPatientExclusions()).isEmpty();
         assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
                 "orga-group", "Organization/orga-3", "", ""));
+    }
+
+    @Test
+    void testCascadingDeleteOrphanedResource() throws IOException {
+        // - pat-4 (gender 'other', isolated from the other scenarios' male/female cohort) has med-adm-3, whose
+        //   'partOf' resolves to a fully valid proc-2 while its 'reasonReference' points to a Condition that doesn't
+        //   exist at all
+        // - med-adm-3's own must-have fields are all present (a reference field only checks presence, not whether the
+        //   target resolves), so it passes DIRECT_LOAD; reference resolution is what discovers 'reasonReference'
+        //   can't be resolved, and notes med-adm-3 as MUST_HAVE right there
+        // - CRTDL_cascading-delete.json declares 'partOf' before 'reasonReference': reference resolution processes a
+        //   resource's attributes in that order and stops at the first must-have violation, so proc-2 only gets
+        //   registered as med-adm-3's valid child if 'partOf' is handled first - once med-adm-3 as a whole is
+        //   invalidated, cascading delete finds proc-2 orphaned (its only parent link just died) and reports it as
+        //   CASCADING_DELETE, with no attribute reference - cascading-delete exclusions never carry one
+        // - notes pat-4 as a patient exclusion at CASCADING_DELETE once none of its med-adm-group resources survive
+
+        var statusUrl = torchClient.executeExtractData(TestUtils.loadCrtdl("src/test/resources/DirectLoadBlackBoxIT/CRTDL_cascading-delete.json")).block();
+        assertThat(statusUrl).isNotNull();
+
+        var statusResponse = torchClient.pollStatus(statusUrl).block();
+        assertThat(statusResponse).isNotNull();
+
+        var optionalSummary = statusResponse.jobSummaryUrl().map(fileServerClient::fetchJobSummary);
+        assertThat(optionalSummary).isPresent();
+
+        var optionalPatientExclusions = statusResponse.patientExclusionsUrl();
+        var optionalResourceExclusions = statusResponse.resourceExclusionsUrl();
+        assertThat(optionalPatientExclusions).isPresent();
+        assertThat(optionalResourceExclusions).isPresent();
+
+        var exclusions = fileServerClient.fetchExclusions(optionalPatientExclusions.get(), optionalResourceExclusions.get());
+
+        var jobSummary = optionalSummary.get();
+        assertThat(jobSummary.numCohortPatients()).isEqualTo(1);
+        assertThat(jobSummary.numFinalPatients()).isEqualTo(0);
+        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+        assertThat(jobSummary.durationSummaries().values()).allSatisfy(duration -> {
+            assertThat(duration.averageMs()).isGreaterThanOrEqualTo(0);
+            assertThat(duration.medianMs()).isGreaterThanOrEqualTo(0);
+        });
+        assertThat(jobSummary.patientSummaries()).containsExactlyInAnyOrderEntriesOf(Map.of(
+                PatientExclusionStage.CASCADING_DELETE, 1,
+                PatientExclusionStage.DIRECT_LOAD, 0,
+                PatientExclusionStage.CONSENT_FETCH, 0));
+        // CASCADING_DELETE is recorded under the orphaned group's own id ('proc-group' for proc-2), not the id of
+        // the group whose resource caused the invalidation ('med-adm-group')
+        assertThat(jobSummary.resourceSummaries().keySet()).containsExactlyInAnyOrder("med-adm-group", "cond-group", "proc-group");
+        assertThat(jobSummary.resourceSummaries().get("med-adm-group")).satisfies(groupSummary -> {
+            assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(0);
+            assertThat(groupSummary.resOutsideBatchExclusions()).isEqualTo(0);
+            assertThat(groupSummary.consentExclusions()).isEqualTo(0);
+            assertThat(groupSummary.mustHaveExclusions()).containsExactly(Map.entry("MedicationAdministration.reasonReference", 1));
+            assertThat(groupSummary.cascadingDeleteExclusions()).isEqualTo(0);
+        });
+        assertThat(jobSummary.resourceSummaries().get("cond-group")).satisfies(groupSummary -> {
+            assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(1);
+            assertThat(groupSummary.resOutsideBatchExclusions()).isEqualTo(0);
+            assertThat(groupSummary.consentExclusions()).isEqualTo(0);
+            assertThat(groupSummary.mustHaveExclusions()).isEmpty();
+            assertThat(groupSummary.cascadingDeleteExclusions()).isEqualTo(0);
+        });
+        assertThat(jobSummary.resourceSummaries().get("proc-group")).satisfies(groupSummary -> {
+            assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(0);
+            assertThat(groupSummary.resOutsideBatchExclusions()).isEqualTo(0);
+            assertThat(groupSummary.consentExclusions()).isEqualTo(0);
+            assertThat(groupSummary.mustHaveExclusions()).isEmpty();
+            assertThat(groupSummary.cascadingDeleteExclusions()).isEqualTo(1);
+        });
+
+        assertThat(exclusions.getPatientExclusions()).containsExactly(
+                new PatientExclusionEvent(PatientExclusionStage.CASCADING_DELETE, "pat-4"));
+        assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
+                new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
+                        "cond-group", "Condition/cond-99", "pat-4", ""),
+                new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
+                        "med-adm-group", "MedicationAdministration/med-adm-3", "pat-4", "MedicationAdministration.reasonReference"),
+                new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE,
+                        "proc-group", "Procedure/proc-2", "pat-4", ""));
     }
 }
