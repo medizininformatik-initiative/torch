@@ -133,6 +133,30 @@ class ConsentAdjusterUnitTest {
     }
 
     @Test
+    void fetchAndAdjust_capturesEncountersInAuditTrail() {
+        PatientBatch batch = new PatientBatch(List.of("patient1"));
+
+        Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+
+        Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
+        e1.setId("enc-1");
+
+        when(dataStore.search(any(Query.class), eq(Encounter.class)))
+                .thenReturn(Flux.just(e1));
+
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1"))))
+                .expectNextCount(1)
+                .verifyComplete();
+
+        assertThat(batch.diagnostics().consentAudit().entries()).singleElement().satisfies(entry -> {
+            assertThat(entry.patientId()).isEqualTo("patient1");
+            assertThat(entry.resource()).isInstanceOf(Encounter.class);
+            assertThat(entry.resource().getIdPart()).isEqualTo("enc-1");
+        });
+    }
+
+    @Test
     void testFetchAndAdjust_withMockedDataStore() {
         PatientBatch batch = new PatientBatch(List.of("patient1", "patient2"));
 

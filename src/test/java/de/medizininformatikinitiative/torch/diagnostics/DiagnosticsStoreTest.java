@@ -63,7 +63,7 @@ class DiagnosticsStoreTest {
         batchExclusions_1.addMustHaveExclusionCore(GROUP_1, RESOURCE_1, ATTRIBUTE_1);
         batchExclusions_1.addReferenceNotFoundExclusionCore(GROUP_1, RESOURCE_1);
         batchExclusions_1.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
-        return new BatchDiagnostics(batchExclusions_1, details_1);
+        return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty());
     }
 
     static BatchDiagnostics createDiagnostics_2() {
@@ -76,7 +76,7 @@ class DiagnosticsStoreTest {
         batchExclusions_2.addMustHaveExclusionCore(GROUP_2, RESOURCE_2, ATTRIBUTE_2);
         batchExclusions_2.addReferenceNotFoundExclusionCore(GROUP_2, RESOURCE_2);
         batchExclusions_2.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_2);
-        return new BatchDiagnostics(batchExclusions_2, details_2);
+        return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty());
     }
 
     @Test

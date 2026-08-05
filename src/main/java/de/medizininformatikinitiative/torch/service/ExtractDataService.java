@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
@@ -150,18 +151,20 @@ public class ExtractDataService {
 
         return batchWithConsent
                 .flatMap(bwc -> processBatchAfterConsent(bwc, jobId, groupsToProcess, batchState))
-                .switchIfEmpty(Mono.fromSupplier(() ->
-                    new BatchResult(
-                            jobId,
-                            batch.batchId(),
-                            batchState.skip(),
-                            Optional.empty(),
-                            Optional.of(batch.diagnostics()),
-                            List.of(Issue.simple(
-                                    Severity.WARNING,
-                                    "Batch " + selection.batchState().batchId() + " skipped because of no consenting patients"
-                            ))
-                    )));
+                .switchIfEmpty(writeConsentAudit(jobId.toString(), batch.batchId(), batch.diagnostics().consentAudit())
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .then(Mono.fromSupplier(() ->
+                            new BatchResult(
+                                    jobId,
+                                    batch.batchId(),
+                                    batchState.skip(),
+                                    Optional.empty(),
+                                    Optional.of(batch.diagnostics()),
+                                    List.of(Issue.simple(
+                                            Severity.WARNING,
+                                            "Batch " + selection.batchState().batchId() + " skipped because of no consenting patients"
+                                    ))
+                            ))));
     }
 
     private <T> Mono<T> executeAndMeasureAsync(PipelineStage stage, BatchDiagnostics diagnostics, Supplier<Mono<T>> f) {
@@ -229,6 +232,7 @@ public class ExtractDataService {
                 .doOnNext(__ -> logger.debug("Batch finished extraction {}", batchId))
                 .flatMap(extractedBatch ->
                         writeBatch(jobId.toString(), extractedBatch)
+                                .then(writeConsentAudit(jobId.toString(), batchId, batch.diagnostics().consentAudit()))
                                 .subscribeOn(Schedulers.boundedElastic())
                                 .thenReturn(extractedBatch)
                 )
@@ -322,6 +326,28 @@ public class ExtractDataService {
         return Mono.defer(() -> {
             try {
                 resultFileManager.saveBatchToNDJSON(jobID, batch);
+                return Mono.empty();
+            } catch (IOException e) {
+                return Mono.error(e);
+            }
+        });
+    }
+
+    /**
+     * Persists a batch's consent audit trail as NDJSON, if not empty.
+     * <p>
+     * Called for both finished and skipped batches, so consent decisions stay traceable even
+     * when a batch has no consenting patients.
+     *
+     * @param jobID        owning job id (directory key)
+     * @param batchId      batch id (also used as filename key)
+     * @param consentAudit collected consent audit entries for the batch
+     * @return completion signal; emits error if writing fails
+     */
+    Mono<Void> writeConsentAudit(String jobID, UUID batchId, ConsentAudit consentAudit) {
+        return Mono.defer(() -> {
+            try {
+                resultFileManager.saveConsentBatchToNDJSON(jobID, batchId, consentAudit);
                 return Mono.empty();
             } catch (IOException e) {
                 return Mono.error(e);

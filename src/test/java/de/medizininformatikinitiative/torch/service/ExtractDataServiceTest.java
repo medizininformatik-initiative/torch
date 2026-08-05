@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -354,7 +355,7 @@ class ExtractDataServiceTest {
         }
 
         @Test
-        void processBatch_whenConsentViolated_switchIfEmptyReturnsSkippedResult() {
+        void processBatch_whenConsentViolated_switchIfEmptyReturnsSkippedResult() throws Exception {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
 
@@ -399,6 +400,7 @@ class ExtractDataServiceTest {
                     .verifyComplete();
 
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
+            verify(resultFileManager).saveConsentBatchToNDJSON(eq(jobId.toString()), eq(batchId), any());
         }
 
         @Test
@@ -511,6 +513,31 @@ class ExtractDataServiceTest {
                     .verifyErrorSatisfies(e -> {
                         assertThat(e).isInstanceOf(IOException.class);
                         assertThat(e).hasMessageContaining("no space");
+                    });
+        }
+
+        @Test
+        void writeConsentAudit_success_completes() throws Exception {
+            UUID batchId = UUID.randomUUID();
+            ConsentAudit audit = ConsentAudit.empty();
+
+            StepVerifier.create(service.writeConsentAudit("job", batchId, audit))
+                    .verifyComplete();
+
+            verify(resultFileManager).saveConsentBatchToNDJSON("job", batchId, audit);
+        }
+
+        @Test
+        void writeConsentAudit_whenIOException_emitsError() throws Exception {
+            UUID batchId = UUID.randomUUID();
+            ConsentAudit audit = ConsentAudit.empty();
+            doThrow(new IOException("disk full"))
+                    .when(resultFileManager).saveConsentBatchToNDJSON("job", batchId, audit);
+
+            StepVerifier.create(service.writeConsentAudit("job", batchId, audit))
+                    .verifyErrorSatisfies(e -> {
+                        assertThat(e).isInstanceOf(IOException.class);
+                        assertThat(e).hasMessageContaining("disk full");
                     });
         }
     }

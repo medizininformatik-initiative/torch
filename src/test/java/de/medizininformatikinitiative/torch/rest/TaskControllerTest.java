@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.rest;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
@@ -11,6 +12,7 @@ import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import de.medizininformatikinitiative.torch.taskhandling.JobTaskMapper;
+import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Task;
@@ -38,8 +40,25 @@ class TaskControllerTest {
 
     static final JobParameters EMPTY_PARAMETERS = TestUtils.emptyJobParams();
 
+    private static final TorchProperties PROPERTIES = new TorchProperties(
+            new TorchProperties.Base("http://base-url"),
+            new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://server-url"))),
+            new TorchProperties.Profile("/profile-dir"),
+            new TorchProperties.Mapping("typeToConsent"),
+            new TorchProperties.Flare(null, null),
+            new TorchProperties.Results("BASE_DIR"),
+            10, 5, 100,
+            "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
+            "search-parameters.json",
+            true,
+            false
+    );
+
     @Mock
     JobPersistenceService persistence;
+
+    @Mock
+    ResultFileManager resultFileManager;
 
     FhirContext fhirContext;
     JobTaskMapper jobTaskMapper;
@@ -49,7 +68,7 @@ class TaskControllerTest {
     @BeforeEach
     void setUp() {
         fhirContext = FhirContext.forR4();
-        jobTaskMapper = new JobTaskMapper();
+        jobTaskMapper = new JobTaskMapper(resultFileManager, PROPERTIES);
         controller = new TaskController(fhirContext, persistence, jobTaskMapper);
         client = WebTestClient.bindToRouterFunction(controller.taskRouter()).build();
     }

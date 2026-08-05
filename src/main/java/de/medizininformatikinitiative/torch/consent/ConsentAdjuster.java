@@ -92,6 +92,7 @@ public class ConsentAdjuster {
                 .flatMap(encounter -> {
                     try {
                         String patientId = ResourceUtils.patientId(encounter);
+                        batch.diagnostics().consentAudit().add(patientId, ConsentAuditMinimizer.minimize(encounter));
                         return Mono.just(Tuples.of(patientId, encounter));
                     } catch (PatientIdNotFoundException e) {
                         logger.warn("Skipping encounter without patient ID: {}", encounter.getId());
