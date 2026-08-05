@@ -33,7 +33,11 @@ import java.util.stream.Collectors;
 public class CascadingDelete {
 
     PatientBatchWithConsent handlePatientBatch(PatientBatchWithConsent patientBatch, Map<String, AnnotatedAttributeGroup> groupMap) {
-        patientBatch.bundles().values().parallelStream().forEach(bundle -> handleBundle(bundle.bundle(), groupMap));
+        patientBatch.bundles().values().parallelStream().forEach(bundle -> {
+            Set<ResourceGroup> newlyInvalidatedGroups = handleBundle(bundle.bundle(), groupMap);
+            newlyInvalidatedGroups.forEach(group -> patientBatch.batchExclusions()
+                    .addCascadingDeleteExclusion(group.groupId(), group.resourceId().toRelativeUrl(), bundle.patientId()));
+        });
         return patientBatch;
     }
 
@@ -41,16 +45,27 @@ public class CascadingDelete {
      * Invalidates the bundle's initially invalid {@link ResourceGroup}s and propagates that invalidation
      * through the reference graph, then removes any referenceOnly reference cycle left behind with no live
      * anchor. See the class Javadoc for the two-phase algorithm.
+     *
+     * @return the {@link ResourceGroup}s newly invalidated by cascading propagation, excluding the groups
+     * that were already invalid in {@code resourceBundle} before this call was reached - those were either
+     * invalidated (and reported) by an earlier pipeline stage, or, if a must-have reference resolves to a
+     * target that turns out invalid, by {@link de.medizininformatikinitiative.torch.util.ReferenceHandler}
+     * during reference resolution, so this method doesn't need to and must not re-report them.
      */
-    void handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    Set<ResourceGroup> handleBundle(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Set<ResourceGroup> invalidResourceGroups = resourceBundle.getInvalid().keySet();
         Queue<ResourceGroup> processingQueue = new LinkedList<>(invalidResourceGroups);
+        Set<ResourceGroup> newInvalidRGs = new LinkedHashSet<>();
         while (!processingQueue.isEmpty()) {
             ResourceGroup invalidResourceGroup = processingQueue.poll();
-            processingQueue.addAll(handleChildren(resourceBundle, groupMap, invalidResourceGroup));
-            processingQueue.addAll(handleParents(resourceBundle, invalidResourceGroup));
+            Set<ResourceGroup> children = handleChildren(resourceBundle, groupMap, invalidResourceGroup, newInvalidRGs);
+            Set<ResourceGroup> parents = handleParents(resourceBundle, invalidResourceGroup, newInvalidRGs);
+            processingQueue.addAll(children);
+            processingQueue.addAll(parents);
         }
-        sweepUnfoundedCycles(resourceBundle, groupMap);
+        sweepUnfoundedCycles(resourceBundle, groupMap, newInvalidRGs);
+        newInvalidRGs.removeAll(invalidResourceGroups);
+        return newInvalidRGs;
     }
 
     /**
@@ -61,8 +76,12 @@ public class CascadingDelete {
      * directly loaded (non-referenceOnly) groups, a forward BFS marks every group reachable through a valid
      * attribute as grounded. Any referenceOnly group left unmarked is unfounded and is invalidated, with the
      * invalidation propagated through {@link #handleParents} to catch must-have violations.
+     *
+     * @param newInvalidRGs accumulates every group this sweep invalidates, directly or via
+     *                      {@link #handleParents}'s must-have escalation
      */
-    private void sweepUnfoundedCycles(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    private void sweepUnfoundedCycles(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap,
+                                       Set<ResourceGroup> newInvalidRGs) {
         Set<ResourceGroup> validGroups = resourceBundle.getValidResourceGroups();
         Set<ResourceGroup> grounded = new LinkedHashSet<>();
         Queue<ResourceGroup> bfsQueue = new LinkedList<>();
@@ -86,13 +105,18 @@ public class CascadingDelete {
             }
         }
 
-        Queue<ResourceGroup> invalidationQueue = validGroups.stream()
+        Set<ResourceGroup> unfoundedGroups = validGroups.stream()
                 .filter(rg -> groupMap.get(rg.groupId()).includeReferenceOnly() && !grounded.contains(rg))
-                .collect(Collectors.toCollection(LinkedList::new));
+                .collect(Collectors.toCollection(LinkedHashSet::new));
 
-        invalidationQueue.forEach(rg -> resourceBundle.addResourceGroupValidity(rg, false));
+        unfoundedGroups.forEach(rg -> {
+            resourceBundle.addResourceGroupValidity(rg, false);
+            newInvalidRGs.add(rg);
+        });
+        Queue<ResourceGroup> invalidationQueue = new LinkedList<>(unfoundedGroups);
         while (!invalidationQueue.isEmpty()) {
-            invalidationQueue.addAll(handleParents(resourceBundle, invalidationQueue.poll()));
+            Set<ResourceGroup> escalatedGroups = handleParents(resourceBundle, invalidationQueue.poll(), newInvalidRGs);
+            invalidationQueue.addAll(escalatedGroups);
         }
     }
 
@@ -102,9 +126,11 @@ public class CascadingDelete {
      * @param resourceBundle coreResourcebundle to be handled
      * @param groupMap       known attributeGroups
      * @param parentRG       parentRG that triggered the deletion process.
+     * @param newInvalidRGs  accumulates every referenceOnly child group this call invalidates
      * @return children to be deleted
      */
-    Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG) {
+    Set<ResourceGroup> handleChildren(ResourceBundle resourceBundle, Map<String, AnnotatedAttributeGroup> groupMap, ResourceGroup parentRG,
+                                       Set<ResourceGroup> newInvalidRGs) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
         Set<ResourceAttribute> resourceAttributes = resourceBundle.parentResourceGroupToResourceAttributesMap().get(parentRG);
 
@@ -126,6 +152,7 @@ public class CascadingDelete {
                             AnnotatedAttributeGroup attributeGroup = groupMap.get(group.groupId());
                             if (attributeGroup.includeReferenceOnly()) {
                                 resourceGroups.add(group);
+                                newInvalidRGs.add(group);
                                 resourceBundle.addResourceGroupValidity(group, false);
                             }
                         }
@@ -141,9 +168,10 @@ public class CascadingDelete {
     /**
      * @param resourceBundle resourceBundle to be handled
      * @param childRG        rg whose parents have to be handled
+     * @param newInvalidRGs  accumulates every must-have parent group this call escalates the invalidation to
      * @return removes the connection of a invalid ResourceGroup to its parents propagates up if must have attribute.
      */
-    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup childRG) {
+    Set<ResourceGroup> handleParents(ResourceBundle resourceBundle, ResourceGroup childRG, Set<ResourceGroup> newInvalidRGs) {
         Set<ResourceGroup> resourceGroups = new LinkedHashSet<>();
         Set<ResourceAttribute> resourceAttributes = resourceBundle.childResourceGroupToResourceAttributesMap().getOrDefault(childRG, Set.of());
 
@@ -162,6 +190,7 @@ public class CascadingDelete {
                 // Ensure invalidation is applied recursively
                 for (ResourceGroup parentGroup : parentGroups) {
                     resourceBundle.removeAttributefromParentRG(parentGroup, resourceAttribute);
+                    newInvalidRGs.add(parentGroup);
                     resourceBundle.addResourceGroupValidity(parentGroup, false);
                 }
             }

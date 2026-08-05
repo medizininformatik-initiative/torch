@@ -200,7 +200,8 @@ Example completed manifest:
             },
             "Consent": 0,
             "Reference-Not-Found": 0,
-            "Resource-Outside-Batch": 0
+            "Resource-Outside-Batch": 0,
+            "Cascading-Delete": 0
           }
         }
       }

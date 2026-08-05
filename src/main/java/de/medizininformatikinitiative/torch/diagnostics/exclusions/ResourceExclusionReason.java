@@ -7,5 +7,6 @@ public enum ResourceExclusionReason {
     MUST_HAVE,
     CONSENT,
     REFERENCE_NOT_FOUND,
-    RESOURCE_OUTSIDE_BATCH
+    RESOURCE_OUTSIDE_BATCH,
+    CASCADING_DELETE
 }

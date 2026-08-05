@@ -3,6 +3,8 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -18,11 +20,13 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,6 +51,7 @@ import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.jobhandling.JobTest.job;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
@@ -626,6 +631,48 @@ class ExtractDataServiceTest {
             verify(postCascadeMustHaveChecker).validate(rb, directNoPatientGroups);
             verify(spyService, never()).writeBundle(anyString(), any());
             verifyNoInteractions(dataStore);
+        }
+
+        @Test
+        void processCore_recordsCascadingDeleteExclusionForGroupsNewlyInvalidatedByHandleBundle() {
+            UUID jobId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            AnnotatedCrtdl crtdl = job.parameters().crtdl();
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(crtdl)).thenReturn(groups);
+            when(groups.directNoPatientGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            ResourceBundle rb = new ResourceBundle();
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any()))
+                    .thenReturn(Mono.just(rb));
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
+                    .thenReturn(Mono.just(rb));
+
+            ResourceGroup newlyInvalidatedGroup = new ResourceGroup(ExtractionId.fromRelativeUrl("Observation/obs-1"), "group-1");
+            when(cascadingDelete.handleBundle(eq(rb), anyMap())).thenReturn(Set.of(newlyInvalidatedGroup));
+
+            when(dataStore.groupReferencesByTypeInChunks(any())).thenReturn(List.of());
+
+            ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
+            when(transformed.isEmpty()).thenReturn(false);
+
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+                    .thenReturn(transformed);
+
+            doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
+
+            StepVerifier.create(spyService.processCore(job, new ExtractionResourceBundle()))
+                    .assertNext(res -> {
+                        assertThat(res.diagnostics()).isPresent();
+                        assertThat(res.diagnostics().get().batchExclusions().getResourceExclusions())
+                                .extracting(ResourceExclusionEvent::reason, ResourceExclusionEvent::groupId,
+                                        ResourceExclusionEvent::resourceId, ResourceExclusionEvent::patientId, ResourceExclusionEvent::attributeRef)
+                                .containsExactly(tuple(ResourceExclusionReason.CASCADING_DELETE, "group-1", "Observation/obs-1", "", ""));
+                    })
+                    .verifyComplete();
         }
     }
 }

@@ -226,6 +226,67 @@
         },
         {
             "resource": {
+                "resourceType": "Patient",
+                "id": "pat-4",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "other"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Procedure",
+                "id": "proc-2",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-prozedur/StructureDefinition/Procedure"
+                    ]
+                },
+                "status": "completed",
+                "subject": {
+                    "reference": "Patient/pat-4"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/proc-2"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationAdministration",
+                "id": "med-adm-3",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration"
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/pat-4"
+                },
+                "partOf": {
+                    "reference": "Procedure/proc-2"
+                },
+                "reasonReference": [
+                    {
+                        "reference": "Condition/cond-99"
+                    }
+                ]
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationAdministration/med-adm-3"
+            }
+        },
+        {
+            "resource": {
                 "patient": {
                     "reference": "Patient/pat-1"
                 },

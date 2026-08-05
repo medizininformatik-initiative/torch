@@ -1,5 +1,8 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -143,7 +146,7 @@ class ReferenceHandlerTest {
             var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
             var coreBundle = new ResourceBundle();
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -154,7 +157,7 @@ class ReferenceHandlerTest {
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeValid(wrapper.toResourceAttributeGroup());
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -165,7 +168,7 @@ class ReferenceHandlerTest {
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -181,7 +184,7 @@ class ReferenceHandlerTest {
             when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(true);
 
             StepVerifier.create(referenceHandler.handleReferences(
-                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of()))
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(), BatchExclusions.empty()))
                     .assertNext(rg -> assertThat(rg.resourceId()).isEqualTo(MED_ID))
                     .verifyComplete();
         }
@@ -199,7 +202,7 @@ class ReferenceHandlerTest {
             var knownGroup = new ResourceGroup(MED_ID, "grp");
 
             StepVerifier.create(referenceHandler.handleReferences(
-                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(knownGroup)))
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(knownGroup), BatchExclusions.empty()))
                     .verifyComplete();
         }
 
@@ -210,11 +213,54 @@ class ReferenceHandlerTest {
             var coreBundle = new ResourceBundle();
             coreBundle.setResourceAttributeInValid(wrapper.toResourceAttributeGroup());
 
-            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of()))
+            StepVerifier.create(referenceHandler.handleReferences(List.of(wrapper), null, coreBundle, Map.of(), Set.of(), BatchExclusions.empty()))
                     .expectError(MustHaveViolatedException.class)
                     .verify();
 
             assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+        }
+
+        @Test
+        void referenceTargetInvalid_mustHaveTrue_recordsMustHaveExclusion() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var coreBundle = new ResourceBundle();
+            coreBundle.put(med);
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(false);
+            var batchExclusions = BatchExclusions.empty();
+
+            StepVerifier.create(referenceHandler.handleReferences(
+                            List.of(wrapper), null, coreBundle, Map.of("grp", group), Set.of(), batchExclusions))
+                    .verifyComplete();
+
+            assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "", "Obs.ref"));
+        }
+
+        @Test
+        void referenceTargetInvalid_mustHaveTrue_patientBundle_recordsMustHaveExclusion() {
+            var med = new Medication();
+            med.setId("m1");
+            var attr = new AnnotatedAttribute("Obs.ref", "Obs.ref", true, List.of("grp"));
+            var wrapper = new ReferenceWrapper(attr, List.of(MED_ID), "grp", OBS_ID);
+            var patientBundle = new PatientResourceBundle("p1");
+            patientBundle.put(med);
+            var coreBundle = new ResourceBundle();
+            var group = new AnnotatedAttributeGroup("grp", "Medication", "http://profile", List.of(), List.of());
+            when(profileMustHaveChecker.fulfilled(med, group)).thenReturn(false);
+            var batchExclusions = BatchExclusions.empty();
+
+            StepVerifier.create(referenceHandler.handleReferences(
+                            List.of(wrapper), patientBundle, coreBundle, Map.of("grp", group), Set.of(), batchExclusions))
+                    .verifyComplete();
+
+            assertThat(patientBundle.bundle().isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
+            assertThat(batchExclusions.getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "p1", "Obs.ref"));
         }
     }
 }

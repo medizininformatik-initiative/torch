@@ -143,7 +143,8 @@ public class ReferenceResolver {
                         null,
                         coreBundle,
                         groupMap,
-                        coreBundle.getValidResourceGroups())
+                        coreBundle.getValidResourceGroups(),
+                        batchExclusions)
         ).collect(Collectors.toSet())).filter(map -> !map.isEmpty());
 
     }
@@ -293,7 +294,8 @@ public class ReferenceResolver {
                         patientBundle,
                         batch.coreBundle(),
                         groupMap,
-                        patientBundle.getValidResourceGroups()))
+                        patientBundle.getValidResourceGroups(),
+                        batch.batchExclusions()))
                 .collect(Collectors.toSet())
                 .filter(s -> !s.isEmpty());
 

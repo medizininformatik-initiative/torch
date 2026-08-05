@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -46,17 +47,20 @@ public class ReferenceHandler {
     }
 
     /**
-     * @param references    References extracted from a single resource for a single resourceGroup to be handled
-     * @param patientBundle ResourceBundle containing patient information (Optional for core bundle)
-     * @param coreBundle    coreResourceBundle containing the core Resources
-     * @param groupMap      cache containing all known attributeGroups
+     * @param references      References extracted from a single resource for a single resourceGroup to be handled
+     * @param patientBundle   ResourceBundle containing patient information (Optional for core bundle)
+     * @param coreBundle      coreResourceBundle containing the core Resources
+     * @param groupMap        cache containing all known attributeGroups
+     * @param batchExclusions diagnostics accumulator to note the parent group's exclusion if a must-have reference
+     *                        can't be resolved to any valid target
      * @return newly added ResourceGroups to be processed
      */
     public Flux<ResourceGroup> handleReferences(List<ReferenceWrapper> references,
                                                 @Nullable PatientResourceBundle patientBundle,
                                                 ResourceBundle coreBundle,
                                                 Map<String, AnnotatedAttributeGroup> groupMap,
-                                                Set<ResourceGroup> knownGroups) {
+                                                Set<ResourceGroup> knownGroups,
+                                                BatchExclusions batchExclusions) {
         ResourceBundle processingBundleForParent = (patientBundle != null) ? patientBundle.bundle() : coreBundle;
         ResourceGroup parentGroup = new ResourceGroup(references.getFirst().resourceId(), references.getFirst().groupId());
 
@@ -78,8 +82,15 @@ public class ReferenceHandler {
                         .flatMap(List::stream)
                         .toList()))
                 .filter(group -> !knownGroups.contains(group))
-                .onErrorResume(MustHaveViolatedException.class, e -> {
+                .onErrorResume(MustHaveViolatedException.AttributeViolated.class, e -> {
                     processingBundleForParent.addResourceGroupValidity(parentGroup, false);
+                    if (patientBundle != null) {
+                        batchExclusions.addMustHaveExclusion(parentGroup.groupId(), parentGroup.resourceId().toRelativeUrl(),
+                                e.getAttributeRef(), patientBundle.patientId());
+                    } else {
+                        batchExclusions.addMustHaveExclusionCore(parentGroup.groupId(), parentGroup.resourceId().toRelativeUrl(),
+                                e.getAttributeRef());
+                    }
                     logger.warn("MustHaveViolatedException occurred. Stopping resource processing: {}", e.getMessage());
                     return Flux.empty();
                 });

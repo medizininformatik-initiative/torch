@@ -224,7 +224,7 @@ class ReferenceResolverTest {
             // Server can't find the Condition either, so we can observe how each linked group reacts
             // to a missing reference instead of only checking what was requested.
             when(bundleLoader.fetchUnknownResources(anyList(), anyString(), anyMap())).thenReturn(Mono.just(List.of()));
-            when(referenceHandler.handleReferences(anyList(), isNull(), any(), anyMap(), anySet())).thenReturn(Flux.empty());
+            when(referenceHandler.handleReferences(anyList(), isNull(), any(), anyMap(), anySet(), any())).thenReturn(Flux.empty());
 
             StepVerifier.create(resolver.resolveUnknownCoreRefs(Set.of(rg), coreBundle, groupMap, exclusions))
                     .verifyComplete();
@@ -276,7 +276,7 @@ class ReferenceResolverTest {
             // Server can't find the Condition either, so we can observe how each linked group reacts
             // to a missing reference instead of only checking what was requested.
             when(bundleLoader.fetchUnknownResources(anyList(), anyString(), anyMap())).thenReturn(Mono.just(List.of()));
-            when(referenceHandler.handleReferences(anyList(), any(), any(), anyMap(), anySet())).thenReturn(Flux.empty());
+            when(referenceHandler.handleReferences(anyList(), any(), any(), anyMap(), anySet(), any())).thenReturn(Flux.empty());
 
 
             StepVerifier.create(resolver.resolveUnknownPatientBatchRefs(Map.of("p1", Set.of(rg)), batch, groupMap))

@@ -132,6 +132,7 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
                 case CONSENT -> exclusionsPerGroup.get(event.groupId()).incrementConsent();
                 case REFERENCE_NOT_FOUND -> exclusionsPerGroup.get(event.groupId()).incrementRefNotFound();
                 case RESOURCE_OUTSIDE_BATCH -> exclusionsPerGroup.get(event.groupId()).incrementResOutsideBatch();
+                case CASCADING_DELETE -> exclusionsPerGroup.get(event.groupId()).incrementCascadingDelete();
             };
 
             exclusionsPerGroup.put(event.groupId(), newGroupSummary);
@@ -164,24 +165,29 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
      * @param consentExclusions         the sum of consent exclusions
      * @param refNotFoundExclusions     the sum of reference-not-found exclusions
      * @param resOutsideBatchExclusions the sum of resource-outside-batch exclusions
+     * @param cascadingDeleteExclusions the sum of cascading-delete exclusions
      */
     public record GroupSummary(@JsonProperty("Must-Have") Map<String, Integer> mustHaveExclusions,
                                 @JsonProperty("Consent") int consentExclusions,
                                 @JsonProperty("Reference-Not-Found") int refNotFoundExclusions,
-                                @JsonProperty("Resource-Outside-Batch") int resOutsideBatchExclusions) {
+                                @JsonProperty("Resource-Outside-Batch") int resOutsideBatchExclusions,
+                                @JsonProperty("Cascading-Delete") int cascadingDeleteExclusions) {
 
         public static GroupSummary empty() {
-            return new GroupSummary(new HashMap<>(), 0, 0, 0);
+            return new GroupSummary(new HashMap<>(), 0, 0, 0, 0);
         }
 
         public GroupSummary incrementConsent() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions+1, refNotFoundExclusions, resOutsideBatchExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions+1, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions);
         }
         public GroupSummary incrementRefNotFound() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions+1, resOutsideBatchExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions+1, resOutsideBatchExclusions, cascadingDeleteExclusions);
         }
         public GroupSummary incrementResOutsideBatch() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions+1);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions+1, cascadingDeleteExclusions);
+        }
+        public GroupSummary incrementCascadingDelete() {
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions+1);
         }
     }
 

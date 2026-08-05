@@ -25,6 +25,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceB
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -269,7 +270,10 @@ public class ExtractDataService {
                         referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions())))
                 .flatMap(cb -> {
                     logger.debug("Running final cascading delete on core bundle");
-                    executeAndMeasure(PipelineStage.CASCADING_DELETE, diagnostics, () -> cascadingDelete.handleBundle(cb, groupsToProcess.allGroups()));
+                    Set<ResourceGroup> newlyInvalidatedGroups = executeAndMeasure(PipelineStage.CASCADING_DELETE, diagnostics,
+                            () -> cascadingDelete.handleBundle(cb, groupsToProcess.allGroups()));
+                    newlyInvalidatedGroups.forEach(group -> diagnostics.batchExclusions()
+                            .addCascadingDeleteExclusionCore(group.groupId(), group.resourceId().toRelativeUrl()));
                     try {
                         postCascadeMustHaveChecker.validate(cb, groupsToProcess.directNoPatientGroups());
                         return Mono.just(cb);
