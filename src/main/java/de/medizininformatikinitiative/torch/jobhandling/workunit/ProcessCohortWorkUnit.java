@@ -10,6 +10,8 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
     private static final Logger logger = LoggerFactory.getLogger(ProcessCohortWorkUnit.class);
@@ -26,15 +28,15 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
     public Mono<Void> execute(JobExecutionContext ctx) {
         logger.debug("Starting Job creation");
 
-        Mono<List<String>> patientIdsMono =
+        Mono<Map.Entry<List<String>, Optional<Long>>> patientIdsMono =
                 job.parameters().paramBatch().isEmpty()
-                        ? ctx.cohortQueryService().runCohortQuery(job.parameters().crtdl())
-                        : Mono.just(job.parameters().paramBatch());
+                        ? measureCohortQuery(ctx)
+                        : Mono.just(Map.entry(job.parameters().paramBatch(), Optional.empty()));
 
         return patientIdsMono
-                .flatMap(ids ->
+                .flatMap(entry ->
                         Mono.fromCallable(() -> {
-                                    ctx.persistence().onCohortSuccess(job.id(), ids);
+                                    ctx.persistence().onCohortSuccess(job.id(), entry.getKey(), entry.getValue());
                                     return 0;
                                 })
                                 .subscribeOn(Schedulers.boundedElastic())
@@ -62,5 +64,11 @@ public record ProcessCohortWorkUnit(Job job) implements WorkUnit {
                             })
                             .then();
                 });
+    }
+
+    private Mono<Map.Entry<List<String>, Optional<Long>>> measureCohortQuery(JobExecutionContext ctx) {
+        long start = System.nanoTime();
+        return ctx.cohortQueryService().runCohortQuery(job.parameters().crtdl())
+                .map(ids -> Map.entry(ids, Optional.of(System.nanoTime() - start)));
     }
 }

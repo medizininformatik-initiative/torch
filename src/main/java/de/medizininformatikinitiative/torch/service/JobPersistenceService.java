@@ -6,6 +6,7 @@ import com.opencsv.exceptions.CsvValidationException;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
+import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -379,12 +380,13 @@ public class JobPersistenceService {
     }
 
     /**
-     * Applies cohort success: persists batches and advances job state.
+     * Applies cohort success: persists batches, job-wide cohort query timing and advances job state.
      *
      * @param jobId                    job id
      * @param ids                      cohort ids
+     * @param queryDurationNanos       elapsed time of the cohort query, empty if patient IDs were given directly
      */
-    public void onCohortSuccess(UUID jobId, List<String> ids) {
+    public void onCohortSuccess(UUID jobId, List<String> ids, Optional<Long> queryDurationNanos) {
         List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
 
         updateJobAndReturn(jobId, job -> {
@@ -392,6 +394,12 @@ public class JobPersistenceService {
             for (PatientBatch b : batches) {
                 saveBatch(b, jobId);
                 stateMap.put(b.batchId(), new BatchState(b.batchId(), WorkUnitState.initNow()));
+            }
+
+            if (queryDurationNanos.isPresent()) {
+                BatchDiagnostics diagnostics = BatchDiagnostics.empty();
+                diagnostics.batchDetails().nanosElapsed().put(PipelineStage.COHORT_QUERY, queryDurationNanos.get());
+                diagnosticsStore.writeDiagnostics(diagnostics, jobDir(jobId), "cohort");
             }
 
             return new JobAndResult<>(job.onCohortSuccess(stateMap, ids.size()), null);
