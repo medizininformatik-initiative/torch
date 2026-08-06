@@ -427,13 +427,9 @@ public class JobPersistenceService {
         UUID jobId = result.jobId();
 
         updateJobAndReturn(jobId, job -> {
-            result.resultCoreBundle().ifPresent(bundle -> {
-                try {
-                    saveCoreBatch(jobId, result.batchState().batchId(), bundle);
-                } catch (IOException e) {
-                    logger.warn("Failed to save core batch for job {}: {}", jobId, e.getMessage(), e);
-                }
-            });
+            if (result.resultCoreBundle().isPresent()) {
+                saveCoreBatch(jobId, result.batchState().batchId(), result.resultCoreBundle().get());
+            }
 
             result.batchDiagnostics().ifPresent(diag -> {
                 try {
