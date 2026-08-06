@@ -58,7 +58,7 @@ class DiagnosticsStoreTest {
                 DIRECT_LOAD, 7678L,
                 REFERENCE_RESOLVE, 1500L,
                 CASCADING_DELETE, 3439L,
-                COPY_REDACT, 1096L), 5426, 7316);
+                COPY_REDACT, 1096L), 5426, 7316, Map.of(GROUP_1, 12));
         var batchExclusions_1 = BatchExclusions.empty();
         batchExclusions_1.addMustHaveExclusionCore(GROUP_1, RESOURCE_1, ATTRIBUTE_1);
         batchExclusions_1.addReferenceNotFoundExclusionCore(GROUP_1, RESOURCE_1);
@@ -71,7 +71,7 @@ class DiagnosticsStoreTest {
                 DIRECT_LOAD, 4887L,
                 REFERENCE_RESOLVE, 3503L,
                 CASCADING_DELETE, 6772L,
-                COPY_REDACT, 4847L), 8860, 9659);
+                COPY_REDACT, 4847L), 8860, 9659, Map.of(GROUP_2, 34));
         var batchExclusions_2 = BatchExclusions.empty();
         batchExclusions_2.addMustHaveExclusionCore(GROUP_2, RESOURCE_2, ATTRIBUTE_2);
         batchExclusions_2.addReferenceNotFoundExclusionCore(GROUP_2, RESOURCE_2);

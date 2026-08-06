@@ -125,6 +125,59 @@ class ExtractionResourceBundleTest {
     }
 
     @Test
+    void resourceInclusionCounts_countsOncePerGroupPerResource() {
+        ConcurrentHashMap<ExtractionId, ResourceExtractionInfo> infoMap = new ConcurrentHashMap<>(
+                Map.of(
+                        ExtractionId.fromRelativeUrl("Patient/R1"), new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of()),
+                        ExtractionId.fromRelativeUrl("Patient/R2"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
+                )
+        );
+
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(infoMap, CacheBuilder.create()
+                .with("Patient/R1", new Patient().setId("Patient/R1"))
+                .with("Patient/R2", new Patient().setId("Patient/R2"))
+                .build());
+
+        assertThat(bundle.resourceInclusionCounts()).containsExactlyInAnyOrderEntriesOf(Map.of("G1", 2, "G2", 1));
+    }
+
+    @Test
+    void resourceInclusionCounts_excludesMissingOrEmptyCacheEntries() {
+        ConcurrentHashMap<ExtractionId, ResourceExtractionInfo> infoMap = new ConcurrentHashMap<>(
+                Map.of(
+                        ExtractionId.fromRelativeUrl("Patient/R1"), new ResourceExtractionInfo(Set.of("G1"), Map.of()),
+                        ExtractionId.fromRelativeUrl("Patient/R2"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
+                )
+        );
+
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(infoMap, CacheBuilder.create()
+                .with("Patient/R1", new Patient().setId("Patient/R1"))
+                .empty("Patient/R2")
+                .build());
+
+        assertThat(bundle.resourceInclusionCounts()).containsExactlyInAnyOrderEntriesOf(Map.of("G1", 1));
+    }
+
+    @Test
+    void resourceInclusionCounts_appliesIncludeFilter() {
+        ConcurrentHashMap<ExtractionId, ResourceExtractionInfo> infoMap = new ConcurrentHashMap<>(
+                Map.of(
+                        ExtractionId.fromRelativeUrl("Patient/R1"), new ResourceExtractionInfo(Set.of("G1"), Map.of()),
+                        ExtractionId.fromRelativeUrl("Organization/R2"), new ResourceExtractionInfo(Set.of("G1"), Map.of())
+                )
+        );
+
+        ExtractionResourceBundle bundle = new ExtractionResourceBundle(infoMap, CacheBuilder.create()
+                .with("Patient/R1", new Patient().setId("Patient/R1"))
+                .with("Organization/R2", new Patient().setId("Organization/R2"))
+                .build());
+
+        var counts = bundle.resourceInclusionCounts(id -> id.resourceType().equals("Patient"));
+
+        assertThat(counts).containsExactlyInAnyOrderEntriesOf(Map.of("G1", 1));
+    }
+
+    @Test
     void putDoesNotThrowOnIllegalExtractionId() {
         ExtractionResourceBundle bundle = new ExtractionResourceBundle(
                 new ConcurrentHashMap<>(),

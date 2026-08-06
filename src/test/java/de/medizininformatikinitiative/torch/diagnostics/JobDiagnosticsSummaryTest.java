@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
 import static de.medizininformatikinitiative.torch.TestUtils.toMillis;
 import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.CASCADING_DELETE;
@@ -204,6 +205,30 @@ public class JobDiagnosticsSummaryTest {
                 diagnostics.batchExclusions().addCascadingDeleteExclusion(groupId, resourceId, patientId);
                 diagnostics.batchExclusions().addCascadingDeleteExclusionCore(groupId, resourceId);
             }
+        }
+
+        @Test
+        void testResourceInclusions_sameGroupAcrossBatches() {
+            var batch1 = BatchDiagnostics.empty();
+            var batch2 = BatchDiagnostics.empty();
+            batch1.batchDetails().resourceInclusions().merge(GROUP_1, NUM_1, Integer::sum);
+            batch2.batchDetails().resourceInclusions().merge(GROUP_1, NUM_2, Integer::sum);
+
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(batch1, batch2));
+
+            assertThat(summary.resourceInclusions()).containsExactlyInAnyOrderEntriesOf(Map.of(GROUP_1, NUM_1 + NUM_2));
+        }
+
+        @Test
+        void testResourceInclusions_differentGroups() {
+            var batch1 = BatchDiagnostics.empty();
+            var batch2 = BatchDiagnostics.empty();
+            batch1.batchDetails().resourceInclusions().merge(GROUP_1, NUM_1, Integer::sum);
+            batch2.batchDetails().resourceInclusions().merge(GROUP_2, NUM_2, Integer::sum);
+
+            var summary = JobDiagnosticSummary.initFromBatches(List.of(batch1, batch2));
+
+            assertThat(summary.resourceInclusions()).containsExactlyInAnyOrderEntriesOf(Map.of(GROUP_1, NUM_1, GROUP_2, NUM_2));
         }
     }
 
