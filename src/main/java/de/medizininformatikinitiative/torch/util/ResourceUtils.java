@@ -17,7 +17,6 @@ import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -146,53 +145,56 @@ public class ResourceUtils {
         throw new NoSuchMethodException("No such method with one parameter: " + methodName);
     }
 
-    public static void setField(Base base, String fieldName, Extension extension) {
+    /**
+     * Sets a masked ({@code data-absent-reason}) stub value on the named field of {@code base}, constructing an
+     * instance of the field's declared type via reflection.
+     * <p>
+     * For a repeating ({@code List<T>}) field, the stub is appended via the field's getter rather than replacing
+     * the field through its setter, so any existing values already present on the field are preserved.
+     *
+     * @param base      the resource or element to set the field on
+     * @param fieldName the name of the field to set, used to derive the setter/getter method names
+     * @param extension the {@code data-absent-reason} extension to attach to the created stub
+     * @return the created stub instance, or {@code null} if it could not be created via reflection
+     */
+    public static Base setField(Base base, String fieldName, Extension extension) {
         try {
             String capitalized = fieldName.substring(0, 1).toUpperCase() + fieldName.substring(1);
             String setterName = "set" + capitalized;
 
-
             Method setter = ResourceUtils.getMethodWithOneParam(base, setterName);
-
-
             Type[] genericParameterTypes = setter.getGenericParameterTypes();
 
-            Object valueToSet;
-
             if (genericParameterTypes.length == 1 && genericParameterTypes[0] instanceof ParameterizedType paramType) {
-                // Handle List<T>
+                // Handle List<T>: append via the getter instead of replacing the list through the setter, so
+                // existing sibling values (e.g. other already-matched slices) are not discarded.
                 Type actualType = paramType.getActualTypeArguments()[0];
 
                 Class<?> genericClass = Class.forName(actualType.getTypeName());
-                Object instance = genericClass.getDeclaredConstructor().newInstance();
+                Base instance = (Base) genericClass.getDeclaredConstructor().newInstance();
                 Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
-
-
-                List<Object> list = new ArrayList<>();
                 addExtension.invoke(instance, extension);
-                list.add(instance);
-                valueToSet = list;
 
+                Method getter = base.getClass().getMethod("get" + capitalized);
+                @SuppressWarnings("unchecked")
+                List<Base> list = (List<Base>) getter.invoke(base);
+                list.add(instance);
+                return instance;
             } else {
                 // Handle single object
                 Class<?> paramClass = setter.getParameterTypes()[0];
 
-
-                Object instance = paramClass.getDeclaredConstructor().newInstance();
+                Base instance = (Base) paramClass.getDeclaredConstructor().newInstance();
                 Method addExtension = ResourceUtils.getMethodWithOneParam(instance, "addExtension");
-
-
                 addExtension.invoke(instance, extension);
-                valueToSet = instance;
+
+                setter.invoke(base, instance);
+                return instance;
             }
-
-            // Call the setter
-            setter.invoke(base, valueToSet);
-
-
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException |
                  InstantiationException e) {
             logger.error("RESOURCE_REFLECTION_01 Could not set field: {} in class {} due to: {}", fieldName, base.getClass().getSimpleName(), e.getMessage());
+            return null;
         } catch (ClassNotFoundException e) {
             logger.error("RESOURCE_REFLECTION_02 Class not Found for {} {}", fieldName, base.getClass().getSimpleName());
             throw new RuntimeException(e);

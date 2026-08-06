@@ -127,10 +127,12 @@ public class DiscriminatorResolver {
                 if (resolvedChild == null || !resolvedChild.hasValues()) {
                     return false;
                 }
-                Base resolvedChildValue = resolvedChild.getValues().getFirst();
+                // A repeating resolved property (e.g. CodeableConcept.coding) matches a fixed value if any of its
+                // values satisfies it, not only its first - the matching entry need not be first in the source data.
                 Base fixedChildValue = fixedChild.getValues().getFirst();
-                boolean childComparison = compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue);
-                if (!childComparison) {
+                boolean anyMatch = resolvedChild.getValues().stream()
+                        .anyMatch(resolvedChildValue -> compareBaseToFixedOrPattern(resolvedChildValue, fixedChildValue));
+                if (!anyMatch) {
                     return false;
                 }
             }

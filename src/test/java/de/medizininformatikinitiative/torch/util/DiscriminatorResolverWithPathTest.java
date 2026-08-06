@@ -113,6 +113,36 @@ class DiscriminatorResolverWithPathTest {
 
 
     /**
+     * A repeating element (e.g. {@code CodeableConcept.coding}) must match a pattern discriminator if
+     * <i>any</i> of its values satisfies the pattern, not only its first value.
+     */
+    @Test
+    void testResolveDiscriminator_TypeValue_PatternMatchesCodingNotFirstInArray() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.VALUE);
+        when(discriminatorMock.getPath()).thenReturn("code");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.component:SystolicBP");
+
+        ElementDefinition codeElement = new ElementDefinition();
+        CodeableConcept pattern = new CodeableConcept();
+        pattern.addCoding(new Coding("http://loinc.org", "8480-6", null));
+        codeElement.setPattern(pattern);
+        when(snapshotMock.getElementById("Observation.component:SystolicBP.code")).thenReturn(codeElement);
+
+        Observation.ObservationComponentComponent component = new Observation.ObservationComponentComponent();
+        CodeableConcept code = new CodeableConcept();
+        code.addCoding(new Coding("http://snomed.info/sct", "271649006", "Systolic blood pressure (observable entity)"));
+        code.addCoding(new Coding("http://loinc.org", "8480-6", "Blood pressure panel with all children optional"));
+        code.addCoding(new Coding("urn:iso:std:iso:11073:10101", "150017", "Systolic blood pressure"));
+        component.setCode(code);
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(component, slice, discriminatorMock, snapshotMock);
+
+        assertTrue(result, "Should match when any coding in the array matches the pattern, not just the first");
+    }
+
+    /**
      * Test when discriminator type is 'VALUE' but the slice does not have a fixed value at the specified path.
      */
     @Test

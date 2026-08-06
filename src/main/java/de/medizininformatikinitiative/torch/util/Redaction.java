@@ -280,10 +280,10 @@ public class Redaction {
                 // the values addressed slicing at all, and the per-instance masking above already covers them.
                 if (!matchedSliceIds.isEmpty()) {
                     childContexts.missingRequiredSlices(matchedSliceIds)
-                            .forEach(slice -> addMissingSlice(baseElement, child, slice));
+                            .forEach(slice -> addMissingSlice(baseElement, child, slice, childContexts, references));
                 }
             } else if (child.getMinCardinality() > 0 || childContexts.required()) {
-                addDataAbsentReason(baseElement, child, types.getFirst());
+                addDataAbsentReason(baseElement, child, types.getFirst(), childContexts, references);
             }
         });
     }
@@ -310,27 +310,42 @@ public class Redaction {
      * slice is logged and skipped, since there is no type to build a masked stub from.
      * </p>
      */
-    private void addMissingSlice(Base base, Property child, ElementDefinition slice) {
+    private void addMissingSlice(Base base, Property child, ElementDefinition slice, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references) {
         List<String> sliceTypes = slice.getType().stream().map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
         if (sliceTypes.isEmpty()) {
             logger.warn("Missing type for required slice {} in field {} of {}", slice.getId(), child.getName(), base.fhirType());
             return;
         }
-        addDataAbsentReason(base, child, sliceTypes.getFirst());
+        // Redact the stub against the missing slice's own element ID rather than the unsliced childContexts, so
+        // requirements the slice adds beyond the base type (e.g. a child required only within this named slice)
+        // are also honored when masking the stub's own children.
+        MultiElementContext sliceContext = new MultiElementContext(slice.getId(),
+                childContexts.contexts().stream().map(ElementContext::definition).toList());
+        addDataAbsentReason(base, child, sliceTypes.getFirst(), sliceContext, references);
     }
 
     /**
      * Adds a DataAbsentReason for a child property of a base.
+     * <p>
+     * A {@code BackboneElement} stub is appended rather than replacing the property outright, so existing
+     * sibling values (e.g. other matched slices already present on a repeating property) are preserved. Its
+     * own required children are then recursively redacted, since a bare {@code data-absent-reason} extension
+     * on the stub does not by itself satisfy the base FHIR cardinality of children such as {@code component.code}.
      *
-     * @param base  the parent of the child
-     * @param child property without values to be checked
-     * @param type  type of the child to be handled
+     * @param base         the parent of the child
+     * @param child        property without values to be checked
+     * @param type         type of the child to be handled
+     * @param childContexts context describing {@code child}, used to redact a BackboneElement stub's own children
+     * @param references   Map of allowed references, forwarded when redacting a BackboneElement stub's children
      */
-    private void addDataAbsentReason(Base base, Property child, String type) {
+    private void addDataAbsentReason(Base base, Property child, String type, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references) {
         type = type.replaceFirst("^[^(|]*[(|]", "");
         try {
             if ("BackboneElement".equals(type)) {
-                ResourceUtils.setField(base, child.getName(), createAbsentReasonExtension(MASKED));
+                Base stub = ResourceUtils.setField(base, child.getName(), createAbsentReasonExtension(MASKED));
+                if (stub != null) {
+                    redactChildren(stub, childContexts, references);
+                }
             } else {
                 Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
                 base.setProperty(child.getName(), element);
