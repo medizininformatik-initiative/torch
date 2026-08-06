@@ -20,6 +20,7 @@ import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.Nested;
@@ -36,6 +37,7 @@ import java.util.Set;
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 public class RedactionTest {
 
@@ -49,6 +51,7 @@ public class RedactionTest {
     public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
     public static final String ENCOUNTER = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
+    public static final String BLOOD_PRESSURE = "https://gematik.de/fhir/isik/StructureDefinition/ISiKBlutdruckSystemischArteriell";
 
     private final IntegrationTestSetup integrationTestSetup;
 
@@ -68,6 +71,87 @@ public class RedactionTest {
         DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
+    }
+
+    /**
+     * Reproduces #1168: a component's {@code code.coding} array matches a slice's pattern only if the
+     * matching coding is somewhere in the array, not just at the first position.
+     */
+    @Test
+    void bloodPressureComponentMatchesSliceRegardlessOfCodingOrder() throws RedactionException {
+        Observation observation = new Observation();
+        observation.setId("bp1");
+        Meta meta = new Meta();
+        meta.addProfile(BLOOD_PRESSURE);
+        observation.setMeta(meta);
+
+        Observation.ObservationComponentComponent systolic = observation.addComponent();
+        CodeableConcept systolicCode = new CodeableConcept();
+        systolicCode.addCoding(new Coding("http://snomed.info/sct", "271649006", "Systolic blood pressure (observable entity)"));
+        systolicCode.addCoding(new Coding("http://loinc.org", "8480-6", "Systolic blood pressure"));
+        systolicCode.addCoding(new Coding("urn:iso:std:iso:11073:10101", "150017", "Systolic blood pressure"));
+        systolic.setCode(systolicCode);
+        systolic.setValue(new Quantity().setValue(128).setUnit("millimeter Mercury column").setSystem("http://unitsofmeasure.org").setCode("mm[Hg]"));
+
+        Observation.ObservationComponentComponent diastolic = observation.addComponent();
+        CodeableConcept diastolicCode = new CodeableConcept();
+        diastolicCode.addCoding(new Coding("http://snomed.info/sct", "271650006", "Diastolic blood pressure (observable entity)"));
+        diastolicCode.addCoding(new Coding("http://loinc.org", "8462-4", "Diastolic blood pressure"));
+        diastolicCode.addCoding(new Coding("urn:iso:std:iso:11073:10101", "150018", "Diastolic blood pressure"));
+        diastolic.setCode(diastolicCode);
+        diastolic.setValue(new Quantity().setValue(76).setUnit("millimeter Mercury column").setSystem("http://unitsofmeasure.org").setCode("mm[Hg]"));
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(observation, Set.of(BLOOD_PRESSURE), Map.of(), new CopyTreeNode("dummy"));
+        Observation tgt = (Observation) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(tgt.getComponent()).hasSize(2);
+        assertThat(tgt.getComponent().get(0).getCode().getCoding())
+                .extracting(Coding::getSystem, Coding::getCode)
+                .contains(tuple("http://snomed.info/sct", "271649006"));
+        assertThat(tgt.getComponent().get(0).getValueQuantity().getValue()).isEqualByComparingTo("128");
+        assertThat(tgt.getComponent().get(0).getValueQuantity().getCode()).isEqualTo("mm[Hg]");
+        assertThat(tgt.getComponent().get(1).getCode().getCoding())
+                .extracting(Coding::getSystem, Coding::getCode)
+                .contains(tuple("http://snomed.info/sct", "271650006"));
+        assertThat(tgt.getComponent().get(1).getValueQuantity().getValue()).isEqualByComparingTo("76");
+        assertThat(tgt.getComponent().get(1).getValueQuantity().getCode()).isEqualTo("mm[Hg]");
+    }
+
+    /**
+     * A required named slice (here {@code DiastolicBP}) entirely absent from the source data gets a masked
+     * stub appended, without discarding already-processed sibling components (e.g. a present {@code SystolicBP}).
+     * The stub's own required children (e.g. {@code code}) are themselves masked rather than left absent,
+     * since a bare {@code data-absent-reason} on the stub alone does not satisfy their base FHIR cardinality.
+     */
+    @Test
+    void missingRequiredSliceAppendsStubWithoutDiscardingExistingComponents() throws RedactionException {
+        Observation observation = new Observation();
+        observation.setId("bp2");
+        Meta meta = new Meta();
+        meta.addProfile(BLOOD_PRESSURE);
+        observation.setMeta(meta);
+
+        Observation.ObservationComponentComponent systolic = observation.addComponent();
+        CodeableConcept systolicCode = new CodeableConcept();
+        systolicCode.addCoding(new Coding("http://snomed.info/sct", "271649006", "Systolic blood pressure (observable entity)"));
+        systolicCode.addCoding(new Coding("http://loinc.org", "8480-6", "Systolic blood pressure"));
+        systolic.setCode(systolicCode);
+        systolic.setValue(new Quantity().setValue(128).setUnit("millimeter Mercury column").setSystem("http://unitsofmeasure.org").setCode("mm[Hg]"));
+        // DiastolicBP (also required by the profile) is intentionally left absent from the source data.
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(observation, Set.of(BLOOD_PRESSURE), Map.of(), new CopyTreeNode("dummy"));
+        Observation tgt = (Observation) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(tgt.getComponent()).hasSize(2);
+        assertThat(tgt.getComponent().get(0).getCode().getCoding())
+                .extracting(Coding::getSystem, Coding::getCode)
+                .contains(tuple("http://snomed.info/sct", "271649006"));
+        assertThat(tgt.getComponent().get(0).getValueQuantity().getValue()).isEqualByComparingTo("128");
+
+        Observation.ObservationComponentComponent stub = tgt.getComponent().get(1);
+        assertThat(stub.getExtensionsByUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason")).isNotEmpty();
+        assertThat(stub.hasCode()).isTrue();
+        assertThat(stub.getCode().getExtensionsByUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason")).isNotEmpty();
     }
 
     @Test
@@ -155,6 +239,9 @@ public class RedactionTest {
         expectedMedication.setMeta(meta);
         Medication.MedicationIngredientComponent ingredient = new Medication.MedicationIngredientComponent();
         ingredient.addExtension(createAbsentReasonExtension("masked"));
+        CodeableConcept item = new CodeableConcept();
+        item.addExtension(createAbsentReasonExtension("masked"));
+        ingredient.setItem(item);
         expectedMedication.setIngredient(List.of(ingredient));
 
 
