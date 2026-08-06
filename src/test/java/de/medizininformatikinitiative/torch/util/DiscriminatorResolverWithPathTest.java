@@ -111,6 +111,26 @@ class DiscriminatorResolverWithPathTest {
         assertFalse(result, "Should return false when discriminator path does not exist in the snapshot");
     }
 
+    /**
+     * Test when discriminator type is 'TYPE' and its path does not resolve to an element in the snapshot, as
+     * happens for reference-resolving paths like {@code $this.resolve()} used to slice by the referenced
+     * resource's type. Must return false rather than throw, like the 'VALUE'/'PATTERN' case above already does.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_PathDoesNotExist() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:attached-image");
+        when(snapshotMock.getElementById("Observation.derivedFrom:attached-image.$this.resolve()")).thenReturn(null);
+
+        Reference reference = new Reference("DocumentReference/123");
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock);
+
+        assertFalse(result, "Should return false, not throw, when a type discriminator's path does not resolve in the snapshot");
+    }
+
 
     /**
      * A repeating element (e.g. {@code CodeableConcept.coding}) must match a pattern discriminator if

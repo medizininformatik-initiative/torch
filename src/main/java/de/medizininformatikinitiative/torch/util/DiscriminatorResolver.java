@@ -202,8 +202,9 @@ public class DiscriminatorResolver {
 
         ElementDefinition elementContainingInfo = resolveSlicePath(slice, discriminator, snapshot);
 
-        // Check if the element contains any type information
-        if (elementContainingInfo.getType().isEmpty()) {
+        // resolveSlicePath returns null for a non-"$this" path that doesn't resolve in the snapshot, e.g. a
+        // reference-resolving path such as "$this.resolve()".
+        if (elementContainingInfo == null || elementContainingInfo.getType().isEmpty()) {
             return false; // No type information means the type cannot be resolved, so return false
         }
 
