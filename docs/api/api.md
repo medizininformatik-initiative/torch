@@ -114,6 +114,13 @@ If `core.ndjson` contains resources but **no patient batch files are present**, 
 
 > **No patient survived the extraction**, but core (non-patient) resources were still loaded.
 
+#### Consent Audit Files
+
+Per batch, TORCH may additionally write a `<batchId>_consent.ndjson` file holding the minimized `Consent`/`Encounter`
+resources used to compute patient consent decisions, for independent audit. These files are linked from the
+[Task API](./task-api.md#consent-audit-output), not from this endpoint's `output` array. See that page for details on
+when they're written and what they contain.
+
 ---
 
 ### Job Completion Manifest Extensions
