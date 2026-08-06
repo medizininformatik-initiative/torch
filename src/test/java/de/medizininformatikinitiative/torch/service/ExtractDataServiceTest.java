@@ -18,6 +18,7 @@ import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
@@ -93,6 +94,8 @@ class ExtractDataServiceTest {
     PostCascadeMustHaveChecker postCascadeMustHaveChecker;
     @Mock
     TorchProperties torchProperties;
+    @Mock
+    CompartmentManager compartmentManager;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -129,7 +132,8 @@ class ExtractDataServiceTest {
                 consentHandler,
                 dataStore,
                 postCascadeMustHaveChecker,
-                torchProperties
+                torchProperties,
+                compartmentManager
         );
         spyService = Mockito.spy(service);
     }
@@ -183,6 +187,7 @@ class ExtractDataServiceTest {
                         .thenReturn(ofResult);
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
                 when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
                         .thenReturn(extracted);
 
@@ -206,6 +211,68 @@ class ExtractDataServiceTest {
 
                 verifyNoInteractions(consentHandler); // consentCodes empty branch
                 verify(spyService).writeBatch(jobId.toString(), extracted);
+            }
+        }
+
+        @Test
+        void processBatch_recordsResourceInclusionCounts() {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+            when(groups.directPatientCompartmentGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState finishedState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(finishedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            BatchDiagnostics diagnostics = BatchDiagnostics.empty();
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
+            when(bwc.diagnostics()).thenReturn(diagnostics);
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
+                    .thenReturn(Mono.just(bwc));
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(Mono.just(bwc));
+            when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(bwc);
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any()))
+                        .thenReturn(ofResult);
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of("G1", 3, "G2", 1));
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                        .thenReturn(extracted);
+
+                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> assertThat(res.batchState()).isSameAs(finishedState))
+                        .verifyComplete();
+
+                assertThat(diagnostics.batchDetails().resourceInclusions())
+                        .containsExactlyInAnyOrderEntriesOf(Map.of("G1", 3, "G2", 1));
             }
         }
 
@@ -265,6 +332,7 @@ class ExtractDataServiceTest {
                         .thenReturn(ofResult);
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
                 when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
                         .thenReturn(extracted);
 
@@ -338,6 +406,7 @@ class ExtractDataServiceTest {
                         .thenReturn(ofResult);
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
                 when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
                         .thenReturn(extracted);
 
@@ -446,6 +515,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.isEmpty()).thenReturn(true);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
                 when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap())).thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -573,6 +643,7 @@ class ExtractDataServiceTest {
             ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
             when(transformed.isEmpty()).thenReturn(true);
 
+            when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
             when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
                     .thenReturn(transformed);
 
@@ -610,6 +681,7 @@ class ExtractDataServiceTest {
             ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
             when(transformed.isEmpty()).thenReturn(false);
 
+            when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
             when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
                     .thenReturn(transformed);
 
@@ -623,6 +695,41 @@ class ExtractDataServiceTest {
                     .verifyComplete();
 
             verify(spyService).writeBundle(jobId.toString(), transformed);
+        }
+
+        @Test
+        void processCore_recordsResourceInclusionCounts() {
+            UUID jobId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+            AnnotatedCrtdl crtdl = job.parameters().crtdl();
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(crtdl)).thenReturn(groups);
+            when(groups.directNoPatientGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            ResourceBundle rb = new ResourceBundle();
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any()))
+                    .thenReturn(Mono.just(rb));
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any()))
+                    .thenReturn(Mono.just(rb));
+
+            when(dataStore.groupReferencesByTypeInChunks(any())).thenReturn(List.of());
+
+            ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
+            when(transformed.isEmpty()).thenReturn(false);
+            when(transformed.resourceInclusionCounts()).thenReturn(Map.of("G1", 2));
+
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+                    .thenReturn(transformed);
+
+            doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
+
+            StepVerifier.create(spyService.processCore(job, new ExtractionResourceBundle()))
+                    .assertNext(res -> assertThat(res.diagnostics().orElseThrow().batchDetails().resourceInclusions())
+                            .containsExactlyInAnyOrderEntriesOf(Map.of("G1", 2)))
+                    .verifyComplete();
         }
 
         @Test

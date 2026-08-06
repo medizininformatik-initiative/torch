@@ -203,6 +203,9 @@ Example completed manifest:
             "Resource-Outside-Batch": 0,
             "Cascading-Delete": 0
           }
+        },
+        "Resource-Inclusions": {
+          "med-adm-group": 12
         }
       }
     },

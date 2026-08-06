@@ -17,6 +17,7 @@ import de.medizininformatikinitiative.torch.jobhandling.result.BatchResult;
 import de.medizininformatikinitiative.torch.jobhandling.result.BatchSelection;
 import de.medizininformatikinitiative.torch.jobhandling.result.CoreResult;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
+import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.ProcessedGroupFactory;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
@@ -52,7 +53,8 @@ import static java.util.Objects.requireNonNull;
  * <p>Provides batch processing via {@link #processBatch(BatchSelection)} and core processing
  * via {@link #processCore(Job, ExtractionResourceBundle)}.
  *
- * <p>Diagnostics are collected through {@link BatchExclusions} on the happy path.
+ * <p>Diagnostics are collected through {@link BatchExclusions} and the resource-inclusion counts
+ * in {@link de.medizininformatikinitiative.torch.diagnostics.BatchDetails} on the happy path.
  * Unexpected failures are not swallowed and bubble up as {@link Mono#error} so callers can
  * route them through the job failure handling logic.
  *
@@ -77,6 +79,7 @@ public class ExtractDataService {
     private final DataStore dataStore;
     private final PostCascadeMustHaveChecker postCascadeMustHaveChecker;
     private final TorchProperties torchProperties;
+    private final CompartmentManager compartmentManager;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -88,7 +91,8 @@ public class ExtractDataService {
                               ConsentHandler consentHandler,
                               DataStore dataStore,
                               PostCascadeMustHaveChecker postCascadeMustHaveChecker,
-                              TorchProperties torchProperties) {
+                              TorchProperties torchProperties,
+                              CompartmentManager compartmentManager) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -100,6 +104,7 @@ public class ExtractDataService {
         this.dataStore = requireNonNull(dataStore);
         this.postCascadeMustHaveChecker = requireNonNull(postCascadeMustHaveChecker);
         this.torchProperties = requireNonNull(torchProperties);
+        this.compartmentManager = requireNonNull(compartmentManager);
     }
 
     private static void logMemory(UUID id) {
@@ -192,6 +197,10 @@ public class ExtractDataService {
         diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
     }
 
+    private static void recordResourceInclusions(BatchDiagnostics diagnostics, Map<String, Integer> counts) {
+        counts.forEach((groupId, count) -> diagnostics.batchDetails().resourceInclusions().merge(groupId, count, Integer::sum));
+    }
+
     /**
      * Continues batch processing once consent has been resolved.
      *
@@ -226,9 +235,15 @@ public class ExtractDataService {
                         filterPostCascadeMustHaveViolations(patientBatch, groupsToProcess.directPatientCompartmentGroups()))
                 .doOnNext(loadedBatch ->
                         logger.debug("Batch resolved references {} with {} patients",batchId, loadedBatch.patientIds().size()))
-                .map(patientBatch ->
-                        executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
-                                batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups())))
+                .map(patientBatch -> {
+                    ExtractionPatientBatch transformed = executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
+                            batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()));
+                    // Non-compartment resources are handed off to processCore() via toCoreBundle() and counted there instead,
+                    // to avoid counting them twice.
+                    recordResourceInclusions(patientBatch.diagnostics(),
+                            transformed.resourceInclusionCounts(compartmentManager::isInCompartment));
+                    return transformed;
+                })
                 .doOnNext(__ -> logger.debug("Batch finished extraction {}", batchId))
                 .flatMap(extractedBatch ->
                         writeBatch(jobId.toString(), extractedBatch)
@@ -302,6 +317,7 @@ public class ExtractDataService {
                 .flatMap(cb -> {
                     ExtractionResourceBundle transformed = executeAndMeasure(PipelineStage.COPY_REDACT, diagnostics, () ->
                                     batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups()));
+                    recordResourceInclusions(diagnostics, transformed.resourceInclusionCounts());
 
                     if (transformed.isEmpty()) {
                         return Mono.just(new CoreResult(job.id(), List.of(), WorkUnitStatus.SKIPPED,

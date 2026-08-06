@@ -83,4 +83,26 @@ class ExtractionPatientBatchTest {
 
         assertThat(batch.totalResources()).isEqualTo(2L);
     }
+
+    @Test
+    void resourceInclusionCounts_sumsAcrossPatientBundles() {
+        var id1 = ExtractionId.fromRelativeUrl("Patient/1");
+        var infoMap1 = new ConcurrentHashMap<ExtractionId, ResourceExtractionInfo>();
+        infoMap1.put(id1, new ResourceExtractionInfo(Set.of("G1"), Map.of()));
+        var cache1 = new ConcurrentHashMap<ExtractionId, Optional<Resource>>();
+        cache1.put(id1, Optional.of(new Patient()));
+
+        var id2 = ExtractionId.fromRelativeUrl("Patient/2");
+        var infoMap2 = new ConcurrentHashMap<ExtractionId, ResourceExtractionInfo>();
+        infoMap2.put(id2, new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of()));
+        var cache2 = new ConcurrentHashMap<ExtractionId, Optional<Resource>>();
+        cache2.put(id2, Optional.of(new Patient()));
+
+        var batch = new ExtractionPatientBatch(Map.of(
+                "p1", new ExtractionResourceBundle(infoMap1, cache1),
+                "p2", new ExtractionResourceBundle(infoMap2, cache2)
+        ), UUID.randomUUID());
+
+        assertThat(batch.resourceInclusionCounts()).containsExactlyInAnyOrderEntriesOf(Map.of("G1", 2, "G2", 1));
+    }
 }

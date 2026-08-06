@@ -265,7 +265,7 @@ public class DiagnosticsBlackBoxIT {
         var jobSummary = optionalSummary.get();
         assertThat(jobSummary.numCohortPatients()).isEqualTo(1);
         assertThat(jobSummary.numFinalPatients()).isEqualTo(0);
-        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PipelineStage.values());
+        assertThat(jobSummary.durationSummaries().keySet()).containsExactlyInAnyOrder(PER_BATCH_STAGES);
         assertThat(jobSummary.durationSummaries().values()).allSatisfy(duration -> {
             assertThat(duration.averageMs()).isGreaterThanOrEqualTo(0);
             assertThat(duration.medianMs()).isGreaterThanOrEqualTo(0);

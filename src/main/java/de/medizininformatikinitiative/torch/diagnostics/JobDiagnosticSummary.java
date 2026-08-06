@@ -25,18 +25,20 @@ import java.util.stream.Collectors;
  *                              measurement and is therefore reported separately via {@code cohortQueryDurationMs}
  * @param patientSummaries      sum amount of patient exclusion events across all batches
  * @param resourceSummaries     resource exclusion events grouped by AttributeGroup-ID
+ * @param resourceInclusions    resources that successfully completed extraction, grouped by AttributeGroup-ID
  */
 public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numCohortPatients,
                                    @JsonProperty("Num-Final-Patients") int numFinalPatients,
                                    @JsonProperty("Cohort-Query-Duration-Ms") Long cohortQueryDurationMs,
                                    @JsonProperty("Duration-Measurements") Map<PipelineStage, DurationSummary> durationSummaries,
                                    @JsonProperty("Patient-Exclusions") Map<PatientExclusionStage, Integer> patientSummaries,
-                                   @JsonProperty("Resource-Exclusions")Map<String, GroupSummary> resourceSummaries
+                                   @JsonProperty("Resource-Exclusions")Map<String, GroupSummary> resourceSummaries,
+                                   @JsonProperty("Resource-Inclusions") Map<String, Integer> resourceInclusions
 ) {
 
     public static JobDiagnosticSummary empty() {
         return new JobDiagnosticSummary(0, 0, null, new HashMap<>(),
-                new HashMap<>(), new HashMap<>()
+                new HashMap<>(), new HashMap<>(), new HashMap<>()
         );
     }
 
@@ -51,10 +53,11 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
         var durations = computeTimingSummary(batchDiagnostics);
         var resourcesExclusions = computeResourceSummaries(batchDiagnostics);
         var patientExclusions =  computePatientSummaries(batchDiagnostics);
+        var resourceInclusions = computeResourceInclusionSummary(batchDiagnostics);
         var cohortPatients = sumCohortPatients(batchDiagnostics);
         var finalPatients = sumFinalPatients(batchDiagnostics);
 
-        return new JobDiagnosticSummary(cohortPatients, finalPatients, cohortQueryDurationMs, durations, patientExclusions, resourcesExclusions);
+        return new JobDiagnosticSummary(cohortPatients, finalPatients, cohortQueryDurationMs, durations, patientExclusions, resourcesExclusions, resourceInclusions);
     }
 
     /**
@@ -169,6 +172,20 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
         }));
 
         return exclusionsPerGroup;
+    }
+
+    /**
+     * Computes the sum of successfully extracted resources per AttributeGroup across all batch diagnostics.
+     *
+     * @param diagnostics   the batch diagnostics of each batch of the job
+     * @return              the accumulated resource inclusions per AttributeGroup-ID
+     */
+    private static Map<String, Integer> computeResourceInclusionSummary(List<BatchDiagnostics> diagnostics) {
+        Map<String, Integer> resourceInclusions = new HashMap<>();
+        diagnostics.forEach(d -> d.batchDetails().resourceInclusions()
+                .forEach((groupId, count) -> resourceInclusions.merge(groupId, count, Integer::sum)));
+
+        return resourceInclusions;
     }
 
     /**

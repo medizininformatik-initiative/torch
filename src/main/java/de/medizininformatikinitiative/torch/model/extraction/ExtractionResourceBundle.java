@@ -23,6 +23,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static org.hl7.fhir.r4.model.Bundle.BundleType.TRANSACTION;
@@ -115,6 +116,35 @@ public record ExtractionResourceBundle(ConcurrentHashMap<ExtractionId, ResourceE
 
         return new ExtractionResourceBundle(new ConcurrentHashMap<>(mergedInfo),   // deep immutable
                 newCache);
+    }
+
+    /**
+     * Counts resources that successfully completed extraction (i.e. have a resolved cache entry), grouped by
+     * AttributeGroup-ID. A resource valid for multiple groups is counted once per group.
+     *
+     * @return groupId to count of successfully extracted resources
+     */
+    public Map<String, Integer> resourceInclusionCounts() {
+        return resourceInclusionCounts(id -> true);
+    }
+
+    /**
+     * Counts resources that successfully completed extraction (i.e. have a resolved cache entry) and are accepted by
+     * {@code includeFilter}, grouped by AttributeGroup-ID. A resource valid for multiple groups is counted once per
+     * group.
+     *
+     * @param includeFilter predicate deciding which resources are counted (e.g. to avoid double-counting resources
+     *                      that are handed off to a later processing stage for a final count there)
+     * @return groupId to count of successfully extracted resources
+     */
+    public Map<String, Integer> resourceInclusionCounts(Predicate<ExtractionId> includeFilter) {
+        Map<String, Integer> counts = new HashMap<>();
+        extractionInfoMap.forEach((id, info) -> {
+            if (includeFilter.test(id) && cache.getOrDefault(id, Optional.empty()).isPresent()) {
+                info.groups().forEach(groupId -> counts.merge(groupId, 1, Integer::sum));
+            }
+        });
+        return counts;
     }
 
     /**
