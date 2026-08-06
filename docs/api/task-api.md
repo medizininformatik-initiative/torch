@@ -64,6 +64,43 @@ A job's status is only final (no further transitions) for `COMPLETED`, `FAILED`,
 `HIGH`-priority jobs are picked up by workers ahead of `NORMAL` ones (see [`PUT /fhir/Task/{id}`](#updating-priority)
 below to change it after creation).
 
+## Consent Audit Output
+
+Once a job reaches `COMPLETED`, `Task.output` may contain one entry per batch for which a consent audit trail was
+written to disk. Each entry has `output.type.text` set to `Consent audit NDJSON` and `output.valueUrl` pointing to
+the batch's audit file:
+
+```
+{torch.output.file.server.url}/<jobId>/<batchId>_consent.ndjson
+```
+
+```json
+{
+  "resourceType": "Task",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "output": [
+    {
+      "type": { "text": "Consent audit NDJSON" },
+      "valueUrl": "http://fileserver/550e8400-e29b-41d4-a716-446655440000/3fa85f64-5717-4562-b3fc-2c963f66afa6_consent.ndjson"
+    }
+  ]
+}
+```
+
+An entry appears as soon as the corresponding `{batchId}_consent.ndjson` file exists — this includes batches
+skipped for lack of consenting patients, not just finished ones, so consent decisions stay auditable either way. It's
+absent for a batch whose audit was empty, e.g. because the CRTDL requires no consent and no `Consent`/`Encounter`
+data was ever fetched for it.
+
+Each line of the linked file is a FHIR `Bundle` (`collection`) for one patient, holding the minimized
+`Consent`/`Encounter` resources used to calculate that patient's consent time window:
+
+| Resource    | Fields kept                                                        |
+|-------------|---------------------------------------------------------------------|
+| `Consent`   | `id`, `meta.profile`, `patient`, `provision`, `dateTime`, `status` |
+| `Encounter` | `id`, `meta.profile`, `subject`, `period`                          |
+
 ---
 
 ## Searching Tasks
