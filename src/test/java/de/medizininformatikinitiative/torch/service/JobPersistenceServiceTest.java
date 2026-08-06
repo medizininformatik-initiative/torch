@@ -1220,6 +1220,44 @@ class JobPersistenceServiceTest {
     }
 
     @Nested
+    class OnBatchProcessingSuccessTests {
+
+        @TempDir
+        Path baseDir;
+
+        @Test
+        void coreBatchWriteIOException_propagatesAndMarksJobTempFailed() throws IOException {
+            FileIo spyIo = spy(new DefaultFileIO());
+            JobPersistenceService service = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
+                    new DiagnosticsStore(spyIo, MAPPER));
+            service.init();
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+            service.selectNextWorkUnit();
+            service.onCohortSuccess(jobId, List.of(), Optional.empty());
+
+            ResourceExtractionInfo rei = new ResourceExtractionInfo(
+                    Set.of("G1"),
+                    Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1")))
+            );
+            ExtractionResourceBundle coreBundle = new ExtractionResourceBundle(
+                    new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("r/rid-1"), rei)),
+                    new ConcurrentHashMap<>()
+            );
+            BatchState batchState = BatchState.init();
+            batchState.finishNow(WorkUnitStatus.FINISHED);
+            BatchResult result = new BatchResult(jobId, batchState.batchId(), batchState,
+                    Optional.of(coreBundle), Optional.empty(), List.of());
+
+            doThrow(new IOException("Disk full"))
+                    .when(spyIo).newBufferedWriter(argThat(p -> p.toString().contains("core_batches")));
+
+            service.onBatchProcessingSuccess(result);
+
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.TEMP_FAILED);
+        }
+    }
+
+    @Nested
     class UpdateJobAndReturnBranchTests {
 
         @TempDir
