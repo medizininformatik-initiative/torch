@@ -133,6 +133,75 @@ class DiscriminatorResolverWithPathTest {
 
 
     /**
+     * Test when discriminator type is 'TYPE' and its path resolves to a child of the sliced element (e.g.
+     * {@code Bundle.entry} sliced by type at path {@code resource}, as done by ISiKBerichtBundle). The type
+     * comparison must use the resolved child's type, not the outer sliced element's own type.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_PathResolvesToChildResource() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("resource");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Bundle.entry:Composition");
+
+        ElementDefinition resourceElement = createElementWithType("Bundle.entry:Composition.resource", "Bundle.entry.resource", "Composition");
+        when(snapshotMock.getElementById("Bundle.entry:Composition.resource")).thenReturn(resourceElement);
+
+        Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
+        entry.setResource(new Composition());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+
+        assertTrue(result, "Should match against the resolved child at the discriminator path, not the outer sliced element itself");
+    }
+
+    /**
+     * Same shape as above, but the child's actual type does not match the slice's declared type.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_PathResolvesToChildResource_TypeMismatch() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("resource");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Bundle.entry:Composition");
+
+        ElementDefinition resourceElement = createElementWithType("Bundle.entry:Composition.resource", "Bundle.entry.resource", "Composition");
+        when(snapshotMock.getElementById("Bundle.entry:Composition.resource")).thenReturn(resourceElement);
+
+        Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
+        entry.setResource(new Patient());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+
+        assertFalse(result, "Should not match when the resolved child's type differs from the slice's declared type");
+    }
+
+    /**
+     * Same shape again, but the discriminator path does not resolve on the actual base instance (e.g. the entry's
+     * {@code resource} is unset). {@code resolveElementPath} then returns null and resolveType must return false
+     * rather than throw a NullPointerException.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_PathResolvesToChildResource_ChildUnset() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("resource");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Bundle.entry:Composition");
+
+        ElementDefinition resourceElement = createElementWithType("Bundle.entry:Composition.resource", "Bundle.entry.resource", "Composition");
+        when(snapshotMock.getElementById("Bundle.entry:Composition.resource")).thenReturn(resourceElement);
+
+        Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+
+        assertFalse(result, "Should return false, not throw, when the discriminator path does not resolve on the actual base instance");
+    }
+
+    /**
      * A repeating element (e.g. {@code CodeableConcept.coding}) must match a pattern discriminator if
      * <i>any</i> of its values satisfies the pattern, not only its first value.
      */
