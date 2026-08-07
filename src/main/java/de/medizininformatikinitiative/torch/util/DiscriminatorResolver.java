@@ -208,8 +208,14 @@ public class DiscriminatorResolver {
             return false; // No type information means the type cannot be resolved, so return false
         }
 
+        Base resolvedBase = resolveElementPath(base, discriminator);
+
+        if (resolvedBase == null) {
+            return false;
+        }
+
         // Proceed with the type comparison
-        return elementContainingInfo.getType().stream().anyMatch(x -> base.fhirType().equalsIgnoreCase(x.getCode()));
+        return elementContainingInfo.getType().stream().anyMatch(x -> resolvedBase.fhirType().equalsIgnoreCase(x.getCode()));
     }
 
 
