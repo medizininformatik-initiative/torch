@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0-beta.7.2] - 2026-08-09
+
+### Added
+
+- Add Heap Warn Log [#1147](https://github.com/medizininformatik-initiative/torch/pull/1147)
+- Verify Cohort Patient Count Against Exclusions And Final Patients [#1151](https://github.com/medizininformatik-initiative/torch/pull/1151)
+- Expose Torch Prometheus Metrics Endpoint [#1156](https://github.com/medizininformatik-initiative/torch/pull/1156)
+- Add Positive Outcome To Diagnostics [#1166](https://github.com/medizininformatik-initiative/torch/pull/1166)
+
+### Changed
+
+- Improve Job Diagnostics [#1089](https://github.com/medizininformatik-initiative/torch/pull/1089)
+- Hand Must Have Violation Information Over In Cascading Delete [#1152](https://github.com/medizininformatik-initiative/torch/pull/1152)
+- Extend Diagnostics [#1154](https://github.com/medizininformatik-initiative/torch/pull/1154)
+- Extract Consent Source Data and Encounter Metadata Separately [#1161](https://github.com/medizininformatik-initiative/torch/pull/1161)
+- Extend PatientListParams [#1169](https://github.com/medizininformatik-initiative/torch/pull/1169)
+- Update hapi to v6.10.1 [#1176](https://github.com/medizininformatik-initiative/torch/pull/1176)
+
+### Fixed
+
+- Fix Core Batch Write Failures Being Silently Swallowed in JobPersistenceService [#1170](https://github.com/medizininformatik-initiative/torch/pull/1170)
+- Fix Discriminator Pattern Matching Only First Value Of Repeating Elements [#1171](https://github.com/medizininformatik-initiative/torch/pull/1171)
+- Fix NullPointerException In DiscriminatorResolver.resolveType For Unresolvable Type Discriminator Paths [#1175](https://github.com/medizininformatik-initiative/torch/pull/1175)
+
+
 ## [v1.0.0-beta.7.1] - 2026-08-03
 
 ### Fixed
