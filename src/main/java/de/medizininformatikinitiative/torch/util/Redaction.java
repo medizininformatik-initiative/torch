@@ -106,9 +106,8 @@ public class Redaction {
         List<CanonicalType> resourceProfiles;
         if (!resource.getResourceType().toString().equals("Patient")) {
             // Convert resource profiles to a list of strings
-            resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
-            List<CanonicalType> finalResourceProfiles = resourceProfiles;
-            Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
+            resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().contains(ResourceUtils.stripVersion(profile.getValue()))).toList();
+            Set<String> validProfiles = resourceProfiles.stream().map(profile -> ResourceUtils.stripVersion(profile.getValue())).collect(Collectors.toSet());
 
             if (!validProfiles.equals(wrapper.profiles())) {
                 logger.error("REDACTION_01 Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
