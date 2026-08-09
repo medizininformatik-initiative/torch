@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.util.DiscriminatorResolver.resolveDiscriminator;
@@ -146,10 +147,10 @@ public class Slicing {
                             break;
                         case TYPE:
                             logger.trace("Type discriminator found");
-                            conditions.add(path + ".ofType({type})");
+                            typeCondition(slicedElement.get(), path, definition).ifPresent(conditions::add);
                             break;
                         case PROFILE:
-                            conditions.add(path + ".conformsTo({profile})");
+                            profileCondition(slicedElement.get(), path).ifPresent(conditions::add);
                             break;
                         default:
                             throw new UnsupportedOperationException("Unsupported discriminator type: " + discriminator.getType());
@@ -159,6 +160,45 @@ public class Slicing {
         }
 
         return conditions;
+    }
+
+    /**
+     * Builds a type-discriminator condition for the given path.
+     * <p>
+     * For {@code $this}, the sliced element's own type constrains the match. For any other path, the type is
+     * looked up on the child element at {@code slicedElement.getId() + "." + path} in the snapshot. Paths that
+     * involve reference resolution (e.g. {@code $this.resolve()}) have no such child element and are left
+     * without a condition rather than guessing, since Torch cannot yet resolve references at this point (#1173).
+     * </p>
+     */
+    private static Optional<String> typeCondition(ElementDefinition slicedElement, String path, CompiledStructureDefinition definition) {
+        Optional<ElementDefinition> typedElement = "$this".equals(path)
+                ? Optional.of(slicedElement)
+                : definition.elementDefinitionById(slicedElement.getId() + "." + path);
+
+        return typedElement.map(element -> element.getType().stream()
+                        .map(ElementDefinition.TypeRefComponent::getCode)
+                        .map(code -> path + ".ofType(" + code + ")")
+                        .collect(Collectors.joining(" or ")))
+                .filter(condition -> !condition.isEmpty());
+    }
+
+    /**
+     * Builds a profile-discriminator condition from the sliced element's own target profile(s).
+     * <p>
+     * Profile discriminators are always reference-resolving in practice (path {@code resolve()} or
+     * {@code $this.resolve()}), so the profile to check against comes from the slice's own {@code Reference}
+     * type rather than from resolving the path itself.
+     * </p>
+     */
+    private static Optional<String> profileCondition(ElementDefinition slicedElement, String path) {
+        String condition = slicedElement.getType().stream()
+                .flatMap(type -> type.getTargetProfile().stream())
+                .map(CanonicalType::getValue)
+                .map(profile -> path + ".conformsTo('" + profile + "')")
+                .collect(Collectors.joining(" or "));
+
+        return condition.isEmpty() ? Optional.empty() : Optional.of(condition);
     }
 
 
