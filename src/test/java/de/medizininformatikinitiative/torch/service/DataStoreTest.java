@@ -10,6 +10,7 @@ import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
 import okhttp3.mockwebserver.SocketPolicy;
+import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
@@ -414,6 +415,307 @@ class DataStoreTest {
         }
 
 
+    }
+
+    @Nested
+    class Transact {
+
+        @BeforeEach
+        void setUp() {
+            dataStore = new DataStore(client, ctx, 1000, false);
+        }
+
+        private static Bundle transactionBundle() {
+            var bundle = new Bundle();
+            bundle.setType(Bundle.BundleType.TRANSACTION);
+            return bundle;
+        }
+
+        @Test
+        @DisplayName("doesn't retry a 400")
+        void errorNoRetry() {
+            mockStore.enqueue(new MockResponse().setResponseCode(400));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result).verifyError(WebClientResponseException.BadRequest.class);
+        }
+
+        @Test
+        @DisplayName("shortens an overly long response body in the error message")
+        void shortensLongResponseBody() {
+            String longBody = "x".repeat(600);
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/plain")
+                    .setBody(longBody));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> {
+                        assertThat(e).isInstanceOf(DataStoreException.class);
+                        assertThat(e.getMessage()).contains("...").doesNotContain(longBody);
+                    })
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when an authenticating proxy returns a non-FHIR 200 response")
+        void failsOnNonFhirResponse() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/json")
+                    .setBody("""
+                            {"type":"redirect","status":307,"location":"/fhir/__sign-in?redirect=..."}
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("HTTP status 200")
+                            .hasMessageContaining("application/json"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when an authenticating proxy returns an HTML sign-in page as a 200 response")
+        void failsOnHtmlRedirectResponse() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "text/html")
+                    .setBody("<html><head><title>Sign in</title></head>"
+                            + "<body>Please <a href=\"/fhir/__sign-in?redirect=...\">sign in</a></body></html>"));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("HTTP status 200")
+                            .hasMessageContaining("text/html"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when the response body is empty")
+        void failsOnEmptyResponse() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json"));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("HTTP status 200"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when the response bundle is not a transaction-response")
+        void failsOnWrongBundleType() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {"resourceType":"Bundle","type":"searchset"}
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("transaction-response"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when the response body is a valid FHIR resource that is not a Bundle")
+        void failsOnNonBundleResource() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {"resourceType":"Patient","id":"1"}
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("transaction-response"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when the transaction-response has no entries")
+        void failsOnEmptyEntries() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {"resourceType":"Bundle","type":"transaction-response","entry":[]}
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("no entries"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when a transaction entry did not succeed")
+        void failsOnFailedEntry() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "response": { "status": "400 Bad Request" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("400"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when a transaction entry has no response element")
+        void failsOnEntryMissingResponse() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "resource": { "resourceType": "Library", "id": "1" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("missing"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when a transaction entry's response has no status")
+        void failsOnEntryResponseMissingStatus() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "response": { "location": "Library/1" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e).isInstanceOf(DataStoreException.class))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when a transaction entry status is below 200")
+        void failsOnEntryStatusBelow200() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "response": { "status": "100 Continue" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("100"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("fails when a transaction entry status is not numeric")
+        void failsOnNonNumericEntryStatus() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "response": { "status": "unknown" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result)
+                    .expectErrorSatisfies(e -> assertThat(e)
+                            .isInstanceOf(DataStoreException.class)
+                            .hasMessageContaining("unknown"))
+                    .verify();
+        }
+
+        @Test
+        @DisplayName("succeeds on a valid transaction-response with successful entries")
+        void success() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "transaction-response",
+                              "entry": [
+                                { "response": { "status": "201 Created" } },
+                                { "response": { "status": "201 Created" } }
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.transact(transactionBundle());
+
+            StepVerifier.create(result).verifyComplete();
+        }
     }
 
     @Nested

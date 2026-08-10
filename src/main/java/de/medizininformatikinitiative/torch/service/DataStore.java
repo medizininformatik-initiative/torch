@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
+import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.OperationOutcome;
@@ -20,6 +21,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -251,11 +253,70 @@ public class DataStore {
                 .header(CONTENT_TYPE, APPLICATION_FHIR_JSON)
                 .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
                 .retrieve()
-                .bodyToMono(String.class)
+                .toEntity(String.class)
                 .retryWhen(RETRY_SPEC)
-                .doOnSuccess(response -> logger.debug("Successfully executed a transaction."))
                 .doOnError(error -> logger.error("DATASTORE_03 Error occurred executing a transaction: {}", error.getMessage()))
+                .flatMap(this::validateTransactionResponse)
+                .doOnError(DataStoreException.class, error -> logger.error("DATASTORE_11 Invalid transaction response: {}", error.getMessage()))
+                .doOnSuccess(response -> logger.debug("Successfully executed a transaction."))
                 .then();
+    }
+
+    /**
+     * Validates that {@code response} is a FHIR {@code transaction-response} {@link Bundle} with only successful
+     * entry statuses.
+     *
+     * <p> A non-error HTTP status alone does not guarantee the transaction was actually processed by the FHIR
+     * server, e.g. an authentication proxy may return HTTP 200 with an unrelated JSON body instead of forwarding
+     * the request.
+     *
+     * <p> Completes with a {@link DataStoreException} if the body isn't a valid {@code transaction-response}
+     * {@link Bundle} with only successful entries.
+     */
+    private Mono<Bundle> validateTransactionResponse(ResponseEntity<String> response) {
+        String body = Optional.ofNullable(response.getBody()).orElse("");
+        IBaseResource resource;
+        try {
+            resource = fhirContext.newJsonParser().parseResource(body);
+        } catch (DataFormatException e) {
+            return Mono.error(new DataStoreException(unexpectedTransactionResponseMessage(response, "response is not a FHIR resource: " + e.getMessage())));
+        }
+
+        if (!(resource instanceof Bundle responseBundle) || responseBundle.getType() != Bundle.BundleType.TRANSACTIONRESPONSE) {
+            return Mono.error(new DataStoreException(unexpectedTransactionResponseMessage(response, "expected a Bundle of type 'transaction-response'")));
+        }
+
+        if (!responseBundle.hasEntry()) {
+            return Mono.error(new DataStoreException(unexpectedTransactionResponseMessage(response, "transaction-response Bundle has no entries")));
+        }
+
+        var failedEntry = responseBundle.getEntry().stream().filter(entry -> !hasSuccessStatus(entry)).findFirst();
+        if (failedEntry.isPresent()) {
+            var status = failedEntry.get().hasResponse() ? failedEntry.get().getResponse().getStatus() : "missing";
+            return Mono.error(new DataStoreException(unexpectedTransactionResponseMessage(response, "transaction entry failed with status " + status)));
+        }
+
+        return Mono.just(responseBundle);
+    }
+
+    private static boolean hasSuccessStatus(Bundle.BundleEntryComponent entry) {
+        if (!entry.hasResponse() || !entry.getResponse().hasStatus()) {
+            return false;
+        }
+        try {
+            int code = Integer.parseInt(entry.getResponse().getStatus().split(" ")[0]);
+            return code >= 200 && code < 300;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+    private static String unexpectedTransactionResponseMessage(ResponseEntity<String> response, String reason) {
+        String contentType = Optional.ofNullable(response.getHeaders().getContentType()).map(Object::toString).orElse("unknown");
+        String body = Optional.ofNullable(response.getBody()).orElse("");
+        String shortenedBody = body.length() > 500 ? body.substring(0, 500) + "..." : body;
+        return "Unexpected transaction response (%s): HTTP status %s, content type %s, body: %s"
+                .formatted(reason, response.getStatusCode(), contentType, shortenedBody);
     }
 
     /**
