@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.0] - 2026-08-11
+
+### Fixed
+
+- Fix DiscriminatorResolver.resolveType Comparing The Wrong Element's Type [#1178](https://github.com/medizininformatik-initiative/torch/pull/1178)
+- Fix Slicing.generateConditionsForFHIRPath Emitting Unsubstituted Placeholders For Type And Profile Discriminators [#1181](https://github.com/medizininformatik-initiative/torch/pull/1181)
+- Fix misleading success log for invalid FHIR transaction responses [#1189](https://github.com/medizininformatik-initiative/torch/pull/1189)
+
+### Documentation
+
+- Document Consent Audit Output In Task API [#1165](https://github.com/medizininformatik-initiative/torch/pull/1165)
+
+
 ## [v1.0.0-beta.7.2] - 2026-08-09
 
 ### Added
