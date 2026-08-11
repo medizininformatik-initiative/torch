@@ -17,6 +17,7 @@ import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
+import org.hl7.fhir.r4.model.MedicationAdministration;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
@@ -115,6 +116,45 @@ public class RedactionTest {
                 .contains(tuple("http://snomed.info/sct", "271650006"));
         assertThat(tgt.getComponent().get(1).getValueQuantity().getValue()).isEqualByComparingTo("76");
         assertThat(tgt.getComponent().get(1).getValueQuantity().getCode()).isEqualTo("mm[Hg]");
+    }
+
+    /**
+     * Reproduces #1174: {@code Redaction.redact} validated declared profiles against requested profiles with a
+     * substring check, so a resource declaring an unrelated profile that happens to be a literal superstring of
+     * the requested one (e.g. {@code MedicationAdministration} containing {@code Medication}) passed validation
+     * instead of being rejected as a profile mismatch.
+     */
+    @Test
+    void profileValidationRejectsPrefixCollidingProfile() {
+        MedicationAdministration resource = new MedicationAdministration();
+        resource.setId("ma1");
+        Meta meta = new Meta();
+        meta.addProfile("https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration");
+        resource.setMeta(meta);
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(resource, Set.of(MEDICATION), Map.of(), new CopyTreeNode("dummy"));
+
+        assertThatThrownBy(() -> integrationTestSetup.redaction().redact(wrapper))
+                .isInstanceOf(RedactionException.class);
+    }
+
+    /**
+     * The exact-match fix for #1174 must remain tolerant of version-suffixed profile URLs, which was the
+     * original (if imprecise) purpose of the substring check it replaces.
+     */
+    @Test
+    void profileValidationAcceptsVersionedProfileSuffix() throws RedactionException {
+        Medication resource = new Medication();
+        resource.setId("med1");
+        Meta meta = new Meta();
+        meta.addProfile(MEDICATION + "|1.2.0");
+        resource.setMeta(meta);
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(resource, Set.of(MEDICATION), Map.of(), new CopyTreeNode("dummy"));
+
+        DomainResource tgt = integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(tgt.getMeta().getProfile()).extracting(CanonicalType::getValue).containsExactly(MEDICATION + "|1.2.0");
     }
 
     /**
