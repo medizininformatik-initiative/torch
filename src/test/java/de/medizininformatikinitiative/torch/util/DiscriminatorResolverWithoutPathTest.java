@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.model.management.ReferenceResolutionContext;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.ElementDefinition.DiscriminatorType;
 import org.junit.jupiter.api.Test;
@@ -74,7 +75,7 @@ class DiscriminatorResolverWithoutPathTest {
         // No need to mock baseElement's fhirType; real instance returns "string"
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertTrue(result, "Should return true when discriminator type is 'value' and value matches");
@@ -104,7 +105,7 @@ class DiscriminatorResolverWithoutPathTest {
         // No need to mock baseElement's fhirType; real instance returns "string"
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertFalse(result, "Should return false when discriminator type is 'value' but value does not match");
@@ -133,7 +134,7 @@ class DiscriminatorResolverWithoutPathTest {
         // No need to mock baseElement's fhirType; real instance returns "string"
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertTrue(result, "Should return true when discriminator type is 'type' and types match");
@@ -161,7 +162,7 @@ class DiscriminatorResolverWithoutPathTest {
         // No need to mock baseElement's fhirType; real instance returns "integer"
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertFalse(result, "Should return false when discriminator type is 'type' but types do not match");
@@ -185,20 +186,21 @@ class DiscriminatorResolverWithoutPathTest {
         StringType baseElement = new StringType("anyValue");
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertFalse(result, "Should return false when discriminator type is 'exists'");
     }
 
     /**
-     * Test when discriminator type is 'PROFILE'.
+     * Test when discriminator type is 'PROFILE' and the path (as always in practice, per FHIR spec) resolves an
+     * external reference. Here the base element isn't even a {@link Reference}, so it can never resolve.
      */
     @Test
     void testResolveDiscriminator_TypeProfile() {
         // Arrange
         when(discriminatorMock.getType()).thenReturn(DiscriminatorType.PROFILE);
-        // The path can be anything since 'PROFILE' should return false immediately
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
 
         // Create a real ElementDefinition instance for the slice
         ElementDefinition slice = new ElementDefinition();
@@ -206,11 +208,11 @@ class DiscriminatorResolverWithoutPathTest {
         // 'PROFILE' does not utilize fixed or type, so no need to set them
 
 
-        // Create a base element (value is irrelevant)
+        // Create a base element (not a Reference, so resolve() can never yield anything)
         StringType baseElement = new StringType("anyValue");
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertFalse(result, "Should return false when discriminator type is 'profile'");
@@ -245,7 +247,7 @@ class DiscriminatorResolverWithoutPathTest {
         StringType baseElement = new StringType("anyValue");
 
         // Act
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(baseElement, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         // Assert
         assertFalse(result, "Should return false for unknown discriminator type");

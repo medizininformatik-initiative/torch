@@ -87,7 +87,7 @@ class BatchCopierRedacterTest {
         // but createWrapper must not run real logic
         doReturn(mock(ExtractionRedactionWrapper.class))
                 .when(transformer)
-                .createWrapper(any(), any(), any());
+                .createWrapper(any(), any(), any(), any());
     }
 
     @ParameterizedTest
@@ -150,10 +150,29 @@ class BatchCopierRedacterTest {
                     List.of(new AnnotatedAttribute("Patient.id", "Patient.id", false)), List.of());
             var info = new ResourceExtractionInfo(Set.of("G1"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of("G1", group));
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", group), Map.of());
 
             assertThat(wrapper.resource()).isSameAs(patient);
             assertThat(wrapper.profiles()).containsExactly("http://profile/Patient");
+        }
+
+        /**
+         * The wrapper's {@code referenceResolver} must delegate to the {@code referenceLookup} snapshot passed
+         * into {@code createWrapper}, for both present and absent ids.
+         */
+        @Test
+        void referenceResolver_delegatesToProvidedLookup() throws RedactionException {
+            var patient = new Patient();
+            patient.setId("p1");
+            var info = new ResourceExtractionInfo(Set.of(), Map.of());
+            var otherPatient = new Patient();
+            otherPatient.setId("other");
+            var referenceLookup = Map.of(ExtractionId.fromRelativeUrl("Patient/other"), Optional.<Resource>of(otherPatient));
+
+            var wrapper = real.createWrapper(patient, info, Map.of(), referenceLookup);
+
+            assertThat(wrapper.referenceResolver().apply(ExtractionId.fromRelativeUrl("Patient/other"))).contains(otherPatient);
+            assertThat(wrapper.referenceResolver().apply(ExtractionId.fromRelativeUrl("Patient/missing"))).isEmpty();
         }
 
         @Test
@@ -162,7 +181,7 @@ class BatchCopierRedacterTest {
             patient.setId("p1");
             var info = new ResourceExtractionInfo(Set.of("unknown-group"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of());
+            var wrapper = real.createWrapper(patient, info, Map.of(), Map.of());
 
             assertThat(wrapper.resource()).isSameAs(patient);
             assertThat(wrapper.profiles()).isEmpty();
@@ -178,7 +197,7 @@ class BatchCopierRedacterTest {
                     List.of(new AnnotatedAttribute("Patient.name", "Patient.name", false)), List.of());
             var info = new ResourceExtractionInfo(Set.of("G1", "G2"), Map.of());
 
-            var wrapper = real.createWrapper(patient, info, Map.of("G1", g1, "G2", g2));
+            var wrapper = real.createWrapper(patient, info, Map.of("G1", g1, "G2", g2), Map.of());
 
             assertThat(wrapper.profiles()).containsExactlyInAnyOrder("http://profile/P1", "http://profile/P2");
         }

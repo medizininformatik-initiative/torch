@@ -20,8 +20,16 @@ public record MultiElementContext(List<ElementContext> contexts) {
         contexts = List.copyOf(contexts);
     }
 
-    public MultiElementContext(String elementId, List<CompiledStructureDefinition> definitions) {
-        this(definitions.stream().map(compiledStructureDefinition -> new ElementContext(elementId, compiledStructureDefinition)).toList());
+    public MultiElementContext(String elementId, List<CompiledStructureDefinition> definitions, ReferenceResolutionContext resolutionContext) {
+        this(definitions.stream().map(compiledStructureDefinition -> new ElementContext(elementId, compiledStructureDefinition, resolutionContext)).toList());
+    }
+
+    /**
+     * The {@link ReferenceResolutionContext} shared by all contained {@link ElementContext}s, or
+     * {@link ReferenceResolutionContext#EMPTY} if this instance holds none.
+     */
+    public ReferenceResolutionContext resolutionContext() {
+        return contexts.isEmpty() ? ReferenceResolutionContext.EMPTY : contexts.getFirst().resolutionContext();
     }
 
     /**

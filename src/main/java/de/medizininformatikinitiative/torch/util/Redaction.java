@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ElementContext;
 import de.medizininformatikinitiative.torch.model.management.ExtractionRedactionWrapper;
 import de.medizininformatikinitiative.torch.model.management.MultiElementContext;
+import de.medizininformatikinitiative.torch.model.management.ReferenceResolutionContext;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
@@ -116,7 +117,8 @@ public class Redaction {
             throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
         }
         meta.setProfile(resourceProfiles);
-        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references());
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(wrapper.referenceResolver(), structureDefinitionHandler::getDefinition);
+        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions, resolutionContext), wrapper.references());
         return resource;
     }
 
@@ -313,7 +315,7 @@ public class Redaction {
         // requirements the slice adds beyond the base type (e.g. a child required only within this named slice)
         // are also honored when masking the stub's own children.
         MultiElementContext sliceContext = new MultiElementContext(slice.getId(),
-                childContexts.contexts().stream().map(ElementContext::definition).toList());
+                childContexts.contexts().stream().map(ElementContext::definition).toList(), childContexts.resolutionContext());
         addDataAbsentReason(base, child, sliceTypes.getFirst(), sliceContext, references);
     }
 
