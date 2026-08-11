@@ -403,28 +403,24 @@ public class RedactionTest {
         @ValueSource(strings = {"Diagnosis1.json"})
         void failsWhenRequiredProfileMissing(String resource) throws IOException {
             DomainResource src = integrationTestSetup.readResource(INPUT_CONDITION_DIR + resource);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"));
-            var redaction = integrationTestSetup.redaction();
 
-            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
+            assertThatThrownBy(() -> ExtractionRedactionWrapper.of(src.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"))).isInstanceOf(RedactionException.class);
         }
 
         @Test
         void failsWhenMetaMissing() {
             Condition condition = new Condition();
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"));
-            var redaction = integrationTestSetup.redaction();
 
-            assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);
+            assertThatThrownBy(() -> ExtractionRedactionWrapper.of(condition.copy(), Set.of(DIAGNOSIS, TODESURSACHE), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"))).isInstanceOf(RedactionException.class);
         }
 
         @Test
-        void failsWhenProvidedInvalidProfiles() {
+        void failsWhenProvidedInvalidProfiles() throws RedactionException {
             Condition condition = new Condition();
             Meta meta = new Meta();
             meta.setProfile(List.of(new CanonicalType("InvalidProfile")));
             condition.setMeta(meta);
-            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(condition.copy(), Set.of("InvalidProfile"), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"));
+            ExtractionRedactionWrapper wrapper = ExtractionRedactionWrapper.of(condition.copy(), Set.of("InvalidProfile"), Map.of("Condition.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Condition.encounter", ExtractionId.of("Encounter/12345")), new CopyTreeNode("dummy"));
             var redaction = integrationTestSetup.redaction();
 
             assertThatThrownBy(() -> redaction.redact(wrapper)).isInstanceOf(RedactionException.class);

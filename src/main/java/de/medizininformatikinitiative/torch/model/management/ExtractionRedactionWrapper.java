@@ -1,14 +1,21 @@
 package de.medizininformatikinitiative.torch.model.management;
 
+import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Contains all information needed for the extraction and redaction operations
+ * Contains all information needed for the extraction and redaction operations, and pairs a resource
+ * with the profiles it is required to satisfy.
  *
  * @param resource   Resource to be processed
  * @param profiles   profiles of structure definitions of the applied groups
@@ -19,6 +26,8 @@ public record ExtractionRedactionWrapper(DomainResource resource, Set<String> pr
                                          Map<String, Set<ExtractionId>> references,
                                          CopyTreeNode copyTree) {
 
+    private static final Logger logger = LoggerFactory.getLogger(ExtractionRedactionWrapper.class);
+
     public ExtractionRedactionWrapper {
         Objects.requireNonNull(resource);
         Objects.requireNonNull(copyTree);
@@ -26,8 +35,46 @@ public record ExtractionRedactionWrapper(DomainResource resource, Set<String> pr
         references = Map.copyOf(references);
     }
 
-    public ExtractionRedactionWrapper updateWithResource(DomainResource resource) {
-        return new ExtractionRedactionWrapper(resource, profiles, references, copyTree);
+    /**
+     * Builds a wrapper, validating that {@code resource} actually carries every profile in {@code profiles}.
+     * <p>
+     * {@code Patient} resources are exempt, since their profiles are assigned by the caller rather than
+     * read off the resource.
+     *
+     * @throws RedactionException if a non-{@code Patient} resource is missing one or more required profiles
+     */
+    public static ExtractionRedactionWrapper of(DomainResource resource, Set<String> profiles,
+                                                 Map<String, Set<ExtractionId>> references,
+                                                 CopyTreeNode copyTree) throws RedactionException {
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(resource, profiles, references, copyTree);
+
+        if (!resource.getResourceType().toString().equals("Patient")) {
+            List<CanonicalType> resourceProfiles = wrapper.matchedProfiles();
+            Set<String> validProfiles = profiles.stream()
+                    .filter(profile -> resourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile)))
+                    .collect(Collectors.toSet());
+
+            if (!validProfiles.equals(profiles)) {
+                logger.error("REDACTION_01 Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, profiles);
+                throw new RedactionException("Resource" + resource.getResourceType() + " " + resource.getId() + " is missing required profiles: " + resourceProfiles);
+            }
+        }
+
+        return wrapper;
+    }
+
+    /**
+     * Returns the subset of {@link #resource()}'s declared {@code meta.profile} entries that satisfy one of
+     * {@link #profiles()}.
+     */
+    public List<CanonicalType> matchedProfiles() {
+        return resource.getMeta().getProfile().stream()
+                .filter(profile -> profiles.stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile)))
+                .toList();
+    }
+
+    public ExtractionRedactionWrapper updateWithResource(DomainResource resource) throws RedactionException {
+        return ExtractionRedactionWrapper.of(resource, profiles, references, copyTree);
     }
 
 }

@@ -99,7 +99,7 @@ public class BatchCopierRedacter {
             Resource resource,
             ResourceExtractionInfo info,
             Map<String, AnnotatedAttributeGroup> groupMap
-    ) {
+    ) throws RedactionException {
         CopyTreeNode copyTree = new CopyTreeNode(resource.getClass().getSimpleName());
         Set<String> groupProfiles = new HashSet<>();
 
@@ -111,7 +111,7 @@ public class BatchCopierRedacter {
             }
         }
 
-        return new ExtractionRedactionWrapper(
+        return ExtractionRedactionWrapper.of(
                 (DomainResource) resource,
                 groupProfiles,
                 info.attributeToReferences(),

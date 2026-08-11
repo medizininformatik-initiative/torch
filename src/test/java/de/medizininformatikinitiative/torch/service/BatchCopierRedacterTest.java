@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
@@ -19,6 +20,8 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.hl7.fhir.r4.model.Condition;
+import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Resource;
 
@@ -59,7 +62,7 @@ class BatchCopierRedacterTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws RedactionException {
         MockitoAnnotations.openMocks(this);
 
         transformer = spy(transformer);
@@ -140,7 +143,7 @@ class BatchCopierRedacterTest {
         }
 
         @Test
-        void singleGroup_buildsWrapperWithProfile() {
+        void singleGroup_buildsWrapperWithProfile() throws RedactionException {
             var patient = new Patient();
             patient.setId("p1");
             var group = new AnnotatedAttributeGroup("G1", "Patient", "http://profile/Patient",
@@ -154,7 +157,7 @@ class BatchCopierRedacterTest {
         }
 
         @Test
-        void unknownGroup_skippedGracefully() {
+        void unknownGroup_skippedGracefully() throws RedactionException {
             var patient = new Patient();
             patient.setId("p1");
             var info = new ResourceExtractionInfo(Set.of("unknown-group"), Map.of());
@@ -166,7 +169,7 @@ class BatchCopierRedacterTest {
         }
 
         @Test
-        void multipleGroups_mergesProfiles() {
+        void multipleGroups_mergesProfiles() throws RedactionException {
             var patient = new Patient();
             patient.setId("p1");
             var g1 = new AnnotatedAttributeGroup("G1", "Patient", "http://profile/P1",
@@ -193,6 +196,26 @@ class BatchCopierRedacterTest {
             var result = transformer.transformResource(wrapper);
 
             assertThat(result).isNotNull().isInstanceOf(Patient.class);
+        }
+
+        @Test
+        void reValidatesProfilesAgainstCopiedResource() {
+            var withRealCopier = new BatchCopierRedacter(new ElementCopier(FhirContext.forR4()), redaction);
+
+            Condition condition = new Condition();
+            condition.setId("c1");
+            Meta meta = new Meta();
+            meta.addProfile("http://example.org/profile");
+            condition.setMeta(meta);
+
+            // Empty copy tree: the copy step won't carry meta.profile onto the target resource,
+            // so the post-copy wrapper must catch the missing association even though the source was valid.
+            CopyTreeNode copyTreeWithoutMetaProfile = new CopyTreeNode("Condition");
+
+            assertThatThrownBy(() -> {
+                var wrapper = ExtractionRedactionWrapper.of(condition, Set.of("http://example.org/profile"), Map.of(), copyTreeWithoutMetaProfile);
+                withRealCopier.transformResource(wrapper);
+            }).isInstanceOf(RedactionException.class);
         }
     }
 }
