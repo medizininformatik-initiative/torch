@@ -91,29 +91,22 @@ public class Redaction {
     /**
      * Redacts a FHIR resource using structure definitions and allowed references.
      * <p>
-     * Validates that required profiles are present and known. If valid, structure definitions
-     * are resolved and used to redact the resource, filling required fields with Data Absent Reasons
+     * Assumes {@code wrapper}'s resource-profile association was already validated when it was built
+     * (see {@link ExtractionRedactionWrapper#of}). Resolves structure definitions for the requested
+     * profiles and uses them to redact the resource, filling required fields with Data Absent Reasons
      * where necessary.
      * </p>
      *
      * @param wrapper the wrapper containing the resource, profiles, and allowed references
      * @return the redacted resource with required fields fulfilled
-     * @throws RuntimeException if required profiles are missing or unknown, or if meta is absent
+     * @throws RedactionException if the requested profiles are unknown
      */
     public DomainResource redact(ExtractionRedactionWrapper wrapper) throws RedactionException {
         DomainResource resource = wrapper.resource();
         Meta meta = resource.getMeta();
         List<CanonicalType> resourceProfiles;
         if (!resource.getResourceType().toString().equals("Patient")) {
-            // Convert resource profiles to a list of strings
-            resourceProfiles = meta.getProfile().stream().filter(profile -> wrapper.profiles().stream().anyMatch(wrapperProfile -> profile.toString().contains(wrapperProfile))).toList();
-            List<CanonicalType> finalResourceProfiles = resourceProfiles;
-            Set<String> validProfiles = wrapper.profiles().stream().filter(profile -> finalResourceProfiles.stream().anyMatch(resourceProfile -> resourceProfile.toString().contains(profile))).collect(Collectors.toSet());
-
-            if (!validProfiles.equals(wrapper.profiles())) {
-                logger.error("REDACTION_01 Missing Profiles in Resource {} {}: {} for requested profiles {}", resource.getResourceType(), resource.getId(), resourceProfiles, wrapper.profiles());
-                throw new RedactionException("Resource" + resource.getResourceType() + " " + resource.getId() + " is missing required profiles: " + resourceProfiles);
-            }
+            resourceProfiles = wrapper.matchedProfiles();
         } else {
             resourceProfiles = wrapper.profiles().stream().map(CanonicalType::new).toList();
         }
