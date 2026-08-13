@@ -33,6 +33,7 @@ torch:
   conceptTreeFile: ontology/mapping_tree.json
   dseMappingTreeFile: ontology/dse_mapping_tree.json
   useCql: true
+  enableEncounterShift: true
   bufferSize: 100
   output:
     file:

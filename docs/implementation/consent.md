@@ -86,7 +86,9 @@ Before any data extraction:
 5. **Adjust by Encounter** — for data-period codes (non-gate codes, i.e. `.6`), the start of each permitted provision
    is shifted to the start of the earliest overlapping Encounter if that Encounter start is earlier. Encounters
    without both a start and end date are ignored i.e. an open-ended (ongoing) encounter cannot anchor the shift. Gate
-   codes (`.8`) are never encounter-adjusted by design.
+   codes (`.8`) are never encounter-adjusted by design. This step can be turned off entirely via
+   `TORCH_ENABLE_ENCOUNTER_SHIFT` (default `true`); when disabled, no Encounter search is performed and provisions
+   are used as fetched.
 6. **Apply retrospective modifiers** — only for modifier codes (`.45`/`.46`) explicitly requested in the CRTDL
    cohort definition (see step 4). Within each Consent resource independently: if a permitted `.6` provision
    overlaps in time with a permitted retro modifier provision **in the same resource**, the `.6`

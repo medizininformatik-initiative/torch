@@ -224,6 +224,16 @@ Flag indicating whether to enable Clinical Quality Language (CQL) for processing
 
 ---
 
+#### `TORCH_ENABLE_ENCOUNTER_SHIFT` <Badge type="warning" text="Since 1.0.1"/>
+
+Flag indicating whether data-period consent provisions are shifted to the start of an earlier overlapping
+Encounter (see [Encounter Adjustment](./implementation/consent.md#encounter-adjustment)). When disabled, consent
+provisions are used as fetched and no Encounter search is performed.
+
+**Default:** `true`
+
+---
+
 ---
 
 #### `TORCH_OUTPUT_FILE_SERVER_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>

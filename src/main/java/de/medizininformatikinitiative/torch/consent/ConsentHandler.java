@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
@@ -27,20 +28,25 @@ public class ConsentHandler {
     private final ConsentAdjuster consentAdjuster;
     private final ConsentCalculator consentCalculator;
     private final ConsentCodeConfig consentCodeConfig;
+    private final boolean enableEncounterShift;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
      *
-     * @param consentFetcher    the {@link ConsentFetcher} for fetching and building consent provisions
-     * @param consentAdjuster   the {@link ConsentAdjuster} for adjusting consent periods by encounter periods
+     * @param consentFetcher the {@link ConsentFetcher} for fetching and building consent provisions
+     * @param consentAdjuster the {@link ConsentAdjuster} for adjusting consent periods by encounter periods
      * @param consentCalculator the {@link ConsentCalculator} for calculating effective consent periods
      * @param consentCodeConfig the {@link ConsentCodeConfig} describing supported codes and their roles
+     * @param enableEncounterShift whether data-period provisions are shifted to overlapping encounter starts
+     *                             ({@code torch.enableEncounterShift})
      */
-    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeConfig consentCodeConfig) {
+    public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeConfig consentCodeConfig,
+                           @Value("${torch.enableEncounterShift}") boolean enableEncounterShift) {
         this.consentFetcher = requireNonNull(consentFetcher);
         this.consentAdjuster = requireNonNull(consentAdjuster);
         this.consentCalculator = requireNonNull(consentCalculator);
         this.consentCodeConfig = requireNonNull(consentCodeConfig);
+        this.enableEncounterShift = enableEncounterShift;
     }
 
     /**
@@ -49,7 +55,8 @@ public class ConsentHandler {
      * This method performs the following steps in a reactive pipeline:
      * <ol>
      *     <li>Fetches consent provisions from a FHIR server for the given {@code consentCodes} and patient batch.</li>
-     *     <li>Adjusts the fetched consent periods based on patient encounters.</li>
+     *     <li>Adjusts the fetched consent periods based on patient encounters, unless disabled via
+     *     {@code torch.enableEncounterShift}.</li>
      *     <li>Calculates the effective consent periods per patient.</li>
      *     <li>Filters the batch to include only patients with valid consent periods.</li>
      * </ol>
@@ -68,7 +75,9 @@ public class ConsentHandler {
 
         return consentFetcher.fetchConsentInfo(codesToFetch, batch)
                 .flatMap(consentProvisions ->
-                        consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions, encounterAdjustCodes)
+                        enableEncounterShift
+                                ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions, encounterAdjustCodes)
+                                : Mono.just(consentProvisions)
                 )
                 .map(consentProvisions -> consentCalculator.calculateConsent(prospectiveCodes, consentProvisions))
                 .flatMap(consentPeriodsMap ->

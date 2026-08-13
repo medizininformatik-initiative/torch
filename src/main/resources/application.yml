@@ -43,6 +43,7 @@ torch:
   useCql: true
   bufferSize: 100
   disableConsentCalculation: ${DISABLE_CONSENT_CALCULATION:false}
+  enableEncounterShift: true
   output:
     file:
       server:
