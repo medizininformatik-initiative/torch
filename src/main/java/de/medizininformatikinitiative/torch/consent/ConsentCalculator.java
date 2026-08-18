@@ -221,6 +221,7 @@ public class ConsentCalculator {
 
                     Map<TermCode, NonContinuousPeriod> byCode = subtractAndMergeByCode(provisions, consentCodes);
                     if (byCode.isEmpty()) {
+                        logger.debug("Patient {} excluded: required consent codes not fully permitted", patientId);
                         return Stream.empty();
                     }
 
@@ -239,6 +240,7 @@ public class ConsentCalculator {
                         NonContinuousPeriod dataPeriod = intersectConsent(dataByCode);
                         return Stream.of(Map.entry(patientId, dataPeriod));
                     } catch (ConsentViolatedException e) {
+                        logger.debug("Patient {} excluded: {}", patientId, e.getMessage());
                         return Stream.empty();
                     }
                 })
