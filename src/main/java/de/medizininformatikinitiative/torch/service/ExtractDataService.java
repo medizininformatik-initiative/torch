@@ -29,6 +29,8 @@ import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -42,6 +44,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -67,6 +70,7 @@ import static java.util.Objects.requireNonNull;
 public class ExtractDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ExtractDataService.class);
+    private static final String PIPELINE_STAGE_DURATION_METRIC = "torch.pipeline.stage.duration";
 
     private final ResultFileManager resultFileManager;
     private final ProcessedGroupFactory processedGroupFactory;
@@ -80,6 +84,7 @@ public class ExtractDataService {
     private final PostCascadeMustHaveChecker postCascadeMustHaveChecker;
     private final TorchProperties torchProperties;
     private final CompartmentManager compartmentManager;
+    private final MeterRegistry meterRegistry;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -92,7 +97,8 @@ public class ExtractDataService {
                               DataStore dataStore,
                               PostCascadeMustHaveChecker postCascadeMustHaveChecker,
                               TorchProperties torchProperties,
-                              CompartmentManager compartmentManager) {
+                              CompartmentManager compartmentManager,
+                              MeterRegistry meterRegistry) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -105,6 +111,7 @@ public class ExtractDataService {
         this.postCascadeMustHaveChecker = requireNonNull(postCascadeMustHaveChecker);
         this.torchProperties = requireNonNull(torchProperties);
         this.compartmentManager = requireNonNull(compartmentManager);
+        this.meterRegistry = requireNonNull(meterRegistry);
     }
 
     private static void logMemory(UUID id) {
@@ -177,6 +184,7 @@ public class ExtractDataService {
         return f.get().doOnNext(batch -> {
             long elapsed = System.nanoTime() - start;
             diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+            recordStageDuration(stage, elapsed);
         });
     }
 
@@ -186,6 +194,7 @@ public class ExtractDataService {
 
         long elapsed = System.nanoTime() - start;
         diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+        recordStageDuration(stage, elapsed);
 
         return batch;
     }
@@ -195,6 +204,14 @@ public class ExtractDataService {
         f.run();
         long elapsed = System.nanoTime() - start;
         diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+        recordStageDuration(stage, elapsed);
+    }
+
+    private void recordStageDuration(PipelineStage stage, long elapsedNanos) {
+        Timer.builder(PIPELINE_STAGE_DURATION_METRIC)
+                .tag("stage", stage.name().toLowerCase())
+                .register(meterRegistry)
+                .record(elapsedNanos, TimeUnit.NANOSECONDS);
     }
 
     private static void recordResourceInclusions(BatchDiagnostics diagnostics, Map<String, Integer> counts) {
