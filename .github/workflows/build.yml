@@ -115,6 +115,70 @@ jobs:
         with:
           sarif_file: trivy-results.sarif
 
+  license-check:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: write  # Upload artifacts
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Cache Local Maven Repo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.m2/repository
+          key: license-check-maven-${{ hashFiles('pom.xml') }}
+
+      - uses: s4u/maven-settings-action@894661b3ddae382f1ae8edbeab60987e08cf0788 # v4.0.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
+
+      - name: Run Eclipse Dash License Check
+        run: >
+          mvn -P license-check -B
+          org.eclipse.dash:license-tool-plugin:1.1.0:license-check
+          -Ddash.summary=DEPENDENCIES
+          -DincludeScope=runtime
+
+      - name: Write License Summary To Job Summary
+        if: always()
+        run: |
+          {
+            echo "## Dependency License Summary"
+            echo
+            echo "$(wc -l < DEPENDENCIES) dependencies checked."
+            echo
+            echo '```'
+            cat DEPENDENCIES
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Starter policy: fail only on GPL/AGPL (structurally incompatible with staying Apache-2.0
+      # when linked in); everything else is reported, not gated, until we have a reason to expand this.
+      # The Classpath-exception carve-out excludes the standard Jakarta/Java EE API dual-license
+      # pattern (e.g. jakarta.activation-api), which grants an explicit linking exception and is
+      # not a copyleft obligation.
+      - name: Fail On GPL/AGPL Dependencies
+        run: |
+          if grep -E '(^|[^L])A?GPL-' DEPENDENCIES | grep -vi 'Classpath-exception'; then
+            echo "::error::GPL/AGPL-licensed dependency found above — see the uploaded dependency-licenses artifact."
+            exit 1
+          fi
+
+      - name: Upload License Summary
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: dependency-licenses
+          path: DEPENDENCIES
+
   shell-tests:
     runs-on: ubuntu-24.04
     steps:
