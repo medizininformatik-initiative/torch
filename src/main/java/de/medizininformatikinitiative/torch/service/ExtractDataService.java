@@ -29,6 +29,7 @@ import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
@@ -71,6 +72,7 @@ public class ExtractDataService {
 
     private static final Logger logger = LoggerFactory.getLogger(ExtractDataService.class);
     private static final String PIPELINE_STAGE_DURATION_METRIC = "torch.pipeline.stage.duration";
+    private static final String PIPELINE_STAGE_ACTIVE_METRIC = "torch.pipeline.stage.active";
 
     private final ResultFileManager resultFileManager;
     private final ProcessedGroupFactory processedGroupFactory;
@@ -181,30 +183,43 @@ public class ExtractDataService {
 
     private <T> Mono<T> executeAndMeasureAsync(PipelineStage stage, BatchDiagnostics diagnostics, Supplier<Mono<T>> f) {
         long start = System.nanoTime();
-        return f.get().doOnNext(batch -> {
-            long elapsed = System.nanoTime() - start;
-            diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
-            recordStageDuration(stage, elapsed);
-        });
+        LongTaskTimer.Sample activeSample = startStageActiveSample(stage);
+        return f.get()
+                .doOnNext(batch -> {
+                    long elapsed = System.nanoTime() - start;
+                    diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+                    recordStageDuration(stage, elapsed);
+                })
+                .doFinally(signalType -> activeSample.stop());
     }
 
     private <T> T executeAndMeasure(PipelineStage stage, BatchDiagnostics diagnostics, Supplier<T> f) {
-        long start = System.nanoTime();
-        T batch = f.get();
+        LongTaskTimer.Sample activeSample = startStageActiveSample(stage);
+        try {
+            long start = System.nanoTime();
+            T batch = f.get();
 
-        long elapsed = System.nanoTime() - start;
-        diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
-        recordStageDuration(stage, elapsed);
+            long elapsed = System.nanoTime() - start;
+            diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+            recordStageDuration(stage, elapsed);
 
-        return batch;
+            return batch;
+        } finally {
+            activeSample.stop();
+        }
     }
 
     private void executeAndMeasure(PipelineStage stage, BatchDiagnostics diagnostics, Runnable f) {
-        long start = System.nanoTime();
-        f.run();
-        long elapsed = System.nanoTime() - start;
-        diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
-        recordStageDuration(stage, elapsed);
+        LongTaskTimer.Sample activeSample = startStageActiveSample(stage);
+        try {
+            long start = System.nanoTime();
+            f.run();
+            long elapsed = System.nanoTime() - start;
+            diagnostics.batchDetails().nanosElapsed().put(stage, elapsed);
+            recordStageDuration(stage, elapsed);
+        } finally {
+            activeSample.stop();
+        }
     }
 
     private void recordStageDuration(PipelineStage stage, long elapsedNanos) {
@@ -212,6 +227,13 @@ public class ExtractDataService {
                 .tag("stage", stage.name().toLowerCase())
                 .register(meterRegistry)
                 .record(elapsedNanos, TimeUnit.NANOSECONDS);
+    }
+
+    private LongTaskTimer.Sample startStageActiveSample(PipelineStage stage) {
+        return LongTaskTimer.builder(PIPELINE_STAGE_ACTIVE_METRIC)
+                .tag("stage", stage.name().toLowerCase())
+                .register(meterRegistry)
+                .start();
     }
 
     private static void recordResourceInclusions(BatchDiagnostics diagnostics, Map<String, Integer> counts) {

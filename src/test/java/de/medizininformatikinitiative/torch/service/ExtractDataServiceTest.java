@@ -31,6 +31,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import io.micrometer.core.instrument.LongTaskTimer;
 import io.micrometer.core.instrument.Timer;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
@@ -53,6 +54,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static de.medizininformatikinitiative.torch.jobhandling.JobTest.job;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -283,6 +285,80 @@ class ExtractDataServiceTest {
                 assertThat(directLoadTimer).isNotNull();
                 assertThat(directLoadTimer.count()).isPositive();
                 assertThat(directLoadTimer.totalTime(TimeUnit.NANOSECONDS)).isGreaterThanOrEqualTo(0);
+            }
+        }
+
+        @Test
+        void processBatch_activeTaskTimerTracksInProgressStage() {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+            when(groups.directPatientCompartmentGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            BatchState batchState = mock(BatchState.class);
+            BatchState finishedState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(finishedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
+            when(bwc.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            AtomicLong activeTasksDuringDirectLoad = new AtomicLong(-1);
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any()))
+                    .thenReturn(Mono.defer(() -> {
+                        activeTasksDuringDirectLoad.set(
+                                meterRegistry.find("torch.pipeline.stage.active")
+                                        .tag("stage", "direct_load")
+                                        .longTaskTimer()
+                                        .activeTasks());
+                        return Mono.just(bwc);
+                    }));
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(Mono.just(bwc));
+            when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap()))
+                    .thenReturn(bwc);
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any()))
+                        .thenReturn(ofResult);
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                        .thenReturn(extracted);
+
+                ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
+
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .expectNextCount(1)
+                        .verifyComplete();
+
+                assertThat(activeTasksDuringDirectLoad.get()).isEqualTo(1);
+
+                LongTaskTimer directLoadActiveTimer = meterRegistry.find("torch.pipeline.stage.active")
+                        .tag("stage", "direct_load")
+                        .longTaskTimer();
+
+                assertThat(directLoadActiveTimer).isNotNull();
+                assertThat(directLoadActiveTimer.activeTasks()).isZero();
             }
         }
 
