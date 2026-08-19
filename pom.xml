@@ -528,6 +528,19 @@
                 </plugins>
             </build>
         </profile>
+
+        <profile>
+            <id>license-check</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <pluginRepositories>
+                <pluginRepository>
+                    <id>dash-licenses-releases</id>
+                    <url>https://repo.eclipse.org/repository/dash-maven2-releases/</url>
+                </pluginRepository>
+            </pluginRepositories>
+        </profile>
     </profiles>
 
     <repositories>
