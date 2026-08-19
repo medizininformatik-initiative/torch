@@ -228,13 +228,17 @@ public class ExtractDataService {
                 .flatMap(patientBatch ->
                         executeAndMeasureAsync(PipelineStage.REFERENCE_RESOLVE, patientBatch.diagnostics(), () ->
                                 referenceResolver.resolvePatientBatch(patientBatch, groupsToProcess.allGroups())))
+                .doOnNext(patientBatch ->
+                        logger.debug("Batch {} resolved references ({} patients)", batchId, patientBatch.patientIds().size()))
                 .map(patientBatch ->
                         executeAndMeasure(PipelineStage.CASCADING_DELETE, patientBatch.diagnostics(), () ->
                                 cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups())))
+                .doOnNext(patientBatch ->
+                        logger.debug("Batch {} completed cascading delete ({} patients)", batchId, patientBatch.patientIds().size()))
                 .map(patientBatch ->
                         filterPostCascadeMustHaveViolations(patientBatch, groupsToProcess.directPatientCompartmentGroups()))
                 .doOnNext(loadedBatch ->
-                        logger.debug("Batch resolved references {} with {} patients",batchId, loadedBatch.patientIds().size()))
+                        logger.debug("Batch {} completed must-have filtering ({} patients)", batchId, loadedBatch.patientIds().size()))
                 .map(patientBatch -> {
                     ExtractionPatientBatch transformed = executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
                             batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()));
