@@ -112,7 +112,7 @@ public class DirectResourceLoader {
         if (allowed) {
             return Mono.just(resource);
         }
-        logger.debug("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+        logger.trace("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
 
         try {
             String patientID = ResourceUtils.patientId(resource);
