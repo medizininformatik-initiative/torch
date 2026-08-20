@@ -201,7 +201,25 @@ public class TaskController {
                                                     "priority": "routine",
                                                     "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
                                                     "authoredOn": "2024-01-15T10:29:55.000+00:00",
-                                                    "executionPeriod": { "start": "2024-01-15T10:29:55.000+00:00" }
+                                                    "executionPeriod": { "start": "2024-01-15T10:29:55.000+00:00" },
+                                                    "extension": [
+                                                      {
+                                                        "url": "https://torch.mii.de/fhir/torch-job-progress",
+                                                        "extension": [
+                                                          { "url": "cohortSize", "valueInteger": 1200 },
+                                                          { "url": "batchSize", "valueInteger": 500 },
+                                                          { "url": "batchesTotal", "valueInteger": 3 },
+                                                          { "url": "batchesCompleted", "valueInteger": 1 },
+                                                          {
+                                                            "url": "activeBatch",
+                                                            "extension": [
+                                                              { "url": "batchId", "valueString": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+                                                              { "url": "stage", "valueString": "REFERENCE_RESOLVE" }
+                                                            ]
+                                                          }
+                                                        ]
+                                                      }
+                                                    ]
                                                   }
                                                 }
                                               ]
@@ -290,7 +308,25 @@ public class TaskController {
                                               "priority": "routine",
                                               "description": "TORCH Job 550e8400-e29b-41d4-a716-446655440000",
                                               "authoredOn": "2024-01-15T10:29:55.000+00:00",
-                                              "executionPeriod": { "start": "2024-01-15T10:29:55.000+00:00" }
+                                              "executionPeriod": { "start": "2024-01-15T10:29:55.000+00:00" },
+                                              "extension": [
+                                                {
+                                                  "url": "https://torch.mii.de/fhir/torch-job-progress",
+                                                  "extension": [
+                                                    { "url": "cohortSize", "valueInteger": 1200 },
+                                                    { "url": "batchSize", "valueInteger": 500 },
+                                                    { "url": "batchesTotal", "valueInteger": 3 },
+                                                    { "url": "batchesCompleted", "valueInteger": 1 },
+                                                    {
+                                                      "url": "activeBatch",
+                                                      "extension": [
+                                                        { "url": "batchId", "valueString": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+                                                        { "url": "stage", "valueString": "REFERENCE_RESOLVE" }
+                                                      ]
+                                                    }
+                                                  ]
+                                                }
+                                              ]
                                             }
                                             """)
                             )
