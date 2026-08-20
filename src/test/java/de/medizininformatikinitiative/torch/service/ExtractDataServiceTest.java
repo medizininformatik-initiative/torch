@@ -3,7 +3,9 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
+import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -96,6 +98,8 @@ class ExtractDataServiceTest {
     TorchProperties torchProperties;
     @Mock
     CompartmentManager compartmentManager;
+    @Mock
+    BatchProgressRegistry batchProgressRegistry;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -133,7 +137,8 @@ class ExtractDataServiceTest {
                 dataStore,
                 postCascadeMustHaveChecker,
                 torchProperties,
-                compartmentManager
+                compartmentManager,
+                batchProgressRegistry
         );
         spyService = Mockito.spy(service);
     }
@@ -211,6 +216,13 @@ class ExtractDataServiceTest {
 
                 verifyNoInteractions(consentHandler); // consentCodes empty branch
                 verify(spyService).writeBatch(jobId.toString(), extracted);
+
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.CONSENT_FETCH);
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.DIRECT_LOAD);
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.REFERENCE_RESOLVE);
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.CASCADING_DELETE);
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.COPY_REDACT);
+                verify(batchProgressRegistry).clear(batchId);
             }
         }
 
@@ -420,6 +432,9 @@ class ExtractDataServiceTest {
                         .verifyComplete();
 
                 verifyNoInteractions(consentHandler);
+                verify(batchProgressRegistry, never()).enter(eq(batchId), eq(PipelineStage.CONSENT_FETCH));
+                verify(batchProgressRegistry).enter(batchId, PipelineStage.DIRECT_LOAD);
+                verify(batchProgressRegistry).clear(batchId);
             }
         }
 
@@ -470,6 +485,7 @@ class ExtractDataServiceTest {
 
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
             verify(resultFileManager).saveConsentBatchToNDJSON(eq(jobId.toString()), eq(batchId), any());
+            verify(batchProgressRegistry).clear(batchId);
         }
 
         @Test

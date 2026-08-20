@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
@@ -80,6 +81,7 @@ public class ExtractDataService {
     private final PostCascadeMustHaveChecker postCascadeMustHaveChecker;
     private final TorchProperties torchProperties;
     private final CompartmentManager compartmentManager;
+    private final BatchProgressRegistry batchProgressRegistry;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -92,7 +94,8 @@ public class ExtractDataService {
                               DataStore dataStore,
                               PostCascadeMustHaveChecker postCascadeMustHaveChecker,
                               TorchProperties torchProperties,
-                              CompartmentManager compartmentManager) {
+                              CompartmentManager compartmentManager,
+                              BatchProgressRegistry batchProgressRegistry) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -105,6 +108,7 @@ public class ExtractDataService {
         this.postCascadeMustHaveChecker = requireNonNull(postCascadeMustHaveChecker);
         this.torchProperties = requireNonNull(torchProperties);
         this.compartmentManager = requireNonNull(compartmentManager);
+        this.batchProgressRegistry = requireNonNull(batchProgressRegistry);
     }
 
     private static void logMemory(UUID id) {
@@ -144,15 +148,20 @@ public class ExtractDataService {
         UUID jobId = selection.job().id();
 
         Mono<PatientBatchWithConsent> unconsented = Mono.just(PatientBatchWithConsent.fromBatch(batch));
-        Mono<PatientBatchWithConsent> batchWithConsent = torchProperties.disableConsentCalculation() ? unconsented :
-                executeAndMeasureAsync(PipelineStage.CONSENT_FETCH, batch.diagnostics(), () ->
-                        crtdl.consentCodes()
-                                .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
-                                .orElse(unconsented)
-                                .onErrorResume(ConsentViolatedException.class, ex -> {
-                                    logger.warn("Batch {} skipped: no consenting patients", batch.batchId());
-                                    return Mono.empty();
-                                }));
+        Mono<PatientBatchWithConsent> batchWithConsent;
+        if (torchProperties.disableConsentCalculation()) {
+            batchWithConsent = unconsented;
+        } else {
+            batchProgressRegistry.enter(batch.batchId(), PipelineStage.CONSENT_FETCH);
+            batchWithConsent = executeAndMeasureAsync(PipelineStage.CONSENT_FETCH, batch.diagnostics(), () ->
+                    crtdl.consentCodes()
+                            .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
+                            .orElse(unconsented)
+                            .onErrorResume(ConsentViolatedException.class, ex -> {
+                                logger.warn("Batch {} skipped: no consenting patients", batch.batchId());
+                                return Mono.empty();
+                            }));
+        }
 
         return batchWithConsent
                 .flatMap(bwc -> processBatchAfterConsent(bwc, jobId, groupsToProcess, batchState))
@@ -169,7 +178,8 @@ public class ExtractDataService {
                                             Severity.WARNING,
                                             "Batch " + selection.batchState().batchId() + " skipped because of no consenting patients"
                                     ))
-                            ))));
+                            ))))
+                .doFinally(signal -> batchProgressRegistry.clear(batch.batchId()));
     }
 
     private <T> Mono<T> executeAndMeasureAsync(PipelineStage stage, BatchDiagnostics diagnostics, Supplier<Mono<T>> f) {
@@ -217,6 +227,7 @@ public class ExtractDataService {
         UUID batchId = batch.id();
         logMemory(batchId);
 
+        batchProgressRegistry.enter(batchId, PipelineStage.DIRECT_LOAD);
         return executeAndMeasureAsync(PipelineStage.DIRECT_LOAD, batch.diagnostics(), () -> directResourceLoader
                 .directLoadPatientCompartment(
                         groupsToProcess.directPatientCompartmentGroups(),
@@ -225,14 +236,18 @@ public class ExtractDataService {
                 .doOnNext(loadedBatch ->
                         logger.debug("Directly loaded patient compartment for batch {} with {} patients",
                                 batchId, loadedBatch.patientIds().size()))
-                .flatMap(patientBatch ->
-                        executeAndMeasureAsync(PipelineStage.REFERENCE_RESOLVE, patientBatch.diagnostics(), () ->
-                                referenceResolver.resolvePatientBatch(patientBatch, groupsToProcess.allGroups())))
+                .flatMap(patientBatch -> {
+                    batchProgressRegistry.enter(batchId, PipelineStage.REFERENCE_RESOLVE);
+                    return executeAndMeasureAsync(PipelineStage.REFERENCE_RESOLVE, patientBatch.diagnostics(), () ->
+                            referenceResolver.resolvePatientBatch(patientBatch, groupsToProcess.allGroups()));
+                })
                 .doOnNext(patientBatch ->
                         logger.debug("Batch {} resolved references ({} patients)", batchId, patientBatch.patientIds().size()))
-                .map(patientBatch ->
-                        executeAndMeasure(PipelineStage.CASCADING_DELETE, patientBatch.diagnostics(), () ->
-                                cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups())))
+                .map(patientBatch -> {
+                    batchProgressRegistry.enter(batchId, PipelineStage.CASCADING_DELETE);
+                    return executeAndMeasure(PipelineStage.CASCADING_DELETE, patientBatch.diagnostics(), () ->
+                            cascadingDelete.handlePatientBatch(patientBatch, groupsToProcess.allGroups()));
+                })
                 .doOnNext(patientBatch ->
                         logger.debug("Batch {} completed cascading delete ({} patients)", batchId, patientBatch.patientIds().size()))
                 .map(patientBatch ->
@@ -240,6 +255,7 @@ public class ExtractDataService {
                 .doOnNext(loadedBatch ->
                         logger.debug("Batch {} completed must-have filtering ({} patients)", batchId, loadedBatch.patientIds().size()))
                 .map(patientBatch -> {
+                    batchProgressRegistry.enter(batchId, PipelineStage.COPY_REDACT);
                     ExtractionPatientBatch transformed = executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
                             batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()));
                     // Non-compartment resources are handed off to processCore() via toCoreBundle() and counted there instead,
