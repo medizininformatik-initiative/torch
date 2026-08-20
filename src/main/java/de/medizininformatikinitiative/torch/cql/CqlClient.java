@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
@@ -30,6 +31,25 @@ public class CqlClient {
     }
 
     public Flux<String> fetchPatientIds(String cqlQuery) {
+        return fetchSubjectListId(cqlQuery)
+                .map(CqlClient::createPatientQuery)
+                .flux()
+                .flatMap(query -> dataStore.search(query, Patient.class))
+                .flatMap(patient -> {
+                    var id = patient.getIdPart();
+                    return id == null ? Flux.error(new RuntimeException("Encountered Patient Resource without ID")) : Flux.just(id);
+                });
+    }
+
+    /**
+     * Evaluates the given CQL query and returns the resulting subject-results {@link ListResource} as created
+     * by the FHIR server's {@code $evaluate-measure} operation, instead of resolving it to individual patient IDs.
+     */
+    public Mono<ListResource> fetchPatientList(String cqlQuery) {
+        return fetchSubjectListId(cqlQuery).flatMap(this::fetchList);
+    }
+
+    private Mono<String> fetchSubjectListId(String cqlQuery) {
         var libraryUri = "urn:uuid:" + UUID.randomUUID();
         var measureUri = "urn:uuid:" + UUID.randomUUID();
         logger.debug("Fetch patient IDs: Library {}, Measure {}", libraryUri, measureUri);
@@ -41,14 +61,12 @@ public class CqlClient {
 
         return dataStore.transact(measureLibraryBundle)
                 .then(Mono.defer(() -> dataStore.evaluateMeasure(params)))
-                .map(measureReport -> extractSubjectListId(measureReport, measureUri))
-                .map(CqlClient::createPatientQuery)
-                .flux()
-                .flatMap(query -> dataStore.search(query, Patient.class))
-                .flatMap(patient -> {
-                    var id = patient.getIdPart();
-                    return id == null ? Flux.error(new RuntimeException("Encountered Patient Resource without ID")) : Flux.just(id);
-                });
+                .map(measureReport -> extractSubjectListId(measureReport, measureUri));
+    }
+
+    private Mono<ListResource> fetchList(String listId) {
+        return dataStore.search(new Query("List", QueryParams.of("_id", stringValue(listId))), ListResource.class)
+                .single();
     }
 
     /**
