@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
 import de.medizininformatikinitiative.torch.setup.IntegrationTestSetup;
+import org.hl7.fhir.r4.model.ListResource;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
@@ -72,20 +73,40 @@ class CohortQueryServiceTest {
 
     @Test
     void nonEmpty() {
-        List<String> patients1 = service.fetchPatientListFromFlare(crtdlAllObservations).block();
-        List<String> patients2 = service.fetchPatientListUsingCql(crtdlAllObservations).block();
+        List<String> patients1 = service.fetchPatientListFromFlare(crtdlAllObservations.cohortDefinition()).block();
+        List<String> patients2 = service.fetchPatientListUsingCql(crtdlAllObservations.cohortDefinition()).block();
 
         assertThat(patients1).isEqualTo(patients2);
     }
 
     @Test
     void empty() {
-        Mono<List<String>> batches1 = service.fetchPatientListFromFlare(crtdlNoPatients);
-        Mono<List<String>> batches2 = service.fetchPatientListUsingCql(crtdlNoPatients);
+        Mono<List<String>> batches1 = service.fetchPatientListFromFlare(crtdlNoPatients.cohortDefinition());
+        Mono<List<String>> batches2 = service.fetchPatientListUsingCql(crtdlNoPatients.cohortDefinition());
 
         StepVerifier.create(batches1).expectNext(List.of()).verifyComplete();
 
         StepVerifier.create(batches2).expectNext(List.of()).verifyComplete();
+    }
+
+    @Test
+    void evaluateCohortAsFhirList_nonEmptyCohort_containsSamePatientsAsPlainIdList() {
+        List<String> patientIds = service.runCohortQuery(crtdlAllObservations).block();
+        ListResource list = service.evaluateCohortAsFhirList(crtdlAllObservations.cohortDefinition()).block();
+
+        assertThat(list).isNotNull();
+        List<String> referencedIds = list.getEntry().stream()
+                .map(entry -> entry.getItem().getReferenceElement().getIdPart())
+                .toList();
+        org.assertj.core.api.Assertions.assertThat(referencedIds).containsExactlyInAnyOrderElementsOf(patientIds);
+    }
+
+    @Test
+    void evaluateCohortAsFhirList_emptyCohort_returnsListWithNoEntries() {
+        ListResource list = service.evaluateCohortAsFhirList(crtdlNoPatients.cohortDefinition()).block();
+
+        assertThat(list).isNotNull();
+        org.assertj.core.api.Assertions.assertThat(list.getEntry()).isEmpty();
     }
 
     @Test

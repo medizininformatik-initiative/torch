@@ -130,6 +130,12 @@ public class FhirController {
                     method = RequestMethod.POST,
                     beanClass = FhirController.class,
                     beanMethod = "handleCqlTranslation"
+            ),
+            @RouterOperation(
+                    path = "/fhir/$evaluate-cohort",
+                    method = RequestMethod.POST,
+                    beanClass = FhirController.class,
+                    beanMethod = "handleEvaluateCohort"
             )
     })
     public RouterFunction<ServerResponse> queryRouter() {
@@ -137,7 +143,8 @@ public class FhirController {
         return route(POST("/fhir/$extract-data").and(accept(MEDIA_TYPE_FHIR_JSON)), this::handleExtractData)
                 .andRoute(GET("/fhir/__status/{jobId}"), this::checkStatus)
                 .andRoute(GET("/fhir/$translate-cql/{jobId}"), this::handleCqlForJob)
-                .andRoute(POST("/fhir/$translate-cql"), this::handleCqlTranslation);
+                .andRoute(POST("/fhir/$translate-cql"), this::handleCqlTranslation)
+                .andRoute(POST("/fhir/$evaluate-cohort"), this::handleEvaluateCohort);
     }
 
     @Operation(
@@ -502,6 +509,65 @@ public class FhirController {
                         logger.warn("FHIR_CONTROLLER_04 Bad request in $translate-cql: {}", e.getMessage(), e);
                     } else {
                         logger.error("FHIR_CONTROLLER_05 Internal server error in $translate-cql: {}", e.getMessage(), e);
+                    }
+                    return ServerResponse.status(status)
+                            .contentType(MEDIA_TYPE_FHIR_JSON)
+                            .bodyValue(fhirContext.newJsonParser().encodeResourceToString(createOperationOutcome(e)));
+                });
+    }
+
+    /**
+     * Handles {@code POST /fhir/$evaluate-cohort}.
+     *
+     * <p>Accepts a CRTDL (extracts the {@code cohortDefinition} field) or a bare CCDL
+     * (structured query used directly), executes it via {@link CohortQueryService}, and returns the
+     * matching cohort as the underlying FHIR {@code List} resource. Unlike {@code $extract-data}, no
+     * {@link Job} is created and nothing is persisted under {@code output/}.</p>
+     */
+    @Operation(
+            summary = "POST /fhir/$evaluate-cohort — Evaluate a cohort without extracting data",
+            description = "Accepts either a full CRTDL (with a cohortDefinition field) or a bare CCDL "
+                    + "(structured query), executes it against Flare or CQL (per torch.useCql), and returns "
+                    + "the matching cohort as a FHIR List resource. No job is created and nothing is persisted.",
+            requestBody = @RequestBody(required = true, content = @Content(mediaType = "application/json")),
+            responses = {
+                    @ApiResponse(responseCode = "200", description = "Matching cohort as a FHIR List resource",
+                            content = @Content(mediaType = "application/fhir+json")),
+                    @ApiResponse(responseCode = "400", description = "Bad Request",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class))),
+                    @ApiResponse(responseCode = "500", description = "Internal Server Error",
+                            content = @Content(mediaType = "application/fhir+json", schema = @Schema(implementation = OperationOutcomeSchema.class)))
+            }
+    )
+    public Mono<ServerResponse> handleEvaluateCohort(ServerRequest request) {
+        return request.bodyToMono(String.class)
+                .filter(body -> !body.isBlank())
+                .switchIfEmpty(Mono.error(new IllegalArgumentException("Empty request body")))
+                .flatMap(body -> {
+                    JsonNode root;
+                    try {
+                        root = mapper.readTree(body);
+                    } catch (IOException e) {
+                        return Mono.error(new IllegalArgumentException("Invalid JSON: " + e.getMessage(), e));
+                    }
+                    JsonNode cohortDefinition = root.has("cohortDefinition") ? root.get("cohortDefinition") : root;
+                    return cohortQueryService.evaluateCohortAsFhirList(cohortDefinition)
+                            .onErrorMap(com.fasterxml.jackson.core.JsonProcessingException.class,
+                                    e -> new IllegalArgumentException("Invalid cohort definition: " + e.getMessage(), e))
+                            .onErrorMap(org.springframework.web.reactive.function.client.WebClientResponseException.class,
+                                    e -> e.getStatusCode().is4xxClientError()
+                                            ? new IllegalArgumentException("Invalid cohort definition: " + e.getMessage(), e)
+                                            : e);
+                })
+                .flatMap(list -> ServerResponse.ok().contentType(MEDIA_TYPE_FHIR_JSON)
+                        .bodyValue(fhirContext.newJsonParser().encodeResourceToString(list)))
+                .onErrorResume(Exception.class, e -> {
+                    HttpStatus status = e instanceof IllegalArgumentException
+                            ? HttpStatus.BAD_REQUEST : HttpStatus.INTERNAL_SERVER_ERROR;
+                    if (status == HttpStatus.BAD_REQUEST) {
+                        logger.warn("FHIR_CONTROLLER_06 Bad request in $evaluate-cohort: {}", e.getMessage(), e);
+                    } else {
+                        logger.error("FHIR_CONTROLLER_07 Internal server error in $evaluate-cohort: {}", e.getMessage(), e);
                     }
                     return ServerResponse.status(status)
                             .contentType(MEDIA_TYPE_FHIR_JSON)

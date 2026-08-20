@@ -8,6 +8,8 @@ import de.medizininformatikinitiative.torch.cql.CqlClient;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.numcodex.sq2cql.Translator;
 import de.numcodex.sq2cql.model.structured_query.StructuredQuery;
+import org.hl7.fhir.r4.model.ListResource;
+import org.hl7.fhir.r4.model.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -22,7 +24,8 @@ import java.util.List;
 
 
 /**
- * Runs the cohort query described by an {@link AnnotatedCrtdl} and returns the matching patient IDs.
+ * Runs the cohort query described by an {@link AnnotatedCrtdl} or a bare cohort definition, returning either
+ * the matching patient IDs or the underlying FHIR {@link ListResource}.
  * <p>
  * Depending on {@code torch.useCql}, this either calls Flare or
  * translates the structured query to CQL and calls the CQL client.
@@ -54,14 +57,31 @@ public class CohortQueryService {
      * @return mono emitting the list of matching patient IDs
      */
     public Mono<List<String>> runCohortQuery(AnnotatedCrtdl crtdl) {
-        return useCql ? fetchPatientListUsingCql(crtdl) : fetchPatientListFromFlare(crtdl);
+        JsonNode cohortDefinition = crtdl.cohortDefinition();
+        return useCql ? fetchPatientListUsingCql(cohortDefinition) : fetchPatientListFromFlare(cohortDefinition);
     }
 
-    public Mono<List<String>> fetchPatientListFromFlare(AnnotatedCrtdl crtdl) {
+    /**
+     * Executes the given cohort definition (structured query) against Flare or CQL, per {@code torch.useCql},
+     * and returns the resulting cohort as the underlying FHIR {@link ListResource} rather than a plain ID list.
+     * <p>
+     * On the CQL path this is the actual subject-results list created by the FHIR server's
+     * {@code $evaluate-measure} operation. On the Flare path, which has no such server-side resource, a
+     * {@link ListResource} is synthesized locally from the returned patient IDs.
+     *
+     * @param cohortDefinition the structured query JSON node (the {@code cohortDefinition} field of a CRTDL)
+     * @return mono emitting the matching cohort as a FHIR {@link ListResource}
+     */
+    public Mono<ListResource> evaluateCohortAsFhirList(JsonNode cohortDefinition) {
+        return useCql ? fetchPatientListAsFhirList(cohortDefinition)
+                : fetchPatientListFromFlare(cohortDefinition).map(CohortQueryService::toFhirList);
+    }
+
+    Mono<List<String>> fetchPatientListFromFlare(JsonNode cohortDefinition) {
         return webClient.post()
                 .uri("/query/execute-cohort")
                 .contentType(MediaType.parseMediaType("application/sq+json"))
-                .bodyValue(crtdl.cohortDefinition().toString())
+                .bodyValue(cohortDefinition.toString())
                 .retrieve()
                 .onStatus(status -> status.value() >= 400, ClientResponse::createException)
                 .bodyToMono(String.class)
@@ -81,11 +101,27 @@ public class CohortQueryService {
                 .doOnError(e -> logger.error("Error fetching patient list from Flare: {}", e.getMessage()));
     }
 
-    public Mono<List<String>> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) {
-        return Mono.fromCallable(() -> objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class))
-                .map(ccdl -> cqlQueryTranslator.toCql(ccdl).print())
+    Mono<List<String>> fetchPatientListUsingCql(JsonNode cohortDefinition) {
+        return toCqlString(cohortDefinition)
                 .flatMapMany(cqlClient::fetchPatientIds)
                 .collectList();
+    }
+
+    private Mono<ListResource> fetchPatientListAsFhirList(JsonNode cohortDefinition) {
+        return toCqlString(cohortDefinition).flatMap(cqlClient::fetchPatientList);
+    }
+
+    private Mono<String> toCqlString(JsonNode cohortDefinition) {
+        return Mono.fromCallable(() -> objectMapper.treeToValue(cohortDefinition, StructuredQuery.class))
+                .map(ccdl -> cqlQueryTranslator.toCql(ccdl).print());
+    }
+
+    static ListResource toFhirList(List<String> patientIds) {
+        var list = new ListResource();
+        list.setStatus(ListResource.ListStatus.CURRENT);
+        list.setMode(ListResource.ListMode.WORKING);
+        patientIds.forEach(id -> list.addEntry().setItem(new Reference("Patient/" + id)));
+        return list;
     }
 
     /**
