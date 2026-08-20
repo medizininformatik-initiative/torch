@@ -25,9 +25,23 @@ h2#servers + div,
 For a more practical, narrative guide to managing jobs after kick-off (listing, pausing, cancelling, changing
 priority, deleting) than the technical reference above, see the [Task API](./task-api.md) page.
 
+## $evaluate-cohort — Cohort Preview
+
+Unlike `$extract-data`, `$evaluate-cohort` does **not** follow the async Bulk Data pattern below: it evaluates
+the cohort synchronously and returns the matching cohort directly in the response body as a FHIR `List`
+resource, without creating a job or persisting anything under `output/`. Use it to preview a cohort (e.g. check
+its size or membership) before committing to a full extraction.
+
+The request body is either a full CRTDL (only its `cohortDefinition` field is used) or a bare CCDL (structured
+query) — passed as plain JSON directly, not Base64 encoded or wrapped in a `Parameters` resource.
+
+```sh
+curl -s 'http://localhost:8080/fhir/$evaluate-cohort' -H "Content-Type: application/json" -d @src/test/resources/CRTDL/CRTDL_observation.json -v
+```
+
 ## Implementation Details
 
-The TORCH REST API follows the [Asynchronous Bulk Data Request Pattern][1].
+The TORCH REST API follows the [Asynchronous Bulk Data Request Pattern][1] described below for `$extract-data`.
 
 ### $extract-data Kick-off
 
