@@ -131,9 +131,10 @@ public class BaseConfig {
 
     @Lazy
     @Bean
-    Translator createCqlTranslator(ObjectMapper jsonUtil, TorchProperties torchProperties) throws IOException {
-        var mappings = jsonUtil.readValue(new File(torchProperties.mappingsFile()), Mapping[].class);
-        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jsonUtil.readValue(new File(torchProperties.conceptTreeFile()), MappingTreeModuleRoot[].class)).toList());
+    Translator createCqlTranslator(TorchProperties torchProperties) throws IOException {
+        var jackson3ObjectMapper = new tools.jackson.databind.ObjectMapper();
+        var mappings = jackson3ObjectMapper.readValue(new File(torchProperties.mappingsFile()), Mapping[].class);
+        var mappingTreeBase = new MappingTreeBase(Arrays.stream(jackson3ObjectMapper.readValue(new File(torchProperties.conceptTreeFile()), MappingTreeModuleRoot[].class)).toList());
 
         return Translator.of(MappingContext.of(
                 Stream.of(mappings)
