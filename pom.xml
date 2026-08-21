@@ -252,7 +252,7 @@
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
-            <version>5.4.0</version>
+            <version>5.5.0</version>
         </dependency>
 
         <!-- FIX 3: aligned testcontainers to 2.0.4 and renamed junit-jupiter artifact
