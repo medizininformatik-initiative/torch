@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.rest;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
@@ -60,6 +61,9 @@ class TaskControllerTest {
     @Mock
     ResultFileManager resultFileManager;
 
+    @Mock
+    BatchProgressRegistry batchProgressRegistry;
+
     FhirContext fhirContext;
     JobTaskMapper jobTaskMapper;
     TaskController controller;
@@ -68,7 +72,7 @@ class TaskControllerTest {
     @BeforeEach
     void setUp() {
         fhirContext = FhirContext.forR4();
-        jobTaskMapper = new JobTaskMapper(resultFileManager, PROPERTIES);
+        jobTaskMapper = new JobTaskMapper(resultFileManager, batchProgressRegistry, PROPERTIES);
         controller = new TaskController(fhirContext, persistence, jobTaskMapper);
         client = WebTestClient.bindToRouterFunction(controller.taskRouter()).build();
     }
