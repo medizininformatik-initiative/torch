@@ -31,6 +31,7 @@ public class CohortQueryService {
     private static final Logger logger = LoggerFactory.getLogger(CohortQueryService.class);
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final tools.jackson.databind.ObjectMapper jackson3ObjectMapper;
     private final CqlClient cqlClient;
     private final Translator cqlQueryTranslator;
     private final boolean useCql;
@@ -42,6 +43,7 @@ public class CohortQueryService {
     ) {
         this.webClient = webClient;
         this.objectMapper = new ObjectMapper();
+        this.jackson3ObjectMapper = new tools.jackson.databind.ObjectMapper();
         this.cqlClient = cqlClient;
         this.useCql = useCql;
         this.cqlQueryTranslator = cqlQueryTranslator;
@@ -82,7 +84,8 @@ public class CohortQueryService {
     }
 
     public Mono<List<String>> fetchPatientListUsingCql(AnnotatedCrtdl crtdl) {
-        return Mono.fromCallable(() -> objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class))
+        return Mono.fromCallable(() -> jackson3ObjectMapper.readValue(
+                        objectMapper.writeValueAsString(crtdl.cohortDefinition()), StructuredQuery.class))
                 .map(ccdl -> cqlQueryTranslator.toCql(ccdl).print())
                 .flatMapMany(cqlClient::fetchPatientIds)
                 .collectList();
@@ -97,9 +100,10 @@ public class CohortQueryService {
     public Mono<String> translateToCql(JsonNode cohortDefinition) {
         return Mono.fromCallable(() -> {
             try {
-                StructuredQuery sq = objectMapper.treeToValue(cohortDefinition, StructuredQuery.class);
+                StructuredQuery sq = jackson3ObjectMapper.readValue(
+                        objectMapper.writeValueAsString(cohortDefinition), StructuredQuery.class);
                 return cqlQueryTranslator.toCql(sq).print();
-            } catch (JsonProcessingException e) {
+            } catch (JsonProcessingException | tools.jackson.core.JacksonException e) {
                 throw new IllegalArgumentException("Invalid cohort definition: " + e.getMessage(), e);
             }
         });
