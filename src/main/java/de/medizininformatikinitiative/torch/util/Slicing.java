@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.model.management.ReferenceResolutionContext;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.Element;
@@ -30,12 +31,13 @@ public class Slicing {
     /**
      * Checks if the given element is a sliced element and returns the sliced element otherwise null.
      *
-     * @param base       HAPI Base (Element) which should be checked
-     * @param elementId  Element ID of the above element.
-     * @param definition definition of the Resource to which the element belongs
+     * @param base              HAPI Base (Element) which should be checked
+     * @param elementId         Element ID of the above element.
+     * @param definition        definition of the Resource to which the element belongs
+     * @param resolutionContext lookups needed to evaluate a {@code resolve()} step in a discriminator path
      * @return Returns null if no slicing is found and an ElementDefinition for the slice otherwise
      */
-    public static Optional<ElementDefinition> resolveSlicing(Base base, String elementId, CompiledStructureDefinition definition) {
+    public static Optional<ElementDefinition> resolveSlicing(Base base, String elementId, CompiledStructureDefinition definition, ReferenceResolutionContext resolutionContext) {
         Optional<ElementDefinition> slicedElement = definition.elementDefinitionById(elementId);
 
         if (slicedElement.isEmpty()) {
@@ -74,7 +76,7 @@ public class Slicing {
                         }
                     }
                 }
-                if (!resolveDiscriminator(base, element, discriminator, definition.structureDefinition().getSnapshot())) {
+                if (!resolveDiscriminator(base, element, discriminator, definition.structureDefinition().getSnapshot(), resolutionContext)) {
                     foundSlice = false;
                     break; // Stop iterating if condition check fails
                 }

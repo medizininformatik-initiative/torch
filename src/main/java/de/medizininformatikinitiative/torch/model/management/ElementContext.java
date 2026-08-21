@@ -10,11 +10,13 @@ import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
 
-public record ElementContext(String elementId, CompiledStructureDefinition definition) {
+public record ElementContext(String elementId, CompiledStructureDefinition definition,
+                             ReferenceResolutionContext resolutionContext) {
 
     public ElementContext {
         requireNonNull(elementId);
         requireNonNull(definition);
+        requireNonNull(resolutionContext);
     }
 
     Optional<ElementDefinition> elementDefinition() {
@@ -29,7 +31,7 @@ public record ElementContext(String elementId, CompiledStructureDefinition defin
      * @return ElementContext with elementIds updated by one step.
      */
     ElementContext descend(String childName) {
-        return new ElementContext(elementId + "." + childName, definition);
+        return new ElementContext(elementId + "." + childName, definition, resolutionContext);
     }
 
     /**
@@ -42,8 +44,8 @@ public record ElementContext(String elementId, CompiledStructureDefinition defin
     }
 
     public Optional<ElementContext> matchingSlice(Base dataElement) {
-        Optional<ElementDefinition> slice = Slicing.resolveSlicing(dataElement, elementId, definition);
-        return slice.map(elementDefinition -> new ElementContext(elementDefinition.getId(), definition));
+        Optional<ElementDefinition> slice = Slicing.resolveSlicing(dataElement, elementId, definition, resolutionContext);
+        return slice.map(elementDefinition -> new ElementContext(elementDefinition.getId(), definition, resolutionContext));
     }
 
     /**
