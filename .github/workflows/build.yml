@@ -353,6 +353,29 @@ jobs:
           EXPECTED_OBSERVATION_COUNT: ${{ matrix.expected_observations }}
         run: bash .github/workflows/script-integration-test/patient-param-test.sh
 
+  evaluate-cohort-integration-test:
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download Torch Image
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: torch-image
+          path: /tmp
+
+      - name: Load Torch Image
+        run: docker load --input /tmp/torch.tar
+
+      - name: Check out Git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Start Docker Compose
+        working-directory: .github/workflows/script-integration-test
+        run: docker compose up --wait -d
+
+      - name: Run evaluate-cohort integration script
+        run: bash .github/workflows/script-integration-test/evaluate-cohort-test.sh
+
   script-resumeability-test:
     needs: build
     runs-on: ubuntu-24.04
@@ -470,6 +493,7 @@ jobs:
       - image-scan
       - blackbox-integration-tests
       - script-integration-test
+      - evaluate-cohort-integration-test
       - script-resumeability-test
       - env-var-check
       - performance-integration-test

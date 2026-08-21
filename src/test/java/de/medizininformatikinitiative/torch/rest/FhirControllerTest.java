@@ -476,6 +476,129 @@ class FhirControllerTest {
     }
 
     @Nested
+    class EvaluateCohortTests {
+
+        @Test
+        void ccdlBodyReturnsFhirList() {
+            var list = new org.hl7.fhir.r4.model.ListResource();
+            list.addEntry().setItem(new org.hl7.fhir.r4.model.Reference("Patient/1"));
+            when(cohortQueryService.evaluateCohortAsFhirList(any())).thenReturn(Mono.just(list));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{\"version\":\"http://to_be_decided.com/draft-1/schema#\",\"inclusionCriteria\":[[]]}")
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("List")
+                    .jsonPath("$.entry[0].item.reference").isEqualTo("Patient/1");
+        }
+
+        @Test
+        void crtdlBodyExtractsCohortDefinition() {
+            var list = new org.hl7.fhir.r4.model.ListResource();
+            when(cohortQueryService.evaluateCohortAsFhirList(any())).thenReturn(Mono.just(list));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{\"cohortDefinition\":{\"inclusionCriteria\":[[]]},\"dataExtraction\":{}}")
+                    .exchange()
+                    .expectStatus().isOk()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("List");
+        }
+
+        @Test
+        void emptyBodyReturnsBadRequest() {
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void invalidJsonBodyReturnsBadRequest() {
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("not json")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void invalidCohortDefinitionReturnsBadRequest() {
+            when(cohortQueryService.evaluateCohortAsFhirList(any()))
+                    .thenReturn(Mono.error(new com.fasterxml.jackson.core.JsonParseException(null, "invalid cohort definition")));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void evaluationErrorReturnsInternalServerError() {
+            when(cohortQueryService.evaluateCohortAsFhirList(any()))
+                    .thenReturn(Mono.error(new RuntimeException("Evaluation failed")));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void flareClientErrorReturnsBadRequest() {
+            var flareError = org.springframework.web.reactive.function.client.WebClientResponseException.create(
+                    422, "Unprocessable Entity", org.springframework.http.HttpHeaders.EMPTY, new byte[0], null);
+            when(cohortQueryService.evaluateCohortAsFhirList(any()))
+                    .thenReturn(Mono.error(flareError));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+
+        @Test
+        void flareServerErrorReturnsInternalServerError() {
+            var flareError = org.springframework.web.reactive.function.client.WebClientResponseException.create(
+                    502, "Bad Gateway", org.springframework.http.HttpHeaders.EMPTY, new byte[0], null);
+            when(cohortQueryService.evaluateCohortAsFhirList(any()))
+                    .thenReturn(Mono.error(flareError));
+
+            client.post().uri("/fhir/$evaluate-cohort")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().is5xxServerError()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
     class ExtractDataSuccessTests {
 
         AnnotatedCrtdl annotated = new AnnotatedCrtdl(
