@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.management.ReferenceResolutionContext;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.*;
 import org.hl7.fhir.r4.model.ElementDefinition.DiscriminatorType;
@@ -7,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -78,7 +82,7 @@ class DiscriminatorResolverWithPathTest {
         patientName.setFamily("Doe"); // Family name matches the fixed value
         basePatient.addName(patientName);
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, baseElement, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, baseElement, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertTrue(result, "Should return true when discriminator type is 'value' and family name matches the fixed value");
     }
@@ -106,31 +110,87 @@ class DiscriminatorResolverWithPathTest {
         when(snapshotMock.getElementById("sliceId.slicePath.nonexistent.path")).thenReturn(null);
         Patient basePatient = new Patient();
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertFalse(result, "Should return false when discriminator path does not exist in the snapshot");
     }
 
     /**
-     * Test when discriminator type is 'TYPE' and its path does not resolve to an element in the snapshot, as
-     * happens for reference-resolving paths like {@code $this.resolve()} used to slice by the referenced
-     * resource's type. Must return false rather than throw, like the 'VALUE'/'PATTERN' case above already does.
+     * Test when discriminator type is 'TYPE' with a reference-resolving path like {@code $this.resolve()}, and the
+     * referenced resource is not resolvable (e.g. not present in the batch). Must return false rather than throw.
      */
     @Test
-    void testResolveDiscriminator_TypeType_PathDoesNotExist() {
+    void testResolveDiscriminator_TypeType_ReferenceNotResolvable() {
         when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
         when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
         ElementDefinition slice = new ElementDefinition();
         slice.setId("Observation.derivedFrom:attached-image");
-        when(snapshotMock.getElementById("Observation.derivedFrom:attached-image.$this.resolve()")).thenReturn(null);
 
         Reference reference = new Reference("DocumentReference/123");
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
-        assertFalse(result, "Should return false, not throw, when a type discriminator's path does not resolve in the snapshot");
+        assertFalse(result, "Should return false, not throw, when a type discriminator's reference does not resolve");
     }
 
+    /**
+     * Same shape as above, but its snapshot path (not a {@code resolve()} path) is missing instead - the case
+     * {@code testResolveDiscriminator_TypeType_ReferenceNotResolvable} covered before it was repurposed for the
+     * reference-resolving path.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_NonResolvePathDoesNotExist() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("unknownChild");
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Patient");
+        when(snapshotMock.getElementById("Patient.unknownChild")).thenReturn(null);
+
+        Patient basePatient = new Patient();
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
+
+        assertFalse(result, "Should return false when a non-resolve() type discriminator path is missing from the snapshot");
+    }
+
+    /**
+     * A {@code resolve()} path applied to a {@link Reference} with no {@code .reference} value set can never
+     * resolve, regardless of what the resolution context could otherwise provide.
+     */
+    @Test
+    void testResolveDiscriminator_TypeProfile_ReferenceWithoutReferenceValue() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.PROFILE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:variant");
+        slice.addType().setCode("Reference").addTargetProfile("https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante");
+
+        Reference reference = new Reference();
+        reference.setDisplay("no reference value set");
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
+
+        assertFalse(result, "Should return false when the Reference has no reference value to resolve");
+    }
+
+    /**
+     * A {@code resolve()} path applied to a reference string that {@link ExtractionId#fromRelativeUrl} rejects
+     * (e.g. a {@code #contained} reference) must return false rather than throw.
+     */
+    @Test
+    void testResolveDiscriminator_TypeProfile_UnparsableReference() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.PROFILE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:variant");
+        slice.addType().setCode("Reference").addTargetProfile("https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante");
+
+        Reference reference = new Reference("#contained1");
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
+
+        assertFalse(result, "Should return false, not throw, when the reference cannot be parsed into an ExtractionId");
+    }
 
     /**
      * Test when discriminator type is 'TYPE' and its path resolves to a child of the sliced element (e.g.
@@ -151,7 +211,7 @@ class DiscriminatorResolverWithPathTest {
         Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
         entry.setResource(new Composition());
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertTrue(result, "Should match against the resolved child at the discriminator path, not the outer sliced element itself");
     }
@@ -173,7 +233,7 @@ class DiscriminatorResolverWithPathTest {
         Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
         entry.setResource(new Patient());
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertFalse(result, "Should not match when the resolved child's type differs from the slice's declared type");
     }
@@ -196,7 +256,7 @@ class DiscriminatorResolverWithPathTest {
 
         Bundle.BundleEntryComponent entry = new Bundle.BundleEntryComponent();
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(entry, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertFalse(result, "Should return false, not throw, when the discriminator path does not resolve on the actual base instance");
     }
@@ -226,7 +286,7 @@ class DiscriminatorResolverWithPathTest {
         code.addCoding(new Coding("urn:iso:std:iso:11073:10101", "150017", "Systolic blood pressure"));
         component.setCode(code);
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(component, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(component, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertTrue(result, "Should match when any coding in the array matches the pattern, not just the first");
     }
@@ -249,8 +309,149 @@ class DiscriminatorResolverWithPathTest {
         Extension parentExtension = new Extension("name", new Extension("code", new StringType("someValue")));
         basePatient.addExtension(parentExtension);
 
-        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, slice, discriminatorMock, snapshotMock);
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(basePatient, slice, discriminatorMock, snapshotMock, ReferenceResolutionContext.EMPTY);
 
         assertFalse(result, "Should return false when discriminator type is 'value' but no fixed value is set at the specified path");
+    }
+
+    /**
+     * Reproduces #1173 (base-URL case): a 'TYPE' discriminator at {@code $this.resolve()}, as used e.g. by
+     * {@code Observation.derivedFrom:dicom-image} in mii-pr-patho-finding, whose {@code targetProfile} is a base
+     * HL7 canonical URL not loaded as an ontology profile - the resource type falls back to the URL's own
+     * trailing segment.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_ResolvesReferenceAgainstBaseTargetProfile() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:dicom-image");
+        slice.addType().setCode("Reference").addTargetProfile("http://hl7.org/fhir/StructureDefinition/ImagingStudy");
+
+        Reference reference = new Reference("ImagingStudy/img1");
+        ImagingStudy imagingStudy = new ImagingStudy();
+        imagingStudy.setId("img1");
+
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(
+                id -> id.equals(ExtractionId.fromRelativeUrl("ImagingStudy/img1")) ? Optional.of(imagingStudy) : Optional.empty(),
+                url -> Optional.empty());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, resolutionContext);
+
+        assertTrue(result, "Should match by resource type when the target profile is a base HL7 canonical URL");
+    }
+
+    /**
+     * Reproduces #1173 (custom-profile case): same shape, but {@code targetProfile} is a custom MII profile whose
+     * own base resource type ("Media", as for mii-pr-patho-attached-image) differs from its URL's trailing
+     * segment ("mii-pr-patho-attached-image") - the type must come from the resolved profile, not the URL.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_ResolvesReferenceAgainstCustomTargetProfile() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+
+        String profileUrl = "https://www.medizininformatik-initiative.de/fhir/ext/modul-patho/StructureDefinition/mii-pr-patho-attached-image";
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:attached-image");
+        slice.addType().setCode("Reference").addTargetProfile(profileUrl);
+
+        Reference reference = new Reference("Media/media1");
+        Media media = new Media();
+        media.setId("media1");
+
+        StructureDefinition attachedImageProfile = new StructureDefinition();
+        attachedImageProfile.setUrl(profileUrl);
+        attachedImageProfile.setType("Media");
+        CompiledStructureDefinition compiled = CompiledStructureDefinition.fromStructureDefinition(attachedImageProfile);
+
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(
+                id -> id.equals(ExtractionId.fromRelativeUrl("Media/media1")) ? Optional.of(media) : Optional.empty(),
+                url -> url.equals(profileUrl) ? Optional.of(compiled) : Optional.empty());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, resolutionContext);
+
+        assertTrue(result, "Should match by the target profile's own declared base type, not its URL's trailing segment");
+    }
+
+    /**
+     * Same shape as above, but the resolved resource's type does not match any of the slice's target profiles.
+     */
+    @Test
+    void testResolveDiscriminator_TypeType_ResolvedReferenceTypeMismatch() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.TYPE);
+        when(discriminatorMock.getPath()).thenReturn("$this.resolve()");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:dicom-image");
+        slice.addType().setCode("Reference").addTargetProfile("http://hl7.org/fhir/StructureDefinition/ImagingStudy");
+
+        Reference reference = new Reference("Patient/p1");
+        Patient patient = new Patient();
+        patient.setId("p1");
+
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(
+                id -> id.equals(ExtractionId.fromRelativeUrl("Patient/p1")) ? Optional.of(patient) : Optional.empty(),
+                url -> Optional.empty());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, resolutionContext);
+
+        assertFalse(result, "Should not match when the resolved resource's type differs from every target profile's type");
+    }
+
+    /**
+     * Reproduces #1173's 'PROFILE' case, as used e.g. by {@code Observation.derivedFrom:variant} in
+     * mii-pr-molgen-diagnostische-implikation: the resolved resource must declare, in its own {@code meta.profile},
+     * conformance to one of the slice's target profiles.
+     */
+    @Test
+    void testResolveDiscriminator_TypeProfile_ResolvedReferenceDeclaresMatchingProfile() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.PROFILE);
+        when(discriminatorMock.getPath()).thenReturn("resolve()");
+
+        String profileUrl = "https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante";
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:variant");
+        slice.addType().setCode("Reference").addTargetProfile(profileUrl);
+
+        Reference reference = new Reference("Observation/variant1");
+        Observation variant = new Observation();
+        variant.setId("variant1");
+        variant.getMeta().addProfile(profileUrl + "|1.0.0");
+
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(
+                id -> id.equals(ExtractionId.fromRelativeUrl("Observation/variant1")) ? Optional.of(variant) : Optional.empty(),
+                url -> Optional.empty());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, resolutionContext);
+
+        assertTrue(result, "Should match, ignoring the version suffix, when the resolved resource declares the target profile");
+    }
+
+    /**
+     * Same shape as above, but the resolved resource declares a different profile.
+     */
+    @Test
+    void testResolveDiscriminator_TypeProfile_ResolvedReferenceDeclaresDifferentProfile() {
+        when(discriminatorMock.getType()).thenReturn(DiscriminatorType.PROFILE);
+        when(discriminatorMock.getPath()).thenReturn("resolve()");
+
+        ElementDefinition slice = new ElementDefinition();
+        slice.setId("Observation.derivedFrom:variant");
+        slice.addType().setCode("Reference").addTargetProfile("https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/variante");
+
+        Reference reference = new Reference("Observation/other1");
+        Observation other = new Observation();
+        other.setId("other1");
+        other.getMeta().addProfile("https://www.medizininformatik-initiative.de/fhir/ext/modul-molgen/StructureDefinition/haplotyp");
+
+        ReferenceResolutionContext resolutionContext = new ReferenceResolutionContext(
+                id -> id.equals(ExtractionId.fromRelativeUrl("Observation/other1")) ? Optional.of(other) : Optional.empty(),
+                url -> Optional.empty());
+
+        Boolean result = DiscriminatorResolver.resolveDiscriminator(reference, slice, discriminatorMock, snapshotMock, resolutionContext);
+
+        assertFalse(result, "Should not match when the resolved resource declares a different profile");
     }
 }

@@ -68,6 +68,9 @@ public class BatchCopierRedacter {
      */
     public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
         Map<ExtractionId, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
+        // Snapshot the pre-redaction cache: discriminator resolve() lookups must see the resources as extracted,
+        // not racing against other threads in this same parallelStream() concurrently redacting them in place.
+        Map<ExtractionId, Optional<Resource>> preRedactionCache = Map.copyOf(extractionBundle.cache());
 
         infoMap.keySet().parallelStream().forEach(resourceId -> {
             Optional<Resource> opt = extractionBundle.getResource(resourceId);
@@ -80,7 +83,7 @@ public class BatchCopierRedacter {
 
             try {
                 ExtractionRedactionWrapper wrapper =
-                        createWrapper(resource, info, groupMap);
+                        createWrapper(resource, info, groupMap, preRedactionCache);
 
                 Resource transformed = transformResource(wrapper);
 
@@ -98,7 +101,8 @@ public class BatchCopierRedacter {
     ExtractionRedactionWrapper createWrapper(
             Resource resource,
             ResourceExtractionInfo info,
-            Map<String, AnnotatedAttributeGroup> groupMap
+            Map<String, AnnotatedAttributeGroup> groupMap,
+            Map<ExtractionId, Optional<Resource>> referenceLookup
     ) throws RedactionException {
         CopyTreeNode copyTree = new CopyTreeNode(resource.getClass().getSimpleName());
         Set<String> groupProfiles = new HashSet<>();
@@ -115,7 +119,8 @@ public class BatchCopierRedacter {
                 (DomainResource) resource,
                 groupProfiles,
                 info.attributeToReferences(),
-                copyTree
+                copyTree,
+                id -> referenceLookup.getOrDefault(id, Optional.empty())
         );
     }
 

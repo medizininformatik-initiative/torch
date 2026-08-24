@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.util;
 
 import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.model.management.ReferenceResolutionContext;
 import org.hl7.fhir.exceptions.FHIRException;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.Bundle;
@@ -33,7 +34,7 @@ class SlicingTest {
         snapshot.addElement(elementDefinition);
         Base base = Mockito.mock(Base.class);
 
-        Optional<ElementDefinition> result = Slicing.resolveSlicing(base, "Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition));
+        Optional<ElementDefinition> result = Slicing.resolveSlicing(base, "Patient.contact", CompiledStructureDefinition.fromStructureDefinition(structureDefinition), ReferenceResolutionContext.EMPTY);
 
         assertThat(result).isEmpty();
     }

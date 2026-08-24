@@ -62,4 +62,11 @@ class MultiElementContextTest {
 
         assertThat(ctx.shouldRedactExtension(ext)).isTrue();
     }
+
+    @Test
+    void resolutionContext_returnsEmpty_whenNoContextsHeld() {
+        MultiElementContext ctx = new MultiElementContext(List.of());
+
+        assertThat(ctx.resolutionContext()).isSameAs(ReferenceResolutionContext.EMPTY);
+    }
 }

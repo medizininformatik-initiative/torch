@@ -16,12 +16,15 @@ import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
+import org.hl7.fhir.r4.model.ImagingStudy;
+import org.hl7.fhir.r4.model.Media;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.Resource;
 import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -32,6 +35,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static de.medizininformatikinitiative.torch.util.FhirUtil.createAbsentReasonExtension;
@@ -52,6 +56,8 @@ public class RedactionTest {
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
     public static final String ENCOUNTER = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
     public static final String BLOOD_PRESSURE = "https://gematik.de/fhir/isik/StructureDefinition/ISiKBlutdruckSystemischArteriell";
+    public static final String PATHO_FINDING = "https://www.medizininformatik-initiative.de/fhir/ext/modul-patho/StructureDefinition/mii-pr-patho-finding";
+    public static final String ATTACHED_IMAGE = "https://www.medizininformatik-initiative.de/fhir/ext/modul-patho/StructureDefinition/mii-pr-patho-attached-image";
 
     private final IntegrationTestSetup integrationTestSetup;
 
@@ -115,6 +121,48 @@ public class RedactionTest {
                 .contains(tuple("http://snomed.info/sct", "271650006"));
         assertThat(tgt.getComponent().get(1).getValueQuantity().getValue()).isEqualByComparingTo("76");
         assertThat(tgt.getComponent().get(1).getValueQuantity().getCode()).isEqualTo("mm[Hg]");
+    }
+
+    /**
+     * Reproduces #1173: {@code Observation.derivedFrom} in mii-pr-patho-finding is sliced by a 'TYPE' discriminator
+     * at path {@code $this.resolve()} into {@code dicom-image} (target profile is the base HL7 canonical URL for
+     * {@code ImagingStudy}) and {@code attached-image} (target profile is the custom MII profile
+     * mii-pr-patho-attached-image, whose own declared base type is {@code Media}). Before the fix, both slices'
+     * discriminator always evaluated to false, so every value was wiped by slicing regardless of the referenced
+     * resource's actual type.
+     */
+    @Test
+    void referenceResolvingTypeDiscriminatorMatchesBothBaseAndCustomTargetProfiles() throws RedactionException {
+        Observation observation = new Observation();
+        observation.setId("finding1");
+        observation.getMeta().addProfile(PATHO_FINDING);
+        observation.addDerivedFrom(new Reference("ImagingStudy/img1"));
+        observation.addDerivedFrom(new Reference("Media/media1"));
+
+        ImagingStudy imagingStudy = new ImagingStudy();
+        imagingStudy.setId("img1");
+
+        Media media = new Media();
+        media.setId("media1");
+        media.getMeta().addProfile(ATTACHED_IMAGE);
+
+        Map<ExtractionId, Optional<Resource>> resolvedReferences = Map.of(
+                ExtractionId.fromRelativeUrl("ImagingStudy/img1"), Optional.of(imagingStudy),
+                ExtractionId.fromRelativeUrl("Media/media1"), Optional.of(media)
+        );
+
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(
+                observation,
+                Set.of(PATHO_FINDING),
+                Map.of("Observation.derivedFrom", ExtractionId.of("ImagingStudy/img1", "Media/media1")),
+                new CopyTreeNode("dummy"),
+                id -> resolvedReferences.getOrDefault(id, Optional.empty())
+        );
+
+        Observation tgt = (Observation) integrationTestSetup.redaction().redact(wrapper);
+
+        assertThat(tgt.getDerivedFrom()).extracting(Reference::getReference)
+                .containsExactlyInAnyOrder("ImagingStudy/img1", "Media/media1");
     }
 
     /**
