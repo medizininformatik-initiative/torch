@@ -326,6 +326,28 @@ public class RedactionTest {
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
     }
 
+    /**
+     * Reproduces #1230: a required extension slot with no matching instance must be left absent, not masked
+     * with an anonymous {@code Extension} stub, since that has no url and serializes as {@code "url": null}.
+     */
+    @Test
+    void requiredExtensionSlotIsLeftAbsentRatherThanMaskedWithoutUrl() throws IOException, RedactionException {
+        Condition src = new Condition();
+        Meta meta = new Meta();
+        meta.addProfile("http://example.org/fhir/StructureDefinition/condition-with-required-extension-slot");
+        src.setMeta(meta);
+        src.addExtension(new Extension("http://example.org/fhir/StructureDefinition/optional-ref"));
+
+        StructureDefinitionHandler definitionHandler = new StructureDefinitionHandler(new File("src/test/resources/StructureDefinitions/"), new ResourceReader(integrationTestSetup.fhirContext()));
+        definitionHandler.processDirectory();
+        Redaction redaction = new Redaction(definitionHandler);
+        ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of("http://example.org/fhir/StructureDefinition/condition-with-required-extension-slot"), Map.of(), new CopyTreeNode("dummy"));
+        DomainResource tgt = redaction.redact(wrapper);
+
+        assertThat(tgt.hasExtension()).isFalse();
+        assertThat(tgt.hasModifierExtension()).isFalse();
+    }
+
     @Nested
     class ConditionTest {
 
