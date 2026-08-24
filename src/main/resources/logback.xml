@@ -1,4 +1,18 @@
 <configuration>
+    <!-- Suppresses a log message once its rendered text (arguments substituted) has repeated
+         more than allowedRepetitions times, so a warning firing per-resource across a large
+         batch doesn't flood the log with identical lines. Uses a custom filter rather than
+         Logback's built-in DuplicateMessageFilter because that one keys on the raw format
+         string, which would collapse parameterized calls across different argument values
+         (e.g. distinct resource ids) as if they were the same message. Counts are cleared every
+         resetIntervalMinutes so a burst early on doesn't suppress a message for the server's
+         entire uptime. -->
+    <turboFilter class="de.medizininformatikinitiative.torch.logging.FormattedDuplicateMessageFilter">
+        <AllowedRepetitions>5</AllowedRepetitions>
+        <ResetIntervalMinutes>60</ResetIntervalMinutes>
+        <CacheSize>1000</CacheSize>
+    </turboFilter>
+
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
         <encoder>
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
