@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.1] - 2026-08-24
+
+### Added
+
+- Add Encounter Shift Toggle In Consent [#1197](https://github.com/medizininformatik-initiative/torch/pull/1197)
+
+### Changed
+
+- Update hapi to v6.10.2 [#1195](https://github.com/medizininformatik-initiative/torch/pull/1195)
+
+### Fixed
+
+- Fix Missing Reference With DAR Creating Malformed Resource [#1231](https://github.com/medizininformatik-initiative/torch/pull/1231)
+
+
 ## [v1.0.0] - 2026-08-11
 
 ### Fixed
