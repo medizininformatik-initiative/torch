@@ -498,6 +498,44 @@ public class RedactionTest {
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(expected));
         }
 
+        @Test
+        void handlesAlreadyMaskedReferenceGracefully() throws RedactionException {
+            Encounter src = new Encounter();
+            Meta meta = new Meta();
+            meta.setProfile(List.of(new CanonicalType(ENCOUNTER)));
+            src.setMeta(meta);
+            src.setStatus(Encounter.EncounterStatus.ARRIVED);
+            src.setClass_(new Coding("Test", "Test", "Test"));
+            src.setId("Encounter/12345");
+            StringType referenceElement = new StringType();
+            referenceElement.addExtension(
+                    FhirUtil.createAbsentReasonExtension("masked")  // must be lowercase per spec
+            );
+            Reference dar = new Reference();
+            dar.setReferenceElement(referenceElement);
+            src.setSubject(dar);
+            src.setDiagnosis(List.of(new Encounter.DiagnosisComponent().setCondition(new Reference("Condition/12345")).setUse(new CodeableConcept(new Coding("Test", "Test", "")))));
+
+            ExtractionRedactionWrapper wrapper = new ExtractionRedactionWrapper(src.copy(), Set.of(ENCOUNTER), Map.of("Encounter.subject", ExtractionId.of("Patient/12345", "Patient/123"), "Encounter.diagnosis", ExtractionId.of("Condition/12345")), new CopyTreeNode("dummy"));
+            var redaction = integrationTestSetup.redaction();
+
+            ch.qos.logback.classic.Logger logbackLogger = (ch.qos.logback.classic.Logger) org.slf4j.LoggerFactory.getLogger(Redaction.class);
+            ch.qos.logback.core.read.ListAppender<ch.qos.logback.classic.spi.ILoggingEvent> appender = new ch.qos.logback.core.read.ListAppender<>();
+            appender.start();
+            logbackLogger.addAppender(appender);
+            Encounter tgt;
+            try {
+                tgt = (Encounter) redaction.redact(wrapper);
+            } finally {
+                logbackLogger.detachAppender(appender);
+            }
+
+            assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+            assertThat(appender.list)
+                    .extracting(event -> event.getFormattedMessage())
+                    .anyMatch(message -> message.contains("REDACTION_03") && message.contains("Encounter") && message.contains("12345"));
+        }
+
         /**
          * modifierExtension, like extension, is handled by the URL-aware extension pipeline rather than
          * slice-matching, so it must pass through untouched instead of being checked for missing required slices.

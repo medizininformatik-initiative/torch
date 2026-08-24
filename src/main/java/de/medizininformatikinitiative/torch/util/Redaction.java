@@ -59,16 +59,24 @@ public class Redaction {
      * If a reference is not in the provided {@code references} set, it is removed entirely.
      * </p>
      *
-     * @param child   the property containing reference values
-     * @param allowed the set of allowed reference strings
+     * @param child    the property containing reference values
+     * @param allowed  the set of allowed reference strings
+     * @param resource the resource {@code child} belongs to, used only for warning context
      */
-    private void handleReference(Property child, Set<ExtractionId> allowed) {
+    private void handleReference(Property child, Set<ExtractionId> allowed, DomainResource resource) {
         child.getValues().forEach(referenceValue -> {
             if (!(referenceValue instanceof Reference reference) || !reference.hasReference()) {
                 return;
             }
 
             String refString = reference.getReference();
+            if (refString == null) {
+                // hasReference() is true for a valueless reference StringType carrying only extensions
+                // (e.g. an already-masked data-absent-reason reference); nothing to check against allowed.
+                logger.warn("REDACTION_03 Reference without a value (data-absent-reason only) in field {} of Resource {} {}",
+                        child.getName(), resource.getResourceType(), resource.getId());
+                return;
+            }
             boolean isAllowed;
             try {
                 ExtractionId id = ExtractionId.fromRelativeUrl(refString);
@@ -116,7 +124,7 @@ public class Redaction {
             throw new RedactionException("Trying to handle unknown profiles: " + wrapper.profiles());
         }
         meta.setProfile(resourceProfiles);
-        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references());
+        this.redact(resource, new MultiElementContext(String.valueOf(resource.getResourceType()), definitions), wrapper.references(), resource);
         return resource;
     }
 
@@ -130,11 +138,12 @@ public class Redaction {
      *
      * @param context    the element context used to evaluate and process extensions
      * @param references Map of allowed references
+     * @param resource   the resource {@code base} belongs to, used only for warning context
      */
-    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
+    private void redactExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references, DomainResource resource) {
         MultiElementContext extensionsContext = context.descend(EXTENSION);
         removeUnknownExtensions(base, extensionsContext);
-        redactKnownExtensions(base, extensionsContext, references);
+        redactKnownExtensions(base, extensionsContext, references, resource);
     }
 
     /**
@@ -167,10 +176,11 @@ public class Redaction {
      * @param base       the FHIR element whose remaining extensions should be processed
      * @param context    the context for redacting extensions
      * @param references Map of allowed references
+     * @param resource   the resource {@code base} belongs to, used only for warning context
      */
-    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
+    private void redactKnownExtensions(Base base, MultiElementContext context, Map<String, Set<ExtractionId>> references, DomainResource resource) {
         getExtensions(base).forEach(extension -> {
-            redactChildren(extension, context, references);
+            redactChildren(extension, context, references, resource);
             if (!extension.hasValue() && !extension.hasExtension()) {
                 base.removeChild(EXTENSION, extension);
             }
@@ -196,12 +206,13 @@ public class Redaction {
      * @param dataElement the FHIR {@link Base} element to redact
      * @param context     element ID and associated structure definitions
      * @param references  Map of allowed references
+     * @param resource    the resource {@code dataElement} belongs to, used only for warning context
      */
-    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<ExtractionId>> references) {
+    private void redact(Base dataElement, MultiElementContext context, Map<String, Set<ExtractionId>> references, DomainResource resource) {
         handleSlicing(dataElement, context).ifPresent(updatedContext -> {
-            redactExtensions(dataElement, updatedContext, references);
+            redactExtensions(dataElement, updatedContext, references, resource);
             if (!dataElement.isPrimitive()) {
-                redactChildren(dataElement, updatedContext, references);
+                redactChildren(dataElement, updatedContext, references, resource);
             }
         });
     }
@@ -252,8 +263,9 @@ public class Redaction {
      * @param baseElement element whose children should be redacted
      * @param contexts    element ID and associated structure definitions
      * @param references  Map of allowed references
+     * @param resource    the resource {@code baseElement} belongs to, used only for warning context
      */
-    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<ExtractionId>> references) {
+    private void redactChildren(Base baseElement, MultiElementContext contexts, Map<String, Set<ExtractionId>> references, DomainResource resource) {
 
         baseElement.children().forEach(child -> {
             MultiElementContext childContexts = contexts.descend(child.getName());
@@ -263,24 +275,24 @@ public class Redaction {
             if (child.hasValues()) {
                 if (types.stream().anyMatch(type -> type.contains("Reference"))) {
 
-                    handleReference(child, childContexts.allowedReferences(references));
+                    handleReference(child, childContexts.allowedReferences(references), resource);
                 }
                 boolean checkSlices = !isExtensionSlot;
                 Set<String> matchedSliceIds = checkSlices ? matchedSliceIds(child, childContexts) : Set.of();
                 for (Base value : child.getValues()) {
-                    redact(value, childContexts, references);
+                    redact(value, childContexts, references, resource);
                 }
                 // Only flag missing required slices if at least one instance matched some slice; otherwise none of
                 // the values addressed slicing at all, and the per-instance masking above already covers them.
                 if (!matchedSliceIds.isEmpty()) {
                     childContexts.missingRequiredSlices(matchedSliceIds)
-                            .forEach(slice -> addMissingSlice(baseElement, child, slice, childContexts, references));
+                            .forEach(slice -> addMissingSlice(baseElement, child, slice, childContexts, references, resource));
                 }
             // extension/modifierExtension are handled by the URL-aware pipeline (redactExtensions), not the
             // generic slice/DAR machinery here: an anonymous Extension has no url of its own and would
             // serialize as {"url": null, ...} (#1230), which no masked stub can represent.
             } else if (!isExtensionSlot && (child.getMinCardinality() > 0 || childContexts.required())) {
-                addDataAbsentReason(baseElement, child, types.getFirst(), childContexts, references);
+                addDataAbsentReason(baseElement, child, types.getFirst(), childContexts, references, resource);
             }
         });
     }
@@ -307,7 +319,7 @@ public class Redaction {
      * slice is logged and skipped, since there is no type to build a masked stub from.
      * </p>
      */
-    private void addMissingSlice(Base base, Property child, ElementDefinition slice, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references) {
+    private void addMissingSlice(Base base, Property child, ElementDefinition slice, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references, DomainResource resource) {
         List<String> sliceTypes = slice.getType().stream().map(ElementDefinition.TypeRefComponent::getWorkingCode).toList();
         if (sliceTypes.isEmpty()) {
             logger.warn("Missing type for required slice {} in field {} of {}", slice.getId(), child.getName(), base.fhirType());
@@ -318,7 +330,7 @@ public class Redaction {
         // are also honored when masking the stub's own children.
         MultiElementContext sliceContext = new MultiElementContext(slice.getId(),
                 childContexts.contexts().stream().map(ElementContext::definition).toList());
-        addDataAbsentReason(base, child, sliceTypes.getFirst(), sliceContext, references);
+        addDataAbsentReason(base, child, sliceTypes.getFirst(), sliceContext, references, resource);
     }
 
     /**
@@ -334,14 +346,15 @@ public class Redaction {
      * @param type         type of the child to be handled
      * @param childContexts context describing {@code child}, used to redact a BackboneElement stub's own children
      * @param references   Map of allowed references, forwarded when redacting a BackboneElement stub's children
+     * @param resource     the resource {@code base} belongs to, used only for warning context
      */
-    private void addDataAbsentReason(Base base, Property child, String type, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references) {
+    private void addDataAbsentReason(Base base, Property child, String type, MultiElementContext childContexts, Map<String, Set<ExtractionId>> references, DomainResource resource) {
         type = type.replaceFirst("^[^(|]*[(|]", "");
         try {
             if ("BackboneElement".equals(type)) {
                 Base stub = ResourceUtils.setField(base, child.getName(), createAbsentReasonExtension(MASKED));
                 if (stub != null) {
-                    redactChildren(stub, childContexts, references);
+                    redactChildren(stub, childContexts, references, resource);
                 }
             } else {
                 Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
