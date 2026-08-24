@@ -1,0 +1,87 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "condition-with-required-extension-slot",
+  "url": "http://example.org/fhir/StructureDefinition/condition-with-required-extension-slot",
+  "version": "1.0.0",
+  "name": "ConditionWithRequiredExtensionSlot",
+  "status": "draft",
+  "date": "2025-07-23",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Condition",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Condition",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Condition.extension",
+        "path": "Condition.extension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "rules": "open"
+        },
+        "min": 1,
+        "max": "*"
+      },
+      {
+        "id": "Condition.extension:requiredExt",
+        "path": "Condition.extension",
+        "sliceName": "requiredExt",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://example.org/fhir/StructureDefinition/required-ext"]
+          }
+        ]
+      },
+      {
+        "id": "Condition.extension:optionalRef",
+        "path": "Condition.extension",
+        "sliceName": "optionalRef",
+        "min": 0,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://example.org/fhir/StructureDefinition/optional-ref"]
+          }
+        ]
+      },
+      {
+        "id": "Condition.modifierExtension",
+        "path": "Condition.modifierExtension",
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "value",
+              "path": "url"
+            }
+          ],
+          "rules": "open"
+        },
+        "min": 1,
+        "max": "*"
+      },
+      {
+        "id": "Condition.modifierExtension:requiredModExt",
+        "path": "Condition.modifierExtension",
+        "sliceName": "requiredModExt",
+        "min": 1,
+        "max": "1",
+        "type": [
+          {
+            "code": "Extension",
+            "profile": ["http://example.org/fhir/StructureDefinition/required-mod-ext"]
+          }
+        ]
+      }
+    ]
+  }
+}

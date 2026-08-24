@@ -259,12 +259,13 @@ public class Redaction {
             MultiElementContext childContexts = contexts.descend(child.getName());
             List<String> types = getTypes(child, childContexts.workingCodes());
 
+            boolean isExtensionSlot = EXTENSION.equals(child.getName()) || MODIFIER_EXTENSION.equals(child.getName());
             if (child.hasValues()) {
                 if (types.stream().anyMatch(type -> type.contains("Reference"))) {
 
                     handleReference(child, childContexts.allowedReferences(references));
                 }
-                boolean checkSlices = !EXTENSION.equals(child.getName()) && !MODIFIER_EXTENSION.equals(child.getName());
+                boolean checkSlices = !isExtensionSlot;
                 Set<String> matchedSliceIds = checkSlices ? matchedSliceIds(child, childContexts) : Set.of();
                 for (Base value : child.getValues()) {
                     redact(value, childContexts, references);
@@ -275,7 +276,10 @@ public class Redaction {
                     childContexts.missingRequiredSlices(matchedSliceIds)
                             .forEach(slice -> addMissingSlice(baseElement, child, slice, childContexts, references));
                 }
-            } else if (child.getMinCardinality() > 0 || childContexts.required()) {
+            // extension/modifierExtension are handled by the URL-aware pipeline (redactExtensions), not the
+            // generic slice/DAR machinery here: an anonymous Extension has no url of its own and would
+            // serialize as {"url": null, ...} (#1230), which no masked stub can represent.
+            } else if (!isExtensionSlot && (child.getMinCardinality() > 0 || childContexts.required())) {
                 addDataAbsentReason(baseElement, child, types.getFirst(), childContexts, references);
             }
         });
