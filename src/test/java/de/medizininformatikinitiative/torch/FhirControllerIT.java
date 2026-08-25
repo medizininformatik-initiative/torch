@@ -160,7 +160,8 @@ class FhirControllerIT {
             String jsonString = new Scanner(fis, StandardCharsets.UTF_8).useDelimiter("\\A").next();
             Crtdl crtdl = objectMapper.readValue(jsonString, Crtdl.class);
 
-            var ccdl = objectMapper.treeToValue(crtdl.cohortDefinition(), StructuredQuery.class);
+            var ccdl = new tools.jackson.databind.ObjectMapper()
+                    .readValue(objectMapper.writeValueAsString(crtdl.cohortDefinition()), StructuredQuery.class);
             Flux<String> patientIds = cqlClient.fetchPatientIds(cqlQueryTranslator.toCql(ccdl).print());
 
             StepVerifier.create(patientIds)
