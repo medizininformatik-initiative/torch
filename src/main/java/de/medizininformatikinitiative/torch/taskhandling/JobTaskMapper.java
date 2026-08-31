@@ -1,13 +1,19 @@
 package de.medizininformatikinitiative.torch.taskhandling;
 
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
+import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Extension;
+import org.hl7.fhir.r4.model.IntegerType;
 import org.hl7.fhir.r4.model.Period;
+import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.stereotype.Component;
@@ -22,16 +28,25 @@ public class JobTaskMapper {
     private static final String TORCH_STATUS_SYSTEM =
             "https://medizininformatik-initiative.de/torch/job-status";
 
+    private static final String TORCH_JOB_PROGRESS_EXTENSION =
+            "https://torch.mii.de/fhir/torch-job-progress";
+
     private final ResultFileManager resultFileManager;
+    private final BatchProgressRegistry batchProgressRegistry;
     private final String fileServerName;
+    private final int batchSize;
 
     /**
-     * @param resultFileManager used to check which batches have a consent audit trail on disk
-     * @param properties        provides the file server base URL for building consent audit download links
+     * @param resultFileManager     used to check which batches have a consent audit trail on disk
+     * @param batchProgressRegistry provides the current pipeline stage of in-progress batches
+     * @param properties            provides the file server base URL for building consent audit download links,
+     *                              and the configured batch size for the progress extension
      */
-    public JobTaskMapper(ResultFileManager resultFileManager, TorchProperties properties) {
+    public JobTaskMapper(ResultFileManager resultFileManager, BatchProgressRegistry batchProgressRegistry, TorchProperties properties) {
         this.resultFileManager = requireNonNull(resultFileManager);
+        this.batchProgressRegistry = requireNonNull(batchProgressRegistry);
         this.fileServerName = properties.output().file().server().url();
+        this.batchSize = properties.batchsize();
     }
 
     public Task toFhirTask(Job job) {
@@ -66,6 +81,10 @@ public class JobTaskMapper {
 
         task.setDescription("TORCH Job " + job.id());
 
+        if (job.cohortState().status() == WorkUnitStatus.FINISHED) {
+            addProgressExtension(task, job);
+        }
+
         if (job.status() == JobStatus.COMPLETED) {
             job.batches().keySet().forEach(batchId -> {
                 if (resultFileManager.consentAuditExists(job.id().toString(), batchId)) {
@@ -78,6 +97,39 @@ public class JobTaskMapper {
         }
 
         return task;
+    }
+
+    /**
+     * Adds a {@code torch-job-progress} extension carrying the cohort size, the configured
+     * batch size, the number of batches known/completed, and the current pipeline stage of
+     * each in-progress batch, once the cohort query has finished.
+     *
+     * <p>A batch's stage is omitted if the in-memory {@link BatchProgressRegistry} has no entry
+     * for it, e.g. right after a restart before the batch has resumed processing.
+     */
+    private void addProgressExtension(Task task, Job job) {
+        long completedBatches = job.batches().values().stream()
+                .filter(bs -> bs.status().isDone())
+                .count();
+
+        Extension progress = task.addExtension();
+        progress.setUrl(TORCH_JOB_PROGRESS_EXTENSION);
+        progress.addExtension("cohortSize", new IntegerType(job.cohortSize()));
+        progress.addExtension("batchSize", new IntegerType(batchSize));
+        progress.addExtension("batchesTotal", new IntegerType(job.batches().size()));
+        progress.addExtension("batchesCompleted", new IntegerType((int) completedBatches));
+
+        for (BatchState bs : job.batches().values()) {
+            if (bs.status() != WorkUnitStatus.IN_PROGRESS) {
+                continue;
+            }
+            batchProgressRegistry.currentStage(bs.batchId()).ifPresent(stage -> {
+                Extension activeBatch = progress.addExtension();
+                activeBatch.setUrl("activeBatch");
+                activeBatch.addExtension("batchId", new StringType(bs.batchId().toString()));
+                activeBatch.addExtension("stage", new StringType(stage.name()));
+            });
+        }
     }
 
     private Task.TaskStatus mapToFhirStatus(JobStatus status) {

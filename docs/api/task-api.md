@@ -64,6 +64,63 @@ A job's status is only final (no further transitions) for `COMPLETED`, `FAILED`,
 `HIGH`-priority jobs are picked up by workers ahead of `NORMAL` ones (see [`PUT /fhir/Task/{id}`](#updating-priority)
 below to change it after creation).
 
+## Progress
+
+Once the cohort query has finished, `Task` carries a `torch-job-progress` extension summarizing how much of the job
+is done. It stays present for the rest of the job's lifecycle, including after completion.
+
+| Sub-extension      | Type      | Meaning                                                        |
+|---------------------|-----------|-------------------------------------------------------------------|
+| `cohortSize`        | `integer` | Total number of patients in the cohort                            |
+| `batchSize`         | `integer` | Configured `torch.batchsize`                                      |
+| `batchesTotal`      | `integer` | Number of batches the cohort was split into                       |
+| `batchesCompleted`  | `integer` | Number of batches that are `FINISHED`, `SKIPPED`, or `FAILED`     |
+| `activeBatch`       | (nested)  | One entry per batch currently being processed (see below)         |
+
+Batches run concurrently, up to `torch.maxconcurrency` at a time, so `torch-job-progress` may carry zero, one, or
+several `activeBatch` entries. Each `activeBatch` is itself a nested extension:
+
+| Sub-extension | Type     | Meaning                                                                                                                |
+|----------------|----------|--------------------------------------------------------------------------------------------------------------------------|
+| `batchId`      | `string` | The batch's UUID                                                                                                         |
+| `stage`        | `string` | Its current pipeline stage: `CONSENT_FETCH`, `DIRECT_LOAD`, `REFERENCE_RESOLVE`, `CASCADING_DELETE`, or `COPY_REDACT`    |
+
+A batch's `activeBatch` entry can be briefly missing even while it's `IN_PROGRESS` — e.g. right after a restart,
+before it has resumed processing and reported a stage.
+
+```json
+{
+  "resourceType": "Task",
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "in-progress",
+  "extension": [
+    {
+      "url": "https://torch.mii.de/fhir/torch-job-progress",
+      "extension": [
+        { "url": "cohortSize", "valueInteger": 1200 },
+        { "url": "batchSize", "valueInteger": 500 },
+        { "url": "batchesTotal", "valueInteger": 3 },
+        { "url": "batchesCompleted", "valueInteger": 1 },
+        {
+          "url": "activeBatch",
+          "extension": [
+            { "url": "batchId", "valueString": "3fa85f64-5717-4562-b3fc-2c963f66afa6" },
+            { "url": "stage", "valueString": "REFERENCE_RESOLVE" }
+          ]
+        },
+        {
+          "url": "activeBatch",
+          "extension": [
+            { "url": "batchId", "valueString": "7c9e6679-7425-40de-944b-e07fc1f90ae7" },
+            { "url": "stage", "valueString": "DIRECT_LOAD" }
+          ]
+        }
+      ]
+    }
+  ]
+}
+```
+
 ## Consent Audit Output
 
 Once a job reaches `COMPLETED`, `Task.output` may contain one entry per batch for which a consent audit trail was
