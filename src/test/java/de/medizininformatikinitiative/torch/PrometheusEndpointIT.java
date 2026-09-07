@@ -8,6 +8,9 @@ import org.springframework.boot.webtestclient.autoconfigure.AutoConfigureWebTest
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
+
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @AutoConfigureWebTestClient
 @ActiveProfiles("test")
@@ -24,4 +27,28 @@ class PrometheusEndpointIT {
                 .exchange()
                 .expectStatus().isOk();
     }
+
+    @Test
+    void testJobStatusCounts() {
+        var response = webTestClient.get()
+                .uri("/actuator/prometheus")
+                .exchange()
+                .returnResult().getResponseBodyContent();
+
+        assertThat(response).isNotNull();
+        assertThat(new String(response)).contains("jobs_status_count");
+        assertThat(new String(response)).contains("jobs_completed_durations");
+    }
+
+    @Test
+    void testJobDurations() {
+        var response = webTestClient.get()
+                .uri("/actuator/prometheus")
+                .exchange()
+                .returnResult().getResponseBodyContent();
+
+        assertThat(response).isNotNull();
+        assertThat(new String(response)).contains("jobs_completed_durations");
+    }
+
 }
