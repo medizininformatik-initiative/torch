@@ -27,10 +27,15 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.MultiGauge;
+import io.micrometer.core.instrument.Tags;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
@@ -39,6 +44,7 @@ import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -49,6 +55,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static java.util.Objects.requireNonNull;
@@ -69,19 +76,23 @@ public class JobPersistenceService {
     private final int batchSize;
 
     private final DiagnosticsStore diagnosticsStore;
+    private final MultiGauge jobDurationGauge;
 
     public JobPersistenceService(
             FileIo io,
             ObjectMapper mapper,
             @Value("${torch.results.dir}") String dir,
             @Value("${torch.batchsize}") int batchSize,
-            DiagnosticsStore diagnosticsStore
+            DiagnosticsStore diagnosticsStore,
+            MeterRegistry meterRegistry
     ) {
         this.io = requireNonNull(io);
         this.mapper = requireNonNull(mapper);
         this.diagnosticsStore = requireNonNull(diagnosticsStore);
         this.baseDir = Paths.get(dir).toAbsolutePath();
         this.batchSize = batchSize;
+        this.jobDurationGauge = MultiGauge.builder("jobs.completed.durations").register(meterRegistry);
+        initStatusGauges(meterRegistry);
     }
 
     // TEST-ONLY. Package-private on purpose.
@@ -125,7 +136,28 @@ public class JobPersistenceService {
         logger.info("Loaded {} jobs from {}", jobRegistry.size(), baseDir);
     }
 
+    /**
+     * Initializes gauges that provide job status counts to Prometheus.
+     *
+     * @param meterRegistry the micrometer registry to register the gauges to
+     */
+    private void initStatusGauges(MeterRegistry meterRegistry) {
+        for (JobStatus status : JobStatus.values()) {
+            Gauge.builder("jobs.status.count", () ->
+                            jobRegistry.values().stream().filter(job -> job.status().equals(status)).count())
+                    .tag("status", status.name())
+                    .register(meterRegistry);
+        }
+    }
 
+
+    @Scheduled(fixedRateString="${torch.micrometer.schedule:1000}")
+    protected void updateDurationGauge() {
+        jobDurationGauge.register(jobRegistry.values().stream().filter(job -> job.finishedAt().isPresent())
+                .map(job -> MultiGauge.Row.of(
+                        Tags.of("id", job.id().toString(), "status", job.status().toString()),
+                        () -> Duration.between(job.startedAt(), job.finishedAt().get()).toMillis())).collect(Collectors.toList()), true);
+    }
     // -------------------------------------------------------------------------
     // Public API
     // -------------------------------------------------------------------------

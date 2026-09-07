@@ -34,8 +34,10 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.search.MeterNotFoundException;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -52,6 +54,7 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneId;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -74,6 +77,7 @@ import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.REF
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doNothing;
@@ -141,7 +145,8 @@ class JobPersistenceServiceTest {
                             MAPPER,
                             baseDir.toString(),
                             5,
-                            new DiagnosticsStore(new DefaultFileIO(), MAPPER)
+                            new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                            new SimpleMeterRegistry()
                     );
             persistenceService.init();
         }
@@ -183,7 +188,8 @@ class JobPersistenceServiceTest {
             doThrow(new IOException("Read error")).when(spyIo).newBufferedReader(jobFile);
 
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
 
             // WHEN
             serviceWithSpy.init(); // This calls loadAllJobs -> loadJobFromDirectory
@@ -209,7 +215,8 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER)
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry()
             );
             reloaded.init();
 
@@ -316,7 +323,8 @@ class JobPersistenceServiceTest {
 
         @BeforeEach
         void init() {
-            service = new JobPersistenceService(io, MAPPER, "Any", 10, new DiagnosticsStore(io, MAPPER));
+            service = new JobPersistenceService(io, MAPPER, "Any", 10, new DiagnosticsStore(io, MAPPER),
+                    new SimpleMeterRegistry());
         }
 
         @Test
@@ -358,7 +366,8 @@ class JobPersistenceServiceTest {
         void loadAllJobs_ReturnsEmpty_WhenBaseDirDoesNotExist() throws IOException {
             when(io.exists(baseDir)).thenReturn(false);
             JobPersistenceService serviceWithMock = new JobPersistenceService(io, MAPPER, baseDir.toString(), 5
-                    , new DiagnosticsStore(io, MAPPER));
+                    , new DiagnosticsStore(io, MAPPER),
+                    new SimpleMeterRegistry());
 
             // WHEN - init calls loadAllJobs
             serviceWithMock.init();
@@ -408,7 +417,8 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER)
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry()
             );
             s.init();
             return s;
@@ -614,7 +624,8 @@ class JobPersistenceServiceTest {
                     MAPPER,
                     baseDir.toString(),
                     5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER)
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry()
             );
             service.init();
         }
@@ -724,7 +735,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -834,7 +846,8 @@ class JobPersistenceServiceTest {
             // Line 65 in your service is requireNonNull.
             // We must pass the mock and the mapper explicitly here.
             service = new JobPersistenceService(mockIo, mapper, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
         }
 
         @Test
@@ -907,7 +920,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 10,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
         }
 
@@ -977,7 +991,8 @@ class JobPersistenceServiceTest {
             doThrow(new IOException("Disk Full")).when(spyIo).newBufferedWriter(argThat(p -> p.toString().endsWith(".tmp")));
 
             JobPersistenceService s = new JobPersistenceService(spyIo, MAPPER, tempDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
 
             // WHEN
             // This hits the loop: loads job -> tries to save reconciled state -> fails -> logs warn
@@ -991,7 +1006,8 @@ class JobPersistenceServiceTest {
         void loadAllCoreBatchParts_ReturnsEmpty_WhenDirMissing() throws IOException {
             FileIo mockIo = mock(FileIo.class);
             JobPersistenceService s = new JobPersistenceService(mockIo, MAPPER, tempDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
 
             when(mockIo.exists(any())).thenReturn(false);
 
@@ -1012,7 +1028,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1080,7 +1097,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
         }
 
         @Test
@@ -1220,6 +1238,109 @@ class JobPersistenceServiceTest {
     }
 
     @Nested
+    class MicrometerTests {
+        @TempDir
+        Path baseDir;
+        JobPersistenceService persistenceService;
+        MeterRegistry meterRegistry = new SimpleMeterRegistry();
+
+
+        @BeforeEach
+        void setUp() {
+            meterRegistry.clear();
+            persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER), meterRegistry);
+        }
+
+        @Nested
+        class StatusGaugeTests {
+            final String STATUS_GAUGE_NAME = "jobs.status.count";
+
+            @Test
+            void testZeroOnInit() throws IOException {
+                persistenceService.init();
+
+                assertThat(JobStatus.values()).allSatisfy(status ->
+                        assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", status.name()).gauge().value())
+                                .isZero());
+            }
+
+            @Test
+            void testPendingAfterJobCreation() throws IOException {
+                persistenceService.init();
+
+                persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+
+                assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", JobStatus.PENDING.name()).gauge().value())
+                        .isOne();
+                assertThat(Arrays.stream(JobStatus.values()).filter(status -> !status.equals(JobStatus.PENDING)))
+                        .allSatisfy(status ->
+                                assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", status.name()).gauge().value())
+                                        .isZero());
+            }
+
+            @Test
+            void testMultipleJobsMultipleIncrements() throws IOException {
+                persistenceService.init();
+
+                persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+                persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+                var canceledJob = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+                persistenceService.cancelJob(canceledJob);
+
+                assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", JobStatus.PENDING.name()).gauge().value())
+                        .isEqualTo(2);
+                assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", JobStatus.CANCELLED.name()).gauge().value())
+                        .isOne();
+                assertThat(Arrays.stream(JobStatus.values()).filter(status ->
+                        !status.equals(JobStatus.PENDING) && !status.equals(JobStatus.CANCELLED)))
+                        .allSatisfy(status ->
+                                assertThat(meterRegistry.get(STATUS_GAUGE_NAME).tag("status", status.name()).gauge().value())
+                                        .isZero());
+            }
+        }
+
+        @Nested
+        class DurationGaugeTests {
+            final String DURATION_GAUGE_NAME = "jobs.completed.durations";
+            final long PROCESSING_TIME = 10;
+
+            @Test
+            void testSingleJob() throws IOException, InterruptedException {
+                persistenceService.init();
+
+                var jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+                Thread.sleep(PROCESSING_TIME);
+                persistenceService.cancelJob(jobId);
+                persistenceService.updateDurationGauge();
+
+                assertThat(meterRegistry.get(DURATION_GAUGE_NAME)
+                        .tags("id", jobId.toString(), "status", JobStatus.CANCELLED.toString()).gauge().value())
+                        .isGreaterThanOrEqualTo(PROCESSING_TIME);
+            }
+
+            @Test
+            void testSingleJobWithStatusUpdate() throws IOException, InterruptedException {
+                persistenceService.init();
+
+                var jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+                Thread.sleep(PROCESSING_TIME);
+                persistenceService.cancelJob(jobId);
+                persistenceService.deleteJob(jobId);
+                persistenceService.updateDurationGauge();
+
+                assertThrows(MeterNotFoundException.class, () ->
+                        meterRegistry.get(DURATION_GAUGE_NAME)
+                                .tags("id", jobId.toString(), "status", JobStatus.CANCELLED.toString()).gauge());
+                assertThat(meterRegistry.get(DURATION_GAUGE_NAME)
+                        .tags("id", jobId.toString(), "status", JobStatus.DELETED.toString()).gauge().value())
+                        .isGreaterThanOrEqualTo(PROCESSING_TIME);
+            }
+
+        }
+    }
+
+    @Nested
     class OnBatchProcessingSuccessTests {
 
         @TempDir
@@ -1229,7 +1350,8 @@ class JobPersistenceServiceTest {
         void coreBatchWriteIOException_propagatesAndMarksJobTempFailed() throws IOException {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService service = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit();
@@ -1269,7 +1391,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             persistenceService.init();
             jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             persistenceService.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -1310,7 +1433,8 @@ class JobPersistenceServiceTest {
         void testUpdateJobAndReturn_Branch_SaveJobFails() throws IOException {
             FileIo spyIo = org.mockito.Mockito.spy(new DefaultFileIO());
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).orElseThrow());
             org.mockito.Mockito.doThrow(new IOException("Disk quota exceeded"))
                     .when(spyIo).newBufferedWriter(org.mockito.ArgumentMatchers.argThat(p -> p.toString().endsWith(".tmp")));
@@ -1334,7 +1458,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1360,7 +1485,8 @@ class JobPersistenceServiceTest {
         void deleteJobSaveFailure() throws IOException, JobNotFoundException {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
@@ -1384,7 +1510,8 @@ class JobPersistenceServiceTest {
         void gcDeletedJobs_deleteDirFailure_doesNotThrow() throws IOException, JobNotFoundException {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             spyService.deleteJob(id);
@@ -1398,7 +1525,8 @@ class JobPersistenceServiceTest {
         void gcDeletedJobs_loadAllJobsFailure_doesNotThrow() throws IOException {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
             spyService.init();
 
             doThrow(new IOException("list failed")).when(spyIo).list(any());
@@ -1419,7 +1547,8 @@ class JobPersistenceServiceTest {
             service.deleteJob(jobId);
 
             JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             freshService.init();
 
             assertThat(freshService.getJob(jobId)).isEmpty();
@@ -1438,7 +1567,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
         }
 
@@ -1459,7 +1589,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
         }
 
@@ -1503,7 +1634,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1559,7 +1691,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1618,7 +1751,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1699,7 +1833,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1755,7 +1890,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
@@ -1833,7 +1969,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1843,7 +1980,8 @@ class JobPersistenceServiceTest {
             service.selectNextWorkUnit();
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spySvc = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(spyIo, MAPPER));
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
             spySvc.init();
             UUID id = spySvc.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             spySvc.selectNextWorkUnit();
@@ -1868,7 +2006,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
@@ -1914,7 +2053,8 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER));
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
             service.init();
         }
 
