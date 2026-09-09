@@ -44,6 +44,9 @@ services:
       dockerfile: Dockerfile
     ports:
       - ${PORT_TORCH:-127.0.0.1:8086}:8080
+    networks:
+      - default
+      - monitoring
     environment:
       SERVER_PORT: 8080
       TORCH_PROFILE_DIR: ${TORCH_PROFILE_DIR:-/app/ontology/structureDefinitions}
@@ -68,7 +71,9 @@ services:
       - ./output:/app/output
       - ./certs:/app/certs
     user: 1001:1001
-
+networks:
+  monitoring:
+    name: torch-monitoring
 volumes:
   data-store-data:
   torch-data-store:
