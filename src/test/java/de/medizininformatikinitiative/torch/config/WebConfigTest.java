@@ -90,13 +90,17 @@ class WebConfigTest {
     }
 
     private TorchProperties torchProperties() {
+        return torchProperties("http://flare-url");
+    }
+
+    private TorchProperties torchProperties(String flareUrl) {
         var base = new TorchProperties.Base("http://base-url");
         var output = new TorchProperties.Output(new TorchProperties.Output.File(new TorchProperties.Output.File.Server("http://output-server")));
         var profile = new TorchProperties.Profile("profile-dir");
         var mapping = new TorchProperties.Mapping("type-to-consent.json");
 
 
-        var flare = new TorchProperties.Flare("http://flare-url", null);
+        var flare = new TorchProperties.Flare(flareUrl, null);
         var results = new TorchProperties.Results("results-dir");
 
         return new TorchProperties(
@@ -204,6 +208,26 @@ class WebConfigTest {
         WebClient client = appConfig.fhirWebClient(torchProperties(), oauthFilter, fhirProperties, ConnectionProvider.newConnection());
         assertThat(client).isNotNull();
         assertThat(fhirProperties.url()).isEqualTo("test-url");
+    }
+
+    @Test
+    void testFlareWebClient_respectsConfiguredBufferSize() throws IOException {
+        try (MockWebServer mockWebServer = new MockWebServer()) {
+            String largeBody = "x".repeat(300 * 1024); // exceeds WebFlux's default 256KB codec limit
+            mockWebServer.enqueue(new MockResponse().setResponseCode(200).setBody(largeBody));
+            mockWebServer.start();
+
+            var appConfig = new WebConfig();
+            WebClient client = appConfig.flareWebClient(torchProperties(mockWebServer.url("/").toString()), ConnectionProvider.newConnection());
+
+            String result = client.get()
+                    .uri("/query/execute-cohort")
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            assertThat(result).hasSize(largeBody.length());
+        }
     }
 
 }

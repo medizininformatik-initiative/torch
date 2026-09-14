@@ -58,9 +58,16 @@ public class WebConfig {
     @Bean("flareClient")
     public WebClient flareWebClient(TorchProperties torchProperties, @Qualifier("flareConnectionProvider") ConnectionProvider flareConnectionProvider) {
         logger.info("Initializing Flare WebClient with URL: {}", torchProperties.flare().url());
+
+        ExchangeStrategies strategies = ExchangeStrategies.builder()
+                .codecs(configurer -> configurer
+                        .defaultCodecs()
+                        .maxInMemorySize(1024 * 1024 * torchProperties.bufferSize()))
+                .build();
         HttpClient httpClient = HttpClient.create(flareConnectionProvider);
         WebClient.Builder builder = WebClient.builder()
                 .baseUrl(torchProperties.flare().url())
+                .exchangeStrategies(strategies)
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("Accept", "application/sq+json");
 
