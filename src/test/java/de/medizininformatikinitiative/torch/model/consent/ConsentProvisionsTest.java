@@ -84,6 +84,18 @@ class ConsentProvisionsTest {
 
 
     @Test
+    void updateByEncounters_denyProvision_isNotShifted() {
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), false);
+        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+
+        Encounter e1 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
+
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1), Set.of(CODE));
+
+        assertThat(updated.provisions()).containsExactly(p1);
+    }
+
+    @Test
     void updateByEncounters_encounterWithNullPeriod_isIgnored() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
