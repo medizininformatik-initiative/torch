@@ -15,10 +15,12 @@ import java.util.Set;
 public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Provision> provisions) {
 
     /**
-     * Adjusts the start date of provisions whose code is in {@code adjustableCodes} based on patient encounters.
+     * Adjusts the start date of permitted provisions whose code is in {@code adjustableCodes} based on patient
+     * encounters.
      * <p>
      * Validity-gate codes (e.g. {@code ...3.8}) are excluded from adjustment — only data-period codes
-     * (e.g. {@code ...3.6}) should have their collection window shifted by encounter timestamps.
+     * (e.g. {@code ...3.6}) should have their collection window shifted by encounter timestamps. Deny
+     * provisions are never shifted, regardless of their code.
      *
      * @param encounters      the patient's encounters
      * @param adjustableCodes codes whose provision start may be shifted (typically non-gate codes)
@@ -34,7 +36,7 @@ public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Pr
                 patientId,
                 dateTime,
                 provisions.stream().map(provisionsPeriod -> {
-                    if (!adjustableCodes.contains(provisionsPeriod.code())) {
+                    if (!provisionsPeriod.permit() || !adjustableCodes.contains(provisionsPeriod.code())) {
                         return provisionsPeriod;
                     }
                     // earliest encounter.start where provision.start lies within encounter period
