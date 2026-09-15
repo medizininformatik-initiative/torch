@@ -14,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
@@ -166,6 +168,25 @@ class ConsentCalculatorTest {
             assertThat(result.get(CODE_1).periods()).containsExactly(p("2024-01-01", "2024-12-31"));
         }
 
+        @ParameterizedTest
+        @CsvSource({"a, b", "b, a"})
+        void sameDateTimeDenyWinsOverPermitRegardlessOfId(String permitId, String denyId) {
+            ConsentProvisions permit = new ConsentProvisions(permitId, "patient1", dt("2024-01-01T00:00:00Z"),
+                    List.of(new Provision(CODE_1, p("2024-01-01", "2024-12-31"), true)));
+            ConsentProvisions revocation = new ConsentProvisions(denyId, "patient1", dt("2024-01-01T00:00:00Z"),
+                    List.of(new Provision(CODE_1, p("2024-06-01", "2024-06-30"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(permit, revocation),
+                    Set.of(CODE_1)
+            );
+
+            assertThat(result.get(CODE_1).periods()).containsExactly(
+                    p("2024-01-01", "2024-05-31"),
+                    p("2024-07-01", "2024-12-31")
+            );
+        }
+
         @Test
         void missingDateTimeSortsFirstInsteadOfThrowing() {
             Provision permit = new Provision(CODE_1, p("2020-01-01", "2025-12-31"), true);
@@ -231,7 +252,8 @@ class ConsentCalculatorTest {
                     List.of(cpProspective, cpRetro), Set.of(PROSPECTIVE)
             );
 
-            // cpRetro carries no PROSPECTIVE permit of its own, so it has nothing to extend.
+            // cpRetro carries no PROSPECTIVE permit of its own, so it has nothing to extend; and since it
+            // is a permit (not a deny), it does not reset PROSPECTIVE's history either.
             assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2023-01-01", "2025-12-31"));
         }
 
@@ -328,6 +350,191 @@ class ConsentCalculatorTest {
             assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
                     p("1900-01-01", "2022-12-31")
             );
+        }
+
+        @Test
+        void bareRetroModifierDenyNukesPriorProspectiveHistory() {
+            Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), true);
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(prospectivePermit));
+
+            // A later, otherwise unrelated revocation of retrospective consent — no PROSPECTIVE provision
+            // of its own, and no period overlap with the original grant at all.
+            Provision bareRetroDeny = new Provision(RETRO, p("2025-01-01", "2028-12-31"), false);
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(bareRetroDeny));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, revocation), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void permitInSameResourceAsRetroDenyIsAppliedAfterReset() {
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), true)));
+            ConsentProvisions resetAndRepermit = new ConsentProvisions("c2", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2020-01-01", "2021-12-31"), false),
+                            new Provision(PROSPECTIVE, p("2025-01-01", "2030-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, resetAndRepermit), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2025-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void laterPermitAfterResetRestoresOnlyItsOwnPeriod() {
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), true),
+                            new Provision(RETRO, p("2020-01-01", "2023-12-31"), true)));
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2024-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2024-01-01", "2028-12-31"), false)));
+            ConsentProvisions laterPermit = new ConsentProvisions("c3", "patient1", dt("2026-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2026-01-01", "2030-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, revocation, laterPermit), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2026-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void laterRetroPermitAfterResetRestoresItsOwnExtension() {
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), true)));
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2024-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2024-01-01", "2028-12-31"), false)));
+            ConsentProvisions laterRetroPermit = new ConsentProvisions("c3", "patient1", dt("2026-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2026-01-01", "2030-12-31"), true),
+                            new Provision(RETRO, p("2026-01-01", "2030-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, revocation, laterRetroPermit), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("1900-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void sameDateTimeRetroDenyResetsOnlyEarlierHistoryRegardlessOfId() {
+            ConsentProvisions earlier = new ConsentProvisions("c0", "patient1", dt("2015-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2010-01-01", "2015-12-31"), true)));
+            // One signing event split across two resources; the permit's id sorts before the deny's.
+            ConsentProvisions permit = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions retroDeny = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2020-01-01", "2025-12-31"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(earlier, permit, retroDeny), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2020-01-01", "2025-12-31"));
+        }
+
+        @Test
+        void sameDateTimePermitlessRetroDenyGoesBeforeRetroDenyWithPermit() {
+            ConsentProvisions permitWithRetroDeny = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true),
+                            new Provision(RETRO, p("2020-01-01", "2025-12-31"), false)));
+            ConsentProvisions bareRetroDeny = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2020-01-01", "2025-12-31"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(permitWithRetroDeny, bareRetroDeny), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2020-01-01", "2025-12-31"));
+        }
+
+        @ParameterizedTest
+        @CsvSource({"a, b", "b, a"})
+        void sameDateTimeRetroDeniesWithPermitsKeepBothPermitsRegardlessOfId(String firstId, String secondId) {
+            ConsentProvisions first = new ConsentProvisions(firstId, "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2022-12-31"), true),
+                            new Provision(RETRO, p("2020-01-01", "2022-12-31"), false)));
+            ConsentProvisions second = new ConsentProvisions(secondId, "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2024-01-01", "2025-12-31"), true),
+                            new Provision(RETRO, p("2024-01-01", "2025-12-31"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(first, second), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("2020-01-01", "2022-12-31"),
+                    p("2024-01-01", "2025-12-31")
+            );
+        }
+
+        @Test
+        void sameDateTimePlainDenyGoesAfterRetroDenyRegardlessOfId() {
+            ConsentProvisions plainDeny = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2022-01-01", "2022-12-31"), false)));
+            ConsentProvisions permitWithRetroDeny = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true),
+                            new Provision(RETRO, p("2020-01-01", "2025-12-31"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(plainDeny, permitWithRetroDeny), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("2020-01-01", "2021-12-31"),
+                    p("2023-01-01", "2025-12-31")
+            );
+        }
+
+        @Test
+        void multiplePermitsForSameCodeInOneResourceAreAllKept() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2001-01-01T00:00:00Z"), List.of(
+                    new Provision(PROSPECTIVE, p("2001-01-01", "2004-12-31"), true),
+                    new Provision(PROSPECTIVE, p("2010-01-01", "2014-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("2001-01-01", "2004-12-31"),
+                    p("2010-01-01", "2014-12-31")
+            );
+        }
+
+        @Test
+        void retroPermitExtendsOnlyThePermitItOverlaps() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2001-01-01T00:00:00Z"), List.of(
+                    new Provision(PROSPECTIVE, p("2001-01-01", "2004-12-31"), true),
+                    new Provision(PROSPECTIVE, p("2010-01-01", "2014-12-31"), true),
+                    new Provision(RETRO, p("2002-01-01", "2003-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("1900-01-01", "2004-12-31"),
+                    p("2010-01-01", "2014-12-31")
+            );
+        }
+
+        @Test
+        void retroPermitOverlappingLaterPermitExtendsToItsEnd() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2001-01-01T00:00:00Z"), List.of(
+                    new Provision(PROSPECTIVE, p("2001-01-01", "2004-12-31"), true),
+                    new Provision(PROSPECTIVE, p("2010-01-01", "2014-12-31"), true),
+                    new Provision(RETRO, p("2012-01-01", "2013-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("1900-01-01", "2014-12-31"));
         }
 
         @Test
