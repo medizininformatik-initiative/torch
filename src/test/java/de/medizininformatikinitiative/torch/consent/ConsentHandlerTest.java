@@ -88,7 +88,7 @@ public class ConsentHandlerTest {
     }
 
     private Map<String, List<ConsentProvisions>> provisionsByPatient() {
-        return Map.of(PATIENT_ID, List.of(new ConsentProvisions(PATIENT_ID, new DateTimeType(), List.of())));
+        return Map.of(PATIENT_ID, List.of(new ConsentProvisions("c1", PATIENT_ID, new DateTimeType("2024-01-01T00:00:00Z"), List.of())));
     }
 
     private Map<String, NonContinuousPeriod> consentPeriodsByPatient() {
