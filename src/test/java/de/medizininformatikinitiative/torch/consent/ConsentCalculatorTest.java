@@ -42,6 +42,10 @@ class ConsentCalculatorTest {
         return Period.of(LocalDate.parse(start), LocalDate.parse(end));
     }
 
+    private static DateTimeType dt(String iso) {
+        return new DateTimeType(iso);
+    }
+
     private static ConsentCodeConfig noRetroConfig() {
         return new ConsentCodeConfig(List.of());
     }
@@ -69,7 +73,7 @@ class ConsentCalculatorTest {
         @Test
         void irrelevantCodesAreSkipped() {
             Provision irrelevant = new Provision(new TermCode("s1", "otherCode"), p("2024-01-01", "2024-01-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(irrelevant));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"), List.of(irrelevant));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
@@ -85,8 +89,9 @@ class ConsentCalculatorTest {
             Provision deny = new Provision(someCode, p("2024-01-10", "2024-01-20"), false);
 
             ConsentProvisions cp = new ConsentProvisions(
+                    "c1",
                     "patient1",
-                    new DateTimeType("2024-01-01T00:00:00Z"),
+                    dt("2024-01-01T00:00:00Z"),
                     List.of(permit, deny)
             );
 
@@ -103,9 +108,9 @@ class ConsentCalculatorTest {
 
         @Test
         void codesFromDifferentResourcesAreNotCombined() {
-            ConsentProvisions cp1 = new ConsentProvisions("patient1", null,
+            ConsentProvisions cp1 = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"),
                     List.of(new Provision(CODE_1, p("2024-01-01", "2024-01-31"), true)));
-            ConsentProvisions cp2 = new ConsentProvisions("patient1", null,
+            ConsentProvisions cp2 = new ConsentProvisions("c2", "patient1", dt("2024-02-01T00:00:00Z"),
                     List.of(new Provision(CODE_2, p("2024-02-01", "2024-02-28"), true)));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
@@ -122,11 +127,11 @@ class ConsentCalculatorTest {
             Provision permit2 = new Provision(CODE_2, p("2024-02-01", "2024-02-28"), true);
             Provision deny = new Provision(CODE_1, p("2024-01-10", "2024-01-20"), false);
 
-            ConsentProvisions complete = new ConsentProvisions("patient1",
-                    new DateTimeType("2024-01-01T00:00:00Z"),
+            ConsentProvisions complete = new ConsentProvisions("c1", "patient1",
+                    dt("2024-01-01T00:00:00Z"),
                     List.of(permit1, permit2));
-            ConsentProvisions revocation = new ConsentProvisions("patient1",
-                    new DateTimeType("2024-01-10T00:00:00Z"),
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1",
+                    dt("2024-01-10T00:00:00Z"),
                     List.of(deny));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
@@ -144,9 +149,27 @@ class ConsentCalculatorTest {
         }
 
         @Test
+        void laterPermitReinstatesEarlierDeniedPeriod() {
+            Provision earlyDeny = new Provision(CODE_1, p("2024-01-01", "2024-12-31"), false);
+            Provision laterPermit = new Provision(CODE_1, p("2024-01-01", "2024-12-31"), true);
+
+            ConsentProvisions revocation = new ConsentProvisions("c1", "patient1",
+                    dt("2023-06-01T00:00:00Z"), List.of(earlyDeny));
+            ConsentProvisions reconsent = new ConsentProvisions("c2", "patient1",
+                    dt("2024-06-01T00:00:00Z"), List.of(laterPermit));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(revocation, reconsent),
+                    Set.of(CODE_1)
+            );
+
+            assertThat(result.get(CODE_1).periods()).containsExactly(p("2024-01-01", "2024-12-31"));
+        }
+
+        @Test
         void deniedWithoutPermit() {
             Provision deny = new Provision(CODE_1, p("2024-03-01", "2024-03-10"), false);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(deny));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2024-03-01T00:00:00Z"), List.of(deny));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
@@ -160,7 +183,7 @@ class ConsentCalculatorTest {
         void fullyDeniedPermitResultsInEmptyMap() {
             Provision permit = new Provision(CODE_1, p("2024-01-01", "2024-01-31"), true);
             Provision deny = new Provision(CODE_1, p("2024-01-01", "2024-01-31"), false);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(permit, deny));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"), List.of(permit, deny));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp),
@@ -179,16 +202,20 @@ class ConsentCalculatorTest {
         }
 
         @Test
-        void retroInSeparateResourceDoesNotShiftProspective() {
+        void retroPermitInSeparateResourceDoesNotShiftProspective() {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2023-01-01", "2025-12-31"), true);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
-            ConsentProvisions cpProspective = new ConsentProvisions("patient1", null, List.of(prospectivePermit));
-            ConsentProvisions cpRetro = new ConsentProvisions("patient1", null, List.of(retroPermit));
+            ConsentProvisions cpProspective = new ConsentProvisions("c1", "patient1",
+                    dt("2020-01-01T00:00:00Z"), List.of(prospectivePermit));
+            ConsentProvisions cpRetro = new ConsentProvisions("c2", "patient1",
+                    dt("2020-01-02T00:00:00Z"), List.of(retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cpProspective, cpRetro), Set.of(PROSPECTIVE)
             );
 
+            // cpRetro carries no PROSPECTIVE permit of its own, so it has nothing to extend; and since it
+            // is a permit (not a deny), it does not reset PROSPECTIVE's history either.
             assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2023-01-01", "2025-12-31"));
         }
 
@@ -196,7 +223,8 @@ class ConsentCalculatorTest {
         void retroPermitShiftsProspectiveStartToLookback() {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2023-01-01", "2025-12-31"), true);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(prospectivePermit, retroPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2023-01-01T00:00:00Z"),
+                    List.of(prospectivePermit, retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp), Set.of(PROSPECTIVE)
@@ -210,7 +238,8 @@ class ConsentCalculatorTest {
         void retroPermitWithNoOverlapLeavesProspectiveUnchanged() {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2024-12-31"), true);
             Provision retroPermit = new Provision(RETRO, p("2025-01-01", "2030-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(prospectivePermit, retroPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(prospectivePermit, retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp), Set.of(PROSPECTIVE)
@@ -223,7 +252,8 @@ class ConsentCalculatorTest {
         void retroDenyDoesNotShiftProspective() {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
             Provision retroDeny = new Provision(RETRO, p("2020-01-01", "2025-12-31"), false);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(prospectivePermit, retroDeny));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(prospectivePermit, retroDeny));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp), Set.of(PROSPECTIVE)
@@ -236,7 +266,8 @@ class ConsentCalculatorTest {
         void retroCodeIsDroppedFromResult() {
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(retroPermit, prospectivePermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(retroPermit, prospectivePermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp), Set.of(PROSPECTIVE)
@@ -246,11 +277,11 @@ class ConsentCalculatorTest {
         }
 
         @Test
-        void denyDoesNotPunchHoleInRetroExtendedPermit() {
+        void denyPunchesHoleInRetroExtendedPermit() {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
             Provision prospectiveDeny = new Provision(PROSPECTIVE, p("2022-01-01", "2022-12-31"), false);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null,
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
                     List.of(prospectivePermit, prospectiveDeny, retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
@@ -258,8 +289,48 @@ class ConsentCalculatorTest {
             );
 
             assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
-                    p(LOOKBACK_DATE.toString(), "2025-12-31")
+                    p("1900-01-01", "2021-12-31"),
+                    p("2023-01-01", "2025-12-31")
             );
+        }
+
+        @Test
+        void crossResourceDenyReducesRetroExtendedPermit() {
+            Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
+            Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(prospectivePermit, retroPermit));
+
+            Provision laterDeny = new Provision(PROSPECTIVE, p("2023-01-01", "2025-12-31"), false);
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2023-01-01T00:00:00Z"),
+                    List.of(laterDeny));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, revocation), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(
+                    p("1900-01-01", "2022-12-31")
+            );
+        }
+
+        @Test
+        void bareRetroModifierDenyNukesPriorProspectiveHistory() {
+            Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), true);
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(prospectivePermit));
+
+            // A later, otherwise unrelated revocation of retrospective consent — no PROSPECTIVE provision
+            // of its own, and no period overlap with the original grant at all.
+            Provision bareRetroDeny = new Provision(RETRO, p("2025-01-01", "2028-12-31"), false);
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(bareRetroDeny));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(original, revocation), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -272,7 +343,7 @@ class ConsentCalculatorTest {
             ConsentCalculator calc = new ConsentCalculator(cfg);
 
             Provision plainPermit = new Provision(plain, p("2023-01-01", "2025-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(plainPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2023-01-01T00:00:00Z"), List.of(plainPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calc.subtractAndMergeByCode(
                     List.of(cp), Set.of(plain));
@@ -285,7 +356,8 @@ class ConsentCalculatorTest {
             TermCode unknown = new TermCode("s1", "unknown");
             Provision unknownPermit = new Provision(unknown, p("2023-01-01", "2025-12-31"), true);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(unknownPermit, retroPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2023-01-01T00:00:00Z"),
+                    List.of(unknownPermit, retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
                     List.of(cp), Set.of(unknown));
@@ -298,7 +370,7 @@ class ConsentCalculatorTest {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2023-01-01", "2025-12-31"), true);
             Provision retroPermit = new Provision(RETRO, p("2020-01-01", "2025-12-31"), true);
             Provision retroDeny = new Provision(RETRO, p("1900-01-01", "2019-12-31"), false);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null,
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2023-01-01T00:00:00Z"),
                     List.of(prospectivePermit, retroPermit, retroDeny));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
@@ -315,7 +387,7 @@ class ConsentCalculatorTest {
             Provision prospectivePermit = new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true);
             Provision prospectiveDeny = new Provision(PROSPECTIVE, p("2022-01-01", "2022-12-31"), false);
             Provision retroPermit = new Provision(RETRO, p("2030-01-01", "2035-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null,
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
                     List.of(prospectivePermit, prospectiveDeny, retroPermit));
 
             Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
@@ -384,7 +456,7 @@ class ConsentCalculatorTest {
             LocalDate today = LocalDate.now();
             Provision gatePermit = new Provision(GATE_CODE, new Period(today.minusYears(1), today.plusYears(1)), true);
             Provision dataPermit = new Provision(CODE_1, p("2024-01-01", "2024-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(gatePermit, dataPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "p1", dt("2024-01-01T00:00:00Z"), List.of(gatePermit, dataPermit));
 
             Map<String, NonContinuousPeriod> result = calculator.calculateConsent(
                     Set.of(GATE_CODE, CODE_1),
@@ -398,7 +470,7 @@ class ConsentCalculatorTest {
         void patientWithExpiredGateIsExcluded() {
             Provision gatePermit = new Provision(GATE_CODE, p("2020-01-01", "2021-12-31"), true);
             Provision dataPermit = new Provision(CODE_1, p("2020-01-01", "2021-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(gatePermit, dataPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "p1", dt("2020-01-01T00:00:00Z"), List.of(gatePermit, dataPermit));
 
             Map<String, NonContinuousPeriod> result = calculator.calculateConsent(
                     Set.of(GATE_CODE, CODE_1),
@@ -412,7 +484,7 @@ class ConsentCalculatorTest {
         void patientWithFutureGateIsExcluded() {
             Provision gatePermit = new Provision(GATE_CODE, p("2030-01-01", "2040-12-31"), true);
             Provision dataPermit = new Provision(CODE_1, p("2030-01-01", "2040-12-31"), true);
-            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(gatePermit, dataPermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "p1", dt("2030-01-01T00:00:00Z"), List.of(gatePermit, dataPermit));
 
             Map<String, NonContinuousPeriod> result = calculator.calculateConsent(
                     Set.of(GATE_CODE, CODE_1),
@@ -426,7 +498,7 @@ class ConsentCalculatorTest {
         void patientMissingDataCodeIsExcluded() {
             LocalDate today = LocalDate.now();
             Provision gatePermit = new Provision(GATE_CODE, new Period(today.minusYears(1), today.plusYears(1)), true);
-            ConsentProvisions cp = new ConsentProvisions("p1", null, List.of(gatePermit));
+            ConsentProvisions cp = new ConsentProvisions("c1", "p1", dt("2024-01-01T00:00:00Z"), List.of(gatePermit));
 
             Map<String, NonContinuousPeriod> result = calculator.calculateConsent(
                     Set.of(GATE_CODE, CODE_1),
@@ -448,11 +520,11 @@ class ConsentCalculatorTest {
         void multiplePatientsSomeViolated() {
             Provision permit1 = new Provision(CODE_1, p("2024-01-01", "2024-01-10"), true);
             Provision permit2 = new Provision(CODE_2, p("2024-01-05", "2024-01-15"), true);
-            ConsentProvisions cp1 = new ConsentProvisions("patient1", null, List.of(permit1, permit2));
+            ConsentProvisions cp1 = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"), List.of(permit1, permit2));
 
             Provision permit3 = new Provision(CODE_1, p("2024-02-01", "2024-02-10"), true);
             Provision permit4 = new Provision(CODE_2, p("2024-02-11", "2024-02-20"), true);
-            ConsentProvisions cp2 = new ConsentProvisions("patient2", null, List.of(permit3, permit4));
+            ConsentProvisions cp2 = new ConsentProvisions("c2", "patient2", dt("2024-02-01T00:00:00Z"), List.of(permit3, permit4));
 
             Map<String, List<ConsentProvisions>> consentsByPatient = Map.of(
                     "patient1", List.of(cp1),
@@ -469,7 +541,7 @@ class ConsentCalculatorTest {
         void singlePatientFullOverlap() {
             Provision permit1 = new Provision(CODE_1, p("2024-01-01", "2024-01-10"), true);
             Provision permit2 = new Provision(CODE_2, p("2024-01-01", "2024-01-15"), true);
-            ConsentProvisions cp = new ConsentProvisions("patient1", null, List.of(permit1, permit2));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"), List.of(permit1, permit2));
 
             Map<String, NonContinuousPeriod> result = calculator.calculateConsent(
                     Set.of(CODE_1, CODE_2),

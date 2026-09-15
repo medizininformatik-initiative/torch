@@ -57,7 +57,7 @@ class ConsentAdjusterUnitTest {
     @Test
     void testAdjustProvisions_noEncounters_returnsSame() {
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
@@ -74,7 +74,7 @@ class ConsentAdjusterUnitTest {
         PatientBatch batch = new PatientBatch(List.of("patient1"));
 
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         // Encounter that will throw PatientIdNotFoundException
         Encounter invalidEncounter = new Encounter();
@@ -98,7 +98,7 @@ class ConsentAdjusterUnitTest {
     @Test
     void testAdjustProvisions_singleOverlap_shiftsStart() {
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
@@ -116,7 +116,7 @@ class ConsentAdjusterUnitTest {
     @Test
     void testAdjustProvisions_multipleOverlaps_shiftsToEarliest() {
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 8), LocalDate.of(2025, 9, 12));
         Encounter e2 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
@@ -137,7 +137,7 @@ class ConsentAdjusterUnitTest {
         PatientBatch batch = new PatientBatch(List.of("patient1"));
 
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
         e1.setId("enc-1");
@@ -162,8 +162,8 @@ class ConsentAdjusterUnitTest {
 
         Provision p1 = new Provision(new TermCode("s1", "code1"), Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
         Provision p2 = new Provision(new TermCode("s1", "code2"), Period.of(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 31)), true);
-        ConsentProvisions consent1 = new ConsentProvisions("patient1", null, List.of(p1));
-        ConsentProvisions consent2 = new ConsentProvisions("patient2", null, List.of(p2));
+        ConsentProvisions consent1 = new ConsentProvisions("c1", "patient1", null, List.of(p1));
+        ConsentProvisions consent2 = new ConsentProvisions("c2", "patient2", null, List.of(p2));
 
         Encounter e1 = createEncounter("patient1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
         Encounter e2 = createEncounter("patient2", LocalDate.of(2025, 9, 28), LocalDate.of(2025, 10, 5));

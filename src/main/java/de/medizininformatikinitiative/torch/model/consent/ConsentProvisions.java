@@ -12,7 +12,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
-public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Provision> provisions) {
+public record ConsentProvisions(String id, String patientId, DateTimeType dateTime, List<Provision> provisions) {
 
     /**
      * Adjusts the start date of permitted provisions whose code is in {@code adjustableCodes} based on patient
@@ -33,6 +33,7 @@ public record ConsentProvisions(String patientId, DateTimeType dateTime, List<Pr
                 .toList();
 
         return new ConsentProvisions(
+                id,
                 patientId,
                 dateTime,
                 provisions.stream().map(provisionsPeriod -> {
