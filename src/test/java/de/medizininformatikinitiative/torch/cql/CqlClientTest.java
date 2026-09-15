@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.service.DataStore;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CodeableConcept;
+import org.hl7.fhir.r4.model.ListResource;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.Parameters;
 import org.hl7.fhir.r4.model.Patient;
@@ -92,6 +93,43 @@ class CqlClientTest {
         when(dataStore.evaluateMeasure(any(Parameters.class))).thenReturn(Mono.just(measureReport));
 
         StepVerifier.create(cqlClient.fetchPatientIds("cql-query"))
+                .verifyError(MeasureReportShapeException.class);
+    }
+
+    @Test
+    void fetchPatientIds_withPatientMissingId_errors() {
+        var measureReport = new MeasureReport();
+        measureReport.addGroup().addPopulation().setSubjectResults(new Reference("List/list-id"));
+        when(dataStore.evaluateMeasure(any(Parameters.class))).thenReturn(Mono.just(measureReport));
+
+        when(dataStore.search(any(Query.class), org.mockito.ArgumentMatchers.eq(Patient.class)))
+                .thenReturn(Flux.just(new Patient()));
+
+        StepVerifier.create(cqlClient.fetchPatientIds("cql-query"))
+                .verifyErrorMessage("Encountered Patient Resource without ID");
+    }
+
+    @Test
+    void fetchPatientList_withWellFormedMeasureReport_returnsUnderlyingFhirList() {
+        var measureReport = new MeasureReport();
+        measureReport.addGroup().addPopulation().setSubjectResults(new Reference("List/list-id"));
+        when(dataStore.evaluateMeasure(any(Parameters.class))).thenReturn(Mono.just(measureReport));
+
+        var list = new ListResource();
+        list.setId("list-id");
+        when(dataStore.search(any(Query.class), org.mockito.ArgumentMatchers.eq(ListResource.class)))
+                .thenReturn(Flux.just(list));
+
+        StepVerifier.create(cqlClient.fetchPatientList("cql-query"))
+                .expectNext(list)
+                .verifyComplete();
+    }
+
+    @Test
+    void fetchPatientList_withMeasureReportMissingGroup_errors() {
+        when(dataStore.evaluateMeasure(any(Parameters.class))).thenReturn(Mono.just(new MeasureReport()));
+
+        StepVerifier.create(cqlClient.fetchPatientList("cql-query"))
                 .verifyError(MeasureReportShapeException.class);
     }
 }
