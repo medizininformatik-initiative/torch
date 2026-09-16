@@ -67,6 +67,7 @@ import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -222,7 +223,7 @@ class ExtractDataServiceTest {
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.REFERENCE_RESOLVE);
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.CASCADING_DELETE);
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.COPY_REDACT);
-                verify(batchProgressRegistry).clear(batchId);
+                verify(batchProgressRegistry, timeout(1000)).clear(batchId);
             }
         }
 
@@ -434,7 +435,7 @@ class ExtractDataServiceTest {
                 verifyNoInteractions(consentHandler);
                 verify(batchProgressRegistry, never()).enter(eq(batchId), eq(PipelineStage.CONSENT_FETCH));
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.DIRECT_LOAD);
-                verify(batchProgressRegistry).clear(batchId);
+                verify(batchProgressRegistry, timeout(1000)).clear(batchId);
             }
         }
 
@@ -485,7 +486,7 @@ class ExtractDataServiceTest {
 
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
             verify(resultFileManager).saveConsentBatchToNDJSON(eq(jobId.toString()), eq(batchId), any());
-            verify(batchProgressRegistry).clear(batchId);
+            verify(batchProgressRegistry, timeout(1000)).clear(batchId);
         }
 
         @Test
