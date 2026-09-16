@@ -89,22 +89,36 @@ Before any data extraction:
    codes (`.8`) are never encounter-adjusted by design. This step can be turned off entirely via
    `TORCH_ENABLE_ENCOUNTER_SHIFT` (default `true`); when disabled, no Encounter search is performed and provisions
    are used as fetched.
-6. **Apply retrospective modifiers** — only for modifier codes (`.45`/`.46`) explicitly requested in the CRTDL
-   cohort definition (see step 4). Within each Consent resource independently: if a permitted `.6` provision
-   overlaps in time with a permitted retro modifier provision **in the same resource**, the `.6`
-   provision's start is shifted to `1900-01-01`. Retro modifier denies (`.45`/`.46` deny) in the same resource
-   subtract from the retro-extended period before it is recorded. Modifiers and their denies from a different
-   Consent resource have no effect.
-7. **Merge and subtract** — only Consent resources that contain permits for **all** required codes (`.6` AND `.8`)
-   contribute permit periods. Deny periods from **any** Consent resource are subtracted from the merged permits,
-   including revocation documents that carry only denies. Retro-extended periods are immune to prospective code
-   denies (`.6` deny) — only retro modifier denies (`.45`/`.46` deny, applied in step 6) can reduce them.
-8. **Gate check** — for each validity-gate code (`.8`), today must fall within the merged permitted period. If the
+6. **Order and merge, code by code** — Consent resources are processed in ascending `dateTime` order (ties broken
+   by resource id, purely for determinism — id carries no clinical meaning). For each supported code, each
+   resource's own permit period — only if that resource alone carries permits for **all** required codes (`.6`
+   AND `.8`) — and each resource's deny of that code are folded into a running period, one resource at a time, in
+   that order. A permit is *merged* into whatever was accumulated so far, so a later permit can reinstate a
+   period an earlier deny had removed; a deny is *subtracted* from the running total. Revocation documents that
+   carry only a deny still count, from any resource, in the order their `dateTime` places them.
+7. **Apply retrospective modifiers** — only for modifier codes (`.45`/`.46`) explicitly requested in the CRTDL
+   cohort definition (see step 4), evaluated as part of step 6 while each resource is folded in:
+   - If a resource's own permitted `.6` provision overlaps in time with a permitted retro modifier provision
+     **in the same resource**, that resource's contribution is extended back to `1900-01-01`. A retro modifier
+     deny in the *same* resource subtracts from that extension before it is added — it never reduces the plain
+     `.6` permit period itself.
+   - If a resource carries a retro modifier **deny** for the code — regardless of period overlap, and whether or
+     not it also carries a `.6` permit of its own — that resource's contribution **replaces** the running total
+     built up so far instead of merging into it. A single revocation of retrospective consent can therefore
+     invalidate everything accumulated for that code up to that point, including permits from earlier, otherwise
+     unrelated resources.
+   - A retro modifier **permit** never has this replacing effect, even standing alone in its own resource: a
+     grant must never leave a patient worse off than if the resource had not been sent at all. A `.45`/`.46`
+     permit with no `.6` permit in the same resource simply contributes nothing.
+8. **Gate check** — for each validity-gate code (`.8`), today must fall within the final merged period. If the
    check fails for any gate code the patient is excluded from the result.
 9. **Intersect data periods** — the allowed periods of all data-period codes (`.6`) are intersected to produce the
    patient's final data-extraction window.
 10. **Enforce during extraction** — resources whose consent data field (as configured in `type_to_consent.json`)
     falls outside the consent window are excluded from the result.
+
+Consent resources without a `dateTime` element are skipped during fetch and never reach this pipeline (step 4) —
+step 6 requires every resource it processes to carry one, since ordering now determines the result.
 
 ### Encounter Adjustment
 
@@ -139,17 +153,33 @@ signing day to signing day + 5 years.
 
 ## 5. Retrospective Modifier Semantics
 
-The retrospective modifiers (`.45`, `.46`) act as **period extenders** for `.6`:
+The retrospective modifiers (`.45`, `.46`) act as **period extenders** for `.6`, and a retro modifier deny acts
+as a **history reset** — these are two distinct mechanisms:
+
+**Extension (retro modifier permit):**
 
 - A modifier is only applied if it was explicitly requested in the CRTDL.
-- A modifier is only applied when it appears in the **same Consent resource** as the `.6` provision it extends.
-  A `.45` permit in resource B does **not** extend a `.6` permit in resource A.
-- A modifier affects a permitted `.6` provision when their periods **overlap within the same resource**.
-- When applied, the `.6` provision's start date is replaced with `1900-01-01`.
-- If a patient has no permitted `.6` provisions in the same resource as the modifier, the modifier has no effect.
-- Retro modifier **denies** (`.45`/`.46` deny) in the same resource subtract from the retro-extended period.
-- Prospective code **denies** (`.6` deny) do **not** reduce a retro-extended period — only the retro modifier
-  deny can revoke the retroactive grant.
+- A modifier extends `.6` only when a permitted instance of it appears in the **same Consent resource** as the
+  `.6` provision it extends, and their periods **overlap within that resource**. A `.45` permit in resource B
+  does **not** extend a `.6` permit in resource A.
+- When applied, the resource's contribution for `.6` is extended back to `1900-01-01`.
+- A retro modifier deny in the *same* resource subtracts from that extension before it is added.
+- If a patient has no permitted `.6` provision in the same resource as the modifier, the modifier permit
+  contributes nothing — it does **not** affect any other resource's `.6` permit, past or future.
+
+**Reset (retro modifier deny):**
+
+- A retro modifier deny — for a code with retro modifiers configured and explicitly requested in the CRTDL —
+  discards everything accumulated for that code from resources processed before it (see pipeline step 6/7),
+  regardless of whether its period overlaps anything and regardless of whether the same resource also carries a
+  `.6` permit. This is intentionally stronger than a plain `.6` deny: revoking retrospective consent is treated
+  as invalidating the whole retrospective picture for that code, not just the time window the revocation names.
+- Because resources are processed in `dateTime` order, only retro modifier denies from resources **at or before**
+  the point being calculated matter — a later `.6` permit (in a still-later resource) can re-establish the
+  period from scratch.
+- Prospective code **denies** (`.6` deny) reduce whatever is currently accumulated for `.6` — including a
+  retro-extended period — regardless of which resource granted it. They do not trigger the reset above; only a
+  retro modifier deny does.
 
 The diagram below shows the two key cases — with and without a retro modifier deny.
 
@@ -165,15 +195,24 @@ html.dark .diagram-light { display: none; }
 **Example:**
 
 ```
-Consent resource A (signed 2020):
+Consent resource A (dateTime 2020-01-01):
   .8  2020–2050  permit
   .6  2020–2025  permit
-  .45 2020–2025  permit   ← same resource, overlaps .6 → extends .6 start to 1900-01-01
-  .45 2000–2009  deny     ← same resource, subtracts [2000-01-01, 2009-12-31] from extended .6
+  .45 2020–2025  permit   ← same resource, overlaps .6 → extends .6 to [1900-01-01, 2025-12-31]
+  .45 2000–2009  deny     ← same resource, subtracts [2000-01-01, 2009-12-31] from that extension
+  → running .6 total after A: [1900-01-01, 1999-12-31] ∪ [2010-01-01, 2025-12-31]
 
-Consent resource B (revocation, 2023):
-  .6  2023–2025  deny     ← does NOT reduce the retro-extended .6 from resource A
-  .45 2023–2025  permit   ← different resource from resource A's .6 → no effect
+Consent resource B (dateTime 2023-01-01, revocation):
+  .6  2023–2025  deny     ← subtracts from the running total, including the retro-extended part
+  → running .6 total after B: [1900-01-01, 1999-12-31] ∪ [2010-01-01, 2022-12-31]
+
+Consent resource C (dateTime 2024-01-01, a later addendum):
+  .45 2024–2028  permit   ← no .6 permit in this resource, and it's a permit not a deny → no effect
+  → running .6 total after C: unchanged
+
+Consent resource D (dateTime 2025-01-01, revocation of retrospective consent):
+  .45 2025–2028  deny     ← retro modifier deny, no period overlap with anything above → resets .6
+  → running .6 total after D: empty (D carries no .6 permit of its own to rebuild from)
 ```
 
 ---
@@ -339,7 +378,7 @@ The consent check uses a specific date field per FHIR resource type to determine
 Consent handling in TORCH is:
 
 - **Standards-based** (FHIR Consent, MII KDS profile, MII broad consent structure)
-- Per-patient: permits only from Consent resources that carry the complete required package (`.6` AND `.8`); denies applied globally; retro modifiers and their denies scoped to the resource they appear in
+- Per-patient, order-sensitive: Consent resources are folded in ascending `dateTime` order; permits only count from resources that carry the complete required package (`.6` AND `.8`); a later permit can reinstate a period an earlier deny removed. Retro modifier extension stays scoped to the resource it appears in, but a retro modifier **deny** resets a code's whole accumulated history, from any resource
 - Driven by `consent-code-config.json` — no code changes required for new consent codes that follow the same
   combination logic as the default set. **This is a fundamental limitation:** TORCH can only handle the validity-gate
     + data-window + retrospective-modifier model hardcoded in its pipeline. New codes that require different combination

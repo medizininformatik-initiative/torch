@@ -73,6 +73,6 @@ public class ProvisionExtractor {
                 }
             }
         }
-        return new ConsentProvisions(ResourceUtils.patientId(consent), consent.getDateTimeElement(), provisions);
+        return new ConsentProvisions(consent.getIdPart(), ResourceUtils.patientId(consent), consent.getDateTimeElement(), provisions);
     }
 }
