@@ -33,7 +33,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_noEncounters_returnsSameProvisions() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         ConsentProvisions updated = consent.updateByEncounters(List.of(), Set.of(CODE));
 
@@ -43,7 +43,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_nonOverlappingEncounters_returnsSameProvisions() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 1), LocalDate.of(2025, 9, 5));
         Encounter e2 = createEncounter(LocalDate.of(2025, 10, 1), LocalDate.of(2025, 10, 5));
@@ -56,7 +56,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_singleOverlappingEncounter_shiftsStart() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
@@ -70,7 +70,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_multipleOverlappingEncounters_shiftsToEarliest() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 8), LocalDate.of(2025, 9, 12));
         Encounter e2 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
@@ -86,7 +86,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_denyProvision_isNotShifted() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), false);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter e1 = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
 
@@ -98,7 +98,7 @@ class ConsentProvisionsTest {
     @Test
     void updateByEncounters_encounterWithNullPeriod_isIgnored() {
         Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
-        ConsentProvisions consent = new ConsentProvisions("patient1", null, List.of(p1));
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
 
         Encounter nullPeriodEncounter = createEncounter(null, null);
         Encounter overlapping = createEncounter(LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
