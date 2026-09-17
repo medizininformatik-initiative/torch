@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -22,6 +23,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.BiConsumer;
 
 import static java.util.Objects.requireNonNull;
 
@@ -41,13 +43,16 @@ public class BatchCopierRedacter {
     /**
      * Transforms a batch of patients reactively.
      *
-     * @param batch    Mono of PatientBatchWithConsent to be handled.
-     * @param groupMap Immutable AttributeGroup Map shared between all Batches.
+     * @param batch      Mono of PatientBatchWithConsent to be handled.
+     * @param groupMap   Immutable AttributeGroup Map shared between all Batches.
+     * @param exclusions records a {@code REDACTION_FAILURE} exclusion event per group for any resource isolated
+     *                   due to a transformation failure
      * @return Mono of transformed batch.
      */
-    public ExtractionPatientBatch transformBatch(ExtractionPatientBatch batch, Map<String, AnnotatedAttributeGroup> groupMap) {
-        batch.bundles().values().parallelStream().forEach(
-                bundle -> transformBundle(bundle, groupMap)
+    public ExtractionPatientBatch transformBatch(ExtractionPatientBatch batch, Map<String, AnnotatedAttributeGroup> groupMap,
+                                                  BatchExclusions exclusions) {
+        batch.bundles().entrySet().parallelStream().forEach(
+                entry -> transformBundle(entry.getValue(), groupMap, exclusions, entry.getKey())
         );
         return batch;
     }
@@ -59,14 +64,38 @@ public class BatchCopierRedacter {
      * redaction and then applies it to the resources.
      * <p>
      * A resource that fails with {@link TargetClassCreationException}, {@link ReflectiveOperationException}, or
-     * {@link RedactionException} is isolated: it is dropped from the bundle and a warning is logged, without failing
+     * {@link RedactionException} is isolated: it is dropped from the bundle, a warning is logged, and a
+     * {@code REDACTION_FAILURE} exclusion event is recorded per group in {@code exclusions}, without failing
      * the rest of the batch. Any other exception is treated as a programming error and propagates.
      *
      * @param extractionBundle PatientResourceBundle to transform
      * @param groupMap         Immutable AttributeGroup Map shared between all Batches
+     * @param exclusions       records the core-bundle {@code REDACTION_FAILURE} exclusion event per group
      * @return Mono of Transformed PatientResourceBundle
      */
-    public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap) {
+    public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
+                                                      BatchExclusions exclusions) {
+        return transformBundle(extractionBundle, groupMap, exclusions::addRedactionFailureExclusionCore);
+    }
+
+    /**
+     * Transforms a single patient's PatientResourceBundle. See {@link #transformBundle(ExtractionResourceBundle, Map, BatchExclusions)}
+     * for the isolation behaviour on transformation failure.
+     *
+     * @param extractionBundle PatientResourceBundle to transform
+     * @param groupMap         Immutable AttributeGroup Map shared between all Batches
+     * @param exclusions       records the patient's {@code REDACTION_FAILURE} exclusion event per group
+     * @param patientId        the patient this bundle belongs to
+     * @return Mono of Transformed PatientResourceBundle
+     */
+    public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
+                                                      BatchExclusions exclusions, String patientId) {
+        return transformBundle(extractionBundle, groupMap,
+                (groupId, resourceId) -> exclusions.addRedactionFailureExclusion(groupId, resourceId, patientId));
+    }
+
+    private ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
+                                                       BiConsumer<String, String> recordExclusion) {
         Map<ExtractionId, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
 
         infoMap.keySet().parallelStream().forEach(resourceId -> {
@@ -88,6 +117,7 @@ public class BatchCopierRedacter {
 
             } catch (TargetClassCreationException | ReflectiveOperationException | RedactionException e) {
                 logger.warn("BatchCopierRedacter001: Error transforming resource {}: {}", resourceId, e.getMessage());
+                info.groups().forEach(groupId -> recordExclusion.accept(groupId, resourceId.toRelativeUrl()));
                 extractionBundle.put(resourceId);
             }
         });

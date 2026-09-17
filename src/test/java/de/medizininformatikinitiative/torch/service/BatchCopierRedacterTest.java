@@ -2,10 +2,14 @@ package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.CopyTreeNode;
@@ -29,6 +33,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Stream;
 
@@ -99,9 +104,16 @@ class BatchCopierRedacterTest {
                 .when(transformer)
                 .transformResource(any());
 
-        transformer.transformBundle(extractionBundle, Map.of());
+        BatchExclusions exclusions = BatchExclusions.empty();
+        transformer.transformBundle(extractionBundle, Map.of(), exclusions, "pat-1");
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
+        assertThat(exclusions.getResourceExclusions()).singleElement().satisfies(event -> {
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REDACTION_FAILURE);
+            assertThat(event.groupId()).isEqualTo("G1");
+            assertThat(event.resourceId()).isEqualTo("Patient/dummy");
+            assertThat(event.patientId()).isEqualTo("pat-1");
+        });
     }
 
     @org.junit.jupiter.api.Test
@@ -114,9 +126,16 @@ class BatchCopierRedacterTest {
                 .when(transformer)
                 .transformResource(any());
 
-        transformer.transformBundle(extractionBundle, Map.of());
+        BatchExclusions exclusions = BatchExclusions.empty();
+        transformer.transformBundle(extractionBundle, Map.of(), exclusions);
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
+        assertThat(exclusions.getResourceExclusions()).singleElement().satisfies(event -> {
+            assertThat(event.reason()).isEqualTo(ResourceExclusionReason.REDACTION_FAILURE);
+            assertThat(event.groupId()).isEqualTo("G1");
+            assertThat(event.resourceId()).isEqualTo("Patient/dummy");
+            assertThat(event.patientId()).isEmpty();
+        });
     }
 
     @Test
@@ -125,11 +144,45 @@ class BatchCopierRedacterTest {
                 .when(transformer)
                 .transformResource(any());
 
-        assertThatThrownBy(() -> transformer.transformBundle(extractionBundle, Map.of()))
+        BatchExclusions exclusions = BatchExclusions.empty();
+        assertThatThrownBy(() -> transformer.transformBundle(extractionBundle, Map.of(), exclusions))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("bug");
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isPresent();
+        assertThat(exclusions.isEmpty()).isTrue();
+    }
+
+    @Test
+    void transformBatch_threadsPatientIdFromBundleMapKey() throws Exception {
+        doThrow(new RedactionException("fail"))
+                .when(transformer)
+                .transformResource(any());
+
+        ExtractionId idA = ExtractionId.fromRelativeUrl("Patient/a");
+        Resource resourceA = new Patient();
+        resourceA.setId("a");
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> cacheA = new ConcurrentHashMap<>();
+        cacheA.put(idA, Optional.of(resourceA));
+        ExtractionResourceBundle bundleA = new ExtractionResourceBundle(
+                new ConcurrentHashMap<>(Map.of(idA, new ResourceExtractionInfo(Set.of("G1"), Map.of()))), cacheA);
+
+        ExtractionId idB = ExtractionId.fromRelativeUrl("Patient/b");
+        Resource resourceB = new Patient();
+        resourceB.setId("b");
+        ConcurrentHashMap<ExtractionId, Optional<Resource>> cacheB = new ConcurrentHashMap<>();
+        cacheB.put(idB, Optional.of(resourceB));
+        ExtractionResourceBundle bundleB = new ExtractionResourceBundle(
+                new ConcurrentHashMap<>(Map.of(idB, new ResourceExtractionInfo(Set.of("G1"), Map.of()))), cacheB);
+
+        ExtractionPatientBatch batch = new ExtractionPatientBatch(Map.of("pat-a", bundleA, "pat-b", bundleB), UUID.randomUUID());
+
+        BatchExclusions exclusions = BatchExclusions.empty();
+        transformer.transformBatch(batch, Map.of(), exclusions);
+
+        assertThat(exclusions.getResourceExclusions())
+                .extracting(ResourceExclusionEvent::patientId)
+                .containsExactlyInAnyOrder("pat-a", "pat-b");
     }
 
     @Nested

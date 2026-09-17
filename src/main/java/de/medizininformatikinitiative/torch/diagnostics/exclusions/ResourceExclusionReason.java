@@ -8,5 +8,6 @@ public enum ResourceExclusionReason {
     CONSENT,
     REFERENCE_NOT_FOUND,
     RESOURCE_OUTSIDE_BATCH,
-    CASCADING_DELETE
+    CASCADING_DELETE,
+    REDACTION_FAILURE
 }
