@@ -94,6 +94,25 @@ Optionally patient ids can be submitted for a known cohort, bypassing the cohort
 }
 ```
 
+Optionally, consent diagnostics (raw provisions, final consent periods, and per-resource consent
+decisions) can be opted into via `consentDiagnostics`; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics):
+
+```
+{
+  "resourceType": "Parameters",
+  "parameter": [
+    {
+      "name": "crtdl",
+      "valueBase64Binary": "<Base64 encoded CRTDL>"
+    },
+    {
+      "name": "consentDiagnostics",
+      "valueBoolean": true
+    }
+  ]
+}
+```
+
 ### Result Files
 
 Upon successful completion, the data extraction results consist of **multiple NDJSON files**:
@@ -145,7 +164,7 @@ The `output` array contains **only FHIR NDJSON Bundle files** — one file per p
 containing one Bundle per patient) and one `core.ndjson`. Non-resource data (diagnostics, issues) is never placed in `output`, because
 downstream consumers process every entry there as a FHIR resource file.
 
-TORCH-specific data is surfaced in the `extension` array. Four extension URLs are defined:
+TORCH-specific data is surfaced in the `extension` array. Five extension URLs are defined:
 
 | `url`                                                     | Content                                                                                                                                      | Present when                                                   |
 |-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------|----------------------------------------------------------------|
@@ -153,6 +172,9 @@ TORCH-specific data is surfaced in the `extension` array. Four extension URLs ar
 | `torch-job-diagnostics-summary`                           | Cohort total, final patient total and per-stage processing durations; see [Job Diagnostics](./diagnostics.md)                                | Diagnostics were collected (i.e. at least one batch completed) |
 | `torch-resource-exclusions`                               | `valueUrl` pointing to a CSV file containing resource exclusion events; see [Job Diagnostics](./diagnostics.md)                              | Same as above                                                  |
 | `torch-patient-exclusions`                                | `valueUrl` pointing to a CSV file containing patient exclusion events; see [Job Diagnostics](./diagnostics.md)                               | Same as above                                                  |
+| `torch-raw-provisions`                                    | `valueUrl` pointing to a CSV file containing the raw consent provisions; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics)     | `consentDiagnostics` was requested and same as above           |
+| `torch-final-periods`                                     | `valueUrl` pointing to a CSV file containing the final consent periods; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics)      | `consentDiagnostics` was requested and same as above           |
+| `torch-consent-considered-resources`                      | `valueUrl` pointing to a CSV file containing per-resource consent decisions; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics) | `consentDiagnostics` was requested and same as above           |
 | `torch-job-issues`                                        | List of `{severity, msg, diagnostics}` objects recording warnings and errors that occurred during processing (e.g. skipped batches, retries) | At least one issue was recorded                                |
 
 Example completed manifest:
@@ -237,6 +259,18 @@ Example completed manifest:
     {
       "url": "torch-patient-exclusions",
       "valueUrl": "http://fileserver/<jobId>/reports/patient-exclusions.csv"
+    },
+    {
+      "url": "torch-raw-provisions",
+      "valueUrl": "http://fileserver/<jobId>/reports/raw-provisions.csv"
+    },
+    {
+      "url": "torch-final-periods",
+      "valueUrl": "http://fileserver/<jobId>/reports/final-periods.csv"
+    },
+    {
+      "url": "torch-consent-considered-resources",
+      "valueUrl": "http://fileserver/<jobId>/reports/consent-considered-resources.csv"
     },
     {
       "url": "torch-job-issues",

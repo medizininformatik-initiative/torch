@@ -303,7 +303,7 @@ public class ReferenceResolverIT {
             // Diagnostics should record the missing reference
 
             assertThat(batchExclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND, LINKED_ORG_GROUP_1, ORG_ID_1.toRelativeUrl(), "",
-                    ""));
+                    "", ""));
         }
 
         @Test

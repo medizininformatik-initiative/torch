@@ -199,7 +199,7 @@ public class JobDiagnosticsSummaryTest {
         private void increaseOtherResourceExclusionsBy(int num, BatchDiagnostics diagnostics, String groupId, String resourceId,
                                                String patientId) {
             for(int i = 0; i < num; i++) {
-                diagnostics.batchExclusions().addConsentExclusion(groupId, resourceId, patientId);
+                diagnostics.batchExclusions().addConsentExclusion(groupId, resourceId, patientId, "");
                 diagnostics.batchExclusions().addReferenceNotFoundExclusion(groupId, resourceId, patientId);
                 diagnostics.batchExclusions().addReferenceNotFoundExclusionCore(groupId, resourceId);
                 diagnostics.batchExclusions().addResourceOutsideBatch(groupId, resourceId);

@@ -238,7 +238,7 @@ class ReferenceHandlerTest {
 
             assertThat(coreBundle.isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
             assertThat(batchExclusions.getResourceExclusions()).containsExactly(
-                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "", "Obs.ref"));
+                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "", "Obs.ref", ""));
         }
 
         @Test
@@ -260,7 +260,7 @@ class ReferenceHandlerTest {
 
             assertThat(patientBundle.bundle().isValidResourceGroup(wrapper.toResourceGroup())).isFalse();
             assertThat(batchExclusions.getResourceExclusions()).containsExactly(
-                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "p1", "Obs.ref"));
+                    new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, "grp", "Observation/obs1", "p1", "Obs.ref", ""));
         }
     }
 }

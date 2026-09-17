@@ -92,7 +92,7 @@ class ReferenceResolverTest {
             assertThat(result).isEmpty();
             assertThat(coreBundle.isValidResourceGroup(rg)).isFalse();
             assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.RESOURCE_OUTSIDE_BATCH, GROUP_ID, COND_ID.toRelativeUrl(), "",
-                    ""));
+                    "", ""));
         }
 
         @Test
@@ -127,7 +127,7 @@ class ReferenceResolverTest {
             assertThat(result).isEmpty();
             assertThat(coreBundle.isValidResourceGroup(rg)).isFalse();
             assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, GROUP_ID, OBS_ID.toRelativeUrl(), "",
-                    "attribute.ref.64715"));
+                    "attribute.ref.64715", ""));
         }
     }
 
@@ -241,7 +241,7 @@ class ReferenceResolverTest {
             // Counted once (under condGroup), not twice as it was before the fix, when procGroup was
             // also queried for a Condition reference it could never resolve.
             assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(
-                    ResourceExclusionReason.REFERENCE_NOT_FOUND, "condGroup", COND_ID.toRelativeUrl(), "", ""));
+                    ResourceExclusionReason.REFERENCE_NOT_FOUND, "condGroup", COND_ID.toRelativeUrl(), "", "", ""));
         }
     }
 
@@ -294,7 +294,7 @@ class ReferenceResolverTest {
             // Counted once (under condGroup), not twice as it was before the fix, when procGroup was
             // also queried for a Condition reference it could never resolve.
             assertThat(batch.batchExclusions().getResourceExclusions()).containsExactly(new ResourceExclusionEvent(
-                    ResourceExclusionReason.REFERENCE_NOT_FOUND, "condGroup", COND_ID.toRelativeUrl(), "p1", ""));
+                    ResourceExclusionReason.REFERENCE_NOT_FOUND, "condGroup", COND_ID.toRelativeUrl(), "p1", "", ""));
         }
     }
 
