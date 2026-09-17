@@ -1,7 +1,9 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.consent.ConsentCheckResult;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
@@ -27,6 +29,7 @@ import reactor.core.publisher.Mono;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -108,17 +111,43 @@ public class DirectResourceLoader {
     private Mono<DomainResource> applyConsent(DomainResource resource,
                                               PatientBatchWithConsent patientBatchWithConsent,
                                               AnnotatedAttributeGroup group) {
-        boolean allowed = !patientBatchWithConsent.applyConsent() || consentValidator.checkConsent(resource, patientBatchWithConsent);
-        if (allowed) {
+        if (!patientBatchWithConsent.applyConsent()) {
             return Mono.just(resource);
         }
-        logger.trace("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+
+        Optional<ConsentCheckResult> result = consentValidator.checkConsent(resource, patientBatchWithConsent);
+        if (result.isEmpty()) {
+            // resource has no attributable patient ID at all (not even an unresolved reference) — not a
+            // consent decision, and there is no Patient-ID to record a diagnostic row against
+            return Mono.empty();
+        }
+        ConsentCheckResult checkResult = result.get();
+
+        // on the common included+diagnostics-disabled path, avoid re-deriving patientID/resourceUrl (checkConsent
+        // above already resolved the patient ID once) purely to feed a considered-resource event that would no-op
+        boolean diagnosticsEnabled = patientBatchWithConsent.diagnostics().consentDiagnostics().isEnabled();
+        if (checkResult.included() && !diagnosticsEnabled) {
+            return Mono.just(resource);
+        }
 
         try {
             String patientID = ResourceUtils.patientId(resource);
-            patientBatchWithConsent.batchExclusions().addConsentExclusion(group.id(),
-                    ResourceUtils.getRelativeURL(resource).toRelativeUrl(), patientID);
-        } catch (PatientIdNotFoundException e){
+            String resourceUrl = ResourceUtils.getRelativeURL(resource).toRelativeUrl();
+
+            if (diagnosticsEnabled) {
+                patientBatchWithConsent.diagnostics().consentDiagnostics().addConsideredResource(
+                        new ConsentConsideredResourceEvent(patientID, resourceUrl, checkResult.included(),
+                                checkResult.consideredDate().map(Object::toString).orElse("")));
+            }
+
+            if (checkResult.included()) {
+                return Mono.just(resource);
+            }
+
+            logger.trace("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+            patientBatchWithConsent.batchExclusions().addConsentExclusion(group.id(), resourceUrl, patientID,
+                    checkResult.outcome().toString());
+        } catch (PatientIdNotFoundException e) {
             return Mono.empty();
         }
 

@@ -31,11 +31,11 @@ public record PatientExclusionEvent(PatientExclusionStage stage, String patientI
 
     @Override
     public String[] toCsvElements() {
-        return ExclusionEvent.toCsvElements(CsvField.class, this);
+        return CsvDefinition.toCsvElements(CsvField.class, this);
     }
 
     public static String[] getHeaderNames() {
-        return ExclusionEvent.getHeaderNames(CsvField.class);
+        return CsvDefinition.getHeaderNames(CsvField.class);
     }
 
     /**

@@ -43,6 +43,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -118,7 +119,7 @@ class FhirControllerTest {
     class Validator {
         @Test
         void invalidCrtdlTriggersBadRequest() throws ValidationException, ConsentFormatException {
-            ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), Collections.emptyList());
+            ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), Collections.emptyList(), false);
             when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
             when(validator.validateAndAnnotate(any())).thenThrow(new ValidationException("Invalid CRTDL"));
 
@@ -313,6 +314,26 @@ class FhirControllerTest {
                     .jsonPath("$.extension[?(@.url=='torch-job-diagnostics-summary')]").exists()
                     .jsonPath("$.extension[?(@.url=='torch-resource-exclusions')]").exists()
                     .jsonPath("$.extension[?(@.url=='torch-patient-exclusions')]").exists();
+        }
+
+        @Test
+        void completedJobWithConsentDiagnosticsIncludesConsentDiagnosticsExtensions() {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+            when(jobPersistenceService.rawProvisionsExists(any())).thenReturn(true);
+            when(jobPersistenceService.finalPeriodsExists(any())).thenReturn(true);
+            when(jobPersistenceService.consentConsideredResourcesExists(any())).thenReturn(true);
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.extension[?(@.url=='torch-raw-provisions')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-final-periods')]").exists()
+                    .jsonPath("$.extension[?(@.url=='torch-consent-considered-resources')]").exists();
         }
 
         @Test
@@ -605,14 +626,14 @@ class FhirControllerTest {
                 JsonNodeFactory.instance.objectNode(),
                 new AnnotatedDataExtraction(List.of()),
                 Optional.empty());
-        ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), List.of());
+        ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), List.of(), false);
 
         @Test
         void successReturnsAcceptedWithContentLocation() throws Exception {
             UUID createdJobId = UUID.randomUUID();
             when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
             when(validator.validateAndAnnotate(any())).thenReturn(annotated);
-            when(jobPersistenceService.createJob(any(), any(), any())).thenReturn(createdJobId);
+            when(jobPersistenceService.createJob(any(), any(), anyBoolean(), any())).thenReturn(createdJobId);
 
             client.post().uri("/fhir/$extract-data")
                     .contentType(MediaType.valueOf("application/fhir+json"))
@@ -626,7 +647,7 @@ class FhirControllerTest {
         void createJobIOExceptionReturnsInternalServerError() throws Exception {
             when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
             when(validator.validateAndAnnotate(any())).thenReturn(annotated);
-            when(jobPersistenceService.createJob(any(), any(), any())).thenThrow(new IOException("disk full"));
+            when(jobPersistenceService.createJob(any(), any(), anyBoolean(), any())).thenThrow(new IOException("disk full"));
 
             client.post().uri("/fhir/$extract-data")
                     .contentType(MediaType.valueOf("application/fhir+json"))

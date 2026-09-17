@@ -1,7 +1,12 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
+import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -9,6 +14,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -74,15 +81,48 @@ public class ConsentHandler {
         Set<TermCode> encounterAdjustCodes = consentCodeConfig.nonGateCodes(prospectiveCodes);
 
         return consentFetcher.fetchConsentInfo(codesToFetch, batch)
-                .flatMap(consentProvisions ->
+                .doOnNext(rawProvisions -> recordRawProvisions(batch, rawProvisions))
+                .flatMap(rawProvisions ->
                         enableEncounterShift
-                                ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, consentProvisions, encounterAdjustCodes)
-                                : Mono.just(consentProvisions)
+                                ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, rawProvisions, encounterAdjustCodes)
+                                : Mono.just(rawProvisions)
                 )
                 .map(consentProvisions -> consentCalculator.calculateConsent(prospectiveCodes, consentProvisions))
+                .doOnNext(consentPeriodsMap -> recordFinalPeriods(batch, consentPeriodsMap))
                 .flatMap(consentPeriodsMap ->
                         Mono.fromCallable(() -> PatientBatchWithConsent.fromBatchAndConsent(batch, consentPeriodsMap))
                 );
+    }
+
+    /**
+     * Records each fetched provision as a {@link RawProvisionEvent}, before any encounter-shift adjustment.
+     * A no-op unless {@code consentDiagnostics} is enabled for this batch.
+     */
+    private void recordRawProvisions(PatientBatch batch, Map<String, List<ConsentProvisions>> rawProvisions) {
+        if (!batch.diagnostics().consentDiagnostics().isEnabled()) {
+            return;
+        }
+        rawProvisions.forEach((patientId, consents) -> consents.forEach(cp ->
+                cp.provisions().forEach(provision -> batch.diagnostics().consentDiagnostics().addRawProvision(
+                        new RawProvisionEvent(patientId, cp.id(), provision.code().code(), provision.permit(),
+                                provision.period().start(), provision.period().end())))));
+    }
+
+    /**
+     * Records each disjoint segment of a patient's final, intersected data-extraction period as a
+     * {@link FinalPeriodEvent}. A no-op unless {@code consentDiagnostics} is enabled for this batch.
+     */
+    private void recordFinalPeriods(PatientBatch batch, Map<String, NonContinuousPeriod> consentPeriodsByPatient) {
+        if (!batch.diagnostics().consentDiagnostics().isEnabled()) {
+            return;
+        }
+        consentPeriodsByPatient.forEach((patientId, period) -> {
+            for (int i = 0; i < period.size(); i++) {
+                Period segment = period.get(i);
+                batch.diagnostics().consentDiagnostics().addFinalPeriod(
+                        new FinalPeriodEvent(patientId, segment.start(), segment.end()));
+            }
+        });
     }
 
 }
