@@ -12,10 +12,15 @@ import static java.util.Objects.requireNonNull;
 public record JobParameters(
         @JsonProperty AnnotatedCrtdl crtdl,
         @JsonProperty List<String> paramBatch,
-        @JsonProperty String kickOffUrl
+        @JsonProperty String kickOffUrl,
+        @JsonProperty boolean consentDiagnostics
 ) {
     public JobParameters {
         requireNonNull(crtdl);
         paramBatch = List.copyOf(paramBatch);
+    }
+
+    public JobParameters(AnnotatedCrtdl crtdl, List<String> paramBatch, String kickOffUrl) {
+        this(crtdl, paramBatch, kickOffUrl, false);
     }
 }

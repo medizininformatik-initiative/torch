@@ -11,9 +11,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class BatchExclusionsTest {
     private static final ResourceExclusionEvent RESOURCE_EXCLUSION_1 =
-            new ResourceExclusionEvent(MUST_HAVE, "group-1", "resource-1", "", "");
+            new ResourceExclusionEvent(MUST_HAVE, "group-1", "resource-1", "", "", "");
     private static final ResourceExclusionEvent RESOURCE_EXCLUSION_2 =
-            new ResourceExclusionEvent(MUST_HAVE, "group-2", "resource-2", "", "");
+            new ResourceExclusionEvent(MUST_HAVE, "group-2", "resource-2", "", "", "");
 
     private static final PatientExclusionEvent PATIENT_EXCLUSION_1 = new PatientExclusionEvent(DIRECT_LOAD, "pat-1");
     private static final PatientExclusionEvent PATIENT_EXCLUSION_2 = new PatientExclusionEvent(DIRECT_LOAD, "pat-2");

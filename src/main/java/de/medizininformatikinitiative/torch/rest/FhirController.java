@@ -48,6 +48,7 @@ import java.io.IOException;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_TRAIL_DIRECTORY;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.PATIENT_EXCLUSIONS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.REPORTS_DIRECTORY;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.RESOURCE_EXCLUSIONS_FILE;
@@ -155,6 +156,8 @@ public class FhirController {
                     Expects a FHIR Parameters resource containing:
                     - parameter[name='crtdl'].valueBase64Binary = base64 encoded CRTDL JSON
                     - optional repeated parameter[name='patient'].valueString to provide explicit patient IDs
+                    - optional parameter[name='consentDiagnostics'].valueBoolean to enable per-patient
+                      raw-provisions/final-periods/consent-considered-resources diagnostics
                     """,
             requestBody = @RequestBody(
                     required = true,
@@ -243,6 +246,7 @@ public class FhirController {
                         jobId = persistence.createJob(
                                 annotated,
                                 parameters.patientIds(),
+                                parameters.consentDiagnostics(),
                                 baseUrl + "/fhir/$extract-data"
                         );
                     } catch (IOException ioe) {
@@ -646,6 +650,12 @@ public class FhirController {
             extensionArr.add(mapper.createObjectNode()
                     .put("url", "torch-patient-exclusions")
                     .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + PATIENT_EXCLUSIONS_FILE));
+        }
+
+        if (persistence.consentTrailExists(job.id())) {
+            extensionArr.add(mapper.createObjectNode()
+                    .put("url", "torch-consent-trail")
+                    .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + CONSENT_TRAIL_DIRECTORY));
         }
 
         if (!job.issues().isEmpty()) {
