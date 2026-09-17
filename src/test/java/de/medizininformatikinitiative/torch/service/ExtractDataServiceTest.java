@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
+import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -194,7 +195,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -272,7 +273,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of("G1", 3, "G2", 1));
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -346,7 +347,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -420,7 +421,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap()))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -533,7 +534,7 @@ class ExtractDataServiceTest {
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.isEmpty()).thenReturn(true);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap())).thenReturn(extracted);
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class))).thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
                 when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
@@ -661,7 +662,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(true);
 
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
                     .thenReturn(transformed);
 
 
@@ -699,7 +700,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(false);
 
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
@@ -738,7 +739,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(false);
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of("G1", 2));
 
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
@@ -810,7 +811,7 @@ class ExtractDataServiceTest {
             ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
             when(transformed.isEmpty()).thenReturn(false);
 
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap()))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));

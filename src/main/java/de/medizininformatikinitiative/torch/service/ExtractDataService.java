@@ -257,7 +257,8 @@ public class ExtractDataService {
                 .map(patientBatch -> {
                     batchProgressRegistry.enter(batchId, PipelineStage.COPY_REDACT);
                     ExtractionPatientBatch transformed = executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
-                            batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups()));
+                            batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups(),
+                                    patientBatch.diagnostics().batchExclusions()));
                     // Non-compartment resources are handed off to processCore() via toCoreBundle() and counted there instead,
                     // to avoid counting them twice.
                     recordResourceInclusions(patientBatch.diagnostics(),
@@ -336,7 +337,7 @@ public class ExtractDataService {
                 })
                 .flatMap(cb -> {
                     ExtractionResourceBundle transformed = executeAndMeasure(PipelineStage.COPY_REDACT, diagnostics, () ->
-                                    batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups()));
+                                    batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions()));
                     recordResourceInclusions(diagnostics, transformed.resourceInclusionCounts());
 
                     if (transformed.isEmpty()) {
