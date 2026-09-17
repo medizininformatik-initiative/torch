@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import org.hl7.fhir.r4.model.Base64BinaryType;
+import org.hl7.fhir.r4.model.BooleanType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.stereotype.Component;
 
@@ -45,6 +46,8 @@ public class ExtractDataParametersParser {
      * <ul>
      *     <li>A parameter named {@code crtdl} with a {@code base64Binary} value containing the CRTDL content.</li>
      *     <li>Optional parameters named {@code patient} with {@code string} values for patient IDs.</li>
+     *     <li>An optional parameter named {@code consentDiagnostics} with a {@code boolean} value, enabling
+     *     the opt-in raw-provisions/final-periods/consent-considered-resources diagnostics for this job.</li>
      * </ul>
      *
      * @param body the JSON string representing a FHIR Parameters resource
@@ -67,6 +70,7 @@ public class ExtractDataParametersParser {
         try {
             byte[] crtdlContent = null;
             List<String> patientIds = new ArrayList<>();
+            boolean consentDiagnostics = false;
 
             for (var parameter : parameters.getParameter()) {
                 if (parameter.hasValue()) {
@@ -77,13 +81,16 @@ public class ExtractDataParametersParser {
                     if ("patient".equals(parameter.getName()) && value.hasType("string")) {
                         patientIds.add(value.primitiveValue());
                     }
+                    if ("consentDiagnostics".equals(parameter.getName()) && value.hasType("boolean")) {
+                        consentDiagnostics = ((BooleanType) value).booleanValue();
+                    }
                 }
             }
             if (crtdlContent == null) {
                 throw new IllegalArgumentException("No base64 encoded CRDTL content found in Parameters resource");
             }
             // Process crtdl content, potentially using patientIds
-            return new ExtractDataParameters(parseCrtdlContent(crtdlContent), patientIds);
+            return new ExtractDataParameters(parseCrtdlContent(crtdlContent), patientIds, consentDiagnostics);
         } catch (IOException e) {
             throw new IllegalArgumentException("Reading CRTDL Failed with IO Exception", e);
         }

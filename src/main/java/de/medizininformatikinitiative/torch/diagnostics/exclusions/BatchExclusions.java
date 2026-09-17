@@ -70,43 +70,43 @@ public class BatchExclusions {
         resourceExclusions.add(event);
     }
 
-    public void addConsentExclusion(String groupId, String resourceId, String patientId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CONSENT, groupId, resourceId, patientId, ""));
+    public void addConsentExclusion(String groupId, String resourceId, String patientId, String detail) {
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CONSENT, groupId, resourceId, patientId, "", detail));
     }
 
     public void addMustHaveExclusion(String groupId, String resourceId, String attributeRef, String patientId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, groupId, resourceId, patientId, attributeRef));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, groupId, resourceId, patientId, attributeRef, ""));
     }
 
     public void addMustHaveExclusionCore(String groupId, String resourceId, String attributeRef) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, groupId, resourceId, "", attributeRef));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE, groupId, resourceId, "", attributeRef, ""));
     }
 
     public void addReferenceNotFoundExclusion(String groupId, String resourceId, String patientId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND, groupId, resourceId, patientId, ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND, groupId, resourceId, patientId, "", ""));
     }
     public void addReferenceNotFoundExclusionCore(String groupId, String resourceId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND, groupId, resourceId, "", ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND, groupId, resourceId, "", "", ""));
     }
 
     public void addResourceOutsideBatch(String groupId, String resourceId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.RESOURCE_OUTSIDE_BATCH, groupId, resourceId, "", ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.RESOURCE_OUTSIDE_BATCH, groupId, resourceId, "", "", ""));
     }
 
     public void addCascadingDeleteExclusion(String groupId, String resourceId, String patientId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, patientId, ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, patientId, "", ""));
     }
 
     public void addCascadingDeleteExclusionCore(String groupId, String resourceId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, "", ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE, groupId, resourceId, "", "", ""));
     }
 
     public void addRedactionFailureExclusion(String groupId, String resourceId, String patientId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REDACTION_FAILURE, groupId, resourceId, patientId, ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REDACTION_FAILURE, groupId, resourceId, patientId, "", ""));
     }
 
     public void addRedactionFailureExclusionCore(String groupId, String resourceId) {
-        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REDACTION_FAILURE, groupId, resourceId, "", ""));
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REDACTION_FAILURE, groupId, resourceId, "", "", ""));
     }
 
     public void addPatientExclusion(PatientExclusionStage stage, String patientId) {

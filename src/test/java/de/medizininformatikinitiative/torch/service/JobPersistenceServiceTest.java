@@ -9,6 +9,7 @@ import com.opencsv.exceptions.CsvValidationException;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDetails;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
@@ -1077,6 +1078,13 @@ class JobPersistenceServiceTest {
         void jobDiagnosticsExists_returnsFalse_whenNotYetSaved() {
             assertThat(service.jobSummaryExists(jobId)).isFalse();
         }
+
+        @Test
+        void consentDiagnosticsExist_returnFalse_whenNotYetSaved() {
+            assertThat(service.rawProvisionsExists(jobId)).isFalse();
+            assertThat(service.finalPeriodsExists(jobId)).isFalse();
+            assertThat(service.consentConsideredResourcesExists(jobId)).isFalse();
+        }
     }
 
     @Nested
@@ -1171,7 +1179,7 @@ class JobPersistenceServiceTest {
             batchExclusions_1.addMustHaveExclusionCore(GROUP_1, RESOURCE_1, ATTRIBUTE_1);
             batchExclusions_1.addReferenceNotFoundExclusionCore(GROUP_1, RESOURCE_1);
             batchExclusions_1.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
-            return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty());
+            return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty(), ConsentDiagnostics.disabled());
         }
 
         static BatchDiagnostics createDiagnostics_2() {
@@ -1184,7 +1192,7 @@ class JobPersistenceServiceTest {
             batchExclusions_2.addMustHaveExclusionCore(GROUP_2, RESOURCE_2, ATTRIBUTE_2);
             batchExclusions_2.addReferenceNotFoundExclusionCore(GROUP_2, RESOURCE_2);
             batchExclusions_2.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_2);
-            return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty());
+            return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty(), ConsentDiagnostics.disabled());
         }
 
         static BatchResult createBatchResult(BatchDiagnostics diagnostics, UUID jobId, UUID batchId) {
@@ -1204,7 +1212,7 @@ class JobPersistenceServiceTest {
             var details = new BatchDetails(Map.of(), 2, 1, Map.of());
             var batchExclusions = BatchExclusions.empty();
             batchExclusions.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
-            var diagnostics = new BatchDiagnostics(batchExclusions, details, ConsentAudit.empty());
+            var diagnostics = new BatchDiagnostics(batchExclusions, details, ConsentAudit.empty(), ConsentDiagnostics.disabled());
 
             persistenceService.selectNextInternal(jobId);
             persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());
@@ -1223,7 +1231,7 @@ class JobPersistenceServiceTest {
                     Optional.empty()), List.of(), "");
 
             var details = new BatchDetails(Map.of(), 2, 1, Map.of());
-            var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty());
+            var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), ConsentDiagnostics.disabled());
 
             persistenceService.selectNextInternal(jobId);
             persistenceService.onCohortSuccess(jobId, List.of(), Optional.empty());

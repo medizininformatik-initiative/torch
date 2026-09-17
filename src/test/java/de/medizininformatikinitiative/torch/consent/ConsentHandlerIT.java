@@ -69,14 +69,16 @@ class ConsentHandlerIT {
         Observation observation = new Observation();
         observation.setSubject(new Reference("Patient/" + PATIENT_ID));
         observation.setEffective(new DateTimeType(date));
-        assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
+        assertThat(consentValidator.checkConsent(observation, batch)).isPresent().get()
+                .satisfies(result -> assertThat(result.included()).isTrue());
     }
 
     private void assertConsentFalse(PatientBatchWithConsent batch, String date) {
         Observation observation = new Observation();
         observation.setSubject(new Reference("Patient/" + PATIENT_ID));
         observation.setEffective(new DateTimeType(date));
-        assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
+        assertThat(consentValidator.checkConsent(observation, batch)).isPresent().get()
+                .satisfies(result -> assertThat(result.included()).isFalse());
     }
 
     @Test

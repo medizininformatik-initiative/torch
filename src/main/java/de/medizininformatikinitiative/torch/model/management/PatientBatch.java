@@ -39,6 +39,10 @@ public record PatientBatch(List<String> ids, UUID batchId, BatchDiagnostics diag
         return diagnostics().batchExclusions();
     }
 
+    public PatientBatch withConsentDiagnosticsEnabled(boolean enabled) {
+        return new PatientBatch(ids, batchId, diagnostics.withConsentDiagnosticsEnabled(enabled));
+    }
+
     /**
      * Splits a list of strings into smaller batches of a specified size.
      *
