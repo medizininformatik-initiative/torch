@@ -260,6 +260,88 @@ class FhirControllerIT {
         assertThat(patient.getGender()).isEqualTo(org.hl7.fhir.r4.model.Enumerations.AdministrativeGender.MALE);
     }
 
+    /**
+     * End-to-end: {@code $extract-data} with {@code consentDiagnostics=true} for one patient, through the
+     * real job pipeline (cohort bypass via the {@code patient} parameter, {@link de.medizininformatikinitiative.torch.consent.ConsentHandler}
+     * computing periods against live Blaze, {@link de.medizininformatikinitiative.torch.service.DirectResourceLoader}
+     * checking consent per resource, {@link de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore}
+     * writing the per-patient trail folder at job-merge time) — verifies the three trail CSVs actually land on
+     * disk with the expected content, not just that the in-memory wiring compiles.
+     */
+    @Test
+    void consentDiagnosticsProducesTrailFilesForPatient() throws IOException {
+        webClient.post()
+                .bodyValue(Files.readString(Path.of(RESOURCE_PATH_PREFIX + "Bundle-test-consent-ext.json")))
+                .header("Content-Type", "application/fhir+json")
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+
+        try {
+            TestRestTemplate restTemplate = new TestRestTemplate();
+            HttpHeaders headers = new HttpHeaders();
+            headers.add("content-type", "application/fhir+json");
+
+            String fileContent = Files.readString(
+                    Paths.get(RESOURCE_PATH_PREFIX + "CRTDL_Parameters/Parameters_consent_diagnostics.json"),
+                    StandardCharsets.UTF_8);
+            HttpEntity<String> entity = new HttpEntity<>(fileContent, headers);
+
+            ResponseEntity<String> response = restTemplate.exchange(
+                    "http://localhost:" + port + "/fhir/$extract-data", HttpMethod.POST, entity, String.class);
+            assertThat(response.getStatusCode().value()).isEqualTo(202);
+
+            List<String> locations = response.getHeaders().get("Content-Location");
+            assertThat(locations).hasSize(1);
+            String statusUrl = locations.getFirst();
+
+            pollStatusEndpoint(restTemplate, headers, statusUrl, 200);
+
+            String jobId = statusUrl.substring(statusUrl.lastIndexOf('/') + 1);
+            Path patientTrailDir = resultFileManager.getJobDirectory(jobId)
+                    .resolve("reports").resolve("consent-trail").resolve("mii-exa-test-data-patient-1");
+
+            assertThat(patientTrailDir).exists();
+
+            List<String> rawProvisions = Files.readAllLines(patientTrailDir.resolve("raw-provisions.csv"));
+            assertThat(rawProvisions.getFirst()).isEqualTo("\"Code\",\"Permit\",\"Period-Start\",\"Period-End\",\"Consent-ID\"");
+            // one permit row each for .6 (data) and .8 (gate), both from the same Consent resource
+            assertThat(rawProvisions).hasSize(3);
+            assertThat(rawProvisions).anyMatch(line -> line.contains("2.16.840.1.113883.3.1937.777.24.5.3.6")
+                    && line.contains("mii-exa-test-data-patient-1-consent-1") && line.contains("2024-02-23") && line.contains("2054-01-31"));
+            assertThat(rawProvisions).anyMatch(line -> line.contains("2.16.840.1.113883.3.1937.777.24.5.3.8"));
+
+            List<String> finalPeriods = Files.readAllLines(patientTrailDir.resolve("final-periods.csv"));
+            assertThat(finalPeriods.getFirst()).isEqualTo("\"From\",\"To\"");
+            // gate (.8) and data (.6) periods are identical here, so the intersection is the one unbroken period
+            assertThat(finalPeriods).containsExactly("\"From\",\"To\"", "\"2024-02-23\",\"2054-01-31\"");
+
+            List<String> consideredResources = Files.readAllLines(patientTrailDir.resolve("consent-considered-resources.csv"));
+            assertThat(consideredResources.getFirst()).isEqualTo("\"ID\",\"Survived\",\"Date\"");
+            // Patient (no date field, auto-included) and Consent (dateTime at the period start, included) both survive
+            assertThat(consideredResources).hasSize(3);
+            assertThat(consideredResources).allSatisfy(line -> {
+                if (!line.equals(consideredResources.getFirst())) {
+                    assertThat(line).contains("\"true\"");
+                }
+            });
+            assertThat(consideredResources).anyMatch(line -> line.contains("Patient/mii-exa-test-data-patient-1"));
+            assertThat(consideredResources).anyMatch(line -> line.contains("Consent/mii-exa-test-data-patient-1-consent-1") && line.contains("2024-02-23"));
+
+            clearDirectory(jobId);
+        } finally {
+            // this patient is not part of the fixed test population loaded in @BeforeAll — remove it so
+            // JUnit's method-order shuffling can't make it leak into other tests' cohort-query assertions
+            // (e.g. testFlare/testCql), regardless of whether this test passes or fails
+            deleteConsentTestPatient();
+        }
+    }
+
+    private void deleteConsentTestPatient() {
+        webClient.delete().uri("/Consent/mii-exa-test-data-patient-1-consent-1").retrieve().toBodilessEntity().onErrorComplete().block();
+        webClient.delete().uri("/Patient/mii-exa-test-data-patient-1").retrieve().toBodilessEntity().onErrorComplete().block();
+    }
+
     void testExecutor(String filePath, String url, HttpHeaders headers) {
         TestRestTemplate restTemplate = new TestRestTemplate();
         try {

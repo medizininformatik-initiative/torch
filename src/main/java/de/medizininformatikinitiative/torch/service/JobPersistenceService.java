@@ -171,8 +171,22 @@ public class JobPersistenceService {
      * @throws IOException if persistence fails
      */
     public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds, String kickOffUrl) throws IOException {
+        return createJob(crtdl, patientIds, false, kickOffUrl);
+    }
+
+    /**
+     * Creates a new job and persists its initial state.
+     *
+     * @param crtdl              annotated CRTDL
+     * @param patientIds         initial cohort patient ids
+     * @param consentDiagnostics whether the opt-in raw-provisions/final-periods/consent-considered-resources
+     *                           diagnostics are recorded for this job's batches
+     * @return created job id
+     * @throws IOException if persistence fails
+     */
+    public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds, boolean consentDiagnostics, String kickOffUrl) throws IOException {
         UUID jobId = UUID.randomUUID();
-        Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds, kickOffUrl));
+        Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds, kickOffUrl, consentDiagnostics));
         initJob(initial);
         return jobId;
     }
@@ -384,8 +398,14 @@ public class JobPersistenceService {
             throw new IOException("Batch file missing: " + file);
         }
         try (Stream<String> lines = io.lines(file)) {
-            return new PatientBatch(lines.toList(), batchId);
+            return new PatientBatch(lines.toList(), batchId).withConsentDiagnosticsEnabled(consentDiagnosticsEnabled(jobId));
         }
+    }
+
+    private boolean consentDiagnosticsEnabled(UUID jobId) {
+        return Optional.ofNullable(jobRegistry.get(jobId))
+                .map(job -> job.parameters().consentDiagnostics())
+                .orElse(false);
     }
 
     /**
@@ -419,7 +439,10 @@ public class JobPersistenceService {
      * @param queryDurationNanos       elapsed time of the cohort query, empty if patient IDs were given directly
      */
     public void onCohortSuccess(UUID jobId, List<String> ids, Optional<Long> queryDurationNanos) {
-        List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize);
+        boolean consentDiagnostics = consentDiagnosticsEnabled(jobId);
+        List<PatientBatch> batches = PatientBatch.of(ids).split(batchSize).stream()
+                .map(b -> b.withConsentDiagnosticsEnabled(consentDiagnostics))
+                .toList();
 
         updateJobAndReturn(jobId, job -> {
             Map<UUID, BatchState> stateMap = new HashMap<>();
@@ -776,6 +799,10 @@ public class JobPersistenceService {
 
     public boolean patientExclusionsExists(UUID jobId) {
         return diagnosticsStore.patientExclusionsExists(jobDir(jobId));
+    }
+
+    public boolean consentTrailExists(UUID jobId) {
+        return diagnosticsStore.consentTrailExists(jobDir(jobId));
     }
 
     @FunctionalInterface

@@ -48,6 +48,9 @@ public class JobManifestSchema {
                     - torch-job-diagnostics-summary — Cohort total, final patient total and per-stage processing durations
                     - torch-patient-exclusions — pointing to a CSV file containing patient exclusion events
                     - torch-resource-exclusions — pointing to a CSV file containing resource exclusion events
+                    - torch-consent-trail — opt-in (consentDiagnostics, see issue #1254): folder with one subfolder per
+                      patient, each holding that patient's "Initial Provision Periods", "Final Non-Continuous Periods"
+                      and "Consent-Considered Resources" CSVs, for side-by-side debugging of a single patient's consent
                     - torch-job-issues — list of warnings/errors recorded during processing (valueObject, omitted when empty)
                     """
     )

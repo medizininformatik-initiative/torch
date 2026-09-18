@@ -2,6 +2,10 @@ package de.medizininformatikinitiative.torch.diagnostics;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.exceptions.CsvValidationException;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
@@ -12,11 +16,13 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 
 import static de.medizininformatikinitiative.torch.TestUtils.concat;
 import static de.medizininformatikinitiative.torch.TestUtils.readMergedDiagnostics;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_TRAIL_DIRECTORY;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.PATIENT_EXCLUSIONS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.REPORTS_DIRECTORY;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.RESOURCE_EXCLUSIONS_FILE;
@@ -63,7 +69,7 @@ class DiagnosticsStoreTest {
         batchExclusions_1.addMustHaveExclusionCore(GROUP_1, RESOURCE_1, ATTRIBUTE_1);
         batchExclusions_1.addReferenceNotFoundExclusionCore(GROUP_1, RESOURCE_1);
         batchExclusions_1.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
-        return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty());
+        return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty(), ConsentDiagnostics.disabled());
     }
 
     static BatchDiagnostics createDiagnostics_2() {
@@ -76,7 +82,7 @@ class DiagnosticsStoreTest {
         batchExclusions_2.addMustHaveExclusionCore(GROUP_2, RESOURCE_2, ATTRIBUTE_2);
         batchExclusions_2.addReferenceNotFoundExclusionCore(GROUP_2, RESOURCE_2);
         batchExclusions_2.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_2);
-        return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty());
+        return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty(), ConsentDiagnostics.disabled());
     }
 
     @Test
@@ -110,6 +116,193 @@ class DiagnosticsStoreTest {
                 .containsExactlyInAnyOrderElementsOf(
                         concat(diagnostics_1.batchExclusions().getResourceExclusions(),
                                 diagnostics_2.batchExclusions().getResourceExclusions()));
+    }
+
+    @Test
+    void testWriteReadConsentDiagnosticsPerBatch() throws IOException, CsvValidationException {
+        var details = new BatchDetails(Map.of(), 1, 1, Map.of());
+        var batchExclusions = BatchExclusions.empty();
+        batchExclusions.addConsentExclusion(GROUP_1, RESOURCE_1, PATIENT_1, "OUTSIDE_PERIODS");
+        var consentDiagnostics = ConsentDiagnostics.create(true);
+        consentDiagnostics.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-1", true,
+                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        consentDiagnostics.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        consentDiagnostics.addConsideredResource(new ConsentConsideredResourceEvent(
+                PATIENT_1, RESOURCE_1, false, "2019-01-01"));
+        var diagnostics = new BatchDiagnostics(batchExclusions, details, ConsentAudit.empty(), consentDiagnostics);
+
+        diagnosticsStore.writeDiagnostics(diagnostics, jobDirectory, BATCH_1);
+        var result = diagnosticsStore.loadAllDiagnostics(jobDirectory);
+
+        assertThat(result).isEqualTo(Map.of(BATCH_1, diagnostics));
+        assertThat(result.get(BATCH_1).batchExclusions().getResourceExclusions())
+                .extracting("detail").containsExactly("OUTSIDE_PERIODS");
+    }
+
+    @Test
+    void testConsentTrailSplitsByPatientAndSurvivesIntermediateCleanup() throws IOException, CsvValidationException {
+        var details = new BatchDetails(Map.of(), 1, 1, Map.of());
+
+        var consentDiagnostics1 = ConsentDiagnostics.create(true);
+        consentDiagnostics1.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-1", true,
+                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        consentDiagnostics1.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        var diagnostics1 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics1);
+
+        var consentDiagnostics2 = ConsentDiagnostics.create(true);
+        consentDiagnostics2.addRawProvision(new RawProvisionEvent(PATIENT_2, "consent-2", "code-2", true,
+                LocalDate.of(2020, 1, 1), LocalDate.of(2024, 12, 31)));
+        consentDiagnostics2.addFinalPeriod(new FinalPeriodEvent(PATIENT_2, LocalDate.of(2020, 1, 1), LocalDate.of(2024, 12, 31)));
+        var diagnostics2 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics2);
+
+        diagnosticsStore.writeDiagnostics(diagnostics1, jobDirectory, BATCH_1);
+        diagnosticsStore.writeDiagnostics(diagnostics2, jobDirectory, BATCH_2);
+        var loaded = diagnosticsStore.loadAllDiagnostics(jobDirectory);
+
+        diagnosticsStore.writeMergedExclusions(loaded, jobDirectory);
+        diagnosticsStore.deleteIntermediateDiagnostics(jobDirectory);
+
+        Path trailDir = jobDirectory.resolve(REPORTS_DIRECTORY).resolve(CONSENT_TRAIL_DIRECTORY);
+        Path patient1RawProvisions = trailDir.resolve(PATIENT_1).resolve(DiagnosticsStore.RAW_PROVISIONS_FILE);
+        Path patient2RawProvisions = trailDir.resolve(PATIENT_2).resolve(DiagnosticsStore.RAW_PROVISIONS_FILE);
+
+        assertThat(patient1RawProvisions).exists();
+        assertThat(patient2RawProvisions).exists();
+        // the trail file drops Patient-ID/Batch-ID entirely (folder scoping is by path, not by column) —
+        // Consent-ID is the only column here that still distinguishes the two patients' rows
+        assertThat(java.nio.file.Files.readAllLines(patient1RawProvisions))
+                .anyMatch(line -> line.contains("consent-1"))
+                .noneMatch(line -> line.contains("consent-2"));
+        assertThat(java.nio.file.Files.readAllLines(patient2RawProvisions))
+                .anyMatch(line -> line.contains("consent-2"))
+                .noneMatch(line -> line.contains("consent-1"));
+
+        // per-batch intermediates are cleaned up, but the per-patient trail folder survives
+        assertThat(jobDirectory.resolve(REPORTS_DIRECTORY).resolve(BATCH_1)).doesNotExist();
+        assertThat(jobDirectory.resolve(REPORTS_DIRECTORY).resolve(BATCH_2)).doesNotExist();
+        assertThat(trailDir).exists();
+
+        // a resumed load must not choke on the surviving trail folder or treat it as a batch
+        assertThat(diagnosticsStore.loadAllDiagnostics(jobDirectory)).doesNotContainKey(CONSENT_TRAIL_DIRECTORY);
+    }
+
+    @Test
+    void testConsentTrailRepresentsPatientWithEmptyConsentCalculation() throws IOException, CsvValidationException {
+        var details = new BatchDetails(Map.of(), 1, 1, Map.of());
+
+        // PATIENT_1 was registered (their consent was evaluated) but produced zero raw provisions and zero
+        // final periods — that emptiness is itself diagnostic information, not the absence of a patient
+        var consentDiagnostics = ConsentDiagnostics.create(true);
+        consentDiagnostics.registerPatient(PATIENT_1);
+        var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics);
+
+        diagnosticsStore.writeDiagnostics(diagnostics, jobDirectory, BATCH_1);
+        var loaded = diagnosticsStore.loadAllDiagnostics(jobDirectory);
+
+        diagnosticsStore.writeMergedExclusions(loaded, jobDirectory);
+
+        Path patientDir = jobDirectory.resolve(REPORTS_DIRECTORY).resolve(CONSENT_TRAIL_DIRECTORY).resolve(PATIENT_1);
+        assertThat(patientDir).exists();
+        assertThat(java.nio.file.Files.readAllLines(patientDir.resolve(DiagnosticsStore.RAW_PROVISIONS_FILE)))
+                .containsExactly("\"Code\",\"Permit\",\"Period-Start\",\"Period-End\",\"Consent-ID\"");
+        assertThat(java.nio.file.Files.readAllLines(patientDir.resolve(DiagnosticsStore.FINAL_PERIODS_FILE)))
+                .containsExactly("\"From\",\"To\"");
+        assertThat(java.nio.file.Files.readAllLines(patientDir.resolve(DiagnosticsStore.CONSENT_CONSIDERED_RESOURCES_FILE)))
+                .containsExactly("\"ID\",\"Survived\",\"Date\"");
+    }
+
+    @Test
+    void testConsentTrailUnionsRegisteredPatientsAcrossBatches() throws IOException, CsvValidationException {
+        var details = new BatchDetails(Map.of(), 1, 1, Map.of());
+
+        // BATCH_1: PATIENT_1 is registered and produced a real final period
+        var consentDiagnostics1 = ConsentDiagnostics.create(true);
+        consentDiagnostics1.registerPatient(PATIENT_1);
+        consentDiagnostics1.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        var diagnostics1 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics1);
+
+        // BATCH_2: PATIENT_2 is registered but produced nothing
+        var consentDiagnostics2 = ConsentDiagnostics.create(true);
+        consentDiagnostics2.registerPatient(PATIENT_2);
+        var diagnostics2 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics2);
+
+        diagnosticsStore.writeDiagnostics(diagnostics1, jobDirectory, BATCH_1);
+        diagnosticsStore.writeDiagnostics(diagnostics2, jobDirectory, BATCH_2);
+        var loaded = diagnosticsStore.loadAllDiagnostics(jobDirectory);
+
+        diagnosticsStore.writeMergedExclusions(loaded, jobDirectory);
+
+        Path trailDir = jobDirectory.resolve(REPORTS_DIRECTORY).resolve(CONSENT_TRAIL_DIRECTORY);
+        assertThat(trailDir.resolve(PATIENT_1)).exists();
+        assertThat(trailDir.resolve(PATIENT_2)).exists();
+        assertThat(java.nio.file.Files.readAllLines(trailDir.resolve(PATIENT_1).resolve(DiagnosticsStore.FINAL_PERIODS_FILE)))
+                .anyMatch(line -> line.contains("2021-01-01"));
+        // PATIENT_2 was only ever registered, from a different batch than PATIENT_1's events — a header-only
+        // folder here proves the per-batch registered-patient maps are unioned, not overwritten by each other
+        assertThat(java.nio.file.Files.readAllLines(trailDir.resolve(PATIENT_2).resolve(DiagnosticsStore.FINAL_PERIODS_FILE)))
+                .containsExactly("\"From\",\"To\"");
+    }
+
+    @Test
+    void testConsentTrailRejectsPathTraversalPatientId() throws IOException {
+        var details = new BatchDetails(Map.of(), 1, 1, Map.of());
+        var maliciousId = "../../evil";
+
+        var consentDiagnostics = ConsentDiagnostics.create(true);
+        consentDiagnostics.addFinalPeriod(new FinalPeriodEvent(maliciousId, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+        var diagnostics = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics);
+
+        diagnosticsStore.writeMergedExclusions(Map.of(BATCH_1, diagnostics), jobDirectory);
+
+        // no directory escapes reports/consent-trail, and nothing lands outside the job directory
+        assertThat(jobDirectory.resolve(REPORTS_DIRECTORY).resolve(CONSENT_TRAIL_DIRECTORY).toFile().listFiles()).isNullOrEmpty();
+        assertThat(jobDirectory.getParent().resolve("evil")).doesNotExist();
+    }
+
+    @Test
+    void testLoadAllDiagnosticsToleratesOldFormatBatchDirectory() throws IOException, CsvValidationException {
+        String oldBatch = "batch-id-old";
+        Path oldBatchDir = jobDirectory.resolve(REPORTS_DIRECTORY).resolve(oldBatch);
+        java.nio.file.Files.createDirectories(oldBatchDir);
+
+        // resource-exclusions.csv written before the Detail column existed — 6 columns, not 7
+        java.nio.file.Files.writeString(oldBatchDir.resolve(RESOURCE_EXCLUSIONS_FILE),
+                "\"Batch-ID\",\"Reason\",\"Group\",\"Attribute\",\"Resource-ID\",\"Patient-ID\"\n"
+                        + "\"" + oldBatch + "\",\"CONSENT\",\"" + GROUP_1 + "\",\"\",\"" + RESOURCE_1 + "\",\"" + PATIENT_1 + "\"\n");
+        // patient-exclusions.csv format is unchanged by this PR
+        java.nio.file.Files.writeString(oldBatchDir.resolve(PATIENT_EXCLUSIONS_FILE),
+                "\"Batch-ID\",\"Stage\",\"Patient-ID\"\n"
+                        + "\"" + oldBatch + "\",\"DIRECT_LOAD\",\"" + PATIENT_1 + "\"\n");
+        new ObjectMapper().writeValue(oldBatchDir.resolve("details.json").toFile(),
+                new BatchDetails(Map.of(), 1, 1, Map.of()));
+        // raw-provisions.csv / final-periods.csv / consent-considered-resources.csv deliberately absent —
+        // this batch directory predates this PR
+
+        var newDiagnostics = createDiagnostics_2();
+        diagnosticsStore.writeDiagnostics(newDiagnostics, jobDirectory, BATCH_2);
+
+        var loaded = diagnosticsStore.loadAllDiagnostics(jobDirectory);
+
+        assertThat(loaded).containsKey(oldBatch);
+        var oldDiagnostics = loaded.get(oldBatch);
+        assertThat(oldDiagnostics.batchExclusions().getResourceExclusions()).singleElement()
+                .extracting("detail").isEqualTo("");
+        assertThat(oldDiagnostics.consentDiagnostics().isEmpty()).isTrue();
+
+        // merging must not fail just because one batch predates the consent-diagnostics files/column
+        diagnosticsStore.writeMergedExclusions(loaded, jobDirectory);
+
+        var mergedExclusions = readMergedDiagnostics(
+                jobDirectory.resolve(REPORTS_DIRECTORY).resolve(RESOURCE_EXCLUSIONS_FILE).toFile(),
+                jobDirectory.resolve(REPORTS_DIRECTORY).resolve(PATIENT_EXCLUSIONS_FILE).toFile());
+        assertThat(mergedExclusions.getResourceExclusions())
+                .containsExactlyInAnyOrderElementsOf(
+                        concat(oldDiagnostics.batchExclusions().getResourceExclusions(),
+                                newDiagnostics.batchExclusions().getResourceExclusions()));
+
+        // the old batch never wrote/registered any consent-diagnostics data, so it contributes no trail folder
+        Path trailDir = jobDirectory.resolve(REPORTS_DIRECTORY).resolve(CONSENT_TRAIL_DIRECTORY);
+        assertThat(trailDir.resolve(PATIENT_1)).doesNotExist();
     }
 
     @Test

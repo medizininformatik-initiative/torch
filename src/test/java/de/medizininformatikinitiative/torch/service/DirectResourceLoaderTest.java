@@ -1,8 +1,11 @@
 package de.medizininformatikinitiative.torch.service;
 
+import de.medizininformatikinitiative.torch.consent.ConsentCheckOutcome;
+import de.medizininformatikinitiative.torch.consent.ConsentCheckResult;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.MustHaveEvaluation;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
@@ -183,7 +186,7 @@ class DirectResourceLoaderTest {
             verify(bundle).put(obs, "core", false);
 
             assertThat(batchExclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(MUST_HAVE, group.id(), "Observation/xyz", "",
-                    "Observation.subject"));
+                    "Observation.subject", ""));
         }
     }
 
@@ -209,7 +212,8 @@ class DirectResourceLoaderTest {
             observation.setSubject(new Reference("Patient/1"));
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(false);
+            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent)))
+                    .thenReturn(Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.OUTSIDE_PERIODS)));
 
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
@@ -224,8 +228,90 @@ class DirectResourceLoaderTest {
                     .verifyComplete();
 
             assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
-                    new ResourceExclusionEvent(CONSENT, "test", "Observation/xyz", "1", "")
+                    new ResourceExclusionEvent(CONSENT, "test", "Observation/xyz", "1", "", "OUTSIDE_PERIODS")
             );
+        }
+
+        @Test
+        void processPatientAttributeGroups_noPatientResourceBundle_dropsResource_withNoPatientBundleDetail() {
+            var attr = new AnnotatedAttribute("Observation.code", "Observation.code", false);
+            var group = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attr), List.of());
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = new PatientBatchWithConsent(
+                    Map.of("1", patientBundle),
+                    true,
+                    new ResourceBundle(),
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty().withConsentDiagnosticsEnabled(true)
+            );
+            var safeSet = new HashSet<>(List.of("1"));
+
+            Observation observation = new Observation();
+            observation.setId("Observation/xyz");
+            observation.setSubject(new Reference("Patient/1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
+            // ConsentValidator found the resource's patient ID but no tracked PatientResourceBundle for it —
+            // a reportable outcome, not an empty result
+            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent)))
+                    .thenReturn(Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE)));
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group),
+                            batchWithConsent,
+                            safeSet
+                    ))
+                    .assertNext(res -> {
+                        assertThat(res.get("1").bundle().cache())
+                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
+                    })
+                    .verifyComplete();
+
+            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(CONSENT, "test", "Observation/xyz", "1", "", "NO_PATIENT_BUNDLE")
+            );
+            assertThat(batchWithConsent.diagnostics().consentDiagnostics().getConsideredResources()).containsExactly(
+                    new ConsentConsideredResourceEvent("1", "Observation/xyz", false, "")
+            );
+        }
+
+        @Test
+        void processPatientAttributeGroups_unattributableResource_dropsResource_recordsNothing() {
+            var attr = new AnnotatedAttribute("Observation.code", "Observation.code", false);
+            var group = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attr), List.of());
+
+            var patientBundle = new PatientResourceBundle("1");
+            var batchWithConsent = new PatientBatchWithConsent(
+                    Map.of("1", patientBundle),
+                    true,
+                    new ResourceBundle(),
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty().withConsentDiagnosticsEnabled(true)
+            );
+            var safeSet = new HashSet<>(List.of("1"));
+
+            Observation observation = new Observation();
+            observation.setId("Observation/xyz");
+            observation.setSubject(new Reference("Patient/1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
+            // no patient ID at all attributable to the resource — genuinely unattributable, no row possible
+            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(Optional.empty());
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group),
+                            batchWithConsent,
+                            safeSet
+                    ))
+                    .assertNext(res -> {
+                        assertThat(res.get("1").bundle().cache())
+                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
+                    })
+                    .verifyComplete();
+
+            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).isEmpty();
+            assertThat(batchWithConsent.diagnostics().consentDiagnostics().getConsideredResources()).isEmpty();
         }
 
         @Test
@@ -471,7 +557,7 @@ class DirectResourceLoaderTest {
             );
             assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
                     new ResourceExclusionEvent(MUST_HAVE, "test", "Observation/xyz", "1",
-                            "Observation.id")
+                            "Observation.id", "")
             );
         }
 

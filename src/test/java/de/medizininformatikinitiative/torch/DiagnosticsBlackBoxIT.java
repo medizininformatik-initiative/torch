@@ -121,7 +121,7 @@ public class DiagnosticsBlackBoxIT {
         assertThat(exclusions.getPatientExclusions()).containsExactly(new PatientExclusionEvent(PatientExclusionStage.CONSENT_FETCH,
                 "pat-3"));
         assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.CONSENT,
-                "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", ""));
+                "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "", "NO_DATE_VALUE"));
     }
 
     @Test
@@ -178,9 +178,9 @@ public class DiagnosticsBlackBoxIT {
                 new PatientExclusionEvent(PatientExclusionStage.DIRECT_LOAD, "pat-3"));
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.partOf"),
+                        "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.partOf", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-1", "pat-1", "MedicationAdministration.partOf"));
+                        "med-adm-group", "MedicationAdministration/med-adm-1", "pat-1", "MedicationAdministration.partOf", ""));
     }
 
     @Test
@@ -228,7 +228,7 @@ public class DiagnosticsBlackBoxIT {
 
         assertThat(exclusions.getPatientExclusions()).isEmpty();
         assertThat(exclusions.getResourceExclusions()).containsExactly(new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                "orga-group", "Organization/orga-3", "", ""));
+                "orga-group", "Organization/orga-3", "", "", ""));
     }
 
     @Test
@@ -303,10 +303,10 @@ public class DiagnosticsBlackBoxIT {
                 new PatientExclusionEvent(PatientExclusionStage.CASCADING_DELETE, "pat-4"));
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                        "cond-group", "Condition/cond-99", "pat-4", ""),
+                        "cond-group", "Condition/cond-99", "pat-4", "", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-3", "pat-4", "MedicationAdministration.reasonReference"),
+                        "med-adm-group", "MedicationAdministration/med-adm-3", "pat-4", "MedicationAdministration.reasonReference", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.CASCADING_DELETE,
-                        "proc-group", "Procedure/proc-2", "pat-4", ""));
+                        "proc-group", "Procedure/proc-2", "pat-4", "", ""));
     }
 }

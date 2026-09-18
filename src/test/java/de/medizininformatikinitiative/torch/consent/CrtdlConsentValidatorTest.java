@@ -28,6 +28,7 @@ import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -68,8 +69,9 @@ class CrtdlConsentValidatorTest {
         void resourceWithinAnyConsentPeriod() {
             Observation observation = new Observation();
             observation.setEffective(new DateTimeType("2022-04-20"));
-            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-            assertThat(result).isTrue();
+            ConsentCheckResult result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result.included()).isTrue();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.IN_PERIOD);
 
         }
 
@@ -77,8 +79,9 @@ class CrtdlConsentValidatorTest {
         void resourceOutsideAllConsentPeriods() {
             Observation observation = new Observation();
             observation.setEffective(new DateTimeType("2018-04-20"));
-            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-            assertThat(result).isFalse();
+            ConsentCheckResult result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result.included()).isFalse();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.OUTSIDE_PERIODS);
 
         }
 
@@ -86,15 +89,17 @@ class CrtdlConsentValidatorTest {
         void resourceWithinSecondConsentPeriod() {
             Observation observation = new Observation();
             observation.setEffective(new DateTimeType("2029-04-20"));
-            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-            assertThat(result).isTrue();
+            ConsentCheckResult result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result.included()).isTrue();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.IN_PERIOD);
         }
 
         @Test
         void notTimeDependent() {
             Medication medication = new Medication();
-            boolean result = consentValidator.checkConsent(medication, patientResourceBundle);
-            assertThat(result).isTrue();
+            ConsentCheckResult result = consentValidator.checkConsent(medication, patientResourceBundle);
+            assertThat(result.included()).isTrue();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.NO_DATE_FIELD);
 
         }
 
@@ -103,24 +108,27 @@ class CrtdlConsentValidatorTest {
         void emptyTime() {
             Observation observation = new Observation();
             observation.setEffective(new DateTimeType());
-            boolean result = consentValidator.checkConsent(observation, patientResourceBundle);
-            assertThat(result).isFalse();
+            ConsentCheckResult result = consentValidator.checkConsent(observation, patientResourceBundle);
+            assertThat(result.included()).isFalse();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.NO_DATE_VALUE);
         }
 
         @Test
         void resourceTypeNotInConfigReturnsFalse() {
             // AllergyIntolerance is not in the type-to-consent mapping → fieldValue == null
             AllergyIntolerance allergy = new AllergyIntolerance();
-            boolean result = consentValidator.checkConsent(allergy, patientResourceBundle);
-            assertThat(result).isFalse();
+            ConsentCheckResult result = consentValidator.checkConsent(allergy, patientResourceBundle);
+            assertThat(result.included()).isFalse();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.TYPE_NOT_MAPPED);
         }
 
         @Test
         void resourceWithNoFieldValueReturnsFalse() {
             // Condition is mapped to Condition.recordedDate, but no date is set → FHIRPath returns empty list
             Condition condition = new Condition();
-            boolean result = consentValidator.checkConsent(condition, patientResourceBundle);
-            assertThat(result).isFalse();
+            ConsentCheckResult result = consentValidator.checkConsent(condition, patientResourceBundle);
+            assertThat(result.included()).isFalse();
+            assertThat(result.outcome()).isEqualTo(ConsentCheckOutcome.NO_DATE_VALUE);
         }
 
     }
@@ -140,9 +148,13 @@ class CrtdlConsentValidatorTest {
         PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
                 true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
-            boolean result = consentValidator.checkConsent(observation, batch);
+            Optional<ConsentCheckResult> result = consentValidator.checkConsent(observation, batch);
 
-            assertThat(result).isFalse();
+            // a resolved patient ID with no tracked bundle is a reportable outcome, not an empty result
+            assertThat(result).isPresent().get().satisfies(r -> {
+                assertThat(r.included()).isFalse();
+                assertThat(r.outcome()).isEqualTo(ConsentCheckOutcome.NO_PATIENT_BUNDLE);
+            });
         }
 
         @Test
@@ -155,9 +167,9 @@ class CrtdlConsentValidatorTest {
         PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
                 true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
-            boolean result = consentValidator.checkConsent(noPatientObs, batch);
+            Optional<ConsentCheckResult> result = consentValidator.checkConsent(noPatientObs, batch);
 
-            assertThat(result).isFalse();
+            assertThat(result).isEmpty();
         }
 
         @Test
@@ -171,9 +183,10 @@ class CrtdlConsentValidatorTest {
         PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
                 true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
-            boolean result = consentValidator.checkConsent(observation, batch);
+            Optional<ConsentCheckResult> result = consentValidator.checkConsent(observation, batch);
 
-            assertThat(result).isFalse();
+            assertThat(result).isPresent().get()
+                    .satisfies(r -> assertThat(r.outcome()).isEqualTo(ConsentCheckOutcome.NO_PATIENT_BUNDLE));
         }
 
         @Test
@@ -185,7 +198,8 @@ class CrtdlConsentValidatorTest {
             PatientBatchWithConsent batch = new PatientBatchWithConsent(
                     Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
-            assertThat(consentValidator.checkConsent(observation, batch)).isTrue();
+            assertThat(consentValidator.checkConsent(observation, batch)).isPresent().get()
+                    .satisfies(result -> assertThat(result.included()).isTrue());
         }
 
         @Test
@@ -197,7 +211,8 @@ class CrtdlConsentValidatorTest {
             PatientBatchWithConsent batch = new PatientBatchWithConsent(
                     Map.of(PATIENT_ID, patientResourceBundle), true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
 
-            assertThat(consentValidator.checkConsent(observation, batch)).isFalse();
+            assertThat(consentValidator.checkConsent(observation, batch)).isPresent().get()
+                    .satisfies(result -> assertThat(result.included()).isFalse());
         }
     }
 

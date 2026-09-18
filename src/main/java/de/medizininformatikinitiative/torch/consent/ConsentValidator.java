@@ -15,6 +15,7 @@ import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -40,16 +41,18 @@ public class ConsentValidator {
      *
      * @param resource                The FHIR {@link DomainResource} to check for consent compliance.
      * @param patientBatchWithConsent A batch containing consent information structured by patient ID.
-     * @return {@code true} if the resource complies with the consents; {@code false} otherwise.
+     * @return the {@link ConsentCheckResult}, or empty only if the resource cannot be attributed to any patient
+     * at all (no patient ID on the resource). A resolved patient ID with no tracked {@link PatientResourceBundle}
+     * is itself a reportable outcome ({@link ConsentCheckOutcome#NO_PATIENT_BUNDLE}), not an empty result.
      */
-    public boolean checkConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
+    public Optional<ConsentCheckResult> checkConsent(DomainResource resource, PatientBatchWithConsent patientBatchWithConsent) {
         // Extract the patient ID from the resource
         String patientID;
         try {
             patientID = ResourceUtils.patientId(resource);
         } catch (PatientIdNotFoundException e) {
             logger.trace("Patient ID not found in resource: {}", e.getMessage());
-            return false;
+            return Optional.empty();
         }
 
         // Retrieve the PatientResourceBundle for the given patient ID
@@ -57,14 +60,14 @@ public class ConsentValidator {
 
         if (patientResourceBundle == null) {
             logger.warn("CONSENT_VALIDATOR_01 No PatientResourceBundle found for patient ID: {} in resource {}", patientID, resource.getId());
-            return false;
+            return Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE));
         }
 
         // Delegate the consent check to the existing checkConsent method
-        return checkConsent(resource, patientResourceBundle);
+        return Optional.of(checkConsent(resource, patientResourceBundle));
     }
 
-    public boolean checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
+    public ConsentCheckResult checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
         JsonNode fieldValue = null;
         if (resourceToField.has(resource.getResourceType().toString())) {
             logger.trace("Handling the following Profile {}", resource.getResourceType());
@@ -73,24 +76,30 @@ public class ConsentValidator {
 
         if (fieldValue == null) {
             logger.warn("CONSENT_VALIDATOR_02 No supported ResourceType found for resource of type: {}", resource.getResourceType());
-            return false;
+            return ConsentCheckResult.of(ConsentCheckOutcome.TYPE_NOT_MAPPED);
         }
         if (fieldValue.asText().isEmpty()) {
             logger.trace("Field value is empty, consent is automatically granted if patient has consents in general.");
-            return true;
+            return ConsentCheckResult.of(ConsentCheckOutcome.NO_DATE_FIELD);
         }
 
         List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
 
+        LocalDate firstConsideredDate = null;
         for (Base value : values) {
             Optional<Period> period = Period.fromHapi(value);
             if (period.isEmpty()) continue;
+            if (firstConsideredDate == null) {
+                firstConsideredDate = period.get().start();
+            }
             boolean hasValidConsent = patientResourceBundle.consentPeriods().within(period.get());
             if (hasValidConsent) {
-                return true;
+                return ConsentCheckResult.of(ConsentCheckOutcome.IN_PERIOD, period.get().start());
             }
         }
-        return false;
+        return firstConsideredDate == null
+                ? ConsentCheckResult.of(ConsentCheckOutcome.NO_DATE_VALUE)
+                : ConsentCheckResult.of(ConsentCheckOutcome.OUTSIDE_PERIODS, firstConsideredDate);
     }
 
     /**
@@ -111,8 +120,11 @@ public class ConsentValidator {
             throw new ReferenceToPatientException("Patient loaded reference belonging to another patient");
         }
 
-        if (applyConsent && !checkConsent((DomainResource) resource, patientBundle)) {
-            throw new ConsentViolatedException("Consent Violated in Patient Resource");
+        if (applyConsent) {
+            ConsentCheckResult result = checkConsent((DomainResource) resource, patientBundle);
+            if (!result.included()) {
+                throw new ConsentViolatedException("Consent Violated in Patient Resource: " + result.outcome());
+            }
         }
         return true;
     }
