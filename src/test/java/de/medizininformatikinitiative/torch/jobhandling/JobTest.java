@@ -86,6 +86,22 @@ public class JobTest {
     }
 
     @Test
+    void deserializingJobParametersWithoutConsentDiagnostics() throws Exception {
+        ObjectMapper mapper = new ObjectMapper()
+                .registerModule(new JavaTimeModule())
+                .registerModule(new Jdk8Module());
+
+        Job original = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+        ObjectNode tree = mapper.valueToTree(original);
+        ((ObjectNode) tree.get("parameters")).remove("consentDiagnostics");
+
+        Job deserialized = mapper.treeToValue(tree, Job.class);
+
+        assertThat(deserialized.parameters().consentDiagnostics()).isFalse();
+    }
+
+    @Test
     void negativeVersion_throwsIllegalArgumentException() {
         assertThatThrownBy(() -> new Job(
                 UUID.randomUUID(),

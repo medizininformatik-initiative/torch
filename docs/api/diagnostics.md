@@ -6,6 +6,9 @@ The patient excluisons and resource exclusions list as many exclusion events as 
 grow to arbitrary sizes. The URLs to the files are provided in the completion manifest via the `torch-patient-exclusions`
 and `torch-resource-exclusions` extensions (see [API — Job Completion Manifest Extensions](./api#job-completion-manifest-extensions)).
 
+Three further reports, the [consent diagnostics](#consent-diagnostics), are written only if explicitly requested via the opt-in
+`consentDiagnostics` request parameter (see [API — Request Body Structure](./api#request-body-structure)).
+
 # Job Summary
 A JSON object containing the following fields:
 - `Num-Cohort-Patients`: the number of patients of the initial cohort before extraction.
@@ -91,3 +94,90 @@ origin resource is marked by one of the other reasons stated above (e.g. `MUST_H
 `CASCADING_DELETE`. This includes the case where a must-have reference resolves to a target that itself turns out
 invalid: that is discovered and reported (as `MUST_HAVE`) during reference resolution, before cascading delete ever
 runs, even though the underlying cause is transitive.
+
+---
+
+## Consent Diagnostics
+
+An opt-in breakdown of how each patient's consent was calculated and applied, enabled by setting the
+`consentDiagnostics` request parameter to `true` (see [API — Request Body Structure](./api#request-body-structure)).
+It consists of three job-wide CSV files, each linked via its own extension (see
+[API — Job Completion Manifest Extensions](./api#job-completion-manifest-extensions)):
+
+```
+reports/
+  raw-provisions.csv                 (torch-raw-provisions)
+  final-periods.csv                  (torch-final-periods)
+  consent-considered-resources.csv   (torch-consent-considered-resources)
+```
+
+All three files list every patient, sorted by `Patient-ID`, so that all rows of a patient are contiguous — to debug a
+single patient, search for its ID. A file is only written if it contains at least one row. A patient whose consent
+evaluation produced no final periods has no rows in `final-periods.csv`, but is listed with stage `CONSENT_FETCH` in the
+[Patient Exclusions](#patient-exclusions).
+
+### Raw Provisions
+
+`raw-provisions.csv` lists every consent provision fetched from the patients' `Consent` resources, before
+encounter-shift adjustment (see [Consent Documentation](../implementation/consent.md)) — TORCH's "Initial Provision
+Periods".
+
+#### Example
+```csv
+"Batch-ID","Patient-ID","Consent-ID","Code","Permit","Period-Start","Period-End"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.6","true","2021-01-01","2025-12-31"
+```
+
+#### Explanation
+
+| Column         | Description                                                             |
+|----------------|--------------------------------------------------------------------------|
+| `Batch-ID`     | The ID of the batch in which the patient was part of                     |
+| `Patient-ID`   | The ID of the patient the provision belongs to                           |
+| `Consent-ID`   | The ID of the source `Consent` resource                                  |
+| `Code`         | The provision's consent code                                             |
+| `Permit`       | Whether the provision is a permit (`true`) or a deny (`false`)           |
+| `Period-Start` | The provision's period start                                             |
+| `Period-End`   | The provision's period end                                               |
+
+### Final Periods
+
+`final-periods.csv` lists each patient's final, intersected data-extraction consent periods — the disjoint segments
+computed after combining all raw provisions.
+
+#### Example
+```csv
+"Batch-ID","Patient-ID","Period-Start","Period-End"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","2021-01-01","2025-12-31"
+```
+
+#### Explanation
+
+| Column         | Description                                          |
+|----------------|------------------------------------------------------|
+| `Batch-ID`     | The ID of the batch in which the patient was part of |
+| `Patient-ID`   | The ID of the patient the period belongs to          |
+| `Period-Start` | The segment's start                                  |
+| `Period-End`   | The segment's end                                    |
+
+### Consent-Considered Resources
+
+`consent-considered-resources.csv` lists every resource for which the patient's consent was checked during
+extraction, whether the resource was kept or excluded.
+
+#### Example
+```csv
+"Batch-ID","Patient-ID","Resource-ID","Included","Date"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","Observation/obs-1","true","2022-04-20"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","Condition/cond-1","false","2018-04-20"
+```
+
+#### Explanation
+
+| Column        | Description                                                                     |
+|---------------|-----------------------------------------------------------------------------------|
+| `Batch-ID`    | The ID of the batch in which the patient was part of                              |
+| `Patient-ID`  | The ID of the patient the resource belongs to                                     |
+| `Resource-ID` | The ID of the considered resource                                                 |
+| `Included`    | Whether the resource passed the consent check                                     |
+| `Date`        | The date value evaluated against the consent periods, empty if not applicable     |

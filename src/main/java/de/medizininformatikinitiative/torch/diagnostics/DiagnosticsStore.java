@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 import com.opencsv.exceptions.CsvValidationException;
-import de.medizininformatikinitiative.torch.diagnostics.exclusions.ExclusionEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentDiagnostics;
+import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -17,6 +20,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Writer;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,9 @@ public class DiagnosticsStore {
     public static final String SUMMARY_FILE = "job-summary.json";
     public static final String RESOURCE_EXCLUSIONS_FILE = "resource-exclusions.csv";
     public static final String PATIENT_EXCLUSIONS_FILE = "patient-exclusions.csv";
+    public static final String RAW_PROVISIONS_FILE = "raw-provisions.csv";
+    public static final String FINAL_PERIODS_FILE = "final-periods.csv";
+    public static final String CONSENT_CONSIDERED_RESOURCES_FILE = "consent-considered-resources.csv";
     public static final String DETAILS_FILE = "details.json";
 
     private final FileIo io;
@@ -69,6 +76,9 @@ public class DiagnosticsStore {
     private Path intermediateResourceExclusionsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(RESOURCE_EXCLUSIONS_FILE); }
 
     private Path intermediatePatientExclusionsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(PATIENT_EXCLUSIONS_FILE); }
+    private Path intermediateRawProvisionsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(RAW_PROVISIONS_FILE); }
+    private Path intermediateFinalPeriodsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(FINAL_PERIODS_FILE); }
+    private Path intermediateConsentConsideredResourcesFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(CONSENT_CONSIDERED_RESOURCES_FILE); }
     private Path detailsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(DETAILS_FILE); }
 
     /**
@@ -86,9 +96,15 @@ public class DiagnosticsStore {
         io.createDirectories(reportDir(jobDir).resolve(batchId));
 
         writeToCsv(Map.of(batchId, diagnostics.batchExclusions().getResourceExclusions()), intermediateResourceExclusionsFile(jobDir, batchId),
-                ResourceExclusionEvent.getHeaderNames());
+                ResourceExclusionEvent.getHeaderNames(), ResourceExclusionEvent::toCsvElements);
         writeToCsv(Map.of(batchId, diagnostics.batchExclusions().getPatientExclusions()), intermediatePatientExclusionsFile(jobDir, batchId),
-                PatientExclusionEvent.getHeaderNames());
+                PatientExclusionEvent.getHeaderNames(), PatientExclusionEvent::toCsvElements);
+        writeToCsv(Map.of(batchId, diagnostics.consentDiagnostics().getRawProvisions()), intermediateRawProvisionsFile(jobDir, batchId),
+                RawProvisionEvent.getHeaderNames(), RawProvisionEvent::toCsvElements);
+        writeToCsv(Map.of(batchId, diagnostics.consentDiagnostics().getFinalPeriods()), intermediateFinalPeriodsFile(jobDir, batchId),
+                FinalPeriodEvent.getHeaderNames(), FinalPeriodEvent::toCsvElements);
+        writeToCsv(Map.of(batchId, diagnostics.consentDiagnostics().getConsideredResources()), intermediateConsentConsideredResourcesFile(jobDir, batchId),
+                ConsentConsideredResourceEvent.getHeaderNames(), ConsentConsideredResourceEvent::toCsvElements);
         writeBatchDetails(detailsFile(jobDir, batchId), diagnostics);
     }
 
@@ -106,22 +122,34 @@ public class DiagnosticsStore {
     }
 
     /**
-     * Writes resource exclusions of all batches into one file and patient exclusions into another file.
+     * Writes resource exclusions and patient exclusions of all batches each into their own job-wide file, plus,
+     * when opt-in consent diagnostics are present, one job-wide file each for raw provisions, final periods and
+     * consent-considered resources.
      *
      * @param diagnostics   a map from Batch-ID to the diagnostics of the batch
      * @param jobDir        the directory of the job
      * @throws IOException  if writing to the file system goes wrong
      */
     public void writeMergedExclusions(Map<String, BatchDiagnostics> diagnostics, Path jobDir) throws IOException {
-        Map<String, List<ResourceExclusionEvent>> resourceExclusions = diagnostics.entrySet().stream()
-                .map(e -> Map.entry(e.getKey(), e.getValue().batchExclusions().getResourceExclusions()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        Map<String, List<PatientExclusionEvent>> patientExclusions = diagnostics.entrySet().stream()
-                .map(e -> Map.entry(e.getKey(), e.getValue().batchExclusions().getPatientExclusions()))
-                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+        writeToCsv(mergeByBatch(diagnostics, d -> d.batchExclusions().getResourceExclusions()),
+                reportDir(jobDir).resolve(RESOURCE_EXCLUSIONS_FILE), ResourceExclusionEvent.getHeaderNames(), ResourceExclusionEvent::toCsvElements);
+        writeToCsv(mergeByBatch(diagnostics, d -> d.batchExclusions().getPatientExclusions()),
+                reportDir(jobDir).resolve(PATIENT_EXCLUSIONS_FILE), PatientExclusionEvent.getHeaderNames(), PatientExclusionEvent::toCsvElements);
 
-        writeToCsv(resourceExclusions, reportDir(jobDir).resolve(RESOURCE_EXCLUSIONS_FILE), ResourceExclusionEvent.getHeaderNames());
-        writeToCsv(patientExclusions, reportDir(jobDir).resolve(PATIENT_EXCLUSIONS_FILE), PatientExclusionEvent.getHeaderNames());
+        writeSortedByPatientIfNotEmpty(mergeByBatch(diagnostics, d -> d.consentDiagnostics().getRawProvisions()),
+                reportDir(jobDir).resolve(RAW_PROVISIONS_FILE), RawProvisionEvent.getHeaderNames(),
+                RawProvisionEvent::toCsvElements, RawProvisionEvent::patientId);
+        writeSortedByPatientIfNotEmpty(mergeByBatch(diagnostics, d -> d.consentDiagnostics().getFinalPeriods()),
+                reportDir(jobDir).resolve(FINAL_PERIODS_FILE), FinalPeriodEvent.getHeaderNames(),
+                FinalPeriodEvent::toCsvElements, FinalPeriodEvent::patientId);
+        writeSortedByPatientIfNotEmpty(mergeByBatch(diagnostics, d -> d.consentDiagnostics().getConsideredResources()),
+                reportDir(jobDir).resolve(CONSENT_CONSIDERED_RESOURCES_FILE), ConsentConsideredResourceEvent.getHeaderNames(),
+                ConsentConsideredResourceEvent::toCsvElements, ConsentConsideredResourceEvent::patientId);
+    }
+
+    private <T> Map<String, List<T>> mergeByBatch(Map<String, BatchDiagnostics> diagnostics, Function<BatchDiagnostics, List<T>> rowsOf) {
+        return diagnostics.entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey, e -> rowsOf.apply(e.getValue())));
     }
 
     /**
@@ -164,6 +192,18 @@ public class DiagnosticsStore {
         return io.exists(reportDir(jobDir).resolve(RESOURCE_EXCLUSIONS_FILE));
     }
 
+    public boolean rawProvisionsExists(Path jobDir) {
+        return io.exists(reportDir(jobDir).resolve(RAW_PROVISIONS_FILE));
+    }
+
+    public boolean finalPeriodsExists(Path jobDir) {
+        return io.exists(reportDir(jobDir).resolve(FINAL_PERIODS_FILE));
+    }
+
+    public boolean consentConsideredResourcesExists(Path jobDir) {
+        return io.exists(reportDir(jobDir).resolve(CONSENT_CONSIDERED_RESOURCES_FILE));
+    }
+
     /**
      * Reads the separately stored diagnostics of all batches.
      *
@@ -180,6 +220,9 @@ public class DiagnosticsStore {
             BatchDiagnostics diagnostics = loadDiagnostics(
                     intermediateResourceExclusionsFile(jobDir, batchId).toFile(),
                     intermediatePatientExclusionsFile(jobDir, batchId).toFile(),
+                    intermediateRawProvisionsFile(jobDir, batchId).toFile(),
+                    intermediateFinalPeriodsFile(jobDir, batchId).toFile(),
+                    intermediateConsentConsideredResourcesFile(jobDir, batchId).toFile(),
                     detailsFile(jobDir, batchId).toFile());
 
             diagnosticsPerBatch.put(batchId, diagnostics);
@@ -206,46 +249,107 @@ public class DiagnosticsStore {
      * Expects diagnostics on the file system to be inside a directory for the batch with one CSV file for resource exclusions,
      * one for patient exclusions and  one JSON file for other measurements.
      *
-     * @param resourceExclusionsFile     the file containing the resource exclusions of the batch
-     * @param patientExclusionsFile     the file containing the patient exclusions of the batch
-     * @param detailsFile               the file containing other measurements of the batch diagnostics
+     * @param resourceExclusionsFile        the file containing the resource exclusions of the batch
+     * @param patientExclusionsFile         the file containing the patient exclusions of the batch
+     * @param rawProvisionsFile             the file containing the batch's raw consent provisions, absent for a
+     *                                       batch directory written before this file existed
+     * @param finalPeriodsFile              the file containing the batch's final consent periods, absent for a
+     *                                       batch directory written before this file existed
+     * @param consentConsideredResourcesFile the file containing the batch's per-resource consent decisions,
+     *                                       absent for a batch directory written before this file existed
+     * @param detailsFile                   the file containing other measurements of the batch diagnostics
      * @return                          the new batch diagnostics object containing all information read from the files
      * @throws IOException              if reading from the file system goes wrong
      * @throws CsvValidationException   if reading the csv files goes wrong
      */
     private BatchDiagnostics loadDiagnostics(File resourceExclusionsFile,
                                                    File patientExclusionsFile,
+                                                   File rawProvisionsFile,
+                                                   File finalPeriodsFile,
+                                                   File consentConsideredResourcesFile,
                                                    File detailsFile) throws IOException, CsvValidationException{
-        BatchDiagnostics diagnostics = BatchDiagnostics.empty();
+        BatchDiagnostics diagnostics = BatchDiagnostics.empty().withConsentDiagnosticsEnabled(true);
 
         readCsv(resourceExclusionsFile, ResourceExclusionEvent::fromCsv, diagnostics.batchExclusions()::addResourceExclusion);
         readCsv(patientExclusionsFile, PatientExclusionEvent::fromCsv, diagnostics.batchExclusions()::addPatientExclusion);
+        readCsvIfExists(rawProvisionsFile, RawProvisionEvent::fromCsv, diagnostics.consentDiagnostics()::addRawProvision);
+        readCsvIfExists(finalPeriodsFile, FinalPeriodEvent::fromCsv, diagnostics.consentDiagnostics()::addFinalPeriod);
+        readCsvIfExists(consentConsideredResourcesFile, ConsentConsideredResourceEvent::fromCsv, diagnostics.consentDiagnostics()::addConsideredResource);
         BatchDetails batchDetails = readBatchDetails(detailsFile);
 
         return diagnostics.setBatchDetails(batchDetails);
     }
 
     /**
-     * Writes exclusions events as rows to a CSV file.
+     * Reads a CSV file like {@link #readCsv}, but treats a missing file as containing zero rows instead of
+     * failing — a batch directory written before this file existed (a job in flight across a TORCH upgrade)
+     * has none of the opt-in consent-diagnostics files at all, which is equivalent to empty diagnostics.
+     *
+     * @throws IOException              if reading from the file system goes wrong
+     * @throws CsvValidationException   if reading the csv files goes wrong
+     */
+    private <T> void readCsvIfExists(File file, Function<String[], T> decoder, Consumer<T> consumer) throws IOException, CsvValidationException {
+        if (!file.exists()) {
+            return;
+        }
+        readCsv(file, decoder, consumer);
+    }
+
+    /**
+     * Writes diagnostic rows to a CSV file.
      * <p>
      * Creates a new file or overwrites it if it already exists. The Batch-ID is prepended to each row in the CSV file.
      *
-     * @param <T>           the type of exclusion event to write
-     * @param rowsPerBatch  a map from Batch-ID to exclusion events to write to the file
-     * @param file          the file to write to (is newly created if it does not exist yet)
-     * @param header        the human-readable header fields to write at the top of the file
+     * @param <T>             the type of row to write
+     * @param rowsPerBatch    a map from Batch-ID to rows to write to the file
+     * @param file            the file to write to (is newly created if it does not exist yet)
+     * @param header          the human-readable header fields to write at the top of the file
+     * @param toCsvElements   converts a row to its ordered CSV column elements
      * @throws IOException  if writing to the file system goes wrong
      */
-    private <T extends ExclusionEvent> void writeToCsv(Map<String, List<T>> rowsPerBatch, Path file, String[] header) throws IOException {
+    private <T> void writeToCsv(Map<String, List<T>> rowsPerBatch, Path file, String[] header, Function<T, String[]> toCsvElements) throws IOException {
         Path tmp = io.createTempFile(file.toFile()).toPath();
 
         try(CSVWriter writer = new CSVWriter(io.newBufferedWriter(tmp))) {
             writer.writeNext(addBatchColumn(header));
             rowsPerBatch.forEach((batchId, rows) -> rows.stream()
-                    .map(ExclusionEvent::toCsvElements)
+                    .map(toCsvElements)
                     .map(event -> addBatchId(event, batchId))
                     .forEach(writer::writeNext)
             );
+        }
+
+        io.atomicMove(tmp, file);
+    }
+
+    /**
+     * Writes diagnostic rows like {@link #writeToCsv}, but ordered by Patient-ID across all batches so that each
+     * patient's rows are contiguous, and skips the file entirely when there are no rows (consent diagnostics
+     * were not requested).
+     *
+     * @param <T>             the type of row to write
+     * @param rowsPerBatch    a map from Batch-ID to rows to write to the file
+     * @param file            the file to write to (is newly created if it does not exist yet)
+     * @param header          the human-readable header fields to write at the top of the file
+     * @param toCsvElements   converts a row to its ordered CSV column elements
+     * @param patientIdOf     extracts the Patient-ID to sort by; rows of the same patient keep their recorded order
+     * @throws IOException  if writing to the file system goes wrong
+     */
+    private <T> void writeSortedByPatientIfNotEmpty(Map<String, List<T>> rowsPerBatch, Path file, String[] header,
+                                                    Function<T, String[]> toCsvElements, Function<T, String> patientIdOf) throws IOException {
+        List<Map.Entry<String, T>> rows = rowsPerBatch.entrySet().stream()
+                .flatMap(e -> e.getValue().stream().map(row -> Map.entry(e.getKey(), row)))
+                .sorted(Comparator.comparing(e -> patientIdOf.apply(e.getValue())))
+                .toList();
+        if (rows.isEmpty()) {
+            return;
+        }
+
+        Path tmp = io.createTempFile(file.toFile()).toPath();
+
+        try(CSVWriter writer = new CSVWriter(io.newBufferedWriter(tmp))) {
+            writer.writeNext(addBatchColumn(header));
+            rows.forEach(e -> writer.writeNext(addBatchId(toCsvElements.apply(e.getValue()), e.getKey())));
         }
 
         io.atomicMove(tmp, file);
