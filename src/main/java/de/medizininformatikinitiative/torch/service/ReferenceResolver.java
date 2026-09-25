@@ -464,7 +464,7 @@ public class ReferenceResolver {
         if (isPatientResource && patientBundle == null) {
             return skipDueToMissingPatientBundle(resourceGroup, coreBundle, batchExclusions);
         }
-        Optional<String> patId = isPatientResource ? Optional.of(patientBundle.patientId()) : Optional.empty();
+        Optional<String> patId = (patientBundle != null) ? Optional.of(patientBundle.patientId()) : Optional.empty();
 
         Optional<Resource> resource = isPatientResource
                 ? patientBundle.get(resourceGroup.resourceId())

@@ -52,6 +52,38 @@
         },
         {
             "resource": {
+                "resourceType": "Patient",
+                "id": "pat-4",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "other"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Patient",
+                "id": "pat-5",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
+                    ]
+                },
+                "gender": "female"
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Patient/pat-5"
+            }
+        },
+        {
+            "resource": {
                 "resourceType": "Organization",
                 "id": "orga-1",
                 "meta": {
@@ -59,7 +91,10 @@
                         "https://www.medizininformatik-initiative.de/fhir/ext/modul-biobank/StructureDefinition/Organization"
                     ]
                 },
-                "name": "Foo Bar GmbH"
+                "name": "Foo Bar GmbH",
+                "partOf": {
+                    "reference": "Organization/orga-3"
+                }
             },
             "request": {
                 "method": "PUT",
@@ -101,6 +136,11 @@
                 },
                 "manufacturer": {
                     "reference": "Organization/orga-1"
+                },
+                "ingredient": {
+                    "itemReference": {
+                        "display": "Medication Ingredient Item"
+                    }
                 }
             },
             "request": {
@@ -127,6 +167,11 @@
                 },
                 "manufacturer": {
                     "reference": "Organization/orga-2"
+                },
+                "ingredient": {
+                    "itemReference": {
+                        "display": "Medication Ingredient Item"
+                    }
                 }
             },
             "request": {
@@ -153,11 +198,78 @@
                 },
                 "manufacturer": {
                     "reference": "Organization/orga-3"
+                },
+                "ingredient": {
+                    "itemReference": {
+                        "display": "Medication Ingredient Item"
+                    }
                 }
             },
             "request": {
                 "method": "PUT",
                 "url": "Medication/med-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Medication",
+                "id": "med-4",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                            "code": "N06AA25"
+                        }
+                    ]
+                },
+                "manufacturer": {
+                    "reference": "Organization/orga-1"
+                },
+                "ingredient": {
+                    "itemReference": {
+                        "display": "Medication Ingredient Item"
+                    }
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Medication/med-4"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "Medication",
+                "id": "med-5",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/Medication"
+                    ]
+                },
+                "code": {
+                    "coding": [
+                        {
+                            "system": "http://fhir.de/CodeSystem/bfarm/atc",
+                            "code": "N06AA25"
+                        }
+                    ]
+                },
+                "manufacturer": {
+                    "reference": "Organization/orga-3"
+                },
+                "ingredient": {
+                    "itemReference": {
+                        "display": "Medication Ingredient Item"
+                    }
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Medication/med-5"
             }
         },
         {
@@ -226,22 +338,6 @@
         },
         {
             "resource": {
-                "resourceType": "Patient",
-                "id": "pat-4",
-                "meta": {
-                    "profile": [
-                        "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert"
-                    ]
-                },
-                "gender": "other"
-            },
-            "request": {
-                "method": "PUT",
-                "url": "Patient/pat-4"
-            }
-        },
-        {
-            "resource": {
                 "resourceType": "Procedure",
                 "id": "proc-2",
                 "meta": {
@@ -261,6 +357,25 @@
         },
         {
             "resource": {
+                "resourceType": "Procedure",
+                "id": "proc-3",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-prozedur/StructureDefinition/Procedure"
+                    ]
+                },
+                "status": "completed",
+                "subject": {
+                    "reference": "Patient/pat-5"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "Procedure/proc-3"
+            }
+        },
+        {
+            "resource": {
                 "resourceType": "MedicationAdministration",
                 "id": "med-adm-3",
                 "meta": {
@@ -274,6 +389,9 @@
                 "partOf": {
                     "reference": "Procedure/proc-2"
                 },
+                "medicationReference": {
+                    "reference": "Medication/med-3"
+                },
                 "reasonReference": [
                     {
                         "reference": "Condition/cond-99"
@@ -283,6 +401,30 @@
             "request": {
                 "method": "PUT",
                 "url": "MedicationAdministration/med-adm-3"
+            }
+        },
+        {
+            "resource": {
+                "resourceType": "MedicationAdministration",
+                "id": "med-adm-4",
+                "meta": {
+                    "profile": [
+                        "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationAdministration"
+                    ]
+                },
+                "subject": {
+                    "reference": "Patient/pat-5"
+                },
+                "medicationReference": {
+                    "reference": "Medication/med-3"
+                },
+                "partOf": {
+                    "reference": "Procedure/proc-3"
+                }
+            },
+            "request": {
+                "method": "PUT",
+                "url": "MedicationAdministration/med-adm-4"
             }
         },
         {
