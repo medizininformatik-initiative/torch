@@ -163,11 +163,11 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.numCohortPatients()).isEqualTo(5);
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                        "orga-group", "Organization/orga-3", "pat-4", ""),
+                        "orga-group", "Organization/orga-3", "pat-4", "", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-4", "Medication.manufacturer"),
+                        "med-group", "Medication/med-3", "pat-4", "Medication.manufacturer", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-5", "Medication.manufacturer")
+                        "med-group", "Medication/med-3", "pat-5", "Medication.manufacturer", "")
         );
     }
 
@@ -200,15 +200,15 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.numCohortPatients()).isEqualTo(5);
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                        "orga-group", "Organization/orga-3", "pat-4", ""),
+                        "orga-group", "Organization/orga-3", "pat-4", "", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-1", "pat-1", "Medication.manufacturer"),
+                        "med-group", "Medication/med-1", "pat-1", "Medication.manufacturer", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-2", "pat-2", "Medication.manufacturer"),
+                        "med-group", "Medication/med-2", "pat-2", "Medication.manufacturer", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-4", "Medication.manufacturer"),
+                        "med-group", "Medication/med-3", "pat-4", "Medication.manufacturer", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-5", "Medication.manufacturer"));
+                        "med-group", "Medication/med-3", "pat-5", "Medication.manufacturer", ""));
     }
 
     @Test
@@ -242,13 +242,13 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.numCohortPatients()).isEqualTo(5);
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-1", "pat-1", "MedicationAdministration.medication[x]"),
+                        "med-adm-group", "MedicationAdministration/med-adm-1", "pat-1", "MedicationAdministration.medication[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.medication[x]"),
+                        "med-adm-group", "MedicationAdministration/med-adm-2", "pat-2", "MedicationAdministration.medication[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-3", "pat-4", "MedicationAdministration.medication[x]"),
+                        "med-adm-group", "MedicationAdministration/med-adm-3", "pat-4", "MedicationAdministration.medication[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-adm-group", "MedicationAdministration/med-adm-4", "pat-5", "MedicationAdministration.medication[x]")
+                        "med-adm-group", "MedicationAdministration/med-adm-4", "pat-5", "MedicationAdministration.medication[x]", "")
         );
     }
 
@@ -281,11 +281,11 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.numCohortPatients()).isEqualTo(5);
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                        "orga-group", "Organization/orga-3", "", ""),
+                        "orga-group", "Organization/orga-3", "", "", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.REFERENCE_NOT_FOUND,
-                        "orga-group-2", "Organization/orga-3", "", ""),
+                        "orga-group-2", "Organization/orga-3", "", "", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "orga-group", "Organization/orga-1", "", "Organization.partOf")
+                        "orga-group", "Organization/orga-1", "", "Organization.partOf", "")
         );
     }
 
@@ -317,13 +317,13 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.numCohortPatients()).isEqualTo(5);
         assertThat(exclusions.getResourceExclusions()).containsExactlyInAnyOrder(
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-1", "pat-1", "Medication.ingredient.item[x]"),
+                        "med-group", "Medication/med-1", "pat-1", "Medication.ingredient.item[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-2", "pat-2", "Medication.ingredient.item[x]"),
+                        "med-group", "Medication/med-2", "pat-2", "Medication.ingredient.item[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-4", "Medication.ingredient.item[x]"),
+                        "med-group", "Medication/med-3", "pat-4", "Medication.ingredient.item[x]", ""),
                 new ResourceExclusionEvent(ResourceExclusionReason.MUST_HAVE,
-                        "med-group", "Medication/med-3", "pat-5", "Medication.ingredient.item[x]"));
+                        "med-group", "Medication/med-3", "pat-5", "Medication.ingredient.item[x]", ""));
     }
 
 
