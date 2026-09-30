@@ -4,6 +4,31 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.2] - 2026-09-30
+
+### Added
+
+- Expose cohort size, batch size, and batch progress via the Task API [#1221](https://github.com/medizininformatik-initiative/torch/pull/1221)
+- Add cohort evaluation endpoint [#1222](https://github.com/medizininformatik-initiative/torch/pull/1222)
+- Offer Full Prometheus Based Diagnostics Setup [#1252](https://github.com/medizininformatik-initiative/torch/pull/1252)
+- Record BatchCopierRedacter Redaction Failures In BatchDiagnostics [#1266](https://github.com/medizininformatik-initiative/torch/pull/1266)
+- Add additional consent diagnostics [#1267](https://github.com/medizininformatik-initiative/torch/pull/1267)
+
+### Changed
+
+- Update Onto To V5.0.0 [#1227](https://github.com/medizininformatik-initiative/torch/pull/1227)
+- Stop generating Repeated Log Messages [#1240](https://github.com/medizininformatik-initiative/torch/pull/1240)
+
+### Fixed
+
+- Fix NullPointerException When Redacting Already-Masked References [#1239](https://github.com/medizininformatik-initiative/torch/pull/1239)
+- Exclude deny provisions from consent encounter-based start shift [#1253](https://github.com/medizininformatik-initiative/torch/pull/1253)
+- Apply Configured Buffer Size to Flare WebClient [#1255](https://github.com/medizininformatik-initiative/torch/pull/1255)
+- Fix consent calculation to process resources in chronological order [#1264](https://github.com/medizininformatik-initiative/torch/pull/1264)
+- Reset .6 consent on .45/.46 deny and fix same-dateTime ordering [#1258](https://github.com/medizininformatik-initiative/torch/pull/1258)
+- Fix Duplicate Counts In Diagnostics [#1280](https://github.com/medizininformatik-initiative/torch/pull/1280)
+
+
 ## [v1.0.1] - 2026-08-24
 
 ### Added
