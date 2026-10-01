@@ -172,6 +172,19 @@ The transfer script will:
 5. Upload these files to a configured target FHIR server using the `blazectl` tool.
 6. Provide progress feedback and error handling at each step.
 
+## Diagnostics Script
+
+For debugging an extraction, in particular its consent handling, TORCH provides a companion [**diagnostics
+script**](https://github.com/medizininformatik-initiative/torch/blob/main/scripts/fetch-diagnostics.sh). It submits a
+data extraction request with the opt-in [consent diagnostics](./api/diagnostics.md#consent-diagnostics) enabled (or
+resumes an existing job with `-j`), polls the status, and downloads the job manifest and all
+[diagnostics reports](./api/diagnostics.md) it links to into a local directory. Extracted data is neither downloaded nor
+transferred. Combined with `--patients`, it restricts the extraction to the patients under investigation:
+
+```bash
+TORCH_BASE_URL=http://localhost:8080 scripts/fetch-diagnostics.sh -c crtdl.json --patients pat-1,pat-2 -o ./diagnostics
+```
+
 ## Verification
 
 For container images, we use cosign to sign images. This allows users to confirm the image was built by the expected CI
