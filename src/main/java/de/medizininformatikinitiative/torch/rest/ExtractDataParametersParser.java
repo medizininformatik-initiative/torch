@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import org.hl7.fhir.r4.model.Base64BinaryType;
 import org.hl7.fhir.r4.model.BooleanType;
+import org.hl7.fhir.r4.model.IdType;
 import org.hl7.fhir.r4.model.Parameters;
 import org.springframework.stereotype.Component;
 
@@ -39,13 +40,34 @@ public class ExtractDataParametersParser {
     }
 
     /**
+     * Normalizes a patient parameter value to its bare id part.
+     *
+     * @param value either a bare FHIR id ({@code 123}) or a relative Patient reference ({@code Patient/123})
+     * @return the bare id
+     * @throws IllegalArgumentException if the value references another resource type or is neither a bare id nor
+     *                                  a relative Patient reference (e.g. absolute or versioned references)
+     */
+    private static String normalizePatientId(String value) {
+        IdType id = new IdType(value);
+        if (id.hasResourceType() && !"Patient".equals(id.getResourceType())) {
+            throw new IllegalArgumentException("Patient parameter '%s' must reference resource type Patient".formatted(value));
+        }
+        if (id.hasBaseUrl() || id.hasVersionIdPart() || !id.isIdPartValid()) {
+            throw new IllegalArgumentException(
+                    "Patient parameter '%s' must be a bare id or a relative Patient reference (Patient/<id>)".formatted(value));
+        }
+        return id.getIdPart();
+    }
+
+    /**
      * Parses a FHIR {@link Parameters} resource containing CRTDL data and optional patient IDs.
      *
      * <p>The input must be a valid JSON representation of a Parameters resource
      * that includes:
      * <ul>
      *     <li>A parameter named {@code crtdl} with a {@code base64Binary} value containing the CRTDL content.</li>
-     *     <li>Optional parameters named {@code patient} with {@code string} values for patient IDs.</li>
+     *     <li>Optional parameters named {@code patient} with {@code string} values for patient IDs, each either a
+     *     bare id or a relative Patient reference; they are normalized to distinct bare ids.</li>
      *     <li>An optional parameter named {@code consentDiagnostics} with a {@code boolean} value, enabling
      *     the opt-in raw-provisions/final-periods/consent-considered-resources diagnostics for this job.</li>
      * </ul>
@@ -54,8 +76,9 @@ public class ExtractDataParametersParser {
      * @return an {@link ExtractDataParameters} containing the parsed CRTDL content and patient IDs
      * @throws IllegalArgumentException if the input cannot be parsed as a valid Parameters
      *                                  resource, the Parameters resource is empty, no crtdl
-     *                                  parameter with base64 encoded content is found, or the
-     *                                  CRTDL content cannot be read due to an IOException
+     *                                  parameter with base64 encoded content is found, a patient
+     *                                  parameter is invalid, or the CRTDL content cannot be read
+     *                                  due to an IOException
      */
     public ExtractDataParameters parseParameters(String body) {
         Parameters parameters;
@@ -79,7 +102,10 @@ public class ExtractDataParametersParser {
                         crtdlContent = ((Base64BinaryType) parameter.getValue()).getValue();
                     }
                     if ("patient".equals(parameter.getName()) && value.hasType("string")) {
-                        patientIds.add(value.primitiveValue());
+                        String patientId = normalizePatientId(value.primitiveValue());
+                        if (!patientIds.contains(patientId)) {
+                            patientIds.add(patientId);
+                        }
                     }
                     if ("consentDiagnostics".equals(parameter.getName()) && value.hasType("boolean")) {
                         consentDiagnostics = ((BooleanType) value).booleanValue();

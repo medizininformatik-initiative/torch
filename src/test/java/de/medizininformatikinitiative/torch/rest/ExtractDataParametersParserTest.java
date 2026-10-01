@@ -5,9 +5,13 @@ import ca.uhn.fhir.parser.DataFormatException;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.Base64;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -106,5 +110,46 @@ class ExtractDataParametersParserTest {
         assertThatThrownBy(() -> parser.parseParameters(validParametersInvalidCrtdl))
                 .isInstanceOf(RuntimeException.class)
                 .hasMessageContaining("Reading CRTDL Failed with IO Exception");
+    }
+
+    @Test
+    void parseParameters_bareAndRelativePatientIds_normalizedToDistinctIdParts() {
+        ExtractDataParameters result = parser.parseParameters(
+                parametersWithPatients("123", "Patient/123", "Patient/abc-1.2", "xyz"));
+
+        assertThat(result.patientIds()).containsExactly("123", "abc-1.2", "xyz");
+    }
+
+    @Test
+    void parseParameters_relativeReferenceOfOtherResourceType_throws() {
+        assertThatThrownBy(() -> parser.parseParameters(parametersWithPatients("Encounter/123")))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Encounter/123")
+                .hasMessageContaining("resource type Patient");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {
+            "http://server/fhir/Patient/123",
+            "Patient/123/_history/2",
+            "Patient/",
+            "pat 1",
+            "Patient/a_b",
+            "0123456789012345678901234567890123456789012345678901234567890123x"
+    })
+    void parseParameters_invalidPatientId_throws(String patientId) {
+        assertThatThrownBy(() -> parser.parseParameters(parametersWithPatients(patientId)))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(patientId);
+    }
+
+    private static String parametersWithPatients(String... patientIds) {
+        String crtdlJson = "{\"cohortDefinition\":{},\"dataExtraction\":{\"attributeGroups\":[]}}";
+        String crtdlBase64 = Base64.getEncoder().encodeToString(crtdlJson.getBytes(StandardCharsets.UTF_8));
+        String patientParameters = Arrays.stream(patientIds)
+                .map(id -> ",{\"name\":\"patient\",\"valueString\":\"%s\"}".formatted(id))
+                .collect(Collectors.joining());
+        return "{\"resourceType\":\"Parameters\",\"parameter\":[{\"name\":\"crtdl\",\"valueBase64Binary\":\"%s\"}%s]}"
+                .formatted(crtdlBase64, patientParameters);
     }
 }

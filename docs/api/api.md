@@ -72,7 +72,8 @@ The Parameters resource created by [
 }
 ```
 
-Optionally patient ids can be submitted for a known cohort, bypassing the cohort selection in the CRTDL:
+Optionally patient ids can be submitted for a known cohort, bypassing the cohort selection in the CRTDL. Each id can
+be given as a bare id (`123`) or as a relative Patient reference (`Patient/123`); anything else is rejected with `400`:
 
 ```
 {
