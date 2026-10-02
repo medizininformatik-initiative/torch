@@ -3,13 +3,14 @@ package de.medizininformatikinitiative.torch.diagnostics.consent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.CsvDefinition;
 
 import java.time.LocalDate;
+import java.util.Optional;
 import java.util.function.Function;
 
 import static java.util.Objects.requireNonNull;
 
 /**
- * Records a single consent provision as fetched from a {@code Consent} resource, before encounter-shift
- * adjustment (see {@code torch.enableEncounterShift}) — torch's "Initial Provision Periods".
+ * Records a single consent provision as fetched from a {@code Consent} resource — torch's "Initial Provision
+ * Periods" — together with the outcome of the encounter shift (see {@code torch.enableEncounterShift}).
  *
  * @param patientId   the ID of the patient the provision belongs to
  * @param consentId   the ID of the source {@code Consent} resource
@@ -17,9 +18,12 @@ import static java.util.Objects.requireNonNull;
  * @param permit      whether the provision is a permit ({@code true}) or a deny ({@code false})
  * @param periodStart the provision's period start
  * @param periodEnd   the provision's period end
+ * @param shiftedPeriodStart the provision's period start after the encounter shift, or {@code null} if it was not shifted
+ * @param encounterId the ID of the encounter the start was shifted to, or {@code null} if it was not shifted
  */
 public record RawProvisionEvent(String patientId, String consentId, String code, boolean permit,
-                                LocalDate periodStart, LocalDate periodEnd) {
+                                LocalDate periodStart, LocalDate periodEnd,
+                                LocalDate shiftedPeriodStart, String encounterId) {
 
     public RawProvisionEvent {
         requireNonNull(patientId);
@@ -42,7 +46,14 @@ public record RawProvisionEvent(String patientId, String consentId, String code,
                 csvRow[CsvField.CODE.columnIndex()],
                 Boolean.parseBoolean(csvRow[CsvField.PERMIT.columnIndex()]),
                 LocalDate.parse(csvRow[CsvField.PERIOD_START.columnIndex()]),
-                LocalDate.parse(csvRow[CsvField.PERIOD_END.columnIndex()]));
+                LocalDate.parse(csvRow[CsvField.PERIOD_END.columnIndex()]),
+                Optional.ofNullable(emptyToNull(csvRow[CsvField.SHIFTED_PERIOD_START.columnIndex()]))
+                        .map(LocalDate::parse).orElse(null),
+                emptyToNull(csvRow[CsvField.ENCOUNTER_ID.columnIndex()]));
+    }
+
+    private static String emptyToNull(String value) {
+        return value.isEmpty() ? null : value;
     }
 
     public String[] toCsvElements() {
@@ -59,7 +70,9 @@ public record RawProvisionEvent(String patientId, String consentId, String code,
         CODE("Code", RawProvisionEvent::code),
         PERMIT("Permit", e -> Boolean.toString(e.permit())),
         PERIOD_START("Period-Start", e -> e.periodStart().toString()),
-        PERIOD_END("Period-End", e -> e.periodEnd().toString());
+        PERIOD_END("Period-End", e -> e.periodEnd().toString()),
+        SHIFTED_PERIOD_START("Shifted-Period-Start", e -> e.shiftedPeriodStart() == null ? "" : e.shiftedPeriodStart().toString()),
+        ENCOUNTER_ID("Encounter-ID", e -> e.encounterId() == null ? "" : e.encounterId());
 
         private final String headerName;
         private final Function<RawProvisionEvent, String> fieldExtractor;

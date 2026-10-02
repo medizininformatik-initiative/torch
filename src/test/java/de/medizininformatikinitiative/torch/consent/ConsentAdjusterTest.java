@@ -51,6 +51,7 @@ class ConsentAdjusterUnitTest {
         if (end != null) period.setEnd(Date.from(end.atStartOfDay(ZoneId.systemDefault()).toInstant()));
         encounter.setPeriod(period);
         encounter.setSubject(new org.hl7.fhir.r4.model.Reference("Patient/" + patientId));
+        encounter.setId("enc-" + patientId + "-" + start);
         return encounter;
     }
 

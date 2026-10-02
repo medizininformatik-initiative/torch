@@ -18,7 +18,12 @@ class ConsentProvisionsTest {
 
     // Helper to create an Encounter with a specific period
     private Encounter createEncounter(LocalDate start, LocalDate end) {
+        return createEncounter("enc-" + start, start, end);
+    }
+
+    private Encounter createEncounter(String id, LocalDate start, LocalDate end) {
         Encounter encounter = new Encounter();
+        encounter.setId(id);
         org.hl7.fhir.r4.model.Period period = new org.hl7.fhir.r4.model.Period();
         if (start != null) {
             period.setStart(Date.from(start.atStartOfDay(ZoneId.systemDefault()).toInstant()));
@@ -65,6 +70,32 @@ class ConsentProvisionsTest {
         assertThat(updated.provisions()).hasSize(1);
         assertThat(updated.provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5));
         assertThat(updated.provisions().getFirst().period().end()).isEqualTo(LocalDate.of(2025, 9, 30));
+    }
+
+    @Test
+    void updateByEncounters_shiftedProvision_recordsOriginalStartAndEncounter() {
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
+
+        Encounter e1 = createEncounter("enc-1", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
+
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1), Set.of(CODE));
+
+        assertThat(updated.provisions().getFirst().encounterShift())
+                .isEqualTo(new EncounterShift(LocalDate.of(2025, 9, 10), "enc-1"));
+    }
+
+    @Test
+    void updateByEncounters_overlappingEncountersWithSameStart_recordsLowestEncounterId() {
+        Provision p1 = new Provision(CODE, Period.of(LocalDate.of(2025, 9, 10), LocalDate.of(2025, 9, 30)), true);
+        ConsentProvisions consent = new ConsentProvisions("c1", "patient1", null, List.of(p1));
+
+        Encounter e1 = createEncounter("enc-b", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 15));
+        Encounter e2 = createEncounter("enc-a", LocalDate.of(2025, 9, 5), LocalDate.of(2025, 9, 12));
+
+        ConsentProvisions updated = consent.updateByEncounters(List.of(e1, e2), Set.of(CODE));
+
+        assertThat(updated.provisions().getFirst().encounterShift().encounterId()).isEqualTo("enc-a");
     }
 
     @Test

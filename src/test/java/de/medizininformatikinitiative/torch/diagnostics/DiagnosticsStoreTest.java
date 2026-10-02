@@ -128,7 +128,9 @@ class DiagnosticsStoreTest {
         batchExclusions.addConsentExclusion(GROUP_1, RESOURCE_1, PATIENT_1, "OUTSIDE_PERIODS");
         var consentDiagnostics = ConsentDiagnostics.create(true);
         consentDiagnostics.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-1", true,
-                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 12, 28), "encounter-1"));
+        consentDiagnostics.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-2", true,
+                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null));
         consentDiagnostics.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
         consentDiagnostics.addConsideredResource(new ConsentConsideredResourceEvent(
                 PATIENT_1, RESOURCE_1, false, "2019-01-01"));
@@ -149,7 +151,7 @@ class DiagnosticsStoreTest {
         // rows of both patients interleaved within one batch, as recorded concurrently during resource loading
         var consentDiagnostics1 = ConsentDiagnostics.create(true);
         consentDiagnostics1.addRawProvision(new RawProvisionEvent(PATIENT_2, "consent-2", "code-1", true,
-                LocalDate.of(2020, 1, 1), LocalDate.of(2024, 12, 31)));
+                LocalDate.of(2020, 1, 1), LocalDate.of(2024, 12, 31), null, null));
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_2, RESOURCE_2, true, "2022-04-20"));
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_1, RESOURCE_1, false, "2019-01-01"));
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_2, RESOURCE_1, true, ""));
@@ -157,7 +159,7 @@ class DiagnosticsStoreTest {
 
         var consentDiagnostics2 = ConsentDiagnostics.create(true);
         consentDiagnostics2.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-1", true,
-                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+                LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 12, 28), "encounter-1"));
         consentDiagnostics2.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
         var diagnostics2 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics2);
 
@@ -168,9 +170,9 @@ class DiagnosticsStoreTest {
 
         Path reportDir = jobDirectory.resolve(REPORTS_DIRECTORY);
         assertThat(Files.readAllLines(reportDir.resolve(RAW_PROVISIONS_FILE))).containsExactly(
-                "\"Batch-ID\",\"Patient-ID\",\"Consent-ID\",\"Code\",\"Permit\",\"Period-Start\",\"Period-End\"",
-                "\"batch-id-2\",\"pat-id-1\",\"consent-1\",\"code-1\",\"true\",\"2021-01-01\",\"2025-12-31\"",
-                "\"batch-id-1\",\"pat-id-2\",\"consent-2\",\"code-1\",\"true\",\"2020-01-01\",\"2024-12-31\"");
+                "\"Batch-ID\",\"Patient-ID\",\"Consent-ID\",\"Code\",\"Permit\",\"Period-Start\",\"Period-End\",\"Shifted-Period-Start\",\"Encounter-ID\"",
+                "\"batch-id-2\",\"pat-id-1\",\"consent-1\",\"code-1\",\"true\",\"2021-01-01\",\"2025-12-31\",\"2020-12-28\",\"encounter-1\"",
+                "\"batch-id-1\",\"pat-id-2\",\"consent-2\",\"code-1\",\"true\",\"2020-01-01\",\"2024-12-31\",\"\",\"\"");
         assertThat(Files.readAllLines(reportDir.resolve(FINAL_PERIODS_FILE))).containsExactly(
                 "\"Batch-ID\",\"Patient-ID\",\"Period-Start\",\"Period-End\"",
                 "\"batch-id-2\",\"pat-id-1\",\"2021-01-01\",\"2025-12-31\"");
