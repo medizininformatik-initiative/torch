@@ -6,6 +6,7 @@ on:
     branches:
       - main
   pull_request:
+    types: [opened, synchronize, reopened, closed]
     paths:
       - 'docs/**'
     branches:
@@ -18,6 +19,7 @@ permissions: read-all
 
 jobs:
   build-pages:
+    if: github.event.action != 'closed'
     runs-on: ubuntu-24.04
     concurrency:
       group: docs-build-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
@@ -139,6 +141,8 @@ jobs:
       - run: |
           git config user.name "github-actions"
           git config user.email "github-actions@github.com"
-          git rm -rf preview/pr-${{ github.event.number }} || true
-          git commit -m "Remove Preview"
-          git push
+          if [ -d "preview/pr-${{ github.event.number }}" ]; then
+            git rm -rf "preview/pr-${{ github.event.number }}" || true
+            git commit -m "Remove Preview for PR ${{ github.event.number }}"
+            git push
+          fi
