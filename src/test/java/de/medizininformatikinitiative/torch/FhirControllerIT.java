@@ -301,7 +301,7 @@ class FhirControllerIT {
             Path reportDir = resultFileManager.getJobDirectory(jobId).resolve("reports");
 
             List<String> rawProvisions = Files.readAllLines(reportDir.resolve("raw-provisions.csv"));
-            assertThat(rawProvisions.getFirst()).isEqualTo("\"Batch-ID\",\"Patient-ID\",\"Consent-ID\",\"Code\",\"Permit\",\"Period-Start\",\"Period-End\"");
+            assertThat(rawProvisions.getFirst()).isEqualTo("\"Batch-ID\",\"Patient-ID\",\"Consent-ID\",\"Code\",\"Permit\",\"Period-Start\",\"Period-End\",\"Shifted-Period-Start\",\"Encounter-ID\"");
             // one permit row each for .6 (data) and .8 (gate), both from the same Consent resource
             assertThat(rawProvisions).hasSize(3);
             assertThat(rawProvisions).anyMatch(line -> line.contains("2.16.840.1.113883.3.1937.777.24.5.3.6")

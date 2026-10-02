@@ -12,7 +12,7 @@ class ConsentDiagnosticsTest {
     void equals_isReflexive() {
         ConsentDiagnostics diagnostics = ConsentDiagnostics.create(true);
         diagnostics.addRawProvision(new RawProvisionEvent("p1", "c1", "code", true,
-                LocalDate.of(2020, 1, 1), LocalDate.of(2020, 12, 31)));
+                LocalDate.of(2020, 1, 1), LocalDate.of(2020, 12, 31), null, null));
 
         assertThat(diagnostics).isEqualTo(diagnostics);
     }

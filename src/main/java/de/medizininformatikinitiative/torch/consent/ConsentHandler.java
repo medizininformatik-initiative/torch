@@ -4,8 +4,10 @@ import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent
 import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.consent.EncounterShift;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
@@ -80,12 +82,12 @@ public class ConsentHandler {
         Set<TermCode> encounterAdjustCodes = consentCodeConfig.nonGateCodes(prospectiveCodes);
 
         return consentFetcher.fetchConsentInfo(codesToFetch, batch)
-                .doOnNext(rawProvisions -> recordRawProvisions(batch, rawProvisions))
                 .flatMap(rawProvisions ->
                         enableEncounterShift
                                 ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, rawProvisions, encounterAdjustCodes)
                                 : Mono.just(rawProvisions)
                 )
+                .doOnNext(adjustedProvisions -> recordRawProvisions(batch, adjustedProvisions))
                 .map(consentProvisions -> consentCalculator.calculateConsent(prospectiveCodes, consentProvisions))
                 .doOnNext(consentPeriodsMap -> recordFinalPeriods(batch, consentPeriodsMap))
                 .flatMap(consentPeriodsMap ->
@@ -94,17 +96,26 @@ public class ConsentHandler {
     }
 
     /**
-     * Records each fetched provision as a {@link RawProvisionEvent}, before any encounter-shift adjustment.
-     * A no-op unless {@code consentDiagnostics} is enabled for this batch.
+     * Records each fetched provision as a {@link RawProvisionEvent} with its fetched period, plus the shifted start
+     * and encounter if the encounter shift moved it. A no-op unless {@code consentDiagnostics} is enabled for this
+     * batch.
      */
-    private void recordRawProvisions(PatientBatch batch, Map<String, List<ConsentProvisions>> rawProvisions) {
+    private void recordRawProvisions(PatientBatch batch, Map<String, List<ConsentProvisions>> adjustedProvisions) {
         if (!batch.diagnostics().consentDiagnostics().isEnabled()) {
             return;
         }
-        rawProvisions.forEach((patientId, consents) -> consents.forEach(cp ->
+        adjustedProvisions.forEach((patientId, consents) -> consents.forEach(cp ->
                 cp.provisions().forEach(provision -> batch.diagnostics().consentDiagnostics().addRawProvision(
-                        new RawProvisionEvent(patientId, cp.id(), provision.code().code(), provision.permit(),
-                                provision.period().start(), provision.period().end())))));
+                        toRawProvisionEvent(patientId, cp.id(), provision)))));
+    }
+
+    private static RawProvisionEvent toRawProvisionEvent(String patientId, String consentId, Provision provision) {
+        EncounterShift shift = provision.encounterShift();
+        return shift == null
+                ? new RawProvisionEvent(patientId, consentId, provision.code().code(), provision.permit(),
+                provision.period().start(), provision.period().end(), null, null)
+                : new RawProvisionEvent(patientId, consentId, provision.code().code(), provision.permit(),
+                shift.originalStart(), provision.period().end(), provision.period().start(), shift.encounterId());
     }
 
     /**

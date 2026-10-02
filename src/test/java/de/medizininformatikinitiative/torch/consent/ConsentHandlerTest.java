@@ -5,6 +5,7 @@ import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEven
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.consent.EncounterShift;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
@@ -159,17 +160,18 @@ public class ConsentHandlerTest {
         var consentDiagnostics = batch.diagnostics().consentDiagnostics();
         assertThat(consentDiagnostics.getRawProvisions()).containsExactly(
                 new RawProvisionEvent(PATIENT_ID, "c1", "code1", true,
-                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null));
         assertThat(consentDiagnostics.getFinalPeriods()).containsExactly(
                 new FinalPeriodEvent(PATIENT_ID, LocalDate.of(2020, 1, 1), LocalDate.of(2030, 1, 1)));
     }
 
     @Test
-    void recordsRawProvisionsBeforeEncounterShiftApplies() {
+    void recordsRawProvisionsWithEncounterShift() {
         var codes = CODES;
         var batch = PatientBatch.of(PATIENT_ID).withConsentDiagnosticsEnabled(true);
         var rawProvision = new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)), true);
-        var shiftedProvision = new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2020, 6, 1), LocalDate.of(2025, 12, 31)), true);
+        var shiftedProvision = new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2020, 6, 1), LocalDate.of(2025, 12, 31)), true,
+                new EncounterShift(LocalDate.of(2021, 1, 1), "enc-1"));
         var rawConsentProvisions = new ConsentProvisions("c1", PATIENT_ID, new DateTimeType("2021-01-01T00:00:00Z"), List.of(rawProvision));
         var shiftedConsentProvisions = new ConsentProvisions("c1", PATIENT_ID, new DateTimeType("2021-01-01T00:00:00Z"), List.of(shiftedProvision));
         var fetchedProvisions = Map.of(PATIENT_ID, List.of(rawConsentProvisions));
@@ -186,10 +188,9 @@ public class ConsentHandlerTest {
                 .assertNext(result -> assertThat(result.patientIds()).containsExactly(PATIENT_ID))
                 .verifyComplete();
 
-        // recorded from the pre-shift fetch result, not the encounter-shifted one fed into ConsentCalculator
         assertThat(batch.diagnostics().consentDiagnostics().getRawProvisions()).containsExactly(
                 new RawProvisionEvent(PATIENT_ID, "c1", "code1", true,
-                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
+                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 6, 1), "enc-1"));
     }
 
 }

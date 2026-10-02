@@ -118,27 +118,30 @@ evaluation produced no final periods has no rows in `final-periods.csv`, but is 
 
 ### Raw Provisions
 
-`raw-provisions.csv` lists every consent provision fetched from the patients' `Consent` resources, before
-encounter-shift adjustment (see [Consent Documentation](../implementation/consent.md)) — TORCH's "Initial Provision
-Periods".
+`raw-provisions.csv` lists every consent provision fetched from the patients' `Consent` resources — TORCH's "Initial
+Provision Periods" — together with the outcome of the encounter shift (see
+[Consent Documentation](../implementation/consent.md)).
 
 #### Example
 ```csv
-"Batch-ID","Patient-ID","Consent-ID","Code","Permit","Period-Start","Period-End"
-"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.6","true","2021-01-01","2025-12-31"
+"Batch-ID","Patient-ID","Consent-ID","Code","Permit","Period-Start","Period-End","Shifted-Period-Start","Encounter-ID"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.6","true","2021-01-01","2025-12-31","2020-12-28","encounter-1"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.8","true","2021-01-01","2025-12-31","",""
 ```
 
 #### Explanation
 
-| Column         | Description                                                             |
-|----------------|--------------------------------------------------------------------------|
-| `Batch-ID`     | The ID of the batch in which the patient was part of                     |
-| `Patient-ID`   | The ID of the patient the provision belongs to                           |
-| `Consent-ID`   | The ID of the source `Consent` resource                                  |
-| `Code`         | The provision's consent code                                             |
-| `Permit`       | Whether the provision is a permit (`true`) or a deny (`false`)           |
-| `Period-Start` | The provision's period start                                             |
-| `Period-End`   | The provision's period end                                               |
+| Column                 | Description                                                                                              |
+|------------------------|----------------------------------------------------------------------------------------------------------|
+| `Batch-ID`             | The ID of the batch in which the patient was part of                                                     |
+| `Patient-ID`           | The ID of the patient the provision belongs to                                                           |
+| `Consent-ID`           | The ID of the source `Consent` resource                                                                  |
+| `Code`                 | The provision's consent code                                                                             |
+| `Permit`               | Whether the provision is a permit (`true`) or a deny (`false`)                                           |
+| `Period-Start`         | The provision's period start, as fetched                                                                 |
+| `Period-End`           | The provision's period end                                                                               |
+| `Shifted-Period-Start` | The provision's period start after the encounter shift; empty if the encounter shift did not move it     |
+| `Encounter-ID`         | The ID of the `Encounter` whose start the provision was shifted to; empty if the encounter shift did not move it |
 
 ### Final Periods
 
