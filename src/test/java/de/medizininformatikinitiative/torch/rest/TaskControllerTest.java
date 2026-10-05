@@ -52,7 +52,8 @@ class TaskControllerTest {
             "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
             "search-parameters.json",
             true,
-            false
+            false,
+            true // enableEncounterShift
     );
 
     @Mock

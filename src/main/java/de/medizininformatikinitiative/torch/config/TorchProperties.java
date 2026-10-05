@@ -24,7 +24,8 @@ public record TorchProperties(
         @NotBlank(message = "DSE mapping tree file path is required") String dseMappingTreeFile,
         @NotBlank(message = "Search Parameters file is required") String searchParametersFile,
         boolean useCql,
-        boolean disableConsentCalculation
+        boolean disableConsentCalculation,
+        boolean enableEncounterShift
 ) {
 
     public TorchProperties {

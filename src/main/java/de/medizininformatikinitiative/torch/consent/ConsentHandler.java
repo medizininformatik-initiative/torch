@@ -11,8 +11,6 @@ import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
 import reactor.core.publisher.Mono;
 
 import java.util.List;
@@ -28,7 +26,6 @@ import static java.util.Objects.requireNonNull;
  * @see DataStore
  * @see ProvisionExtractor
  */
-@Component
 public class ConsentHandler {
 
 
@@ -49,7 +46,7 @@ public class ConsentHandler {
      *                             ({@code torch.enableEncounterShift})
      */
     public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeConfig consentCodeConfig,
-                           @Value("${torch.enableEncounterShift}") boolean enableEncounterShift) {
+                           boolean enableEncounterShift) {
         this.consentFetcher = requireNonNull(consentFetcher);
         this.consentAdjuster = requireNonNull(consentAdjuster);
         this.consentCalculator = requireNonNull(consentCalculator);

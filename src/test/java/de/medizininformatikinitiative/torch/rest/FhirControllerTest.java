@@ -80,7 +80,8 @@ class FhirControllerTest {
             "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
             "search-parameters.json",
             true,
-            false
+            false,
+            true // enableEncounterShift
     );
 
     WebTestClient client;
