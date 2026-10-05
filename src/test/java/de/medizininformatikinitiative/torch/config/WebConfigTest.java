@@ -118,7 +118,8 @@ class WebConfigTest {
                 "dseMappingTree.json",
                 "search-parameters.json",
                 false, // useCql
-                false // disableConsentCalculation
+                false, // disableConsentCalculation
+                true // enableEncounterShift
         );
     }
 

@@ -52,7 +52,8 @@ class JobTaskMapperTest {
             "mappingsFile", "conceptTreeFile", "dseMappingTreeFile",
             "search-parameters.json",
             true,
-            false
+            false,
+            true // enableEncounterShift
     );
 
     private final ResultFileManager resultFileManager = mock(ResultFileManager.class);
