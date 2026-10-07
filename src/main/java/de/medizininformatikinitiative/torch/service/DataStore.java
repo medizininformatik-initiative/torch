@@ -25,6 +25,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
@@ -32,6 +33,7 @@ import reactor.util.retry.RetryBackoffSpec;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -76,6 +78,15 @@ public class DataStore {
                     MAX_RETRY_ATTEMPTS,
                     RetryabilityUtil.rootCauseMessage(rs.failure())
             ));
+    /**
+     * Search page links expire on the server (e.g. Blaze PAGE_STORE_EXPIRE or a Blaze restart) and then answer 404.
+     * The page request is retried briefly; if it stays 404, the whole query is restarted to obtain fresh page links.
+     */
+    private static final int MAX_PAGE_NOT_FOUND_RETRIES = 2;
+    private static final RetryBackoffSpec PAGE_NOT_FOUND_RETRY_SPEC = Retry.fixedDelay(MAX_PAGE_NOT_FOUND_RETRIES, Duration.ofSeconds(1))
+            .filter(WebClientResponseException.NotFound.class::isInstance)
+            .onRetryExhaustedThrow((spec, rs) -> rs.failure());
+    private static final int MAX_SEARCH_RESTARTS = 3;
     public static final String APPLICATION_FHIR_JSON = "application/fhir+json";
     public static final String CONTENT_TYPE = "Content-Type";
 
@@ -172,15 +183,53 @@ public class DataStore {
      * <p> All bundles that don't correspond to the given {@code resourceType} are ignored
      * and a warning about that event is logged.
      *
+     * <p> If a next-page link still answers 404 after {@value #MAX_PAGE_NOT_FOUND_RETRIES} retries, it is considered
+     * expired and the query is restarted up to {@value #MAX_SEARCH_RESTARTS} times;
+     * resources already emitted before the restart are not emitted again. If the link still expires afterward, the
+     * original retryable {@code NotFound} is propagated.
+     *
      * @param query        the fhir search query defined by the attribute group
      * @param resourceType the Type of the Bundle entries queried
      * @return the resources found
      */
     public <T extends Resource> Flux<T> search(Query query, Class<T> resourceType) {
-        var start = System.nanoTime();
-        var queryId = UUID.randomUUID();
-        var counter = new AtomicInteger();
+        return Flux.defer(() -> {
+            var start = System.nanoTime();
+            var queryId = UUID.randomUUID();
+            var counter = new AtomicInteger();
+            Set<String> emittedIds = new HashSet<>();
 
+            return Flux.defer(() -> fetchAllPages(query))
+                    .retryWhen(Retry.max(MAX_SEARCH_RESTARTS)
+                            .filter(ExpiredPageLinkException.class::isInstance)
+                            .doBeforeRetry(rs -> logger.warn(
+                                    "Restarting query `{}` (restart {} of {}) due to: {}",
+                                    queryId,
+                                    rs.totalRetries() + 1,
+                                    MAX_SEARCH_RESTARTS,
+                                    rs.failure().getMessage()
+                            ))
+                            .onRetryExhaustedThrow((spec, rs) -> rs.failure().getCause()))
+                    .filter(resource -> emittedIds.add(resource.fhirType() + "/" + resource.getIdPart()))
+                    .flatMap(resource -> {
+                        if (resourceType.isInstance(resource)) {
+                            counter.incrementAndGet();
+                            return Mono.just(resourceType.cast(resource));
+                        }
+                        return Mono.empty();
+                    })
+                    .doOnComplete(() ->
+                            logger.debug(
+                                    "Finished query `{}` in {} seconds with {} resources.",
+                                    queryId,
+                                    "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
+                                    counter.get()
+                            )
+                    ).doOnError(e -> logger.error("DATASTORE_02 Error while executing resource query `{}`: {}", query, e.getMessage()));
+        });
+    }
+
+    private Flux<Resource> fetchAllPages(Query query) {
         return client.post()
                 .uri("/" + query.type() + "/_search")
                 .header("Prefer", "handling=strict")
@@ -215,22 +264,7 @@ public class DataStore {
                                         .stream()
                                         .map(Bundle.BundleEntryComponent::getResource)
                         )
-                )
-                .flatMap(resource -> {
-                    if (resourceType.isInstance(resource)) {
-                        counter.incrementAndGet();
-                        return Mono.just(resourceType.cast(resource));
-                    }
-                    return Mono.empty();
-                })
-                .doOnComplete(() ->
-                        logger.debug(
-                                "Finished query `{}` in {} seconds with {} resources.",
-                                queryId,
-                                "%.1f".formatted(TimeUtils.durationSecondsSince(start)),
-                                counter.get()
-                        )
-                ).doOnError(e -> logger.error("DATASTORE_02 Error while executing resource query `{}`: {}", query, e.getMessage()));
+                );
     }
 
     private Mono<Bundle> fetchPage(String url) {
@@ -240,6 +274,8 @@ public class DataStore {
                 .uri(url)
                 .retrieve()
                 .bodyToMono(String.class)
+                .retryWhen(PAGE_NOT_FOUND_RETRY_SPEC)
+                .onErrorMap(WebClientResponseException.NotFound.class, e -> new ExpiredPageLinkException(url, e))
                 .retryWhen(RETRY_SPEC) // retry this page only
                 .map(body ->
                         fhirContext.newJsonParser().parseResource(Bundle.class, body)
@@ -467,5 +503,12 @@ public class DataStore {
 
     private static class AsyncRetryException extends Exception {
 
+    }
+
+    private static class ExpiredPageLinkException extends Exception {
+
+        private ExpiredPageLinkException(String url, Throwable cause) {
+            super("Search page link expired: " + url, cause);
+        }
     }
 }
