@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
 import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
+import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import okhttp3.mockwebserver.Dispatcher;
@@ -30,6 +31,7 @@ import reactor.test.StepVerifier;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -354,6 +356,128 @@ class DataStoreTest {
 
             assertThat(r3.getMethod()).isEqualTo("GET");
             assertThat(r3.getPath()).isEqualTo("/fhir/Patient?page=2");
+        }
+
+        @Test
+        @DisplayName("skips resources that don't match the requested type")
+        void skipsResourcesOfOtherType() {
+            mockStore.enqueue(new MockResponse()
+                    .setResponseCode(200)
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("""
+                            {
+                              "resourceType": "Bundle",
+                              "type": "searchset",
+                              "entry": [
+                                {"resource": {"resourceType": "Patient", "id": "p1"}},
+                                {"resource": {"resourceType": "Observation", "id": "o1"}}
+                              ]
+                            }
+                            """));
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p1"))
+                    .verifyComplete();
+        }
+
+        @Test
+        @DisplayName("paging: a next-page 404 that recovers on retry does not restart the query")
+        void pagingNextPageNotFoundRecoversOnRetry() {
+            var nextPageAttempts = new AtomicInteger(0);
+
+            mockStore.setDispatcher(new Dispatcher() {
+                @Override
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
+                    if ("POST".equals(request.getMethod())) {
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(PATIENT_BUNDLE_WITH_NEXT.formatted(baseUrl + "/Patient?page=2"));
+                    }
+                    if (nextPageAttempts.getAndIncrement() == 0) {
+                        return new MockResponse().setResponseCode(404);
+                    }
+                    return new MockResponse()
+                            .setResponseCode(200)
+                            .setHeader("Content-Type", "application/fhir+json")
+                            .setBody(PATIENT_BUNDLE_LAST_PAGE);
+                }
+            });
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p1"))
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p2"))
+                    .expectComplete()
+                    .verify(Duration.ofSeconds(30));
+            assertThat(mockStore.getRequestCount()).isEqualTo(3);
+        }
+
+        @Test
+        @DisplayName("paging: an expired next-page link (404) restarts the query without re-emitting resources")
+        void pagingExpiredNextPageRestartsQuery() {
+            var searches = new AtomicInteger(0);
+
+            mockStore.setDispatcher(new Dispatcher() {
+                @Override
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
+                    if ("POST".equals(request.getMethod())) {
+                        String nextUrl = baseUrl + "/Patient?page=" + searches.incrementAndGet();
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(PATIENT_BUNDLE_WITH_NEXT.formatted(nextUrl));
+                    }
+                    if ("/fhir/Patient?page=2".equals(request.getPath())) {
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(PATIENT_BUNDLE_LAST_PAGE);
+                    }
+                    return new MockResponse().setResponseCode(404);
+                }
+            });
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p1"))
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p2"))
+                    .expectComplete()
+                    .verify(Duration.ofSeconds(30));
+            assertThat(searches.get()).isEqualTo(2);
+            assertThat(mockStore.getRequestCount()).isEqualTo(6);
+        }
+
+        @Test
+        @DisplayName("paging: a next-page link that stays expired fails with the retryable NotFound after a limited number of query restarts")
+        void pagingExpiredNextPageGivesUp() {
+            mockStore.setDispatcher(new Dispatcher() {
+                @Override
+                public @NonNull MockResponse dispatch(@NonNull RecordedRequest request) {
+                    if ("POST".equals(request.getMethod())) {
+                        return new MockResponse()
+                                .setResponseCode(200)
+                                .setHeader("Content-Type", "application/fhir+json")
+                                .setBody(PATIENT_BUNDLE_WITH_NEXT.formatted(baseUrl + "/Patient?page=2"));
+                    }
+                    return new MockResponse().setResponseCode(404);
+                }
+            });
+
+            var result = dataStore.search(Query.ofType("Patient"), Patient.class);
+
+            StepVerifier.create(result)
+                    .expectNextMatches(p -> p.getIdElement().getIdPart().equals("p1"))
+                    .expectErrorSatisfies(e -> {
+                        assertThat(e).isInstanceOf(WebClientResponseException.NotFound.class);
+                        assertThat(RetryabilityUtil.isRetryable(e)).isTrue();
+                    })
+                    .verify(Duration.ofSeconds(30));
+            assertThat(mockStore.getRequestCount()).isEqualTo(16);
         }
 
     }

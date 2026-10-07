@@ -21,7 +21,8 @@ public record Issue(@JsonProperty Severity severity, @JsonProperty String msg, @
     }
 
     /**
-     * Creates an Issue that only stores exception class + message, no stacktrace.
+     * Creates an Issue that only stores exception class + message and, if different, the root cause's class +
+     * message, no stacktrace.
      */
     public static Issue fromException(Severity severity, String msg, Throwable e) {
         return new Issue(severity, msg, exceptionSummary(e));
@@ -33,10 +34,12 @@ public record Issue(@JsonProperty Severity severity, @JsonProperty String msg, @
         String cls = e.getClass().getName();
         String m = e.getMessage();
 
-        if (m == null || m.isBlank()) {
-            return cls;
+        String summary = (m == null || m.isBlank()) ? cls : cls + ": " + m;
+
+        if (RetryabilityUtil.rootCause(e) == e) {
+            return summary;
         }
-        return cls + ": " + m;
+        return summary + " (root cause: " + RetryabilityUtil.rootCauseMessage(e) + ")";
     }
 
     public static List<Issue> merge(List<Issue> a, List<Issue> b) {
