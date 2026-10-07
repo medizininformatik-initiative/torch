@@ -132,7 +132,7 @@ if [[ -z "$EXPORT_ID" ]]; then
 RESPONSE=$(
   parameters \
     | jq -cM \
-         --arg content "$(cat "$CRTDL_FILE")" \
+         --rawfile content "$CRTDL_FILE" \
          '
           .parameter[0].valueBase64Binary = ($content | @base64)
           | .parameter += ($ARGS.positional | map({name:"patient", valueString:.}))
@@ -144,7 +144,7 @@ RESPONSE=$(
         --data-binary @-
 )
 
-  RAW_LOCATION=$(echo "$RESPONSE" | awk '/Content-Location:/ {print $2}' | tr -d '\r\n')
+  RAW_LOCATION=$(echo "$RESPONSE" | awk 'tolower($1) == "content-location:" {print $2}' | tr -d '\r\n')
   if [[ -z "$RAW_LOCATION" ]]; then
     echo "❌ Failed to capture Content-Location header." >&2
     exit 1
