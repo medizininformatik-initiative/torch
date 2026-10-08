@@ -86,7 +86,7 @@ jobs:
       security-events: write  # Upload Trivy SARIF results
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -233,7 +233,7 @@ jobs:
 
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -270,7 +270,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -319,7 +319,7 @@ jobs:
     name: script-integration-test (${{ matrix.name }})
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -358,7 +358,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -381,7 +381,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -411,7 +411,7 @@ jobs:
     name: resumability (restart container after ${{ matrix.restart_after_seconds }}s)
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -447,7 +447,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -482,7 +482,7 @@ jobs:
     name: task-api-test (${{ matrix.script }})
     steps:
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
@@ -551,13 +551,13 @@ jobs:
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Download Torch Jar
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-jar
           path: target
 
       - name: Download Torch Image
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
           name: torch-image
           path: /tmp
