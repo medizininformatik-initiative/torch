@@ -41,4 +41,15 @@ class EnvironmentVariableBindingTest {
     void encounterShiftIsEnabledByDefault() throws IOException {
         assertThat(bindWith(Map.of()).enableEncounterShift()).isTrue();
     }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"TORCH_ENCOUNTER_SHIFT_MAX_DAYS", "TORCH_ENCOUNTERSHIFTMAXDAYS"})
+    void encounterShiftMaxDaysCanBeSet(String variable) throws IOException {
+        assertThat(bindWith(Map.of(variable, "14")).encounterShiftMaxDays()).isEqualTo(14);
+    }
+
+    @Test
+    void encounterShiftMaxDaysDefaultsToSevenDays() throws IOException {
+        assertThat(bindWith(Map.of()).encounterShiftMaxDays()).isEqualTo(7);
+    }
 }

@@ -81,7 +81,8 @@ class FhirControllerTest {
             "search-parameters.json",
             true,
             false,
-            true // enableEncounterShift
+            true, // enableEncounterShift
+            7 // encounterShiftMaxDays
     );
 
     WebTestClient client;

@@ -84,7 +84,12 @@ Before any data extraction:
 4. **Fetch from FHIR** — **Active** Consent resources are fetched for the supported codes, plus any retro modifier codes
    that were explicitly requested in the CRTDL.
 5. **Adjust by Encounter** — for data-period codes (non-gate codes, i.e. `.6`), the start of each permitted provision
-   is shifted to the start of the earliest overlapping Encounter if that Encounter start is earlier. Encounters
+   is shifted to the start of the earliest overlapping Encounter if that Encounter start is earlier. Only inpatient
+   Encounters (`class` = `IMP`) are considered, so long-running ambulatory or other non-inpatient contacts cannot pull
+   the start far into the past. If that Encounter starts more than `TORCH_ENCOUNTER_SHIFT_MAX_DAYS` (default `7`) days
+   before the provision start, the provision is not shifted at all. This means that consent given late in a long
+   inpatient stay (e.g. after ICU treatment) does not cover the earlier part of that stay; raise the limit if this is
+   not intended. Setting it to `0` effectively disables the shift. Encounters
    without both a start and end date are ignored i.e. an open-ended (ongoing) encounter cannot anchor the shift. Gate
    codes (`.8`) are never encounter-adjusted by design. This step can be turned off entirely via
    `TORCH_ENABLE_ENCOUNTER_SHIFT` (default `true`); when disabled, no Encounter search is performed and provisions

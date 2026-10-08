@@ -34,6 +34,7 @@ public class ConsentHandler {
     private final ConsentCalculator consentCalculator;
     private final ConsentCodeConfig consentCodeConfig;
     private final boolean enableEncounterShift;
+    private final int encounterShiftMaxDays;
 
     /**
      * Constructs a new {@code ConsentHandler} with the specified dependencies.
@@ -44,14 +45,17 @@ public class ConsentHandler {
      * @param consentCodeConfig the {@link ConsentCodeConfig} describing supported codes and their roles
      * @param enableEncounterShift whether data-period provisions are shifted to overlapping encounter starts
      *                             ({@code torch.enableEncounterShift})
+     * @param encounterShiftMaxDays the maximum number of days a provision start may be shifted back
+     *                              ({@code torch.encounterShiftMaxDays})
      */
     public ConsentHandler(ConsentFetcher consentFetcher, ConsentAdjuster consentAdjuster, ConsentCalculator consentCalculator, ConsentCodeConfig consentCodeConfig,
-                           boolean enableEncounterShift) {
+                           boolean enableEncounterShift, int encounterShiftMaxDays) {
         this.consentFetcher = requireNonNull(consentFetcher);
         this.consentAdjuster = requireNonNull(consentAdjuster);
         this.consentCalculator = requireNonNull(consentCalculator);
         this.consentCodeConfig = requireNonNull(consentCodeConfig);
         this.enableEncounterShift = enableEncounterShift;
+        this.encounterShiftMaxDays = encounterShiftMaxDays;
     }
 
     /**
@@ -81,7 +85,8 @@ public class ConsentHandler {
         return consentFetcher.fetchConsentInfo(codesToFetch, batch)
                 .flatMap(rawProvisions ->
                         enableEncounterShift
-                                ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, rawProvisions, encounterAdjustCodes)
+                                ? consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, rawProvisions, encounterAdjustCodes,
+                                        encounterShiftMaxDays)
                                 : Mono.just(rawProvisions)
                 )
                 .doOnNext(adjustedProvisions -> recordRawProvisions(batch, adjustedProvisions))

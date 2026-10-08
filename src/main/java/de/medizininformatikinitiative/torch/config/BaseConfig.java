@@ -128,7 +128,7 @@ public class BaseConfig {
                                          ConsentCodeConfig consentCodeConfig,
                                          TorchProperties torchProperties) {
         return new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig,
-                torchProperties.enableEncounterShift());
+                torchProperties.enableEncounterShift(), torchProperties.encounterShiftMaxDays());
     }
 
     // ----------------------------------------------------------------------

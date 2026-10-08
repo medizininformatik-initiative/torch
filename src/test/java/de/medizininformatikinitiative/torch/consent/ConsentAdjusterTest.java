@@ -31,6 +31,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class ConsentAdjusterUnitTest {
 
+    private static final int MAX_SHIFT_DAYS = 7;
+
     @Mock
     private DataStore dataStore;
 
@@ -63,7 +65,8 @@ class ConsentAdjusterUnitTest {
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
                 Map.of(),
-                Set.of(new TermCode("s1", "code1"))
+                Set.of(new TermCode("s1", "code1")),
+                MAX_SHIFT_DAYS
         );
 
         assertThat(updated).containsKey("patient1");
@@ -86,7 +89,7 @@ class ConsentAdjusterUnitTest {
         when(dataStore.search(any(Query.class), eq(Encounter.class)))
                 .thenReturn(Flux.just(invalidEncounter, validEncounter));
 
-        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1"))))
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1")), MAX_SHIFT_DAYS))
                 .assertNext(updated -> {
                     // Only the valid encounter affects the provision
                     ConsentProvisions adjusted = updated.get("patient1").getFirst();
@@ -106,7 +109,8 @@ class ConsentAdjusterUnitTest {
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
                 Map.of("patient1", List.of(e1)),
-                Set.of(new TermCode("s1", "code1"))
+                Set.of(new TermCode("s1", "code1")),
+                MAX_SHIFT_DAYS
         );
 
         ConsentProvisions u = updated.get("patient1").getFirst();
@@ -125,7 +129,8 @@ class ConsentAdjusterUnitTest {
         Map<String, List<ConsentProvisions>> updated = adjuster.adjustProvisionsByEncounters(
                 Map.of("patient1", List.of(consent)),
                 Map.of("patient1", List.of(e1, e2)),
-                Set.of(new TermCode("s1", "code1"))
+                Set.of(new TermCode("s1", "code1")),
+                MAX_SHIFT_DAYS
         );
 
         ConsentProvisions u = updated.get("patient1").getFirst();
@@ -146,7 +151,7 @@ class ConsentAdjusterUnitTest {
         when(dataStore.search(any(Query.class), eq(Encounter.class)))
                 .thenReturn(Flux.just(e1));
 
-        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1"))))
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent)), Set.of(new TermCode("s1", "code1")), MAX_SHIFT_DAYS))
                 .expectNextCount(1)
                 .verifyComplete();
 
@@ -172,7 +177,7 @@ class ConsentAdjusterUnitTest {
         when(dataStore.search(any(Query.class), eq(Encounter.class)))
                 .thenReturn(Flux.just(e1, e2));
 
-        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent1), "patient2", List.of(consent2)), Set.of(new TermCode("s1", "code1"), new TermCode("s1", "code2"))))
+        StepVerifier.create(adjuster.fetchEncounterAndAdjustByEncounter(batch, Map.of("patient1", List.of(consent1), "patient2", List.of(consent2)), Set.of(new TermCode("s1", "code1"), new TermCode("s1", "code2")), MAX_SHIFT_DAYS))
                 .assertNext(updated -> {
                     assertThat(updated.get("patient1").getFirst().provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 5));
                     assertThat(updated.get("patient2").getFirst().provisions().getFirst().period().start()).isEqualTo(LocalDate.of(2025, 9, 28));

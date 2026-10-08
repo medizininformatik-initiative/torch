@@ -234,6 +234,17 @@ provisions are used as fetched and no Encounter search is performed.
 
 ---
 
+#### `TORCH_ENCOUNTER_SHIFT_MAX_DAYS` <Badge type="warning" text="Since 1.0.3"/>
+
+Maximum number of days the encounter shift may move a data-period consent provision start back. If the earliest
+overlapping inpatient Encounter starts further back than this, the provision is not shifted at all (see
+[Encounter Adjustment](./implementation/consent.md#encounter-adjustment)). Guards against long-running or
+mis-modelled Encounters.
+
+**Default:** `7`
+
+---
+
 ---
 
 #### `TORCH_OUTPUT_FILE_SERVER_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>

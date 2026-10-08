@@ -33,6 +33,8 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 public class ConsentHandlerTest {
 
+    private static final int MAX_SHIFT_DAYS = 7;
+
     public static final String PATIENT_ID = "VHF00006";
     public static final String UNKNOWN_PATIENT_ID = "Unknown";
     public static final PatientBatch BATCH = PatientBatch.of(PATIENT_ID);
@@ -56,7 +58,8 @@ public class ConsentHandlerTest {
 
     @BeforeEach
     void setUp() {
-        consentHandler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, true);
+        consentHandler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, true,
+                MAX_SHIFT_DAYS);
     }
 
     @Test
@@ -109,21 +112,22 @@ public class ConsentHandlerTest {
         when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
         when(consentCodeConfig.nonGateCodes(codes)).thenReturn(codes);
         when(consentFetcher.fetchConsentInfo(codes, BATCH)).thenReturn(Mono.just(fetchedProvisions));
-        when(consentAdjuster.fetchEncounterAndAdjustByEncounter(BATCH, fetchedProvisions, codes)).thenReturn(Mono.just(adjustedProvisions));
+        when(consentAdjuster.fetchEncounterAndAdjustByEncounter(BATCH, fetchedProvisions, codes, MAX_SHIFT_DAYS)).thenReturn(Mono.just(adjustedProvisions));
         when(consentCalculator.calculateConsent(codes, adjustedProvisions)).thenReturn(consentPeriodsByPatient());
 
         StepVerifier.create(consentHandler.fetchAndBuildConsentInfo(codes, BATCH))
                 .assertNext(result -> assertThat(result.patientIds()).containsExactly(PATIENT_ID))
                 .verifyComplete();
 
-        verify(consentAdjuster).fetchEncounterAndAdjustByEncounter(BATCH, fetchedProvisions, codes);
+        verify(consentAdjuster).fetchEncounterAndAdjustByEncounter(BATCH, fetchedProvisions, codes, MAX_SHIFT_DAYS);
     }
 
     @Test
     void encounterShiftDisabledSkipsConsentAdjuster() {
         var codes = CODES;
         var fetchedProvisions = provisionsByPatient();
-        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false);
+        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false,
+                MAX_SHIFT_DAYS);
 
         when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
         when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
@@ -145,7 +149,8 @@ public class ConsentHandlerTest {
         var provision = new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)), true);
         var consentProvisions = new ConsentProvisions("c1", PATIENT_ID, new DateTimeType("2021-01-01T00:00:00Z"), List.of(provision));
         var fetchedProvisions = Map.of(PATIENT_ID, List.of(consentProvisions));
-        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false);
+        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false,
+                MAX_SHIFT_DAYS);
 
         when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
         when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
@@ -181,7 +186,7 @@ public class ConsentHandlerTest {
         when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
         when(consentCodeConfig.nonGateCodes(codes)).thenReturn(codes);
         when(consentFetcher.fetchConsentInfo(codes, batch)).thenReturn(Mono.just(fetchedProvisions));
-        when(consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, fetchedProvisions, codes)).thenReturn(Mono.just(adjustedProvisions));
+        when(consentAdjuster.fetchEncounterAndAdjustByEncounter(batch, fetchedProvisions, codes, MAX_SHIFT_DAYS)).thenReturn(Mono.just(adjustedProvisions));
         when(consentCalculator.calculateConsent(codes, adjustedProvisions)).thenReturn(consentPeriodsByPatient());
 
         StepVerifier.create(consentHandler.fetchAndBuildConsentInfo(codes, batch))
