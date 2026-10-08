@@ -20,11 +20,16 @@ public record ConsentProvisions(String id, String patientId, DateTimeType dateTi
      * (e.g. {@code ...3.6}) should have their collection window shifted by encounter timestamps. Deny
      * provisions are never shifted, regardless of their code. A shifted provision carries an
      * {@link EncounterShift} with its original start and the encounter it was shifted to.
+     * <p>
+     * If the earliest overlapping encounter starts more than {@code maxShiftDays} days before the provision start,
+     * the provision is left unshifted rather than shifted to a later-starting encounter.
      *
      * @param encounters      the patient's encounters
      * @param adjustableCodes codes whose provision start may be shifted (typically non-gate codes)
+     * @param maxShiftDays    the maximum number of days a provision start may be moved back
      */
-    public ConsentProvisions updateByEncounters(Collection<Encounter> encounters, Set<TermCode> adjustableCodes) {
+    public ConsentProvisions updateByEncounters(Collection<Encounter> encounters, Set<TermCode> adjustableCodes,
+                                                int maxShiftDays) {
         List<EncounterPeriod> encounterPeriods = encounters.stream()
                 .flatMap(e -> Period.fromHapi(e.getPeriod()).map(period -> new EncounterPeriod(e.getIdPart(), period)).stream())
                 .toList();
@@ -45,6 +50,8 @@ public record ConsentProvisions(String id, String patientId, DateTimeType dateTi
                                     .thenComparing(EncounterPeriod::encounterId));
 
                     return earliest
+                            .filter(encounter -> !encounter.period().start()
+                                    .isBefore(provisionsPeriod.period().start().minusDays(maxShiftDays)))
                             .map(encounter -> new Provision(provisionsPeriod.code(),
                                     new Period(encounter.period().start(), provisionsPeriod.period().end()),
                                     provisionsPeriod.permit(),

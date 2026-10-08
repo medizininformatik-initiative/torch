@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.codeValue;
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static java.util.Objects.requireNonNull;
 
@@ -28,7 +30,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Service responsible for adjusting consent provisions based on associated patient encounters.
  * <p>
- * This class fetches patient encounters from a FHIR server and updates the start times of
+ * This class fetches inpatient encounters from a FHIR server and updates the start times of
  * {@link ConsentProvisions} if the provision start falls within an encounter period.
  * </p>
  */
@@ -37,6 +39,7 @@ public class ConsentAdjuster {
 
     private static final Logger logger = LoggerFactory.getLogger(ConsentAdjuster.class);
     private static final String CDS_ENCOUNTER_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
+    private static final Code INPATIENT_ENCOUNTER_CLASS = new Code("http://terminology.hl7.org/CodeSystem/v3-ActCode", "IMP");
 
     private final DataStore dataStore;
 
@@ -57,31 +60,38 @@ public class ConsentAdjuster {
      * @param batch           the {@link PatientBatch} containing patient IDs whose encounters should be fetched
      * @param provisions      a map from patient ID to their list of consent provisions to be adjusted
      * @param adjustableCodes the provision codes eligible for encounter-based start adjustment
+     * @param maxShiftDays    the maximum number of days a provision start may be moved back
      * @return a {@link Mono} emitting a map from patient ID to the list of adjusted provisions
      */
     public Mono<Map<String, List<ConsentProvisions>>> fetchEncounterAndAdjustByEncounter(
             PatientBatch batch,
             Map<String, List<ConsentProvisions>> provisions,
-            Set<TermCode> adjustableCodes) {
+            Set<TermCode> adjustableCodes,
+            int maxShiftDays) {
         return fetchAndGroupEncounterByPatient(batch)
                 .map(encountersByPatient ->
-                        adjustProvisionsByEncounters(provisions, encountersByPatient, adjustableCodes)
+                        adjustProvisionsByEncounters(provisions, encountersByPatient, adjustableCodes, maxShiftDays)
                 );
     }
 
     /**
-     * Builds a FHIR Search {@code Query} to fetch all Encounters for a given patient batch
+     * Builds a FHIR Search {@code Query} to fetch all inpatient Encounters for a given patient batch
      * that conform to the CDS Encounter profile.
+     * <p>
+     * Other classes such as ambulatory are excluded, because their often long-running periods
+     * would shift provision starts far into the past.
      *
      * @param batch The patient batch for which to fetch encounters.
      * @return A {@link Query} configured for the batch.
      */
     private static Query getEncounterQuery(PatientBatch batch) {
-        return Query.of("Encounter", batch.compartmentSearchParam("Encounter").appendParam("_profile:below", stringValue(CDS_ENCOUNTER_PROFILE_URL)));
+        return Query.of("Encounter", batch.compartmentSearchParam("Encounter")
+                .appendParam("_profile:below", stringValue(CDS_ENCOUNTER_PROFILE_URL))
+                .appendParam("class", codeValue(INPATIENT_ENCOUNTER_CLASS)));
     }
 
     /**
-     * Fetches all encounters for the patients in the batch and groups them by patient ID.
+     * Fetches all inpatient encounters for the patients in the batch and groups them by patient ID.
      *
      * @param batch The patient batch containing the patient IDs.
      * @return A {@link Mono} emitting a map of patient ID to their associated encounters.
@@ -106,17 +116,20 @@ public class ConsentAdjuster {
      * Pure function that adjusts a map of {@link ConsentProvisions} based on a map of patient encounters.
      * <p>
      * For each provision, if its start date falls within any of the patient's encounter periods,
-     * the provision start is shifted to the earliest overlapping encounter start.
+     * the provision start is shifted to the earliest overlapping encounter start, unless that start lies more than
+     * {@code maxShiftDays} days before the provision start.
      *
      * @param provisions          a map from patient ID to their list of consent provisions to adjust
      * @param encountersByPatient a map from patient ID to their associated encounters
      * @param adjustableCodes     the provision codes eligible for encounter-based start adjustment
+     * @param maxShiftDays        the maximum number of days a provision start may be moved back
      * @return a map from patient ID to the list of adjusted {@link ConsentProvisions}
      */
     public Map<String, List<ConsentProvisions>> adjustProvisionsByEncounters(
             Map<String, List<ConsentProvisions>> provisions,
             Map<String, Collection<Encounter>> encountersByPatient,
-            Set<TermCode> adjustableCodes
+            Set<TermCode> adjustableCodes,
+            int maxShiftDays
     ) {
         return provisions
                 .entrySet().stream()
@@ -125,7 +138,8 @@ public class ConsentAdjuster {
                         entry -> entry.getValue().stream()
                                 .map(cp -> cp.updateByEncounters(
                                         encountersByPatient.getOrDefault(entry.getKey(), List.of()),
-                                        adjustableCodes))
+                                        adjustableCodes,
+                                        maxShiftDays))
                                 .toList()
                 ));
     }

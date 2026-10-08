@@ -44,6 +44,7 @@ torch:
   bufferSize: 100
   disableConsentCalculation: ${DISABLE_CONSENT_CALCULATION:false}
   enableEncounterShift: true
+  encounterShiftMaxDays: 7
   output:
     file:
       server:

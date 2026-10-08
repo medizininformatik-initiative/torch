@@ -119,7 +119,8 @@ class WebConfigTest {
                 "search-parameters.json",
                 false, // useCql
                 false, // disableConsentCalculation
-                true // enableEncounterShift
+                true, // enableEncounterShift
+                7 // encounterShiftMaxDays
         );
     }
 

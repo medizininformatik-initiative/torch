@@ -34,7 +34,8 @@ public class TorchPropertiesTest {
                     "search-parameters.json",
                     false, // useCql=false
                     false,
-                    true // enableEncounterShift
+                    true, // enableEncounterShift
+                    7 // encounterShiftMaxDays
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
         }
@@ -59,7 +60,8 @@ public class TorchPropertiesTest {
                     "search-parameters.json",
                     false,
                     false,
-                    true // enableEncounterShift
+                    true, // enableEncounterShift
+                    7 // encounterShiftMaxDays
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
         }
@@ -84,7 +86,8 @@ public class TorchPropertiesTest {
                     "search-parameters.json",
                     false,
                     false,
-                    true // enableEncounterShift
+                    true, // enableEncounterShift
+                    7 // encounterShiftMaxDays
             )).isInstanceOf(IllegalArgumentException.class)
                     .hasMessage("When useCql is false, flare.url must be a non-empty string");
         }
@@ -109,7 +112,8 @@ public class TorchPropertiesTest {
                     "search-parameters.json",
                     false,
                     false,
-                    true // enableEncounterShift
+                    true, // enableEncounterShift
+                    7 // encounterShiftMaxDays
             )).doesNotThrowAnyException();
         }
 
@@ -133,7 +137,8 @@ public class TorchPropertiesTest {
                     "search-parameters.json",
                     true,
                     false,
-                    true // enableEncounterShift
+                    true, // enableEncounterShift
+                    7 // encounterShiftMaxDays
             )).doesNotThrowAnyException();
         }
 

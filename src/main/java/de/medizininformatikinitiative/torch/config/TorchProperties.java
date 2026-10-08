@@ -25,7 +25,8 @@ public record TorchProperties(
         @NotBlank(message = "Search Parameters file is required") String searchParametersFile,
         boolean useCql,
         boolean disableConsentCalculation,
-        boolean enableEncounterShift
+        boolean enableEncounterShift,
+        @Min(value = 0, message = "Encounter shift max days must be at least 0") int encounterShiftMaxDays
 ) {
 
     public TorchProperties {

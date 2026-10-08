@@ -53,7 +53,8 @@ class TaskControllerTest {
             "search-parameters.json",
             true,
             false,
-            true // enableEncounterShift
+            true, // enableEncounterShift
+            7 // encounterShiftMaxDays
     );
 
     @Mock

@@ -53,7 +53,8 @@ class JobTaskMapperTest {
             "search-parameters.json",
             true,
             false,
-            true // enableEncounterShift
+            true, // enableEncounterShift
+            7 // encounterShiftMaxDays
     );
 
     private final ResultFileManager resultFileManager = mock(ResultFileManager.class);
