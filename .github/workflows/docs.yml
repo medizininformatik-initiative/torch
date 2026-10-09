@@ -41,7 +41,8 @@ jobs:
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         working-directory: docs
         env:
-          DOCS_BASE: "/${{ github.event.repository.name }}/"
+          DOCS_BASE: "/${{ github.event.repository.name }}/dev/"
+          VITE_DOCS_VERSION: dev
         run: make build
 
       - name: Build Preview
@@ -49,6 +50,7 @@ jobs:
         working-directory: docs
         env:
           DOCS_BASE: "/${{ github.event.repository.name }}/preview/pr-${{ github.event.number }}/"
+          VITE_DOCS_VERSION: pr-${{ github.event.number }}
         run: make build
 
       - name: Upload Pages Artifact
@@ -82,6 +84,7 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: dist
+          destination_dir: dev
           keep_files: true
 
       - name: Deploy Preview

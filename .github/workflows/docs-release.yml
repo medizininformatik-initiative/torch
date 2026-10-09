@@ -1,0 +1,150 @@
+name: Docs Release
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+    inputs:
+      tags:
+        description: 'Space-separated release tags to (re)build docs for, e.g. "v1.0.0 v1.0.1"'
+        required: true
+        type: string
+
+permissions: read-all
+
+jobs:
+  tags:
+    runs-on: ubuntu-24.04
+    outputs:
+      tags: ${{ steps.tags.outputs.tags }}
+    steps:
+      - id: tags
+        env:
+          TAGS: ${{ github.event_name == 'workflow_dispatch' && inputs.tags || github.ref_name }}
+        # Tags become gh-pages directory names, so reject anything but release tags.
+        run: |
+          json=$(jq -cn --arg t "$TAGS" '$t | split(" ") | map(select(length > 0))')
+          jq -e 'length > 0 and all(test("^v[0-9]+\\.[0-9]+\\.[0-9]+(-[0-9A-Za-z.]+)?$"))' <<< "$json" > /dev/null \
+            || { echo "::error::Invalid tags: $TAGS"; exit 1; }
+          echo "tags=$json" >> "$GITHUB_OUTPUT"
+
+  # Builds run untrusted dependency code of older tags, so they get no write access. Only the
+  # deploy job, which runs no build tooling, can push to gh-pages.
+  build:
+    needs: tags
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        tag: ${{ fromJSON(needs.tags.outputs.tags) }}
+    env:
+      REPO: ${{ github.event.repository.name }}
+    steps:
+      - name: Check out Workflow Ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: current
+          persist-credentials: false
+
+      - name: Check out Tag
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ matrix.tag }}
+          path: tag
+          persist-credentials: false
+
+      # Older tags predate the version switcher. Their theme differs from the current one only by
+      # the switcher and styling, so the current theme is used for every build.
+      - name: Overlay Current Theme
+        run: |
+          rm -rf tag/docs/.vitepress/theme
+          cp -r current/docs/.vitepress/theme tag/docs/.vitepress/theme
+
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version-file: tag/.nvmrc
+          cache: npm
+          cache-dependency-path: 'tag/docs/package-lock.json'
+
+      - name: Build Version
+        working-directory: tag/docs
+        env:
+          DOCS_BASE: /${{ env.REPO }}/${{ matrix.tag }}/
+          VITE_DOCS_VERSION: ${{ matrix.tag }}
+        run: |
+          make build
+          mkdir -p ../../out
+          mv .vitepress/dist ../../out/version
+
+      # Deployed to the root only if the tag turns out to be the latest release.
+      - name: Build Root
+        working-directory: tag/docs
+        env:
+          DOCS_BASE: /${{ env.REPO }}/
+          VITE_DOCS_VERSION: ${{ matrix.tag }}
+        run: |
+          npm run docs:build
+          mv .vitepress/dist ../../out/root
+
+      - name: Upload Docs Artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: docs-${{ matrix.tag }}
+          path: out
+
+  deploy:
+    needs: [ tags, build ]
+    runs-on: ubuntu-24.04
+    # Serialize all gh-pages pushes globally, shared with docs.yml.
+    concurrency:
+      group: docs-deploy
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    env:
+      TAGS: ${{ needs.tags.outputs.tags }}
+      REPO: ${{ github.event.repository.name }}
+    steps:
+      - name: Check out Workflow Ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          path: current
+          persist-credentials: false
+
+      - name: Check out gh-pages
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: gh-pages
+          path: pages
+
+      - name: Download Docs Artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: docs-*
+          path: dist
+
+      # The root keeps serving the latest release so that pre-versioning deep links stay valid.
+      # Files are copied over the existing root instead of replacing it, which keeps the version,
+      # dev and preview directories as well as pages that no longer exist in the latest release.
+      - name: Deploy Versions
+        run: |
+          for tag in $(jq -r '.[]' <<< "$TAGS"); do
+            rm -rf "pages/$tag"
+            cp -r "dist/docs-$tag/version" "pages/$tag"
+            latest=$(node current/.github/scripts/update-docs-versions.mjs pages/versions.json "$tag" "$REPO")
+            if [ "$latest" = true ]; then
+              cp -r "dist/docs-$tag/root/." pages/
+            fi
+          done
+
+      - name: Commit and Push
+        working-directory: pages
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add -A
+          git commit -m "Deploy docs: $(jq -r 'join(" ")' <<< "$TAGS")" || echo "No changes to commit"
+          git push
