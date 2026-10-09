@@ -1,11 +1,16 @@
 import DefaultTheme, {VPBadge} from 'vitepress/theme'
 import type {Theme} from 'vitepress'
+import {h} from 'vue'
+import VersionSwitcher from './VersionSwitcher.vue'
 
 import 'vitepress-openapi/dist/style.css'
 import './mermaid-nodes.css'
 
 export default {
     extends: DefaultTheme,
+    Layout: () => h(DefaultTheme.Layout, null, {
+        'nav-bar-content-before': () => h(VersionSwitcher)
+    }),
     async enhanceApp({app}) {
         // Register the built-in VitePress Badge as 'VpBadge'
         // to avoid the "Component 'Badge' has already been registered" warning.
