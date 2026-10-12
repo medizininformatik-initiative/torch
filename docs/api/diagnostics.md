@@ -9,6 +9,9 @@ and `torch-resource-exclusions` extensions (see [API — Job Completion Manifest
 Three further reports, the [consent diagnostics](#consent-diagnostics), are written only if explicitly requested via the opt-in
 `consentDiagnostics` request parameter (see [API — Request Body Structure](./api#request-body-structure)).
 
+The [consent conflicts](#consent-conflicts) report is always collected and written only if at least one conflicting
+consent encoding was found.
+
 # Job Summary
 A JSON object containing the following fields:
 - `Num-Cohort-Patients`: the number of patients of the initial cohort before extraction.
@@ -96,6 +99,33 @@ invalid: that is discovered and reported (as `MUST_HAVE`) during reference resol
 runs, even though the underlying cause is transitive.
 
 ---
+
+## Consent Conflicts
+
+`reports/consent-conflicts.csv` (extension `torch-consent-conflicts`) lists every permit and deny of the same consent
+code whose periods overlap within one signing event, i.e. `Consent` resources sharing a `dateTime`. A signed consent
+document records one decision per code, so such an overlap is an invalid encoding that should be corrected at the
+source. The deny wins for the overlap (see [Consent Documentation](../implementation/consent.md)). The file is always
+collected, without `consentDiagnostics`, sorted by `Patient-ID`, and only written if at least one conflict was found.
+
+### Example
+```csv
+"Batch-ID","Patient-ID","Consent-DateTime","Code","Permit-Consent-ID","Deny-Consent-ID","Overlap-Start","Overlap-End"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","2025-01-01","2.16.840.1.113883.3.1937.777.24.5.3.8","consent-2","consent-2","2025-01-01","2050-12-31"
+```
+
+### Explanation
+
+| Column              | Description                                                                                  |
+|---------------------|----------------------------------------------------------------------------------------------|
+| `Batch-ID`          | The ID of the batch in which the patient was part of                                         |
+| `Patient-ID`        | The ID of the patient                                                                        |
+| `Consent-DateTime`  | The `dateTime` shared by the `Consent` resources of the signing event                        |
+| `Code`              | The conflicting consent code                                                                 |
+| `Permit-Consent-ID` | The ID of the `Consent` resource carrying the permit                                         |
+| `Deny-Consent-ID`   | The ID of the `Consent` resource carrying the deny; may be the same as `Permit-Consent-ID`   |
+| `Overlap-Start`     | The start of the overlap, based on the permit's period before any encounter shift            |
+| `Overlap-End`       | The end of the overlap                                                                       |
 
 ## Consent Diagnostics
 

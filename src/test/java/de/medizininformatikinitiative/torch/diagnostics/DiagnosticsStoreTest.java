@@ -3,6 +3,8 @@ package de.medizininformatikinitiative.torch.diagnostics;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.exceptions.CsvValidationException;
 import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflictEvent;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflicts;
 import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
 import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
@@ -23,6 +25,7 @@ import java.util.Map;
 
 import static de.medizininformatikinitiative.torch.TestUtils.concat;
 import static de.medizininformatikinitiative.torch.TestUtils.readMergedDiagnostics;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONFLICTS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONSIDERED_RESOURCES_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.FINAL_PERIODS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.PATIENT_EXCLUSIONS_FILE;
@@ -72,7 +75,7 @@ class DiagnosticsStoreTest {
         batchExclusions_1.addMustHaveExclusionCore(GROUP_1, RESOURCE_1, ATTRIBUTE_1);
         batchExclusions_1.addReferenceNotFoundExclusionCore(GROUP_1, RESOURCE_1);
         batchExclusions_1.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_1);
-        return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty(), ConsentDiagnostics.disabled());
+        return new BatchDiagnostics(batchExclusions_1, details_1, ConsentAudit.empty(), ConsentDiagnostics.disabled(), ConsentConflicts.empty());
     }
 
     static BatchDiagnostics createDiagnostics_2() {
@@ -85,7 +88,7 @@ class DiagnosticsStoreTest {
         batchExclusions_2.addMustHaveExclusionCore(GROUP_2, RESOURCE_2, ATTRIBUTE_2);
         batchExclusions_2.addReferenceNotFoundExclusionCore(GROUP_2, RESOURCE_2);
         batchExclusions_2.addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, PATIENT_2);
-        return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty(), ConsentDiagnostics.disabled());
+        return new BatchDiagnostics(batchExclusions_2, details_2, ConsentAudit.empty(), ConsentDiagnostics.disabled(), ConsentConflicts.empty());
     }
 
     @Test
@@ -134,7 +137,10 @@ class DiagnosticsStoreTest {
         consentDiagnostics.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
         consentDiagnostics.addConsideredResource(new ConsentConsideredResourceEvent(
                 PATIENT_1, RESOURCE_1, false, "2019-01-01"));
-        var diagnostics = new BatchDiagnostics(batchExclusions, details, ConsentAudit.empty(), consentDiagnostics);
+        var consentConflicts = ConsentConflicts.empty();
+        consentConflicts.add(new ConsentConflictEvent(PATIENT_1, "2025-01-01T00:00:00Z", "code-1", "consent-1",
+                "consent-1", LocalDate.of(2025, 1, 1), LocalDate.of(2050, 12, 31)));
+        var diagnostics = new BatchDiagnostics(batchExclusions, details, ConsentAudit.empty(), consentDiagnostics, consentConflicts);
 
         diagnosticsStore.writeDiagnostics(diagnostics, jobDirectory, BATCH_1);
         var result = diagnosticsStore.loadAllDiagnostics(jobDirectory);
@@ -155,13 +161,19 @@ class DiagnosticsStoreTest {
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_2, RESOURCE_2, true, "2022-04-20"));
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_1, RESOURCE_1, false, "2019-01-01"));
         consentDiagnostics1.addConsideredResource(new ConsentConsideredResourceEvent(PATIENT_2, RESOURCE_1, true, ""));
-        var diagnostics1 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics1);
+        var consentConflicts1 = ConsentConflicts.empty();
+        consentConflicts1.add(new ConsentConflictEvent(PATIENT_2, "2020-01-01", "code-1", "consent-2", "consent-3",
+                LocalDate.of(2023, 1, 1), LocalDate.of(2024, 12, 31)));
+        var diagnostics1 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics1, consentConflicts1);
 
         var consentDiagnostics2 = ConsentDiagnostics.create(true);
         consentDiagnostics2.addRawProvision(new RawProvisionEvent(PATIENT_1, "consent-1", "code-1", true,
                 LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 12, 28), "encounter-1"));
         consentDiagnostics2.addFinalPeriod(new FinalPeriodEvent(PATIENT_1, LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)));
-        var diagnostics2 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics2);
+        var consentConflicts2 = ConsentConflicts.empty();
+        consentConflicts2.add(new ConsentConflictEvent(PATIENT_1, "2025-01-01", "code-2", "consent-1", "consent-1",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2050, 12, 31)));
+        var diagnostics2 = new BatchDiagnostics(BatchExclusions.empty(), details, ConsentAudit.empty(), consentDiagnostics2, consentConflicts2);
 
         diagnosticsStore.writeDiagnostics(diagnostics1, jobDirectory, BATCH_1);
         diagnosticsStore.writeDiagnostics(diagnostics2, jobDirectory, BATCH_2);
@@ -182,11 +194,17 @@ class DiagnosticsStoreTest {
                 "\"batch-id-1\",\"pat-id-2\",\"resource-id-2\",\"true\",\"2022-04-20\"",
                 "\"batch-id-1\",\"pat-id-2\",\"resource-id-1\",\"true\",\"\"");
 
+        assertThat(Files.readAllLines(reportDir.resolve(CONSENT_CONFLICTS_FILE))).containsExactly(
+                "\"Batch-ID\",\"Patient-ID\",\"Consent-DateTime\",\"Code\",\"Permit-Consent-ID\",\"Deny-Consent-ID\",\"Overlap-Start\",\"Overlap-End\"",
+                "\"batch-id-2\",\"pat-id-1\",\"2025-01-01\",\"code-2\",\"consent-1\",\"consent-1\",\"2025-01-01\",\"2050-12-31\"",
+                "\"batch-id-1\",\"pat-id-2\",\"2020-01-01\",\"code-1\",\"consent-2\",\"consent-3\",\"2023-01-01\",\"2024-12-31\"");
+
         assertThat(reportDir.resolve(BATCH_1)).doesNotExist();
         assertThat(reportDir.resolve(BATCH_2)).doesNotExist();
         assertThat(diagnosticsStore.rawProvisionsExists(jobDirectory)).isTrue();
         assertThat(diagnosticsStore.finalPeriodsExists(jobDirectory)).isTrue();
         assertThat(diagnosticsStore.consentConsideredResourcesExists(jobDirectory)).isTrue();
+        assertThat(diagnosticsStore.consentConflictsExists(jobDirectory)).isTrue();
     }
 
     @Test
@@ -198,6 +216,7 @@ class DiagnosticsStoreTest {
         assertThat(diagnosticsStore.rawProvisionsExists(jobDirectory)).isFalse();
         assertThat(diagnosticsStore.finalPeriodsExists(jobDirectory)).isFalse();
         assertThat(diagnosticsStore.consentConsideredResourcesExists(jobDirectory)).isFalse();
+        assertThat(diagnosticsStore.consentConflictsExists(jobDirectory)).isFalse();
     }
 
     @Test

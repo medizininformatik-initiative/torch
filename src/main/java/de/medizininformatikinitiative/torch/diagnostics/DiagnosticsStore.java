@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.CSVReader;
 import com.opencsv.CSVWriter;
 import com.opencsv.exceptions.CsvValidationException;
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflictEvent;
 import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsideredResourceEvent;
 import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
@@ -50,6 +51,7 @@ public class DiagnosticsStore {
     public static final String RAW_PROVISIONS_FILE = "raw-provisions.csv";
     public static final String FINAL_PERIODS_FILE = "final-periods.csv";
     public static final String CONSENT_CONSIDERED_RESOURCES_FILE = "consent-considered-resources.csv";
+    public static final String CONSENT_CONFLICTS_FILE = "consent-conflicts.csv";
     public static final String DETAILS_FILE = "details.json";
 
     private final FileIo io;
@@ -79,6 +81,7 @@ public class DiagnosticsStore {
     private Path intermediateRawProvisionsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(RAW_PROVISIONS_FILE); }
     private Path intermediateFinalPeriodsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(FINAL_PERIODS_FILE); }
     private Path intermediateConsentConsideredResourcesFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(CONSENT_CONSIDERED_RESOURCES_FILE); }
+    private Path intermediateConsentConflictsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(CONSENT_CONFLICTS_FILE); }
     private Path detailsFile(Path jobDir, String batchId) { return reportDir(jobDir).resolve(batchId).resolve(DETAILS_FILE); }
 
     /**
@@ -105,6 +108,8 @@ public class DiagnosticsStore {
                 FinalPeriodEvent.getHeaderNames(), FinalPeriodEvent::toCsvElements);
         writeToCsv(Map.of(batchId, diagnostics.consentDiagnostics().getConsideredResources()), intermediateConsentConsideredResourcesFile(jobDir, batchId),
                 ConsentConsideredResourceEvent.getHeaderNames(), ConsentConsideredResourceEvent::toCsvElements);
+        writeToCsv(Map.of(batchId, diagnostics.consentConflicts().events()), intermediateConsentConflictsFile(jobDir, batchId),
+                ConsentConflictEvent.getHeaderNames(), ConsentConflictEvent::toCsvElements);
         writeBatchDetails(detailsFile(jobDir, batchId), diagnostics);
     }
 
@@ -124,7 +129,7 @@ public class DiagnosticsStore {
     /**
      * Writes resource exclusions and patient exclusions of all batches each into their own job-wide file, plus,
      * when opt-in consent diagnostics are present, one job-wide file each for raw provisions, final periods and
-     * consent-considered resources.
+     * consent-considered resources, and, when any were found, one job-wide file for consent conflicts.
      *
      * @param diagnostics   a map from Batch-ID to the diagnostics of the batch
      * @param jobDir        the directory of the job
@@ -145,6 +150,9 @@ public class DiagnosticsStore {
         writeSortedByPatientIfNotEmpty(mergeByBatch(diagnostics, d -> d.consentDiagnostics().getConsideredResources()),
                 reportDir(jobDir).resolve(CONSENT_CONSIDERED_RESOURCES_FILE), ConsentConsideredResourceEvent.getHeaderNames(),
                 ConsentConsideredResourceEvent::toCsvElements, ConsentConsideredResourceEvent::patientId);
+        writeSortedByPatientIfNotEmpty(mergeByBatch(diagnostics, d -> d.consentConflicts().events()),
+                reportDir(jobDir).resolve(CONSENT_CONFLICTS_FILE), ConsentConflictEvent.getHeaderNames(),
+                ConsentConflictEvent::toCsvElements, ConsentConflictEvent::patientId);
     }
 
     private <T> Map<String, List<T>> mergeByBatch(Map<String, BatchDiagnostics> diagnostics, Function<BatchDiagnostics, List<T>> rowsOf) {
@@ -204,6 +212,10 @@ public class DiagnosticsStore {
         return io.exists(reportDir(jobDir).resolve(CONSENT_CONSIDERED_RESOURCES_FILE));
     }
 
+    public boolean consentConflictsExists(Path jobDir) {
+        return io.exists(reportDir(jobDir).resolve(CONSENT_CONFLICTS_FILE));
+    }
+
     /**
      * Reads the separately stored diagnostics of all batches.
      *
@@ -223,6 +235,7 @@ public class DiagnosticsStore {
                     intermediateRawProvisionsFile(jobDir, batchId).toFile(),
                     intermediateFinalPeriodsFile(jobDir, batchId).toFile(),
                     intermediateConsentConsideredResourcesFile(jobDir, batchId).toFile(),
+                    intermediateConsentConflictsFile(jobDir, batchId).toFile(),
                     detailsFile(jobDir, batchId).toFile());
 
             diagnosticsPerBatch.put(batchId, diagnostics);
@@ -257,6 +270,8 @@ public class DiagnosticsStore {
      *                                       batch directory written before this file existed
      * @param consentConsideredResourcesFile the file containing the batch's per-resource consent decisions,
      *                                       absent for a batch directory written before this file existed
+     * @param consentConflictsFile          the file containing the batch's consent conflicts, absent for a batch
+     *                                       directory written before this file existed
      * @param detailsFile                   the file containing other measurements of the batch diagnostics
      * @return                          the new batch diagnostics object containing all information read from the files
      * @throws IOException              if reading from the file system goes wrong
@@ -267,6 +282,7 @@ public class DiagnosticsStore {
                                                    File rawProvisionsFile,
                                                    File finalPeriodsFile,
                                                    File consentConsideredResourcesFile,
+                                                   File consentConflictsFile,
                                                    File detailsFile) throws IOException, CsvValidationException{
         BatchDiagnostics diagnostics = BatchDiagnostics.empty().withConsentDiagnosticsEnabled(true);
 
@@ -275,6 +291,7 @@ public class DiagnosticsStore {
         readCsvIfExists(rawProvisionsFile, RawProvisionEvent::fromCsv, diagnostics.consentDiagnostics()::addRawProvision);
         readCsvIfExists(finalPeriodsFile, FinalPeriodEvent::fromCsv, diagnostics.consentDiagnostics()::addFinalPeriod);
         readCsvIfExists(consentConsideredResourcesFile, ConsentConsideredResourceEvent::fromCsv, diagnostics.consentDiagnostics()::addConsideredResource);
+        readCsvIfExists(consentConflictsFile, ConsentConflictEvent::fromCsv, diagnostics.consentConflicts()::add);
         BatchDetails batchDetails = readBatchDetails(detailsFile);
 
         return diagnostics.setBatchDetails(batchDetails);
@@ -283,7 +300,7 @@ public class DiagnosticsStore {
     /**
      * Reads a CSV file like {@link #readCsv}, but treats a missing file as containing zero rows instead of
      * failing — a batch directory written before this file existed (a job in flight across a TORCH upgrade)
-     * has none of the opt-in consent-diagnostics files at all, which is equivalent to empty diagnostics.
+     * has none of the consent-diagnostics or consent-conflicts files at all, which is equivalent to empty diagnostics.
      *
      * @throws IOException              if reading from the file system goes wrong
      * @throws CsvValidationException   if reading the csv files goes wrong
@@ -325,7 +342,7 @@ public class DiagnosticsStore {
     /**
      * Writes diagnostic rows like {@link #writeToCsv}, but ordered by Patient-ID across all batches so that each
      * patient's rows are contiguous, and skips the file entirely when there are no rows (consent diagnostics
-     * were not requested).
+     * were not requested, or no consent conflicts were found).
      *
      * @param <T>             the type of row to write
      * @param rowsPerBatch    a map from Batch-ID to rows to write to the file

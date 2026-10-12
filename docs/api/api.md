@@ -176,6 +176,7 @@ TORCH-specific data is surfaced in the `extension` array. Five extension URLs ar
 | `torch-raw-provisions`                                    | `valueUrl` pointing to a CSV file containing the raw consent provisions; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics)     | `consentDiagnostics` was requested and same as above           |
 | `torch-final-periods`                                     | `valueUrl` pointing to a CSV file containing the final consent periods; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics)      | `consentDiagnostics` was requested and same as above           |
 | `torch-consent-considered-resources`                      | `valueUrl` pointing to a CSV file containing per-resource consent decisions; see [Consent Diagnostics](./diagnostics.md#consent-diagnostics) | `consentDiagnostics` was requested and same as above           |
+| `torch-consent-conflicts`                                 | `valueUrl` pointing to a CSV file containing overlapping permits and denies of the same consent code within one signing event; see [Consent Conflicts](./diagnostics.md#consent-conflicts) | At least one conflict was found and same as above |
 | `torch-job-issues`                                        | List of `{severity, msg, diagnostics}` objects recording warnings and errors that occurred during processing (e.g. skipped batches, retries) | At least one issue was recorded                                |
 
 Example completed manifest:
@@ -272,6 +273,10 @@ Example completed manifest:
     {
       "url": "torch-consent-considered-resources",
       "valueUrl": "http://fileserver/<jobId>/reports/consent-considered-resources.csv"
+    },
+    {
+      "url": "torch-consent-conflicts",
+      "valueUrl": "http://fileserver/<jobId>/reports/consent-conflicts.csv"
     },
     {
       "url": "torch-job-issues",

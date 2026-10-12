@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflictEvent;
 import de.medizininformatikinitiative.torch.diagnostics.consent.FinalPeriodEvent;
 import de.medizininformatikinitiative.torch.diagnostics.consent.RawProvisionEvent;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
@@ -168,6 +169,30 @@ public class ConsentHandlerTest {
                         LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null));
         assertThat(consentDiagnostics.getFinalPeriods()).containsExactly(
                 new FinalPeriodEvent(PATIENT_ID, LocalDate.of(2020, 1, 1), LocalDate.of(2030, 1, 1)));
+    }
+
+    @Test
+    void recordsConsentConflictsWithoutDiagnosticsEvenWhenAllPatientsAreExcluded() {
+        var codes = CODES;
+        var batch = PatientBatch.of(PATIENT_ID);
+        var fetchedProvisions = provisionsByPatient();
+        var conflict = new ConsentConflictEvent(PATIENT_ID, "2025-01-01T00:00:00Z", "code1", "c1", "c1",
+                LocalDate.of(2025, 1, 1), LocalDate.of(2050, 12, 31));
+        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false,
+                MAX_SHIFT_DAYS);
+
+        when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
+        when(consentCodeConfig.nonGateCodes(codes)).thenReturn(codes);
+        when(consentFetcher.fetchConsentInfo(codes, batch)).thenReturn(Mono.just(fetchedProvisions));
+        when(consentCalculator.findConflicts(fetchedProvisions)).thenReturn(List.of(conflict));
+        when(consentCalculator.calculateConsent(codes, fetchedProvisions)).thenReturn(Map.of());
+
+        StepVerifier.create(handler.fetchAndBuildConsentInfo(codes, batch))
+                .expectError(ConsentViolatedException.class)
+                .verify();
+
+        assertThat(batch.diagnostics().consentConflicts().events()).containsExactly(conflict);
     }
 
     @Test
