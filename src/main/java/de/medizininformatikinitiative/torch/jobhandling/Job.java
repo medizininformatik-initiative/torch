@@ -143,28 +143,30 @@ public record Job(
     /**
      * Records a successful batch processing result.
      * Applies a batch processing success only if the job is still in the
-     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase.
+     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase, or if it is {@link JobStatus#PAUSED}
+     * while this batch was in flight.
      * <p>
      * This method acts as a concurrency/staleness guard for asynchronous results.
-     * If the job has already transitioned to a different state (e.g. failed, paused,
+     * If the job has already transitioned to a different state (e.g. failed
      * or moved to core processing), the result is considered stale and ignored.
      *
      * <p>If all batches are finished or skipped, the job transitions to
-     * {@link JobStatus#RUNNING_PROCESS_CORE}.</p>
+     * {@link JobStatus#RUNNING_PROCESS_CORE}; a paused job stays paused and continues
+     * with core processing once resumed.</p>
      *
      * @param result the batch processing result
      * @return updated job state
      */
     public Job onBatchProcessingSuccess(BatchResult result) {
-        if (status != JobStatus.RUNNING_PROCESS_BATCH) {
+        if (status != JobStatus.RUNNING_PROCESS_BATCH && !isPausedWithBatchInFlight(result.batchId())) {
             return this;
         }
         Job updated = withBatchState(result.batchState())
                 .withIssuesAdded(result.issues());
 
         if (allBatchesDone(updated.batches())) {
-            return updated.withStatus(JobStatus.RUNNING_PROCESS_CORE)
-                    .withCoreState(WorkUnitState.initNow());
+            Job withCore = updated.withCoreState(WorkUnitState.initNow());
+            return status == JobStatus.PAUSED ? withCore : withCore.withStatus(JobStatus.RUNNING_PROCESS_CORE);
         }
         return updated;
     }
@@ -172,17 +174,18 @@ public record Job(
 
     /**
      * Applies a core processing success only if the job is still in the
-     * {@link JobStatus#RUNNING_PROCESS_CORE} phase.
+     * {@link JobStatus#RUNNING_PROCESS_CORE} phase, or if it is {@link JobStatus#PAUSED}
+     * while core processing was in flight. In both cases the job is completed.
      * <p>
      * This method acts as a concurrency/staleness guard for asynchronous results.
-     * If the job has already transitioned to a different state (e.g. failed, paused,
-     * or moved to core processing), the result is considered stale and ignored.
+     * If the job has already transitioned to a different state (e.g. failed),
+     * the result is considered stale and ignored.
      *
      * @param result the core processing result
      * @return updated job state if applied, or the current job unchanged if stale
      */
     public Job onCoreSuccess(CoreResult result) {
-        if (status != JobStatus.RUNNING_PROCESS_CORE) {
+        if (status != JobStatus.RUNNING_PROCESS_CORE && !isPausedWithCoreInFlight()) {
             return this;
         }
         return withStatus(JobStatus.COMPLETED)
@@ -226,7 +229,8 @@ public record Job(
 
     /**
      * Applies a batch-level error only if the job is still in the
-     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase.
+     * {@link JobStatus#RUNNING_PROCESS_BATCH} phase, or if it is {@link JobStatus#PAUSED}
+     * while this batch was in flight.
      * <p>
      * This guards against late or duplicate batch errors that may arrive after
      * the job has already transitioned due to other failures or retries.
@@ -241,7 +245,7 @@ public record Job(
      * @return updated job state
      */
     public Job onBatchError(UUID batchId, Throwable e, List<Issue> issues) {
-        if (status != JobStatus.RUNNING_PROCESS_BATCH) {
+        if (status != JobStatus.RUNNING_PROCESS_BATCH && !isPausedWithBatchInFlight(batchId)) {
             return this;
         }
         boolean retryable = RetryabilityUtil.isRetryable(e);
@@ -274,7 +278,8 @@ public record Job(
 
     /**
      * Applies a core-level error only if the job is still in the
-     * {@link JobStatus#RUNNING_PROCESS_CORE} phase.
+     * {@link JobStatus#RUNNING_PROCESS_CORE} phase, or if it is {@link JobStatus#PAUSED}
+     * while core processing was in flight.
      * <p>
      * This guards against late or duplicate batch errors that may arrive after
      * the job has already transitioned due to other failures or retries.
@@ -287,7 +292,7 @@ public record Job(
      * @return updated job state
      */
     public Job onCoreError(Throwable e, List<Issue> issues) {
-        if (status != JobStatus.RUNNING_PROCESS_CORE) {
+        if (status != JobStatus.RUNNING_PROCESS_CORE && !isPausedWithCoreInFlight()) {
             return this;
         }
         boolean retryable = RetryabilityUtil.isRetryable(e);
@@ -528,6 +533,19 @@ public record Job(
 
     // -------------------- internal helpers (copy / withers) --------------------
 
+
+    /**
+     * Pausing only stops new work units from being scheduled. Units already in flight still
+     * report back and must be recorded, otherwise they stay IN_PROGRESS and are never rescheduled.
+     */
+    private boolean isPausedWithBatchInFlight(UUID batchId) {
+        BatchState bs = batches.get(batchId);
+        return status == JobStatus.PAUSED && bs != null && bs.status() == WorkUnitStatus.IN_PROGRESS;
+    }
+
+    private boolean isPausedWithCoreInFlight() {
+        return status == JobStatus.PAUSED && coreState.status() == WorkUnitStatus.IN_PROGRESS;
+    }
 
     private boolean allBatchesDone(Map<UUID, BatchState> b) {
         return b.values().stream().allMatch(bs ->

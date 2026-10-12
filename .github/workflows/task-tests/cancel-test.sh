@@ -20,6 +20,15 @@ status_code() {
     "$(status_url "$1")"
 }
 
+# A failed (500) or temporarily failed (503) job never reaches 200 on its own,
+# so stop polling and show why it failed.
+fail_job() {
+  echo "❌ Job $1 ended with HTTP $2:" >&2
+  curl -s -H "Accept: application/fhir+json" "$(status_url "$1")" >&2 || true
+  echo >&2
+  exit 1
+}
+
 echo "➡️ Start extraction..."
 : > "$LOG"
 
@@ -43,6 +52,7 @@ for _ in $(seq 1 60); do
     break
   fi
   [[ "$code" == "200" ]] && fail "Job completed before we could cancel it — workload may be too small for this test"
+  [[ "$code" == "500" || "$code" == "503" ]] && fail_job "$EXPORT_ID" "$code"
   sleep 1
 done
 [[ "$in_progress" == "true" ]] || fail "Job never reached in-progress within 60s (last status: $code)"

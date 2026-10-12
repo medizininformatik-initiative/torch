@@ -13,6 +13,19 @@ task_url() {
   printf '%s/fhir/Task/%s' "$TORCH_BASE_URL" "$1"
 }
 
+status_url() {
+  printf '%s/fhir/__status/%s' "$TORCH_BASE_URL" "$1"
+}
+
+# A failed (500) or temporarily failed (503) job never reaches 200 on its own,
+# so stop polling and show why it failed.
+fail_job() {
+  echo "❌ Job $1 ended with HTTP $2:" >&2
+  curl -s -H "Accept: application/fhir+json" "$(status_url "$1")" >&2 || true
+  echo >&2
+  exit 1
+}
+
 cleanup() { kill "${PID:-}" 2>/dev/null || true; }
 trap cleanup EXIT
 
@@ -87,12 +100,26 @@ STALE_CODE=$(curl -s -o /dev/null -w '%{http_code}' \
 
 # ── PUT /fhir/Task/{id} — correct version changes priority to HIGH ────────────
 
+# The scheduler increments the version whenever the job advances, so the version
+# read above may already be stale. Re-read it and retry on 412.
 echo "⬆️  PUT priority to HIGH (version $VERSION)..."
-UPDATED_JSON=$(curl -sf \
-  -X PUT "$(task_url "$EXPORT_ID")" \
-  -H "Content-Type: application/fhir+json" \
-  -H "If-Match: W/\"$VERSION\"" \
-  -d '{"resourceType":"Task","priority":"asap"}')
+PUT_RESPONSE_FILE="$(mktemp -t torch-put-XXXXXXXXXX.json)"
+for _ in $(seq 1 5); do
+  PUT_CODE=$(curl -s \
+    -o "$PUT_RESPONSE_FILE" \
+    -w '%{http_code}' \
+    -X PUT "$(task_url "$EXPORT_ID")" \
+    -H "Content-Type: application/fhir+json" \
+    -H "If-Match: W/\"$VERSION\"" \
+    -d '{"resourceType":"Task","priority":"asap"}')
+  [[ "$PUT_CODE" == "412" ]] || break
+  VERSION=$(curl -sf -H "Accept: application/fhir+json" "$(task_url "$EXPORT_ID")" | jq -r '.meta.versionId')
+  echo "   Version changed concurrently, retrying with version $VERSION..."
+done
+[[ "$PUT_CODE" == "200" ]] \
+  || fail "PUT priority failed with $PUT_CODE: $(cat "$PUT_RESPONSE_FILE")"
+UPDATED_JSON=$(cat "$PUT_RESPONSE_FILE")
+rm -f "$PUT_RESPONSE_FILE"
 
 echo "$UPDATED_JSON" | jq -e '.priority == "asap"' > /dev/null \
   || fail "PUT did not update priority to asap"
@@ -246,9 +273,10 @@ for _ in $(seq 1 600); do
     "${TORCH_BASE_URL}/fhir/__status/${EXPORT_ID}")
   [[ "$CURR_STATUS" == "200" ]] && break
   [[ "$CURR_STATUS" == "410" ]] && fail "Job was unexpectedly cancelled"
+  [[ "$CURR_STATUS" == "500" || "$CURR_STATUS" == "503" ]] && fail_job "$EXPORT_ID" "$CURR_STATUS"
   sleep 1
 done
-[[ "$CURR_STATUS" == "200" ]] || fail "Job did not complete in time"
+[[ "$CURR_STATUS" == "200" ]] || fail "Job did not complete in time (last status: $CURR_STATUS)"
 
 echo "📋 GET /fhir/Task?status=COMPLETED should now include our job..."
 COMPLETED_JSON=$(curl -sf \

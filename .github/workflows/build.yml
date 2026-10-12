@@ -510,6 +510,10 @@ jobs:
       - name: Run task api integration script
         run: bash .github/workflows/task-tests/${{ matrix.script }}
 
+      - name: Show Torch Logs
+        if: failure()
+        run: docker logs torch
+
   push-image:
     needs:
       - test
