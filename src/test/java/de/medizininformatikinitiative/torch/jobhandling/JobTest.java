@@ -1064,4 +1064,105 @@ public class JobTest {
                     .hasMessageContaining(job.status().display());
         }
     }
+
+    @Nested
+    class PausedWithWorkInFlight {
+
+        private Job pausedInBatchPhase(BatchState... states) {
+            Job job = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+            for (BatchState state : states) {
+                job = job.withBatchState(state);
+            }
+            return job;
+        }
+
+        private Job pausedInCorePhase() {
+            return Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.PAUSED)
+                    .withCohortState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.startNow());
+        }
+
+        @Test
+        void batchSuccess_isRecorded_andResumeSchedulesRemainingBatch() {
+            BatchState inFlight = new BatchState(UUID.randomUUID(), WorkUnitState.startNow());
+            BatchState remaining = new BatchState(UUID.randomUUID(), WorkUnitState.initNow());
+            Job job = pausedInBatchPhase(inFlight, remaining);
+
+            Job updated = job.onBatchProcessingSuccess(finishedBatch(job, inFlight));
+
+            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
+            assertThat(updated.batches().get(inFlight.batchId()).status()).isEqualTo(WorkUnitStatus.FINISHED);
+            Optional<WorkUnit> next = updated.resume().selectNextWorkUnit();
+            assertThat(next).containsInstanceOf(ProcessBatchWorkUnit.class);
+            assertThat(((ProcessBatchWorkUnit) next.orElseThrow()).batchId()).isEqualTo(remaining.batchId());
+        }
+
+        @Test
+        void lastBatchSuccess_staysPaused_andResumeSchedulesCore() {
+            BatchState inFlight = new BatchState(UUID.randomUUID(), WorkUnitState.startNow());
+            Job job = pausedInBatchPhase(inFlight);
+
+            Job updated = job.onBatchProcessingSuccess(finishedBatch(job, inFlight));
+
+            assertThat(updated.status()).isEqualTo(JobStatus.PAUSED);
+            Job resumed = updated.resume();
+            assertThat(resumed.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
+            assertThat(resumed.selectNextWorkUnit()).containsInstanceOf(ProcessCoreWorkUnit.class);
+        }
+
+        @Test
+        void batchSuccess_forBatchNotInFlight_noop() {
+            BatchState notStarted = new BatchState(UUID.randomUUID(), WorkUnitState.initNow());
+            Job job = pausedInBatchPhase(notStarted);
+
+            Job updated = job.onBatchProcessingSuccess(finishedBatch(job, notStarted));
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
+        void retryableBatchError_tempFails_andResumeReschedulesBatch() {
+            BatchState inFlight = new BatchState(UUID.randomUUID(), WorkUnitState.startNow());
+            Job job = pausedInBatchPhase(inFlight);
+
+            Job updated = job.onBatchError(inFlight.batchId(), new IOException("Retryable"), List.of());
+
+            assertThat(updated.status()).isEqualTo(JobStatus.TEMP_FAILED);
+            Optional<WorkUnit> next = updated.resume().selectNextWorkUnit();
+            assertThat(next).containsInstanceOf(ProcessBatchWorkUnit.class);
+            assertThat(((ProcessBatchWorkUnit) next.orElseThrow()).batchId()).isEqualTo(inFlight.batchId());
+        }
+
+        @Test
+        void coreSuccess_completesJob() {
+            Job job = pausedInCorePhase();
+
+            Job updated = job.onCoreSuccess(finishedCore(job));
+
+            assertThat(updated.status()).isEqualTo(JobStatus.COMPLETED);
+            assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.FINISHED);
+        }
+
+        @Test
+        void coreSuccess_whenCoreNotInFlight_noop() {
+            Job job = pausedInBatchPhase(new BatchState(UUID.randomUUID(), WorkUnitState.startNow()));
+
+            Job updated = job.onCoreSuccess(finishedCore(job));
+
+            assertThat(updated).isSameAs(job);
+        }
+
+        @Test
+        void nonRetryableCoreError_failsJob() {
+            Job job = pausedInCorePhase();
+
+            Job updated = job.onCoreError(new IllegalArgumentException("boom"), List.of());
+
+            assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
+            assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.FAILED);
+        }
+    }
 }

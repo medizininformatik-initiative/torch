@@ -212,6 +212,9 @@ isn't in a state the operation allows:
 | `$resume`  | `POST /fhir/Task/{id}/$resume`  | `PAUSED`                                                   | The state it was paused from |
 | `$cancel`  | `POST /fhir/Task/{id}/$cancel`  | Any non-terminal state (i.e. not already `COMPLETED`/`FAILED`/`CANCELLED`) | `CANCELLED`              |
 
+Pausing stops new work from being started. Work already in progress runs to the end and its result is kept. If that
+was the final processing step, a paused job can therefore still become `COMPLETED`, or `FAILED` if that work fails.
+
 ```sh
 curl -s -X POST 'http://localhost:8080/fhir/Task/<jobId>/$pause'
 curl -s -X POST 'http://localhost:8080/fhir/Task/<jobId>/$resume'
