@@ -4,6 +4,32 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.3] - 2026-10-12
+
+### Added
+
+- Add diagnostics fetch script [#1287](https://github.com/medizininformatik-initiative/torch/pull/1287)
+- Add encounter shift data to raw provisions diagnostics [#1294](https://github.com/medizininformatik-initiative/torch/pull/1294)
+- Flag conflicting consent permits and denies within a signing event and aggregate provisions per event [#1321](https://github.com/medizininformatik-initiative/torch/pull/1321)
+
+### Changed
+
+- Update Onto To V5.0.1 [#1276](https://github.com/medizininformatik-initiative/torch/pull/1276)
+- Restrict consent encounter shift to inpatient encounters [#1299](https://github.com/medizininformatik-initiative/torch/pull/1299)
+
+### Fixed
+
+- Normalize relative patient ids in extract-data patient parameter [#1289](https://github.com/medizininformatik-initiative/torch/pull/1289)
+- Fix TORCH_ENABLE_ENCOUNTER_SHIFT not being applied [#1297](https://github.com/medizininformatik-initiative/torch/pull/1297)
+- Fix expired FHIR search page links failing the whole job [#1301](https://github.com/medizininformatik-initiative/torch/pull/1301)
+- Fix transfer script failing on large CRTDLs and lowercase Content-Location header [#1302](https://github.com/medizininformatik-initiative/torch/pull/1302)
+- Fix flaky task-api-test [#1318](https://github.com/medizininformatik-initiative/torch/pull/1318)
+
+### Documentation
+
+- Add versioned documentation following Aether's approach [#1313](https://github.com/medizininformatik-initiative/torch/pull/1313)
+
+
 ## [v1.0.2] - 2026-09-30
 
 ### Added
