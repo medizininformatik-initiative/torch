@@ -49,6 +49,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONSIDERED_RESOURCES_FILE;
+import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONFLICTS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.FINAL_PERIODS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.RAW_PROVISIONS_FILE;
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.PATIENT_EXCLUSIONS_FILE;
@@ -670,6 +671,12 @@ public class FhirController {
             extensionArr.add(mapper.createObjectNode()
                     .put("url", "torch-consent-considered-resources")
                     .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + CONSENT_CONSIDERED_RESOURCES_FILE));
+        }
+
+        if (persistence.consentConflictsExists(job.id())) {
+            extensionArr.add(mapper.createObjectNode()
+                    .put("url", "torch-consent-conflicts")
+                    .put("valueUrl", fileServerName + "/" + job.id() + "/" + REPORTS_DIRECTORY + "/" + CONSENT_CONFLICTS_FILE));
         }
 
         if (!job.issues().isEmpty()) {

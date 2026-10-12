@@ -66,6 +66,8 @@ public class ConsentHandler {
      *     <li>Fetches consent provisions from a FHIR server for the given {@code consentCodes} and patient batch.</li>
      *     <li>Adjusts the fetched consent periods based on patient encounters, unless disabled via
      *     {@code torch.enableEncounterShift}.</li>
+     *     <li>Records conflicting permits and denies within a signing event in the batch diagnostics, regardless of
+     *     whether the batch later fails for lack of consenting patients.</li>
      *     <li>Calculates the effective consent periods per patient.</li>
      *     <li>Filters the batch to include only patients with valid consent periods.</li>
      * </ol>
@@ -90,6 +92,8 @@ public class ConsentHandler {
                                 : Mono.just(rawProvisions)
                 )
                 .doOnNext(adjustedProvisions -> recordRawProvisions(batch, adjustedProvisions))
+                .doOnNext(adjustedProvisions -> consentCalculator.findConflicts(adjustedProvisions)
+                        .forEach(batch.diagnostics().consentConflicts()::add))
                 .map(consentProvisions -> consentCalculator.calculateConsent(prospectiveCodes, consentProvisions))
                 .doOnNext(consentPeriodsMap -> recordFinalPeriods(batch, consentPeriodsMap))
                 .flatMap(consentPeriodsMap ->

@@ -339,6 +339,22 @@ class FhirControllerTest {
         }
 
         @Test
+        void completedJobWithConsentConflictsIncludesConsentConflictsExtension() {
+            UUID jobId = UUID.randomUUID();
+            Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(completedJob));
+            when(jobPersistenceService.consentConflictsExists(any())).thenReturn(true);
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectStatus().isOk()
+                    .expectBody()
+                    .jsonPath("$.extension[?(@.url=='torch-consent-conflicts')]").exists();
+        }
+
+        @Test
         void completedJobWithIssuesIncludesIssuesExtension() {
             UUID jobId = UUID.randomUUID();
             Job completedJob = Job.init(jobId, TestUtils.emptyJobParams())

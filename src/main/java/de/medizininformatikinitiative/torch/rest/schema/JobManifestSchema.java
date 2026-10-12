@@ -51,6 +51,7 @@ public class JobManifestSchema {
                     - torch-raw-provisions — opt-in (consentDiagnostics): pointing to a CSV file containing the raw consent provisions per patient
                     - torch-final-periods — opt-in (consentDiagnostics): pointing to a CSV file containing the final consent periods per patient
                     - torch-consent-considered-resources — opt-in (consentDiagnostics): pointing to a CSV file containing the per-resource consent decisions
+                    - torch-consent-conflicts — pointing to a CSV file containing permits and denies of the same consent code that overlap within one signing event (omitted when none)
                     - torch-job-issues — list of warnings/errors recorded during processing (valueObject, omitted when empty)
                     """
     )

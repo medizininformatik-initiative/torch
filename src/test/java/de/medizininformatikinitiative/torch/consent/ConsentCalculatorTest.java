@@ -1,8 +1,10 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflictEvent;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
+import de.medizininformatikinitiative.torch.model.consent.EncounterShift;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.ProspectiveEntry;
@@ -754,6 +756,143 @@ class ConsentCalculatorTest {
             );
 
             assertThat(result.get("patient1").periods()).containsExactly(p("2024-01-01", "2024-01-10"));
+        }
+    }
+
+    @Nested
+    class SigningEventAggregationTests {
+        @BeforeEach
+        void setUp() {
+            calculator = new ConsentCalculator(retroConfig());
+        }
+
+        @Test
+        void fullPackageSplitAcrossResourcesOfOneEventContributesPermits() {
+            ConsentProvisions first = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(CODE_1, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions second = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(CODE_2, p("2020-01-01", "2030-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(first, second), Set.of(CODE_1, CODE_2)
+            );
+
+            assertThat(result.get(CODE_1).periods()).containsExactly(p("2020-01-01", "2025-12-31"));
+            assertThat(result.get(CODE_2).periods()).containsExactly(p("2020-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void retroPermitInOtherResourceOfSameEventExtendsPermit() {
+            ConsentProvisions prospective = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions retro = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2020-01-01", "2025-12-31"), true)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(prospective, retro), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("1900-01-01", "2025-12-31"));
+        }
+
+        @Test
+        void retroDenyInOtherResourceOfSameEventReducesExtension() {
+            ConsentProvisions prospective = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true),
+                            new Provision(RETRO, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions retroDeny = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("1900-01-01", "2009-12-31"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(prospective, retroDeny), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2010-01-01", "2025-12-31"));
+        }
+    }
+
+    @Nested
+    class ConflictTests {
+        @BeforeEach
+        void setUp() {
+            calculator = new ConsentCalculator(retroConfig());
+        }
+
+        @Test
+        void overlappingPermitAndDenyInOneResourceAreFlagged() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2025-01-01", "2055-12-31"), true),
+                            new Provision(PROSPECTIVE, p("2020-01-01", "2050-12-31"), false)));
+
+            List<ConsentConflictEvent> conflicts = calculator.findConflicts(Map.of("patient1", List.of(cp)));
+
+            assertThat(conflicts).containsExactly(new ConsentConflictEvent("patient1", "2025-01-01T00:00:00Z",
+                    PROSPECTIVE.code(), "c1", "c1", LocalDate.parse("2025-01-01"), LocalDate.parse("2050-12-31")));
+        }
+
+        @Test
+        void overlappingPermitAndDenyAcrossResourcesOfOneEventAreFlagged() {
+            ConsentProvisions permit = new ConsentProvisions("a", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions deny = new ConsentProvisions("b", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(RETRO, p("2023-01-01", "2024-12-31"), false)));
+
+            List<ConsentConflictEvent> conflicts = calculator.findConflicts(Map.of("patient1", List.of(permit, deny)));
+
+            assertThat(conflicts).containsExactly(new ConsentConflictEvent("patient1", "2020-01-01T00:00:00Z",
+                    RETRO.code(), "a", "b", LocalDate.parse("2023-01-01"), LocalDate.parse("2024-12-31")));
+        }
+
+        @Test
+        void conflictDoesNotChangeDenyWinsOutcome() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2024-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2024-01-01", "2024-12-31"), true),
+                            new Provision(PROSPECTIVE, p("2024-01-01", "2024-06-30"), false)));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(cp), Set.of(PROSPECTIVE)
+            );
+
+            assertThat(calculator.findConflicts(Map.of("patient1", List.of(cp)))).hasSize(1);
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2024-07-01", "2024-12-31"));
+        }
+
+        @Test
+        void permitAndDenyInDifferentEventsAreNotFlagged() {
+            ConsentProvisions original = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2020-01-01", "2025-12-31"), true)));
+            ConsentProvisions revocation = new ConsentProvisions("c2", "patient1", dt("2023-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2023-01-01", "2025-12-31"), false)));
+
+            assertThat(calculator.findConflicts(Map.of("patient1", List.of(original, revocation)))).isEmpty();
+        }
+
+        @Test
+        void nonOverlappingPermitAndDenyAreNotFlagged() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2025-01-01", "2030-12-31"), true),
+                            new Provision(PROSPECTIVE, p("2020-01-01", "2023-12-31"), false)));
+
+            assertThat(calculator.findConflicts(Map.of("patient1", List.of(cp)))).isEmpty();
+        }
+
+        @Test
+        void permitAndDenyOfDifferentCodesAreNotFlagged() {
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2025-01-01T00:00:00Z"),
+                    List.of(new Provision(PROSPECTIVE, p("2025-01-01", "2030-12-31"), true),
+                            new Provision(RETRO, p("2025-01-01", "2028-12-31"), false)));
+
+            assertThat(calculator.findConflicts(Map.of("patient1", List.of(cp)))).isEmpty();
+        }
+
+        @Test
+        void encounterShiftDoesNotCreateConflict() {
+            Provision shiftedPermit = new Provision(PROSPECTIVE, p("2019-12-01", "2025-12-31"), true,
+                    new EncounterShift(LocalDate.parse("2020-01-01"), "enc1"));
+            ConsentProvisions cp = new ConsentProvisions("c1", "patient1", dt("2020-01-01T00:00:00Z"),
+                    List.of(shiftedPermit, new Provision(PROSPECTIVE, p("2019-01-01", "2019-12-31"), false)));
+
+            assertThat(calculator.findConflicts(Map.of("patient1", List.of(cp)))).isEmpty();
         }
     }
 }

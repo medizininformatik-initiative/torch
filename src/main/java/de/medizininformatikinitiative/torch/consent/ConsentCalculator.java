@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConflictEvent;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
@@ -107,15 +108,16 @@ public class ConsentCalculator {
      * Folds one signing event into the running period for a single code.
      * <p>
      * If any resource of the event carries a <b>deny</b> of any of {@code entry}'s retro modifier codes —
-     * regardless of overlap — {@code running} is discarded first. Then each resource's own contribution
-     * (see {@link #ownContribution}) is merged in, and finally every deny of {@code code} itself within the
-     * event is subtracted, so a same-event deny always wins over a same-event permit.
+     * regardless of overlap — {@code running} is discarded first. Then the event's contribution (see
+     * {@link #eventContribution}) is merged in if the event as a whole permits every requested code, and finally
+     * every deny of {@code code} itself within the event is subtracted, so a same-event deny always wins over a
+     * same-event permit (see {@link #findConflicts}).
      *
      * @param running      the code's accumulated period from earlier events
      * @param event        the resources sharing one {@code dateTime}
      * @param code         the prospective code being folded
      * @param entry        {@code code}'s config entry, or {@code null} if it is not configured
-     * @param consentCodes the requested codes a resource must permit in full to contribute permits
+     * @param consentCodes the requested codes the event must permit in full to contribute permits
      * @return the code's period after folding in this event
      */
     private NonContinuousPeriod applyEvent(
@@ -135,10 +137,8 @@ public class ConsentCalculator {
 
         NonContinuousPeriod combined = retroTouched ? NonContinuousPeriod.of() : running;
 
-        for (ConsentProvisions cp : event) {
-            if (isFullPackage(cp.provisions(), consentCodes)) {
-                combined = combined.merge(ownContribution(cp.provisions(), code, entry, retroCodes));
-            }
+        if (isFullPackage(eventProvisions, consentCodes)) {
+            combined = combined.merge(eventContribution(eventProvisions, code, entry, retroCodes));
         }
 
         for (Provision p : eventProvisions) {
@@ -151,8 +151,8 @@ public class ConsentCalculator {
     }
 
     /**
-     * Permits only come from resources that contain the full required package (.6 AND .8). Denies are
-     * applied regardless — a revocation document (deny-only) still counts.
+     * Permits only come from signing events that contain the full required package (.6 AND .8), possibly split
+     * across several resources. Denies are applied regardless — a revocation document (deny-only) still counts.
      */
     private static boolean isFullPackage(List<Provision> provisions, Set<TermCode> consentCodes) {
         return provisions.stream()
@@ -164,12 +164,12 @@ public class ConsentCalculator {
     }
 
     /**
-     * Returns one resource's permit periods for {@code code}, each plus a retro extension back to
-     * {@code entry}'s {@code lookbackDate} (up to that permit's end) when a same-resource retro modifier
-     * permit overlaps that permit; same-resource retro modifier denies reduce that extension before it is
+     * Returns one signing event's permit periods for {@code code}, each plus a retro extension back to
+     * {@code entry}'s {@code lookbackDate} (up to that permit's end) when a retro modifier permit of the same
+     * event overlaps that permit; retro modifier denies of the same event reduce that extension before it is
      * added and never touch the plain permit period on their own.
      */
-    private static NonContinuousPeriod ownContribution(
+    private static NonContinuousPeriod eventContribution(
             List<Provision> provisions,
             TermCode code,
             ProspectiveEntry entry,
@@ -198,6 +198,41 @@ public class ConsentCalculator {
             }
         }
         return contribution;
+    }
+
+    /**
+     * Finds every permit and deny of the same code whose periods overlap within one signing event.
+     * <p>
+     * A signed consent document records one decision per code, so such an overlap is an invalid encoding. It
+     * does not affect the calculation — the deny wins, which never extracts data of a patient who did not
+     * consent — but is reported so the data provider can correct the source data. A permit's period is taken
+     * before any encounter shift, since the shift is not part of the encoding.
+     *
+     * @param consentsByPatient a map from patient ID to a list of their {@link ConsentProvisions}
+     * @return one event per overlapping permit/deny pair, ordered by patient ID and then signing event
+     */
+    public List<ConsentConflictEvent> findConflicts(Map<String, List<ConsentProvisions>> consentsByPatient) {
+        return consentsByPatient.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .flatMap(entry -> groupByDateTime(entry.getValue()).stream()
+                        .flatMap(event -> conflictsInEvent(entry.getKey(), event)))
+                .toList();
+    }
+
+    private static Stream<ConsentConflictEvent> conflictsInEvent(String patientId, List<ConsentProvisions> event) {
+        return event.stream().flatMap(permitCp -> permitCp.provisions().stream()
+                .filter(Provision::permit)
+                .flatMap(permit -> event.stream().flatMap(denyCp -> denyCp.provisions().stream()
+                        .filter(deny -> !deny.permit() && deny.code().equals(permit.code()))
+                        .flatMap(deny -> Stream.ofNullable(unshiftedPeriod(permit).intersect(deny.period())))
+                        .map(overlap -> new ConsentConflictEvent(patientId, permitCp.dateTime().getValueAsString(),
+                                permit.code().code(), permitCp.id(), denyCp.id(), overlap.start(), overlap.end())))));
+    }
+
+    private static Period unshiftedPeriod(Provision provision) {
+        return provision.encounterShift() == null
+                ? provision.period()
+                : new Period(provision.encounterShift().originalStart(), provision.period().end());
     }
 
     /**

@@ -813,6 +813,10 @@ public class JobPersistenceService {
         return diagnosticsStore.consentConsideredResourcesExists(jobDir(jobId));
     }
 
+    public boolean consentConflictsExists(UUID jobId) {
+        return diagnosticsStore.consentConflictsExists(jobDir(jobId));
+    }
+
     @FunctionalInterface
     interface JobUpdate<T> {
         JobAndResult<T> apply(Job job) throws IOException;
