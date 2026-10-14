@@ -1,55 +1,120 @@
-## Implementation Overview
+# Implementation Overview
 
-#### Pipeline Overview
+TORCH extracts FHIR resources for a cohort as defined by a [CRTDL](../crtdl/crtdl.md).
+An extraction runs as an asynchronous job: the CRTDL is validated when the job is submitted, and the job is then
+processed in three phases.
 
-The TORCH pipeline consists of several key components that work together to extract and process data from FHIR servers
-based on the Clinical Resource Transfer Definition Language (CRTDL). The main components of the pipeline are:
+1. **Cohort** — determine the patients to extract.
+2. **Patient batches** — extract the patient-related data, one batch of patients at a time.
+3. **Core** — extract the core resources once for the whole job.
 
-- **CRTDL Definition**: A JSON-based definition that specifies the cohort and data extraction rules.
-- **Cohort Selection**: Uses FHIR Search or CQL to identify the population
-- **Data Extraction**: Extracts FHIR resources based on the CRTDL definition.
-- **Consent Handling**: Applies consent rules to ensure compliance with privacy regulations.
-- **Output Generation**: Produces FHIR-compliant resources in NDJSON format.
+## Patient Resources and Core Resources
 
-#### Pipeline Steps
+TORCH splits all resources into two kinds, based on the
+FHIR [Patient Compartment](https://hl7.org/fhir/R4/compartmentdefinition-patient.html):
 
-1. **Validate CRTDL Definition**: Ensure the CRTDL definition is correctly formatted and contains valid criteria.
-2. **Cohort Evaluation**: Evaluate the cohort via FHIR Search or CQL, unless patient IDs passed directly as parameter.
-3. **Preprocessing of directly loaded core Resources**: Directly loaded core resources are processed first, as to ensure the results can be shared over all patients.
-4. **Handling Patient Resources**: For each patient, the pipeline processes the resources according to the CRTDL definition.
-5. **Handling Core Resources**: Patients can load new core resources, which are then postprocessed.
-6. **Writing Output**: The final output is written in NDJSON format, with each patient’s data in a separate bundle.
+- **Patient resources** are resources **within** the patient compartment, e.g. `Patient`, `Condition`,
+  `Observation` or `Encounter`. Each of them belongs to exactly one patient and is processed in that patient's batch.
+- **Core resources** are resources **outside** the patient compartment, e.g. `Medication`, `Organization` or
+  `Practitioner`. They do not belong to a single patient, can be referenced by many patients, and are processed once
+  per job in the core phase.
+
+Whether a resource is a patient or a core resource depends only on its resource type, not on its content or profile.
+Attribute groups are split the same way: an attribute group whose resource type is in the patient compartment is a
+patient attribute group; all others are core attribute groups.
 
 ```mermaid
 flowchart TD
-    A[CRTDL] --> B{valid CRTDL?}
+    A[CRTDL] --> B{valid?}
     B -->|no| C[Error]
-    B -->|yes| D{cohort given as parameter?}
-    D -->|no| E[Execute Cohort Selection CCDL]
-    D -->|yes| F["Handle directly loaded<br/>Core Attribute Groups"]
-    E --> G{Which method?}
-    G --> H[CQL]
-    G --> I[Flare]
-    H --> J[Fetch Patients]
-    I --> J
-    J --> F
-    F --> K[Resolve References]
-    K --> L[Cascading Delete]
-    L --> M["Initialize patient batch<br/>with preprocessed core data"]
-    M --> N[Fetch and build batch consent]
-    N --> O["Handle directly loaded<br/>Patient Attribute Groups"]
-    O --> P[Resolve References]
-    P --> Q[Cascading Delete]
-    Q --> R[Extraction]
-    R --> S[Update Core Data]
-    S --> T[Write out Results]
-    T --> U[NdJson]
-    S --> V{All Patient Batches handled?}
-    V -->|yes| W[Resolve References]
-    V -->|no| T
-    W --> X[Cascading Delete]
-    X --> Y[Extraction]
-    Y --> T
+    B -->|yes| D{patient IDs given<br/>as parameter?}
+    D -->|no| E["Evaluate cohort definition<br/>(CQL or Flare)"]
+    D -->|yes| F[Split patients into batches]
+    E --> F
+    F --> G[Process patient batches]
+    G --> H[Process core resources]
+    G --> I["Batch NDJSON files"]
+    H --> J["core.ndjson"]
     class C errorNode
-    class U successNode
+    class I successNode
+    class J successNode
 ```
+
+## Job Submission
+
+The CRTDL is [validated](validation.md) before the job is created. An invalid CRTDL is rejected immediately and no job
+is started. During validation, the attribute groups are annotated with the StructureDefinition information needed later
+on, so that this work is done only once per job.
+
+## Cohort
+
+If patient IDs are passed as a parameter, they are used as the cohort.
+Otherwise, the cohort definition of the CRTDL is evaluated, either with CQL on the FHIR server or with Flare.
+The resulting patients are split into batches (see [`TORCH_BATCHSIZE`](../configuration.md#torch-batchsize)).
+
+## Patient Batches
+
+Each batch is processed independently; up to [`TORCH_MAXCONCURRENCY`](../configuration.md#torch-maxconcurrency)
+batches run in parallel:
+
+1. **Consent** — Fetch the consent resources of the batch's patients and calculate their consent periods.
+   Patients without a matching consent are excluded. If no patient in the batch has consented, the batch is skipped.
+   This step is skipped if the CRTDL contains no consent criteria. See [Consent](consent.md).
+2. **Direct Loading** — Load the resources of all directly loaded patient attribute groups and assign them to their
+   patients. Resources outside a patient's consent period are discarded. See [Direct Loading](direct-load.md).
+3. **Reference Resolution** — Follow the references of the loaded resources and load the referenced resources
+   that belong to linked attribute groups. See [Reference Resolve](reference-resolve.md).
+4. **Cascading Delete** — Remove resources that failed a check (e.g. consent or must-have), together with all
+   resources whose reference chain is broken by that removal. See [Cascading Delete](cascading-delete.md).
+5. **Must-Have Check** — Exclude patients that no longer fulfill the must-have conditions of the directly loaded
+   attribute groups. See [Must-Have Checking](must-have.md).
+6. **Extraction** — Copy the selected attributes and redact everything else.
+   See [Data Extraction](data-extraction.md) and [Redaction](redaction.md).
+7. **Write** — Write one bundle per patient into the batch's NDJSON file.
+   Resources outside the patient compartment that were referenced by the batch are passed on to the core phase.
+
+## Core
+
+Once all batches are done, the core resources are processed in a single step:
+
+1. **Direct Loading** — Load the resources of all directly loaded core attribute groups.
+2. **Reference Resolution** — Resolve the references of these resources.
+3. **Cascading Delete** — Remove resources that failed a check, together with the resources depending on them.
+4. **Must-Have Check** — Check the must-have conditions of the directly loaded core attribute groups.
+   Because core resources are shared by all patients, a violation fails the whole job.
+5. **Merge** — Add the core resources referenced by the patient batches.
+6. **Extraction** — Copy and redact as for patient batches.
+7. **Write** — Write all core resources into a single bundle in `core.ndjson`.
+
+```mermaid
+flowchart LR
+    subgraph Batch["Per patient batch"]
+        direction TB
+        B1[Consent] --> B2[Direct Loading]
+        B2 --> B3[Reference Resolution]
+        B3 --> B4[Cascading Delete]
+        B4 --> B5[Must-Have Check]
+        B5 --> B6[Extraction]
+        B6 --> B7["Write batch NDJSON"]
+    end
+    subgraph Core["Once per job"]
+        direction TB
+        C1[Direct Loading] --> C2[Reference Resolution]
+        C2 --> C3[Cascading Delete]
+        C3 --> C4[Must-Have Check]
+        C4 --> C5[Merge referenced<br/>core resources]
+        C5 --> C6[Extraction]
+        C6 --> C7["Write core.ndjson"]
+    end
+    B6 -.->|referenced core resources| C5
+```
+
+## Output
+
+When the job has finished, the result consists of:
+
+- one NDJSON file per patient batch, containing one bundle per patient,
+- `core.ndjson`, containing the core resources,
+- diagnostic reports on excluded patients and resources (see [Job Diagnostics](../api/diagnostics.md)).
+
+The file URLs are listed in the job's completion manifest (see [API](../api/api.md)).
