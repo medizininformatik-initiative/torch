@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
 import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import org.hl7.fhir.r4.model.DecimalType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IntegerType;
 import org.hl7.fhir.r4.model.StringType;
@@ -255,6 +256,46 @@ class JobTaskMapperTest {
         assertThat(stageByBatchId)
                 .containsEntry(batch1.toString(), "DIRECT_LOAD")
                 .containsEntry(batch2.toString(), "COPY_REDACT");
+    }
+
+    @Test
+    void addsTotalProgressAndCoreStatus_whenCohortFinished() {
+        UUID id = UUID.randomUUID();
+        UUID batch1 = UUID.randomUUID();
+        Map<UUID, BatchState> batches = Map.of(
+                batch1, new BatchState(batch1, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))
+        );
+        Job job = Job.init(id, TestUtils.emptyJobParams())
+                .initBatches(batches, 5)
+                .withStatus(JobStatus.RUNNING_PROCESS_CORE);
+
+        Task t = mapper.toFhirTask(job);
+
+        var progress = t.getExtensionByUrl(PROGRESS_EXTENSION);
+        assertThat(((DecimalType) progress.getExtensionByUrl("totalProgress").getValue()).getValue())
+                .isEqualByComparingTo("50.0");
+        assertThat(((StringType) progress.getExtensionByUrl("coreStatus").getValue()).getValue())
+                .isEqualTo("INIT");
+        assertThat(progress.getExtensionByUrl("coreStage")).isNull();
+    }
+
+    @Test
+    void addsCoreStage_whenCoreInProgressAndStageKnown() {
+        UUID id = UUID.randomUUID();
+        Job job = Job.init(id, TestUtils.emptyJobParams())
+                .initBatches(Map.of(), 5)
+                .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                .withCoreState(WorkUnitState.startNow());
+
+        when(batchProgressRegistry.currentStage(id)).thenReturn(Optional.of(PipelineStage.REFERENCE_RESOLVE));
+
+        Task t = mapper.toFhirTask(job);
+
+        var progress = t.getExtensionByUrl(PROGRESS_EXTENSION);
+        assertThat(((StringType) progress.getExtensionByUrl("coreStatus").getValue()).getValue())
+                .isEqualTo("IN_PROGRESS");
+        assertThat(((StringType) progress.getExtensionByUrl("coreStage").getValue()).getValue())
+                .isEqualTo("REFERENCE_RESOLVE");
     }
 
     private static int intValue(Extension parent, String childUrl) {

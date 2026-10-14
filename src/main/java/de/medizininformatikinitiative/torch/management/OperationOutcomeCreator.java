@@ -1,12 +1,17 @@
 package de.medizininformatikinitiative.torch.management;
 
+import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import org.hl7.fhir.r4.model.InstantType;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.jspecify.annotations.NonNull;
+
+import java.util.Locale;
+import java.util.Optional;
 
 public class OperationOutcomeCreator {
 
@@ -48,7 +53,14 @@ public class OperationOutcomeCreator {
         };
     }
 
-    public static OperationOutcome fromJob(Job job) {
+    /**
+     * Builds the job's status outcome: one issue per recorded job issue plus a trailing summary
+     * of status and progress.
+     *
+     * @param coreStage current pipeline stage of the core work unit, if known; only reported
+     *                  while the core is {@code IN_PROGRESS}
+     */
+    public static OperationOutcome fromJob(Job job, Optional<PipelineStage> coreStage) {
         OperationOutcome outcome = new OperationOutcome();
         outcome.setId("job-" + job.id() + "-outcome");
 
@@ -64,7 +76,14 @@ public class OperationOutcomeCreator {
         OperationOutcome.OperationOutcomeIssueComponent componentInfo = new OperationOutcome.OperationOutcomeIssueComponent();
         componentInfo.setSeverity(OperationOutcome.IssueSeverity.INFORMATION);
         componentInfo.setCode(OperationOutcome.IssueType.INFORMATIONAL);
-        componentInfo.setDiagnostics("Job " + job.id() + "\n status: " + job.status() + "\n batch progress: " + job.calculateBatchProgress() + "%\n cohort Size: " + job.cohortSize());
+        componentInfo.setDiagnostics("Job " + job.id()
+                + "\n status: " + job.status()
+                + "\n total progress: " + String.format(Locale.ROOT, "%.1f%%", job.calculateTotalProgress())
+                + "\n batches: " + job.completedBatchCount() + "/" + job.batches().size()
+                + "\n core: " + job.coreState().status() + coreStage
+                        .filter(stage -> job.coreState().status() == WorkUnitStatus.IN_PROGRESS)
+                        .map(stage -> " (" + stage + ")").orElse("")
+                + "\n cohort Size: " + job.cohortSize());
         outcome.addIssue(componentInfo);
         return outcome;
     }

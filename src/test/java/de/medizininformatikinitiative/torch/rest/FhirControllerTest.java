@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
@@ -39,6 +40,7 @@ import reactor.core.publisher.Mono;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -90,7 +92,7 @@ class FhirControllerTest {
     @BeforeEach
     void setup() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper, cohortQueryService);
+        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper, cohortQueryService, new BatchProgressRegistry());
         client = WebTestClient.bindToRouterFunction(fhirController.queryRouter()).build();
     }
 
@@ -180,6 +182,31 @@ class FhirControllerTest {
         }
 
         @Test
+        void xProgressNamesStepAndTotalProgress() {
+            UUID jobId = UUID.randomUUID();
+            UUID done = UUID.randomUUID();
+            UUID running = UUID.randomUUID();
+            Job cohort = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams()).withStatus(JobStatus.RUNNING_GET_COHORT);
+            Job batches = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .initBatches(Map.of(
+                            done, new BatchState(done, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)),
+                            running, new BatchState(running, WorkUnitState.startNow())), 2);
+            Job core = batches
+                    .withBatchState(new BatchState(running, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED)))
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
+
+            when(jobPersistenceService.getJob(jobId)).thenReturn(Optional.of(cohort), Optional.of(batches), Optional.of(core));
+
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectHeader().valueEquals("X-Progress", "Step 1/3: cohort query");
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectHeader().valueEquals("X-Progress", "Step 2/3: patient batches 1/2 (total 33%)");
+            client.get().uri("/fhir/__status/" + jobId).exchange()
+                    .expectHeader().valueEquals("X-Progress", "Step 3/3: core resources (total 67%)");
+        }
+
+        @Test
         void completedJobReturnsResultsAndExtensions() {
             UUID jobId = UUID.randomUUID();
             UUID batchId = UUID.randomUUID();
@@ -238,7 +265,7 @@ class FhirControllerTest {
             })
                     .when(failingMapper).writeValueAsString(any());
 
-            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper, cohortQueryService);
+            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper, cohortQueryService, new BatchProgressRegistry());
             WebTestClient.bindToRouterFunction(controller.queryRouter()).build()
                     .get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().is5xxServerError()
