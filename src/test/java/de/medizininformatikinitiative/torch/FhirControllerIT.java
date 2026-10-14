@@ -60,6 +60,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Scanner;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.util.TimeUtils.durationSecondsSince;
@@ -497,6 +498,18 @@ class FhirControllerIT {
             assertThat(response.getStatusCode().value()).isEqualTo(400);
             assertThat(response.getBody()).contains("OperationOutcome");
             assertThat(response.getBody()).contains("Empty request body");
+        }
+
+        @Test
+        void wrongMethodReturnsMethodNotAllowed() {
+            TestRestTemplate restTemplate = new TestRestTemplate();
+
+            ResponseEntity<String> response = restTemplate.getForEntity(
+                    "http://localhost:" + port + "/fhir/Task/{id}/$pause", String.class, UUID.randomUUID());
+
+            assertThat(response.getStatusCode().value()).isEqualTo(405);
+            assertThat(response.getHeaders().getAllow()).containsExactly(HttpMethod.POST);
+            assertThat(response.getBody()).contains("OperationOutcome");
         }
 
         @Test
