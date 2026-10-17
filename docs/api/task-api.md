@@ -75,7 +75,14 @@ is done. It stays present for the rest of the job's lifecycle, including after c
 | `batchSize`         | `integer` | Configured `torch.batchsize`                                      |
 | `batchesTotal`      | `integer` | Number of batches the cohort was split into                       |
 | `batchesCompleted`  | `integer` | Number of batches that are `FINISHED`, `SKIPPED`, or `FAILED`     |
+| `totalProgress`     | `decimal` | Progress of the whole job in percent (see below)                  |
+| `coreStatus`        | `string`  | Status of the core work unit: `INIT`, `IN_PROGRESS`, `FINISHED`, `SKIPPED`, `FAILED`, or `TEMP_FAILED` |
+| `coreStage`         | `string`  | Current pipeline stage of the core, only while it is `IN_PROGRESS` and its stage is known |
 | `activeBatch`       | (nested)  | One entry per batch currently being processed (see below)         |
+
+`totalProgress` counts each batch and the core as one unit of work: `(batchesCompleted + core done) / (batchesTotal + 1)`.
+The core has no measurable fraction of its own, so while it runs the total stays below 100% even though all batches
+are done.
 
 Batches run concurrently, up to `torch.maxconcurrency` at a time, so `torch-job-progress` may carry zero, one, or
 several `activeBatch` entries. Each `activeBatch` is itself a nested extension:
@@ -101,6 +108,8 @@ before it has resumed processing and reported a stage.
         { "url": "batchSize", "valueInteger": 500 },
         { "url": "batchesTotal", "valueInteger": 3 },
         { "url": "batchesCompleted", "valueInteger": 1 },
+        { "url": "totalProgress", "valueDecimal": 25.0 },
+        { "url": "coreStatus", "valueString": "INIT" },
         {
           "url": "activeBatch",
           "extension": [

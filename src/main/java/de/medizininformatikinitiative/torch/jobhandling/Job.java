@@ -605,14 +605,24 @@ public record Job(
                 newFinishedAt, issues, parameters, priority, coreState, version);
     }
 
-    public double calculateBatchProgress() {
-        if (!batches.isEmpty()) {
-            long completedBatches = batches.values().stream()
-                    .filter(bs -> bs.status().isDone())
-                    .count();
-            return ((double) completedBatches / batches.size()) * 100;
-        }
-        return 0;
+    /**
+     * Number of batches that are done, i.e. {@code FINISHED}, {@code SKIPPED} or {@code FAILED}.
+     */
+    public long completedBatchCount() {
+        return batches.values().stream()
+                .filter(bs -> bs.status().isDone())
+                .count();
+    }
+
+    /**
+     * Progress of the whole job in percent, counting each batch and the core as one unit of work.
+     *
+     * <p>Core has no measurable fraction, so while it runs the total stays below 100 even though
+     * all batches are done.
+     */
+    public double calculateTotalProgress() {
+        long done = completedBatchCount() + (coreState.status().isDone() ? 1 : 0);
+        return ((double) done / (batches.size() + 1)) * 100;
     }
 
     public Job withPriority(JobPriority jobPriority) {

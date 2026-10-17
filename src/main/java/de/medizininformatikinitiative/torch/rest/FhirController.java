@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
+import de.medizininformatikinitiative.torch.diagnostics.BatchProgressRegistry;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
@@ -46,6 +47,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.Locale;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONSIDERED_RESOURCES_FILE;
@@ -94,11 +96,12 @@ public class FhirController {
     private final CrtdlValidatorService validator;
     private final ObjectMapper mapper;
     private final CohortQueryService cohortQueryService;
+    private final BatchProgressRegistry progressRegistry;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ExtractDataParametersParser parser, CrtdlValidatorService validator,
                           JobPersistenceService persistence, TorchProperties properties, ObjectMapper mapper,
-                          CohortQueryService cohortQueryService) {
+                          CohortQueryService cohortQueryService, BatchProgressRegistry progressRegistry) {
         this.fhirContext = requireNonNull(fhirContext);
         this.extractDataParametersParser = requireNonNull(parser);
         this.validator = requireNonNull(validator);
@@ -106,6 +109,7 @@ public class FhirController {
         this.baseUrl = properties.base().url();
         this.mapper = mapper;
         this.cohortQueryService = requireNonNull(cohortQueryService);
+        this.progressRegistry = requireNonNull(progressRegistry);
         this.fileServerName = properties.output().file().server().url();
     }
 
@@ -403,19 +407,19 @@ public class FhirController {
                             .header("X-Progress", xProgress(job))
                             .contentType(MediaType.APPLICATION_JSON)
                             .bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                                    OperationOutcomeCreator.fromJob(job)));
+                                    OperationOutcomeCreator.fromJob(job, progressRegistry.currentStage(job.id()))));
             case TEMP_FAILED ->
                     ServerResponse.status(503).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                            OperationOutcomeCreator.fromJob(job)));
+                            OperationOutcomeCreator.fromJob(job, progressRegistry.currentStage(job.id()))));
             case FAILED ->
                     ServerResponse.status(500).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                            OperationOutcomeCreator.fromJob(job)));
+                            OperationOutcomeCreator.fromJob(job, progressRegistry.currentStage(job.id()))));
             case CANCELLED ->
                     ServerResponse.status(410).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                            OperationOutcomeCreator.fromJob(job)));
+                            OperationOutcomeCreator.fromJob(job, progressRegistry.currentStage(job.id()))));
             case DELETED ->
                     ServerResponse.status(HttpStatus.NOT_FOUND).contentType(MediaType.APPLICATION_JSON).bodyValue(fhirContext.newJsonParser().encodeResourceToString(
-                            OperationOutcomeCreator.fromJob(job)));
+                            OperationOutcomeCreator.fromJob(job, progressRegistry.currentStage(job.id()))));
         };
     }
 
@@ -588,9 +592,11 @@ public class FhirController {
      */
     private static String xProgress(Job job) {
         return switch (job.status()) {
-            case RUNNING_GET_COHORT -> "Getting cohort";
-            case RUNNING_PROCESS_BATCH -> "Processing batches (%.0f%%)".formatted(job.calculateBatchProgress());
-            case RUNNING_PROCESS_CORE -> "Processing core resources";
+            case RUNNING_GET_COHORT -> "Step 1/3: cohort query";
+            case RUNNING_PROCESS_BATCH -> String.format(Locale.ROOT, "Step 2/3: patient batches %d/%d (total %.0f%%)",
+                    job.completedBatchCount(), job.batches().size(), job.calculateTotalProgress());
+            case RUNNING_PROCESS_CORE -> String.format(Locale.ROOT, "Step 3/3: core resources (total %.0f%%)",
+                    job.calculateTotalProgress());
             default -> job.status().display();
         };
     }

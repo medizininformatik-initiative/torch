@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DecimalType;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.IntegerType;
 import org.hl7.fhir.r4.model.Period;
@@ -18,6 +19,8 @@ import org.hl7.fhir.r4.model.Task;
 import org.hl7.fhir.r4.model.UrlType;
 import org.springframework.stereotype.Component;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.Date;
 
 import static java.util.Objects.requireNonNull;
@@ -101,23 +104,27 @@ public class JobTaskMapper {
 
     /**
      * Adds a {@code torch-job-progress} extension carrying the cohort size, the configured
-     * batch size, the number of batches known/completed, and the current pipeline stage of
-     * each in-progress batch, once the cohort query has finished.
+     * batch size, the number of batches known/completed, the total job progress, the core
+     * status, and the current pipeline stage of each in-progress batch and of the core, once
+     * the cohort query has finished.
      *
-     * <p>A batch's stage is omitted if the in-memory {@link BatchProgressRegistry} has no entry
-     * for it, e.g. right after a restart before the batch has resumed processing.
+     * <p>A stage is omitted if the in-memory {@link BatchProgressRegistry} has no entry for it,
+     * e.g. right after a restart before the work unit has resumed processing.
      */
     private void addProgressExtension(Task task, Job job) {
-        long completedBatches = job.batches().values().stream()
-                .filter(bs -> bs.status().isDone())
-                .count();
-
         Extension progress = task.addExtension();
         progress.setUrl(TORCH_JOB_PROGRESS_EXTENSION);
         progress.addExtension("cohortSize", new IntegerType(job.cohortSize()));
         progress.addExtension("batchSize", new IntegerType(batchSize));
         progress.addExtension("batchesTotal", new IntegerType(job.batches().size()));
-        progress.addExtension("batchesCompleted", new IntegerType((int) completedBatches));
+        progress.addExtension("batchesCompleted", new IntegerType((int) job.completedBatchCount()));
+        progress.addExtension("totalProgress", new DecimalType(
+                BigDecimal.valueOf(job.calculateTotalProgress()).setScale(1, RoundingMode.HALF_UP)));
+        progress.addExtension("coreStatus", new StringType(job.coreState().status().name()));
+        if (job.coreState().status() == WorkUnitStatus.IN_PROGRESS) {
+            batchProgressRegistry.currentStage(job.id()).ifPresent(stage ->
+                    progress.addExtension("coreStage", new StringType(stage.name())));
+        }
 
         for (BatchState bs : job.batches().values()) {
             if (bs.status() != WorkUnitStatus.IN_PROGRESS) {
