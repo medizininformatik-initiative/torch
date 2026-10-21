@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
+import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentCheckOutcome;
 import de.medizininformatikinitiative.torch.consent.ConsentCheckResult;
 import de.medizininformatikinitiative.torch.consent.ConsentValidator;
@@ -11,7 +13,9 @@ import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclus
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -21,9 +25,11 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
+import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Procedure;
 import org.hl7.fhir.r4.model.Reference;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -34,6 +40,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
 import reactor.test.StepVerifier;
 
+import java.io.File;
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +54,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -402,6 +411,50 @@ class DirectResourceLoaderTest {
 
             assertThat(batchWithConsent.diagnostics().batchExclusions().getPatientExclusions()).containsExactly(
                     new PatientExclusionEvent(PatientExclusionStage.DIRECT_LOAD, "1")
+            );
+        }
+
+        @Test
+        void directLoadPatientCompartment_mustHaveResourceOutsideConsentWindow_dropsPatient() throws Exception {
+            var realConsentValidator = new ConsentValidator(FhirContext.forR4(),
+                    new ObjectMapper().readTree(new File("mappings/type_to_consent.json")));
+            var loader = new DirectResourceLoader(dataStore, dseMappingTreeBase, profileMustHaveChecker,
+                    realConsentValidator);
+
+            var mustHaveAttr = new AnnotatedAttribute("Procedure.code", "Procedure.code", true);
+            var group = new AnnotatedAttributeGroup("procedure", "Procedure", "groupId", List.of(mustHaveAttr), List.of());
+
+            var consentWindow = NonContinuousPeriod.of(Period.of(LocalDate.of(2020, 1, 1), LocalDate.of(2025, 12, 31)));
+            var outside = new PatientResourceBundle("outside", consentWindow, new ResourceBundle());
+            var inside = new PatientResourceBundle("inside", consentWindow, new ResourceBundle());
+            var batch = new PatientBatchWithConsent(
+                    Map.of("outside", outside, "inside", inside),
+                    true,
+                    new ResourceBundle(),
+                    UUID.randomUUID(),
+                    BatchDiagnostics.empty()
+            );
+
+            Procedure outsideProcedure = new Procedure();
+            outsideProcedure.setId("Procedure/p-outside");
+            outsideProcedure.setSubject(new Reference("Patient/outside"));
+            outsideProcedure.setPerformed(new DateTimeType("2019-06-01"));
+
+            Procedure insideProcedure = new Procedure();
+            insideProcedure.setId("Procedure/p-inside");
+            insideProcedure.setSubject(new Reference("Patient/inside"));
+            insideProcedure.setPerformed(new DateTimeType("2021-06-01"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(outsideProcedure, insideProcedure));
+            when(profileMustHaveChecker.evaluateFirst(any(), eq(group))).thenReturn(new MustHaveEvaluation.Fulfilled());
+
+            StepVerifier.create(loader.directLoadPatientCompartment(List.of(group), batch))
+                    .assertNext(result -> assertThat(result.patientBatch().ids()).containsExactly("inside"))
+                    .verifyComplete();
+
+            verify(profileMustHaveChecker, never()).evaluateFirst(eq(outsideProcedure), any());
+            assertThat(batch.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(CONSENT, "procedure", "Procedure/p-outside", "outside", "", "OUTSIDE_PERIODS")
             );
         }
 
