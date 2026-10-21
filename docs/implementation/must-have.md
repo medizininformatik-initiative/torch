@@ -17,6 +17,18 @@ When an attribute group has an active must-have constraint:
 
 When a group has no user-declared `mustHave: true` attribute, the group is optional: all patients are retained regardless of whether they have any resources for that group.
 
+### Consent is applied first
+
+Must-have checking only sees resources that passed the [consent check](consent.md#_6-enforcement-in-data-processing).
+Resources outside the patient's consent window are dropped before the must-have check runs, so they never satisfy a must-have requirement.
+Core resources (outside the patient compartment) are not consent-filtered, so this does not affect must-have checks on core groups.
+
+Example: a group requires a Procedure (`mustHave: true`), and the patient's only matching Procedure lies outside their consent window.
+The Procedure is removed by the consent check, the group's must-have requirement is not met, and the patient is dropped.
+
+Cohort selection (CQL or Flare) runs before consent is evaluated and does not take the consent window into account.
+The extraction result can therefore contain fewer patients than the cohort.
+
 ### Standard attributes and `mustHave`
 
 Standard attributes (`id`, `meta.profile`, and patient compartment references such as `subject`) are always injected by TORCH for functional reasons — they are required for internal processing, referential integrity, and profile-aware handling.

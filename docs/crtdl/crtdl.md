@@ -105,6 +105,7 @@ An attribute to be extracted contains an attribute reference **attributeRef** an
 
 When `mustHave: true` is set on at least one attribute in a group, TORCH enforces that every patient has at least one resource of that group where all `mustHave: true` attributes are populated.
 Patients for whom no such resource exists are **dropped from the extraction result entirely**.
+Only resources within the patient's consent window count: a resource outside it is removed before the must-have check and cannot satisfy it.
 
 When no attribute in a group carries `mustHave: true`, the group is optional: patients are retained even if they have no resources for that group.
 
