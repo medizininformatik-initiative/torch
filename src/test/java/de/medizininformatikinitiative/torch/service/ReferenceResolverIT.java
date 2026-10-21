@@ -5,7 +5,9 @@ import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
+import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
+import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -16,6 +18,7 @@ import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Medication;
@@ -37,6 +40,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import reactor.core.publisher.Mono;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -449,6 +453,40 @@ public class ReferenceResolverIT {
                     Map.entry(ENC_ID_2, Optional.of(enc_2)),
                     Map.entry(PAT_ID_1, Optional.of(pat))
             );
+        }
+
+        @Test
+        void mustHaveReferenceOutsideConsentWindow_invalidatesReferencingResource() {
+            var pat = createPatient(PAT_ID_1.toString());
+            var cond = createCondition(COND_ID_1.toString());
+            var enc = createEncounter(ENC_ID_1.toString(), null);
+            enc.setPeriod(new org.hl7.fhir.r4.model.Period()
+                    .setStartElement(new DateTimeType("2019-06-01"))
+                    .setEndElement(new DateTimeType("2019-06-05")));
+            when(dataStore.executeBundle(any())).thenAnswer(invocation ->
+                    Mono.just(returnResourcesByQuery(invocation.getArgument(0), enc)));
+
+            var consentWindow = NonContinuousPeriod.of(Period.of(LocalDate.of(2020, 1, 1), LocalDate.of(2025, 12, 31)));
+            var patBundle = new PatientResourceBundle(PAT_ID_1.id(), consentWindow, new ResourceBundle());
+            patBundle.bundle().put(pat);
+            patBundle.bundle().put(cond);
+            patBundle.bundle().addResourceGroupValidity(rgFromResource(pat, PAT_GROUP), true);
+            patBundle.bundle().addResourceGroupValidity(rgFromResource(cond, COND_GROUP), true);
+            var batch = new PatientBatchWithConsent(Map.of(PAT_ID_1.id(), patBundle), true, new ResourceBundle(),
+                    UUID.randomUUID(), BatchDiagnostics.empty());
+
+            AnnotatedAttribute condEncounter = new AnnotatedAttribute(ENCOUNTER_PATH, ENCOUNTER_PATH, true, List.of(LINKED_GROUP_1));
+            Map<String, AnnotatedAttributeGroup> groupMap = new HashMap<>();
+            groupMap.put(COND_GROUP, new AnnotatedAttributeGroup(AG_1, CONDITION_TYPE, CONDITION_PROFILE, List.of(condEncounter), List.of()));
+            groupMap.put(PAT_GROUP, new AnnotatedAttributeGroup(AG_4, PATIENT_TYPE, PATIENT_PROFILE, List.of(), List.of()));
+            groupMap.put(LINKED_GROUP_1, new AnnotatedAttributeGroup(AG_2, ENCOUNTER_TYPE, ENCOUNTER_PROFILE, List.of(), List.of()));
+
+            var resultBatch = referenceResolver.resolvePatientBatch(batch, groupMap).block();
+
+            assertThat(resultBatch).isNotNull();
+            var resultBundle = resultBatch.bundles().get(PAT_ID_1.id()).bundle();
+            assertThat(resultBundle.cache()).containsEntry(ENC_ID_1, Optional.empty());
+            assertThat(resultBundle.resourceGroupValidity()).containsEntry(rgFromResource(cond, COND_GROUP), false);
         }
 
         @Test
