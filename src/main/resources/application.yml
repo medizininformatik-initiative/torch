@@ -45,6 +45,9 @@ torch:
   disableConsentCalculation: ${DISABLE_CONSENT_CALCULATION:false}
   enableEncounterShift: true
   encounterShiftMaxDays: 7
+  inclusion-consent-check:
+    enabled: false
+    fhir-mappings-file: ontology/mapping_fhir.json
   output:
     file:
       server:

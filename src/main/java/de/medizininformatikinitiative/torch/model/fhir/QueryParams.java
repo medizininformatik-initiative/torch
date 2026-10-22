@@ -2,6 +2,8 @@ package de.medizininformatikinitiative.torch.model.fhir;
 
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.sq.Comparator;
+import de.medizininformatikinitiative.torch.model.sq.Quantity;
+import de.medizininformatikinitiative.torch.model.sq.TermCode;
 
 import java.time.LocalDate;
 import java.util.LinkedList;
@@ -56,6 +58,23 @@ public record QueryParams(List<Param> params) {
         return new CodeValue(value);
     }
 
+    public static Value conceptValue(TermCode value) {
+        return new ConceptValue(requireNonNull(value));
+    }
+
+    public static Value quantityValue(Comparator comparator, Quantity value) {
+        return new QuantityValue(requireNonNull(comparator), requireNonNull(value));
+    }
+
+    public static Value compositeConceptValue(TermCode compositeCode, TermCode value) {
+        return new CompositeConceptValue(requireNonNull(compositeCode), requireNonNull(value));
+    }
+
+    public static Value compositeQuantityValue(TermCode compositeCode, Comparator comparator, Quantity value) {
+        return new CompositeQuantityValue(requireNonNull(compositeCode), requireNonNull(comparator),
+                requireNonNull(value));
+    }
+
     private record CodeValue(Code value) implements Value {
 
         private CodeValue {
@@ -100,6 +119,16 @@ public record QueryParams(List<Param> params) {
      */
     public Stream<QueryParams> split() {
         return params.stream().map(p -> new QueryParams(List.of(p)));
+    }
+
+    /**
+     * Prefixes the name of each {@code Param query param} with {@code name} followed by an {@literal .}.
+     *
+     * @param name the name to use a prefix
+     * @return the {@code QueryParams} resulting in prefixing
+     */
+    public QueryParams prefixName(String name) {
+        return new QueryParams(params.stream().map(param -> new Param(name + "." + param.name, param.value)).toList());
     }
 
     @Override
@@ -155,6 +184,59 @@ public record QueryParams(List<Param> params) {
         @Override
         public String toString() {
             return comparator.toString() + value;
+        }
+    }
+
+    private record ConceptValue(TermCode value) implements Value {
+
+        private ConceptValue {
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return value.searchValue();
+        }
+    }
+
+    private record QuantityValue(Comparator comparator, Quantity value) implements Value {
+
+        private QuantityValue {
+            requireNonNull(comparator);
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return comparator.toString() + value.searchValue();
+        }
+    }
+
+    private record CompositeConceptValue(TermCode compositeCode, TermCode value) implements Value {
+
+        private CompositeConceptValue {
+            requireNonNull(compositeCode);
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return compositeCode.searchValue() + "$" + value.searchValue();
+        }
+    }
+
+    private record CompositeQuantityValue(TermCode compositeCode, Comparator comparator, Quantity value)
+            implements Value {
+
+        private CompositeQuantityValue {
+            requireNonNull(compositeCode);
+            requireNonNull(comparator);
+            requireNonNull(value);
+        }
+
+        @Override
+        public String toString() {
+            return compositeCode.searchValue() + "$" + comparator + value.searchValue();
         }
     }
 }
