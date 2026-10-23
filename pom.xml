@@ -28,6 +28,19 @@
         <jackson-2-bom.version>2.21.5</jackson-2-bom.version>
     </properties>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- Aligns okhttp-jvm with mockwebserver; hapi-fhir-core otherwise pulls in an older okhttp-jvm -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp-bom</artifactId>
+                <version>5.5.0</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <!-- FIX 1: upgraded from 2.8.5 to 3.0.1 for Spring Boot 4 compatibility -->
         <dependency>
@@ -248,16 +261,8 @@
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <scope>test</scope>
-            <version>5.5.0</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <scope>test</scope>
-            <version>5.5.0</version>
         </dependency>
 
         <!-- FIX 3: aligned testcontainers to 2.0.4 and renamed junit-jupiter artifact
