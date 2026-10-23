@@ -149,7 +149,7 @@ public class JobTest {
                     .withBatchState(new BatchState(b1, WorkUnitState.initNow()))
                     .withBatchState(new BatchState(b2, WorkUnitState.startNow()));
 
-            assertThat(j.calculateBatchProgress()).isZero();
+            assertThat(j.completedBatchCount()).isZero();
 
             Optional<WorkUnit> wuOpt = j.selectNextWorkUnit();
 
@@ -194,7 +194,7 @@ public class JobTest {
                     .withStatus(JobStatus.RUNNING_PROCESS_CORE)
                     .withCoreState(WorkUnitState.startNow());
 
-            assertThat(j.calculateBatchProgress()).isZero();
+            assertThat(j.completedBatchCount()).isZero();
             assertThat(j.selectNextWorkUnit()).isEmpty();
         }
 
@@ -250,7 +250,7 @@ public class JobTest {
             assertThat(after1.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
 
             Job after2 = after1.onBatchProcessingSuccess(r2);
-            assertThat(after2.calculateBatchProgress()).isEqualTo(100);
+            assertThat(after2.completedBatchCount()).isEqualTo(2);
             assertThat(after2.status()).isEqualTo(JobStatus.RUNNING_PROCESS_CORE);
             assertThat(after2.coreState().status()).isEqualTo(WorkUnitStatus.INIT);
         }
@@ -1163,6 +1163,56 @@ public class JobTest {
 
             assertThat(updated.status()).isEqualTo(JobStatus.FAILED);
             assertThat(updated.coreState().status()).isEqualTo(WorkUnitStatus.FAILED);
+        }
+    }
+
+    @Nested
+    class CalculateTotalProgressTests {
+
+        private static BatchState batch(WorkUnitStatus status) {
+            return new BatchState(UUID.randomUUID(), WorkUnitState.initNow().finishNow(status));
+        }
+
+        @Test
+        void beforeCohortQuery_isZero() {
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams());
+
+            assertThat(j.calculateTotalProgress()).isZero();
+        }
+
+        @Test
+        void countsDoneBatchesAndCoreAsOneExtraUnit() {
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(batch(WorkUnitStatus.FINISHED))
+                    .withBatchState(batch(WorkUnitStatus.SKIPPED))
+                    .withBatchState(new BatchState(UUID.randomUUID(), WorkUnitState.startNow()));
+
+            assertThat(j.completedBatchCount()).isEqualTo(2);
+            assertThat(j.calculateTotalProgress()).isEqualTo(50);
+        }
+
+        @Test
+        void allBatchesDone_coreRunning_isBelowHundred() {
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withBatchState(batch(WorkUnitStatus.FINISHED))
+                    .withBatchState(batch(WorkUnitStatus.FINISHED))
+                    .withBatchState(batch(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.startNow());
+
+            assertThat(j.completedBatchCount()).isEqualTo(3);
+            assertThat(j.calculateTotalProgress()).isEqualTo(75);
+        }
+
+        @Test
+        void allBatchesAndCoreDone_isHundred() {
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.COMPLETED)
+                    .withBatchState(batch(WorkUnitStatus.FINISHED))
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.SKIPPED));
+
+            assertThat(j.calculateTotalProgress()).isEqualTo(100);
         }
     }
 }
