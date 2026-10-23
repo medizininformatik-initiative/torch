@@ -34,6 +34,19 @@ public class ConsentValidator {
     }
 
     /**
+     * Returns the top-level element holding the date that {@link #checkConsent} compares against the consent periods.
+     *
+     * @param resourceType the FHIR resource type
+     * @return the element name (e.g. {@code collection} for {@code Specimen.collection.collected}), or empty if the type
+     * is not mapped or has no consent-relevant date
+     */
+    public Optional<String> consentDateElement(String resourceType) {
+        var path = resourceToField.path(resourceType).asText("");
+        var segments = path.split("\\.");
+        return segments.length < 2 ? Optional.empty() : Optional.of(segments[1]);
+    }
+
+    /**
      * Wrapper function that checks whether the provided {@link DomainResource} complies with the patient's consents.
      *
      * <p>This method extracts the relevant {@link PatientResourceBundle} for the patient associated with the resource

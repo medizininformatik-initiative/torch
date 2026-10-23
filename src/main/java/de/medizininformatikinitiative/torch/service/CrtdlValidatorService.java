@@ -40,17 +40,24 @@ public class CrtdlValidatorService {
     private final ConsentCodeConfig consentCodeConfig;
     private final FhirPathBuilder fhirPathBuilder;
     private final FhirContext fhirContext;
+    private final Optional<InclusionConsentChecker> inclusionConsentChecker;
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder, FhirContext fhirContext) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator,
+                                 ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder,
+                                 FhirContext fhirContext, Optional<InclusionConsentChecker> inclusionConsentChecker) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
         this.consentCodeConfig = consentCodeConfig;
         this.fhirPathBuilder = fhirPathBuilder;
         this.fhirContext = fhirContext;
+        this.inclusionConsentChecker = inclusionConsentChecker;
     }
 
     /**
      * Validates crtdl and modifies the attribute allGroups by adding standard attributes and modifiers.
+     *
+     * <p>If the inclusion consent check is enabled and the CRTDL has consent codes, its inclusion criteria must be
+     * translatable into FHIR search queries.
      *
      * @param crtdl the Crtdl to be validated.
      * @return the validated Crtdl or an error signal with ValidationException if a profile is unknown.
@@ -59,6 +66,9 @@ public class CrtdlValidatorService {
         Optional<Set<TermCode>> consentCodes = crtdlConsentValidator.extractConsentCodes(crtdl);
         if (consentCodes.isPresent()) {
             consentCodeConfig.validateCodeCoOccurrence(consentCodes.get());
+            if (inclusionConsentChecker.isPresent()) {
+                inclusionConsentChecker.get().validate(crtdl.cohortDefinition());
+            }
         }
         List<AnnotatedAttributeGroup> annotatedAttributeGroups = new ArrayList<>();
         Set<String> linkedGroups = new HashSet<>();

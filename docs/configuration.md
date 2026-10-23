@@ -245,6 +245,29 @@ mis-modelled Encounters.
 
 ---
 
+#### `TORCH_INCLUSIONCONSENTCHECK_ENABLED` <Badge type="warning" text="Experimental"/>
+
+Flag indicating whether patients are removed from a batch when none of the resources fulfilling an inclusion
+criterion group of the cohort definition lies inside their consent window. The criteria are translated into FHIR
+search queries the same way FLARE does, using `TORCH_INCLUSIONCONSENTCHECK_FHIRMAPPINGSFILE` and
+`TORCH_CONCEPT_TREE_FILE`. Exclusion criteria and consent criteria are not checked. Criteria with reference
+attribute filters (e.g. a Procedure with a reason Condition) are not supported yet. Only applies when the cohort
+definition contains consent codes; such CRTDLs are rejected on submission if an inclusion criterion cannot be
+translated or expands into more than 1000 FHIR searches (one per descendant code of the selected concepts).
+
+**Default:** `false`
+
+---
+
+#### `TORCH_INCLUSIONCONSENTCHECK_FHIRMAPPINGSFILE` <Badge type="warning" text="Experimental"/>
+
+Path to the ontology file mapping cohort criteria to FHIR search parameters (FLARE's mapping). It is only loaded at
+startup if `TORCH_INCLUSIONCONSENTCHECK_ENABLED` is set and needs several hundred megabytes of heap.
+
+**Default:** `ontology/mapping_fhir.json`
+
+---
+
 ---
 
 #### `TORCH_OUTPUT_FILE_SERVER_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>
