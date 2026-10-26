@@ -245,6 +245,83 @@ mis-modelled Encounters.
 
 ---
 
+#### `TORCH_INCLUSIONCONSENTCHECK_ENABLED` <Badge type="warning" text="Experimental"/>
+
+Flag indicating whether patients are removed from a batch when none of the resources fulfilling an inclusion
+criterion group of the cohort definition lies inside their consent window. The criteria are translated into FHIR
+search queries the same way FLARE does, using `TORCH_INCLUSIONCONSENTCHECK_FHIRMAPPINGSFILE` and
+`TORCH_CONCEPT_TREE_FILE`. Per patient, one batch bundle counts the matches of each query inside each consent
+period; up to `TORCH_INCLUSIONCONSENTCHECK_CONCURRENCY` of these bundles run in parallel per batch. Exclusion criteria are not checked, nor are criterion groups that contain
+a consent criterion, since consent already fulfils them. For criteria with reference
+attribute filters (e.g. a Procedure with a reason Condition), only the referencing resource has to lie inside the
+consent window, since its consent covers its references. Only applies when the cohort
+definition contains consent codes; such CRTDLs are rejected on submission if an inclusion criterion cannot be
+translated, queries a resource type missing from `TORCH_MAPPING_TYPE_TO_CONSENT` or not checkable (see below),
+expands into more than 1000 FHIR searches (one per descendant code of the selected concepts), or uses a search
+parameter the FHIR server's CapabilityStatement does not declare. The CapabilityStatement is fetched on the first
+such submission and cached; if it cannot be fetched, the submission fails with a server error. A batch also fails if
+a search parameter of a translated query is not declared.
+
+The consent period search parameter of each resource type is derived from the FHIRPath in
+`TORCH_MAPPING_TYPE_TO_CONSENT`: it is the FHIR R4 date search parameter whose path equals the FHIRPath exactly.
+For the shipped mapping, these are:
+
+| Resource type            | FHIRPath                            | Search parameter |
+|--------------------------|-------------------------------------|------------------|
+| Condition                | `Condition.recordedDate`            | `recorded-date`  |
+| Consent                  | `Consent.dateTime`                  | `date`           |
+| DiagnosticReport         | `DiagnosticReport.effective`        | `date`           |
+| DocumentReference        | `DocumentReference.date`            | `date`           |
+| Encounter                | `Encounter.period`                  | `date`           |
+| FamilyMemberHistory      | `FamilyMemberHistory.date`          | `date`           |
+| List                     | `List.date`                         | `date`           |
+| MedicationAdministration | `MedicationAdministration.effective`| `effective-time` |
+| MedicationRequest        | `MedicationRequest.authoredOn`      | `authoredon`     |
+| MedicationStatement      | `MedicationStatement.effective`     | `effective`      |
+| Observation              | `Observation.effective`             | `date`           |
+| Procedure                | `Procedure.performed`               | `date`           |
+| Provenance               | `Provenance.recorded`               | `recorded`       |
+| ServiceRequest           | `ServiceRequest.authoredOn`         | `authored`       |
+| Specimen                 | `Specimen.collection.collected`     | `collected`      |
+| Task                     | `Task.authoredOn`                   | `authored-on`    |
+
+Resource types mapped to `""` are not restricted to the consent periods. A resource type whose FHIRPath no search
+parameter matches is not checkable, and CRTDLs with inclusion criteria on it are rejected; the not checkable types
+are logged at startup. With the shipped mapping, this is `RiskAssessment`: its R4 `date` search parameter only covers
+`occurrence as dateTime`, not `occurrencePeriod`. If more than one search parameter matches, TORCH fails to start.
+
+The FHIR server compares the dates itself, which differs from the extraction's consent filter in two ways:
+
+* Dates are compared as UTC days, so a resource timestamped within its UTC offset of a consent boundary may be judged
+  differently (e.g. `2022-01-01T00:00+01:00` lies on 2021-12-31).
+* Dates with only year or month precision count as consented if the consent covers the whole year or month, while
+  the extraction ignores them. A patient may therefore be kept although the extraction drops the resource that
+  fulfils the criterion.
+
+**Default:** `false`
+
+---
+
+#### `TORCH_INCLUSIONCONSENTCHECK_FHIRMAPPINGSFILE` <Badge type="warning" text="Experimental"/>
+
+Path to the ontology file mapping cohort criteria to FHIR search parameters (FLARE's mapping). It is only loaded at
+startup if `TORCH_INCLUSIONCONSENTCHECK_ENABLED` is set and needs several hundred megabytes of heap.
+
+**Default:** `ontology/mapping_fhir.json`
+
+---
+
+#### `TORCH_INCLUSIONCONSENTCHECK_CONCURRENCY` <Badge type="warning" text="Experimental"/>
+
+Number of patients per batch whose inclusion criteria are counted in parallel, each with one batch bundle. Blaze
+processes the entries of a batch bundle sequentially, so parallel bundles speed up the check. Since up to
+`TORCH_MAXCONCURRENCY` batches run at the same time, `TORCH_FHIR_MAX_CONNECTIONS` must be at least
+`TORCH_MAXCONCURRENCY × TORCH_INCLUSIONCONSENTCHECK_CONCURRENCY + 1`.
+
+**Default:** `1`
+
+---
+
 ---
 
 #### `TORCH_OUTPUT_FILE_SERVER_URL` <Badge type="warning" text="Since 1.0.0-alpha"/>

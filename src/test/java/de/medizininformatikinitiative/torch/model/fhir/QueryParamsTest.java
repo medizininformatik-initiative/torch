@@ -2,8 +2,11 @@ package de.medizininformatikinitiative.torch.model.fhir;
 
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.sq.Comparator;
+import de.medizininformatikinitiative.torch.model.sq.Quantity;
+import de.medizininformatikinitiative.torch.model.sq.TermCode;
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -91,5 +94,57 @@ class QueryParamsTest {
     @Test
     void multiStringValueEmpty() {
         assertThatThrownBy(() -> QueryParams.multiStringValue(List.of())).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void quantityValueWithoutUnit() {
+        QueryParams.Value value = QueryParams.quantityValue(Comparator.GREATER_THAN, Quantity.of(BigDecimal.valueOf(5)));
+
+        assertThat(value).hasToString("gt5");
+    }
+
+    @Test
+    void quantityValueWithUnit() {
+        QueryParams.Value value = QueryParams.quantityValue(Comparator.LESS_THAN,
+                Quantity.of(BigDecimal.valueOf(5), TermCode.of("http://unitsofmeasure.org", "kg", "kg")));
+
+        assertThat(value).hasToString("lt5|http://unitsofmeasure.org|kg");
+    }
+
+    @Test
+    void compositeConceptValue() {
+        QueryParams.Value value = QueryParams.compositeConceptValue(TermCode.of("sys", "comp", "comp"),
+                TermCode.of("sys", "val", "val"));
+
+        assertThat(value).hasToString("sys|comp$sys|val");
+    }
+
+    @Test
+    void compositeQuantityValue() {
+        QueryParams.Value value = QueryParams.compositeQuantityValue(TermCode.of("sys", "comp", "comp"),
+                Comparator.GREATER_EQUAL, Quantity.of(BigDecimal.valueOf(5)));
+
+        assertThat(value).hasToString("sys|comp$ge5");
+    }
+
+    @Test
+    void orValueJoinsAndFlattensTokenValues() {
+        var a = QueryParams.conceptValue(TermCode.of("sys", "a", "a"));
+        var b = QueryParams.conceptValue(TermCode.of("sys", "b", "b"));
+        var c = QueryParams.codeValue(new Code("sys", "c"));
+
+        var value = QueryParams.orValue(List.of(QueryParams.orValue(List.of(a, b)), c));
+
+        assertThat(value).hasToString("sys|a,sys|b,sys|c");
+        assertThat(QueryParams.isToken(value)).isTrue();
+    }
+
+    @Test
+    void orValueRejectsNonTokenAndEmptyValues() {
+        var date = QueryParams.dateValue(Comparator.GREATER_EQUAL, LocalDate.parse("2020-01-01"));
+
+        assertThat(QueryParams.isToken(date)).isFalse();
+        assertThatThrownBy(() -> QueryParams.orValue(List.of(date))).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> QueryParams.orValue(List.of())).isInstanceOf(IllegalArgumentException.class);
     }
 }

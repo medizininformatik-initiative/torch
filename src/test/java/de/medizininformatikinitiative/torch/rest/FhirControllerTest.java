@@ -7,6 +7,7 @@ import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
+import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
@@ -19,9 +20,11 @@ import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import de.medizininformatikinitiative.torch.model.crtdl.ExtractDataParameters;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedDataExtraction;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
 import de.medizininformatikinitiative.torch.service.ExtractDataService;
+import de.medizininformatikinitiative.torch.service.InclusionConsentChecker;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import de.medizininformatikinitiative.torch.util.CrtdlFactory;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,12 +43,16 @@ import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -90,7 +97,7 @@ class FhirControllerTest {
     @BeforeEach
     void setup() {
         FhirContext fhirContext = FhirContext.forR4();
-        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper, cohortQueryService);
+        FhirController fhirController = new FhirController(fhirContext, extractDataParametersParser, validator, jobPersistenceService, properties, objectMapper, cohortQueryService, Optional.empty());
         client = WebTestClient.bindToRouterFunction(fhirController.queryRouter()).build();
     }
 
@@ -238,7 +245,7 @@ class FhirControllerTest {
             })
                     .when(failingMapper).writeValueAsString(any());
 
-            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper, cohortQueryService);
+            FhirController controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator, jobPersistenceService, properties, failingMapper, cohortQueryService, Optional.empty());
             WebTestClient.bindToRouterFunction(controller.queryRouter()).build()
                     .get().uri("/fhir/__status/" + jobId).exchange()
                     .expectStatus().is5xxServerError()
@@ -690,6 +697,91 @@ class FhirControllerTest {
                     .expectHeader().contentType("application/fhir+json")
                     .expectBody()
                     .jsonPath("$.resourceType").isEqualTo("OperationOutcome");
+        }
+    }
+
+    @Nested
+    class InclusionConsentCheckTests {
+
+        InclusionConsentChecker checker = mock(InclusionConsentChecker.class);
+        AnnotatedCrtdl annotated = new AnnotatedCrtdl(
+                JsonNodeFactory.instance.objectNode(),
+                new AnnotatedDataExtraction(List.of()),
+                Optional.of(Set.of(new TermCode("urn:oid:2.16.840.1.113883.3.1937.777.24.5.3", "2.16.840.1.113883.3.1937.777.24.5.3.8"))));
+        ExtractDataParameters params = new ExtractDataParameters(CrtdlFactory.empty(), List.of(), false);
+
+        @BeforeEach
+        void setup() {
+            var controller = new FhirController(FhirContext.forR4(), extractDataParametersParser, validator,
+                    jobPersistenceService, properties, objectMapper, cohortQueryService, Optional.of(checker));
+            client = WebTestClient.bindToRouterFunction(controller.queryRouter()).build();
+        }
+
+        @Test
+        void unsupportedSearchParamIsRejectedWithBadRequestAndCreatesNoJob() throws Exception {
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(checker.validateSupportedParams(annotated.cohortDefinition()))
+                    .thenReturn(Mono.error(new ValidationException("unsupported Condition.severity")));
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isBadRequest()
+                    .expectHeader().contentType("application/fhir+json")
+                    .expectBody()
+                    .jsonPath("$.issue[0].diagnostics").isEqualTo("unsupported Condition.severity");
+
+            verify(jobPersistenceService, never()).createJob(any(), any(), anyBoolean(), any());
+        }
+
+        @Test
+        void capabilityStatementFetchFailureIsAServerErrorAndCreatesNoJob() throws Exception {
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(checker.validateSupportedParams(annotated.cohortDefinition()))
+                    .thenReturn(Mono.error(new DataStoreException("FHIR server down")));
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().is5xxServerError();
+
+            verify(jobPersistenceService, never()).createJob(any(), any(), anyBoolean(), any());
+        }
+
+        @Test
+        void supportedSearchParamsCreateTheJob() throws Exception {
+            UUID createdJobId = UUID.randomUUID();
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(checker.validateSupportedParams(annotated.cohortDefinition())).thenReturn(Mono.empty());
+            when(jobPersistenceService.createJob(any(), any(), anyBoolean(), any())).thenReturn(createdJobId);
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isAccepted()
+                    .expectHeader().valueMatches("Content-Location", ".*/fhir/__status/" + createdJobId);
+        }
+
+        @Test
+        void crtdlWithoutConsentCodesIsNotChecked() throws Exception {
+            var withoutConsent = new AnnotatedCrtdl(annotated.cohortDefinition(), annotated.dataExtraction(), Optional.empty());
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(withoutConsent);
+            when(jobPersistenceService.createJob(any(), any(), anyBoolean(), any())).thenReturn(UUID.randomUUID());
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isAccepted();
+
+            verify(checker, never()).validateSupportedParams(any());
         }
     }
 

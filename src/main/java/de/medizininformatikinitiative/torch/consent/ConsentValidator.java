@@ -16,7 +16,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -31,6 +33,16 @@ public class ConsentValidator {
     public ConsentValidator(FhirContext ctx, JsonNode resourceToField) {
         this.ctx = requireNonNull(ctx);
         this.resourceToField = requireNonNull(resourceToField);
+    }
+
+    /**
+     * @return the FHIRPath of the consent date per mapped resource type, or {@code ""} for types whose resources have
+     * no consent date; resource types missing from the map are not mapped
+     */
+    public Map<String, String> dateFields() {
+        var dateFields = new LinkedHashMap<String, String>();
+        resourceToField.properties().forEach(entry -> dateFields.put(entry.getKey(), entry.getValue().asText()));
+        return dateFields;
     }
 
     /**

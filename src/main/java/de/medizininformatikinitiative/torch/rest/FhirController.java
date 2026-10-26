@@ -18,6 +18,7 @@ import de.medizininformatikinitiative.torch.rest.schema.JobManifestSchema;
 import de.medizininformatikinitiative.torch.rest.schema.OperationOutcomeSchema;
 import de.medizininformatikinitiative.torch.service.CohortQueryService;
 import de.medizininformatikinitiative.torch.service.CrtdlValidatorService;
+import de.medizininformatikinitiative.torch.service.InclusionConsentChecker;
 import de.medizininformatikinitiative.torch.service.JobPersistenceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -46,6 +47,7 @@ import reactor.core.publisher.Mono;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
+import java.util.Optional;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore.CONSENT_CONSIDERED_RESOURCES_FILE;
@@ -94,11 +96,13 @@ public class FhirController {
     private final CrtdlValidatorService validator;
     private final ObjectMapper mapper;
     private final CohortQueryService cohortQueryService;
+    private final Optional<InclusionConsentChecker> inclusionConsentChecker;
 
     @Autowired
     public FhirController(FhirContext fhirContext, ExtractDataParametersParser parser, CrtdlValidatorService validator,
                           JobPersistenceService persistence, TorchProperties properties, ObjectMapper mapper,
-                          CohortQueryService cohortQueryService) {
+                          CohortQueryService cohortQueryService,
+                          Optional<InclusionConsentChecker> inclusionConsentChecker) {
         this.fhirContext = requireNonNull(fhirContext);
         this.extractDataParametersParser = requireNonNull(parser);
         this.validator = requireNonNull(validator);
@@ -107,6 +111,7 @@ public class FhirController {
         this.mapper = mapper;
         this.cohortQueryService = requireNonNull(cohortQueryService);
         this.fileServerName = properties.output().file().server().url();
+        this.inclusionConsentChecker = requireNonNull(inclusionConsentChecker);
     }
 
     @Bean
@@ -244,21 +249,23 @@ public class FhirController {
                     } catch (ValidationException | ConsentFormatException e) {
                         return Mono.error(new IllegalArgumentException(e.getMessage()));
                     }
-                    UUID jobId;
-                    try {
-                        jobId = persistence.createJob(
-                                annotated,
-                                parameters.patientIds(),
-                                parameters.consentDiagnostics(),
-                                baseUrl + "/fhir/$extract-data"
-                        );
-                    } catch (IOException ioe) {
-                        return Mono.error(ioe);
-                    }
-                    return accepted()
-                            .header("Content-Location",
-                                    baseUrl + "/fhir/__status/" + jobId)
-                            .build();
+                    return validateSupportedParams(annotated).then(Mono.defer(() -> {
+                        UUID jobId;
+                        try {
+                            jobId = persistence.createJob(
+                                    annotated,
+                                    parameters.patientIds(),
+                                    parameters.consentDiagnostics(),
+                                    baseUrl + "/fhir/$extract-data"
+                            );
+                        } catch (IOException ioe) {
+                            return Mono.error(ioe);
+                        }
+                        return accepted()
+                                .header("Content-Location",
+                                        baseUrl + "/fhir/__status/" + jobId)
+                                .build();
+                    }));
                 }).onErrorResume(Exception.class, e -> {
                     HttpStatus status = (e instanceof IllegalArgumentException)
                             ? HttpStatus.BAD_REQUEST
@@ -278,6 +285,21 @@ public class FhirController {
                 });
     }
 
+
+    /**
+     * Checks that the FHIR server supports the search params of the inclusion consent check, if it is enabled and the
+     * CRTDL has consent codes.
+     *
+     * @return empty on success, an {@link IllegalArgumentException} for an unsupported param (400), or the error of the
+     * CapabilityStatement fetch (500)
+     */
+    private Mono<Void> validateSupportedParams(AnnotatedCrtdl annotated) {
+        if (annotated.consentCodes().isEmpty() || inclusionConsentChecker.isEmpty()) {
+            return Mono.empty();
+        }
+        return inclusionConsentChecker.get().validateSupportedParams(annotated.cohortDefinition())
+                .onErrorMap(ValidationException.class, e -> new IllegalArgumentException(e.getMessage()));
+    }
 
     @Operation(
             summary = "GET /fhir/__status/{jobId} — Bulk Data Status Request",

@@ -242,9 +242,11 @@ public class JobDiagnosticsSummaryTest {
         batch1.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, "pat-1");
         batch1.batchExclusions().addPatientExclusion(PatientExclusionStage.DIRECT_LOAD,  "pat-2");
         batch1.batchExclusions().addPatientExclusion(PatientExclusionStage.CASCADING_DELETE, "pat-3");
+        batch1.batchExclusions().addPatientExclusion(PatientExclusionStage.INCLUSION_CONSENT, "pat-7");
         batch2.batchExclusions().addPatientExclusion(PatientExclusionStage.CONSENT_FETCH, "pat-4");
         batch2.batchExclusions().addPatientExclusion(PatientExclusionStage.DIRECT_LOAD, "pat-5");
         batch2.batchExclusions().addPatientExclusion(PatientExclusionStage.CASCADING_DELETE, "pat-6");
+        batch2.batchExclusions().addPatientExclusion(PatientExclusionStage.INCLUSION_CONSENT, "pat-8");
 
         var summary  = JobDiagnosticSummary.initFromBatches(List.of(batch1, batch2));
 

@@ -244,6 +244,23 @@ Consent is enforced at two points in the extraction pipeline — both before res
 
 Core resources (resources outside the patient compartment) are not consent-filtered.
 
+### Inclusion Criteria Check (experimental)
+
+If `TORCH_INCLUSIONCONSENTCHECK_ENABLED` is set, patients are removed from a batch before the direct load unless each
+inclusion OR-group of the cohort definition is fulfilled by at least one resource within their consent periods (see
+[configuration](../configuration.md#torch-inclusionconsentcheck-enabled)). This does not guarantee that the qualifying
+resource appears in the export: the extraction may not request it at all, or a later stage may remove it (e.g. the
+must-have check or redaction).
+
+The FHIR server evaluates the consent periods itself, which differs from the extraction's consent filter
+([#ISSUE](https://github.com/medizininformatik-initiative/torch/issues/ISSUE)):
+
+- Dates with only year or month precision count as consented if the consent period covers the whole year or month,
+  while the extraction drops them as undated. A patient whose only qualifying resource has such a date therefore
+  passes the check, but the resource is removed during extraction.
+- The FHIR server compares UTC days, while the extraction uses the date as written, so a resource timestamped within
+  its UTC offset of a period boundary may be judged differently.
+
 ---
 
 ## 7. Integration with CRTDL

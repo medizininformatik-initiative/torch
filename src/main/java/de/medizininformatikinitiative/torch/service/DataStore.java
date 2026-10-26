@@ -6,10 +6,12 @@ import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Parameters;
@@ -31,6 +33,7 @@ import reactor.core.publisher.Mono;
 import reactor.util.retry.Retry;
 import reactor.util.retry.RetryBackoffSpec;
 
+import java.net.URLEncoder;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -43,9 +46,11 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.springframework.http.HttpStatus.ACCEPTED;
 import static org.springframework.http.MediaType.APPLICATION_FORM_URLENCODED;
@@ -159,6 +164,80 @@ public class DataStore {
                         "DATASTORE_05 Error while executing batch bundle query: {}", e.getMessage()));
     }
 
+
+    /**
+     * Counts the matches of each query in a single batch bundle.
+     *
+     * <p>Unlike plain searches, the entries of a batch bundle are not checked strictly by Blaze: unknown search
+     * params are silently ignored. Callers have to make sure the server supports every param, e.g. via
+     * {@link #capabilityStatement()}.
+     *
+     * @param queries the queries to count, without {@code _summary}
+     * @return the number of matches of each query, in the order of {@code queries}, or an error if the request or
+     * any entry fails
+     */
+    public Mono<List<Integer>> countBatch(List<Query> queries) {
+        if (queries.isEmpty()) {
+            return Mono.just(List.of());
+        }
+        var bundle = new Bundle().setType(Bundle.BundleType.BATCH);
+        queries.forEach(query -> bundle.addEntry().getRequest()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl(query.type() + "?" + encodedQueryString(query.params().appendParam("_summary", stringValue("count")))));
+        return client.post()
+                .uri("")
+                .header(HttpHeaders.CONTENT_TYPE, APPLICATION_FHIR_JSON)
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
+                .retrieve()
+                .bodyToMono(String.class)
+                .retryWhen(RETRY_SPEC)
+                .flatMap(body -> {
+                    try {
+                        return Mono.just(totals(fhirContext.newJsonParser().parseResource(Bundle.class, body), queries.size()));
+                    } catch (DataStoreException e) {
+                        return Mono.error(e);
+                    }
+                })
+                .doOnError(e -> logger.error("DATASTORE_12 Error while executing count batch bundle: {}", e.getMessage()));
+    }
+
+    /**
+     * Percent-encodes every param value, so that characters like {@code &}, {@code #}, {@code %} or {@code +} in a
+     * value can neither change the structure of the entry URL nor be decoded as something else.
+     */
+    private static String encodedQueryString(QueryParams params) {
+        return params.params().stream()
+                .map(param -> param.name() + "=" + URLEncoder.encode(param.value().toString(), UTF_8).replace("+", "%20"))
+                .collect(Collectors.joining("&"));
+    }
+
+    private static List<Integer> totals(Bundle response, int queryCount) throws DataStoreException {
+        if (response.getEntry().size() != queryCount) {
+            throw new DataStoreException("Count batch bundle response has %d entries for %d queries"
+                    .formatted(response.getEntry().size(), queryCount));
+        }
+        var totals = new ArrayList<Integer>();
+        for (Bundle.BundleEntryComponent entry : response.getEntry()) {
+            if (!entry.getResponse().getStatus().startsWith("2") || !(entry.getResource() instanceof Bundle result)
+                    || !result.hasTotal()) {
+                throw new DataStoreException("Count batch bundle entry failed with status " + entry.getResponse().getStatus());
+            }
+            totals.add(result.getTotal());
+        }
+        return totals;
+    }
+
+    /**
+     * @return the CapabilityStatement of the FHIR server
+     */
+    public Mono<CapabilityStatement> capabilityStatement() {
+        return client.get()
+                .uri("/metadata")
+                .retrieve()
+                .bodyToMono(String.class)
+                .retryWhen(RETRY_SPEC)
+                .map(body -> fhirContext.newJsonParser().parseResource(CapabilityStatement.class, body));
+    }
 
     private List<Resource> extractResourcesFromBundle(Bundle bundle) {
         return bundle.getEntry().stream()
