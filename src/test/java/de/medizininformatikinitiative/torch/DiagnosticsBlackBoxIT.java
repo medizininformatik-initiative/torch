@@ -118,7 +118,8 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.patientSummaries()).containsExactlyInAnyOrderEntriesOf(Map.of(
                 PatientExclusionStage.CASCADING_DELETE, 0,
                 PatientExclusionStage.DIRECT_LOAD, 0,
-                PatientExclusionStage.CONSENT_FETCH, 2));
+                PatientExclusionStage.CONSENT_FETCH, 2,
+                PatientExclusionStage.INCLUSION_CONSENT, 0));
         assertThat(jobSummary.resourceSummaries().keySet()).containsExactly("med-adm-group");
         assertThat(jobSummary.resourceSummaries().get("med-adm-group")).satisfies(groupSummary -> {
             assertThat(groupSummary.mustHaveExclusions()).isEmpty();
@@ -366,7 +367,8 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.patientSummaries()).containsExactlyInAnyOrderEntriesOf(Map.of(
                 PatientExclusionStage.CASCADING_DELETE, 1,
                 PatientExclusionStage.DIRECT_LOAD, 2,
-                PatientExclusionStage.CONSENT_FETCH, 0));
+                PatientExclusionStage.CONSENT_FETCH, 0,
+                PatientExclusionStage.INCLUSION_CONSENT, 0));
         assertThat(jobSummary.resourceSummaries().keySet()).containsExactly("med-adm-group");
         assertThat(jobSummary.resourceSummaries().get("med-adm-group")).satisfies(groupSummary -> {
             assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(0);
@@ -421,7 +423,8 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.patientSummaries()).containsExactlyInAnyOrderEntriesOf(Map.of(
                 PatientExclusionStage.CASCADING_DELETE, 0,
                 PatientExclusionStage.DIRECT_LOAD, 0,
-                PatientExclusionStage.CONSENT_FETCH, 0));
+                PatientExclusionStage.CONSENT_FETCH, 0,
+                PatientExclusionStage.INCLUSION_CONSENT, 0));
         assertThat(jobSummary.resourceSummaries().keySet()).containsExactly("orga-group");
         assertThat(jobSummary.resourceSummaries().get("orga-group")).satisfies(groupSummary -> {
             assertThat(groupSummary.refNotFoundExclusions()).isEqualTo(1);
@@ -477,7 +480,8 @@ public class DiagnosticsBlackBoxIT {
         assertThat(jobSummary.patientSummaries()).containsExactlyInAnyOrderEntriesOf(Map.of(
                 PatientExclusionStage.CASCADING_DELETE, 1,
                 PatientExclusionStage.DIRECT_LOAD, 0,
-                PatientExclusionStage.CONSENT_FETCH, 0));
+                PatientExclusionStage.CONSENT_FETCH, 0,
+                PatientExclusionStage.INCLUSION_CONSENT, 0));
         // CASCADING_DELETE is recorded under the orphaned group's own id ('proc-group' for proc-2), not the id of
         // the group whose resource caused the invalidation ('med-adm-group')
         assertThat(jobSummary.resourceSummaries().keySet()).containsExactlyInAnyOrder("med-adm-group", "cond-group", "proc-group");
