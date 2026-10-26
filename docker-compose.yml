@@ -28,7 +28,7 @@ services:
     restart: unless-stopped
   torch-nginx:
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged:1.31.4-alpine@sha256:d9083fe47768377ef55dedafd67d4da7c2f2bc2bece7554954f29359deb0dce9
+    image: nginxinc/nginx-unprivileged:1.31.7-alpine@sha256:b5047b9b76845eac124358373c6852377c52e4b05834a47647e955dd91cb8f1e
     ports:
       - ${PORT_TORCH_NGINX:-127.0.0.1:8085}:8080
     volumes:
