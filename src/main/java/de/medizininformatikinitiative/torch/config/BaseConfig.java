@@ -5,6 +5,7 @@ import ca.uhn.fhir.util.BundleBuilder;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.exc.MismatchedInputException;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.consent.ConsentAdjuster;
@@ -20,6 +21,7 @@ import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
+import de.medizininformatikinitiative.torch.model.consent.ConsentDateMapping;
 import de.medizininformatikinitiative.torch.model.consent.ProspectiveEntry;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.model.mapping.DseTreeRoot;
@@ -118,7 +120,14 @@ public class BaseConfig {
                                              ObjectMapper mapper,
                                              TorchProperties torchProperties)
             throws IOException {
-        return new ConsentValidator(ctx, mapper.readTree(new File(torchProperties.mapping().typeToConsent())));
+        var file = new File(torchProperties.mapping().typeToConsent());
+        try {
+            return new ConsentValidator(ctx, mapper.readValue(file, new TypeReference<Map<String, ConsentDateMapping>>() {
+            }));
+        } catch (MismatchedInputException e) {
+            throw new IOException("Invalid consent date mapping %s: each resource type has to map to an object with dateField and dateSearchParam, or to {} if it has no consent date"
+                    .formatted(file), e);
+        }
     }
 
     @Bean

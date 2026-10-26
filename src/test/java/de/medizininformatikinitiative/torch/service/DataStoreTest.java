@@ -6,6 +6,7 @@ import de.medizininformatikinitiative.torch.exceptions.DataStoreException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.RetryabilityUtil;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import okhttp3.mockwebserver.Dispatcher;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -32,10 +33,12 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.stringValue;
 import static de.medizininformatikinitiative.torch.service.DataStoreIT.createBundleFromQuery;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -539,6 +542,92 @@ class DataStoreTest {
         }
 
 
+    }
+
+    @Nested
+    class CountBatch {
+
+        static final Query DIABETES = Query.of("Condition", QueryParams.of("code", stringValue("icd10|E11")));
+        static final Query FEMALE = Query.of("Patient", QueryParams.of("gender", stringValue("female")));
+
+        @BeforeEach
+        void setUp() {
+            dataStore = new DataStore(client, ctx, 1000, false);
+        }
+
+        static String countEntry(String status, Integer total) {
+            var resource = total == null
+                    ? "{\"resourceType\": \"OperationOutcome\"}"
+                    : "{\"resourceType\": \"Bundle\", \"type\": \"searchset\", \"total\": %d}".formatted(total);
+            return "{\"resource\": %s, \"response\": {\"status\": \"%s\"}}".formatted(resource, status);
+        }
+
+        static MockResponse batchResponse(String... entries) {
+            return new MockResponse()
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("{\"resourceType\": \"Bundle\", \"type\": \"batch-response\", \"entry\": [%s]}"
+                            .formatted(String.join(",", entries)));
+        }
+
+        @Test
+        void returnsTotalsInQueryOrderAndRequestsCounts() throws Exception {
+            mockStore.enqueue(batchResponse(countEntry("200", 3), countEntry("200 OK", 0)));
+
+            StepVerifier.create(dataStore.countBatch(List.of(DIABETES, FEMALE)))
+                    .expectNext(List.of(3, 0))
+                    .verifyComplete();
+
+            var request = ctx.newJsonParser().parseResource(Bundle.class, mockStore.takeRequest().getBody().readUtf8());
+            assertThat(request.getType()).isEqualTo(Bundle.BundleType.BATCH);
+            assertThat(request.getEntry()).extracting(entry -> entry.getRequest().getUrl())
+                    .containsExactly("Condition?code=icd10|E11&_summary=count", "Patient?gender=female&_summary=count");
+        }
+
+        @Test
+        void failedEntryFails() {
+            mockStore.enqueue(batchResponse(countEntry("200", 3), countEntry("400", null)));
+
+            StepVerifier.create(dataStore.countBatch(List.of(DIABETES, FEMALE)))
+                    .verifyErrorMessage("Count batch bundle entry failed with status 400");
+        }
+
+        @ParameterizedTest
+        @ValueSource(strings = {
+                "{\"resource\": {\"resourceType\": \"OperationOutcome\"}, \"response\": {\"status\": \"200\"}}",
+                "{\"resource\": {\"resourceType\": \"Bundle\", \"type\": \"searchset\"}, \"response\": {\"status\": \"200\"}}"})
+        void successfulEntryWithoutTotalFails(String entry) {
+            mockStore.enqueue(batchResponse(entry));
+
+            StepVerifier.create(dataStore.countBatch(List.of(DIABETES)))
+                    .verifyErrorMessage("Count batch bundle entry failed with status 200");
+        }
+
+        @Test
+        void noQueriesSendsNoRequest() {
+            StepVerifier.create(dataStore.countBatch(List.of()))
+                    .expectNext(List.of())
+                    .verifyComplete();
+
+            assertThat(mockStore.getRequestCount()).isZero();
+        }
+    }
+
+    @Nested
+    class CapabilityStatementFetch {
+
+        @Test
+        void fetchesMetadata() throws Exception {
+            dataStore = new DataStore(client, ctx, 1000, false);
+            mockStore.enqueue(new MockResponse()
+                    .setHeader("Content-Type", "application/fhir+json")
+                    .setBody("{\"resourceType\": \"CapabilityStatement\", \"status\": \"active\"}"));
+
+            StepVerifier.create(dataStore.capabilityStatement())
+                    .assertNext(capabilityStatement -> assertThat(capabilityStatement.getStatus().toCode()).isEqualTo("active"))
+                    .verifyComplete();
+
+            assertThat(mockStore.takeRequest().getPath()).isEqualTo("/fhir/metadata");
+        }
     }
 
     @Nested

@@ -1,27 +1,78 @@
 {
-  "MedicationStatement": "MedicationStatement.effective",
-  "List": "List.date",
-  "MedicationRequest": "MedicationRequest.authoredOn",
-  "Medication": "",
-  "MedicationAdministration": "MedicationAdministration.effective",
-  "Observation": "Observation.effective",
-  "Procedure": "Procedure.performed",
-  "Device": "",
-  "Substance": "",
-  "Organization": "",
-  "Specimen": "Specimen.collection.collected",
-  "Condition": "Condition.recordedDate",
-  "DocumentReference": "DocumentReference.date",
-  "Questionnaire": "",
-  "Consent": "Consent.dateTime",
-  "ResearchStudy": "",
-  "QuestionnaireResponse": "",
-  "Provenance": "Provenance.recorded",
-  "Patient": "",
-  "Encounter": "Encounter.period",
-  "Task": "Task.authoredOn",
-  "FamilyMemberHistory": "FamilyMemberHistory.date",
-  "DiagnosticReport": "DiagnosticReport.effective",
-  "ServiceRequest": "ServiceRequest.authoredOn",
-  "RiskAssessment": "RiskAssessment.occurrence"
+  "MedicationStatement": {
+    "dateField": "MedicationStatement.effective",
+    "dateSearchParam": "effective"
+  },
+  "List": {
+    "dateField": "List.date",
+    "dateSearchParam": "date"
+  },
+  "MedicationRequest": {
+    "dateField": "MedicationRequest.authoredOn",
+    "dateSearchParam": "authoredon"
+  },
+  "Medication": {},
+  "MedicationAdministration": {
+    "dateField": "MedicationAdministration.effective",
+    "dateSearchParam": "effective-time"
+  },
+  "Observation": {
+    "dateField": "Observation.effective",
+    "dateSearchParam": "date"
+  },
+  "Procedure": {
+    "dateField": "Procedure.performed",
+    "dateSearchParam": "date"
+  },
+  "Device": {},
+  "Substance": {},
+  "Organization": {},
+  "Specimen": {
+    "dateField": "Specimen.collection.collected",
+    "dateSearchParam": "collected"
+  },
+  "Condition": {
+    "dateField": "Condition.recordedDate",
+    "dateSearchParam": "recorded-date"
+  },
+  "DocumentReference": {
+    "dateField": "DocumentReference.date",
+    "dateSearchParam": "date"
+  },
+  "Questionnaire": {},
+  "Consent": {
+    "dateField": "Consent.dateTime",
+    "dateSearchParam": "date"
+  },
+  "ResearchStudy": {},
+  "QuestionnaireResponse": {},
+  "Provenance": {
+    "dateField": "Provenance.recorded",
+    "dateSearchParam": "recorded"
+  },
+  "Patient": {},
+  "Encounter": {
+    "dateField": "Encounter.period",
+    "dateSearchParam": "date"
+  },
+  "Task": {
+    "dateField": "Task.authoredOn",
+    "dateSearchParam": "authored-on"
+  },
+  "FamilyMemberHistory": {
+    "dateField": "FamilyMemberHistory.date",
+    "dateSearchParam": "date"
+  },
+  "DiagnosticReport": {
+    "dateField": "DiagnosticReport.effective",
+    "dateSearchParam": "date"
+  },
+  "ServiceRequest": {
+    "dateField": "ServiceRequest.authoredOn",
+    "dateSearchParam": "authored"
+  },
+  "RiskAssessment": {
+    "dateField": "RiskAssessment.occurrence",
+    "dateSearchParam": "date"
+  }
 }

@@ -10,6 +10,7 @@ import de.medizininformatikinitiative.torch.util.TimeUtils;
 import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.instance.model.api.IBaseResource;
 import org.hl7.fhir.r4.model.Bundle;
+import org.hl7.fhir.r4.model.CapabilityStatement;
 import org.hl7.fhir.r4.model.MeasureReport;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.hl7.fhir.r4.model.Parameters;
@@ -159,6 +160,66 @@ public class DataStore {
                         "DATASTORE_05 Error while executing batch bundle query: {}", e.getMessage()));
     }
 
+
+    /**
+     * Counts the matches of each query in a single batch bundle.
+     *
+     * <p>Unlike plain searches, the entries of a batch bundle are not checked strictly by Blaze: unknown search
+     * params are silently ignored. Callers have to make sure the server supports every param, e.g. via
+     * {@link #capabilityStatement()}.
+     *
+     * @param queries the queries to count, without {@code _summary}
+     * @return the number of matches of each query, in the order of {@code queries}, or an error if the request or
+     * any entry fails
+     */
+    public Mono<List<Integer>> countBatch(List<Query> queries) {
+        if (queries.isEmpty()) {
+            return Mono.just(List.of());
+        }
+        var bundle = new Bundle().setType(Bundle.BundleType.BATCH);
+        queries.forEach(query -> bundle.addEntry().getRequest()
+                .setMethod(Bundle.HTTPVerb.GET)
+                .setUrl(query.type() + "?" + query.params().appendParam("_summary", stringValue("count"))));
+        return client.post()
+                .uri("")
+                .header(HttpHeaders.CONTENT_TYPE, APPLICATION_FHIR_JSON)
+                .bodyValue(fhirContext.newJsonParser().encodeResourceToString(bundle))
+                .retrieve()
+                .bodyToMono(String.class)
+                .retryWhen(RETRY_SPEC)
+                .flatMap(body -> {
+                    try {
+                        return Mono.just(totals(fhirContext.newJsonParser().parseResource(Bundle.class, body)));
+                    } catch (DataStoreException e) {
+                        return Mono.error(e);
+                    }
+                })
+                .doOnError(e -> logger.error("DATASTORE_12 Error while executing count batch bundle: {}", e.getMessage()));
+    }
+
+    private static List<Integer> totals(Bundle response) throws DataStoreException {
+        var totals = new ArrayList<Integer>();
+        for (Bundle.BundleEntryComponent entry : response.getEntry()) {
+            if (!entry.getResponse().getStatus().startsWith("2") || !(entry.getResource() instanceof Bundle result)
+                    || !result.hasTotal()) {
+                throw new DataStoreException("Count batch bundle entry failed with status " + entry.getResponse().getStatus());
+            }
+            totals.add(result.getTotal());
+        }
+        return totals;
+    }
+
+    /**
+     * @return the CapabilityStatement of the FHIR server
+     */
+    public Mono<CapabilityStatement> capabilityStatement() {
+        return client.get()
+                .uri("/metadata")
+                .retrieve()
+                .bodyToMono(String.class)
+                .retryWhen(RETRY_SPEC)
+                .map(body -> fhirContext.newJsonParser().parseResource(CapabilityStatement.class, body));
+    }
 
     private List<Resource> extractResourcesFromBundle(Bundle bundle) {
         return bundle.getEntry().stream()

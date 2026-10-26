@@ -1,10 +1,10 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import ca.uhn.fhir.context.FhirContext;
-import com.fasterxml.jackson.databind.JsonNode;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentDateMapping;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
@@ -17,6 +17,7 @@ import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -26,11 +27,22 @@ public class ConsentValidator {
     private static final Logger logger = LoggerFactory.getLogger(ConsentValidator.class);
 
     private final FhirContext ctx;
-    private final JsonNode resourceToField;
+    private final Map<String, ConsentDateMapping> dateMappings;
 
-    public ConsentValidator(FhirContext ctx, JsonNode resourceToField) {
+    /**
+     * @param dateMappings the consent date mapping of each supported resource type ({@code type_to_consent.json})
+     */
+    public ConsentValidator(FhirContext ctx, Map<String, ConsentDateMapping> dateMappings) {
         this.ctx = requireNonNull(ctx);
-        this.resourceToField = requireNonNull(resourceToField);
+        this.dateMappings = Map.copyOf(dateMappings);
+    }
+
+    /**
+     * @param resourceType the FHIR resource type
+     * @return how {@link #checkConsent} dates resources of the type, or empty if the type is not mapped
+     */
+    public Optional<ConsentDateMapping> consentDateMapping(String resourceType) {
+        return Optional.ofNullable(dateMappings.get(resourceType));
     }
 
     /**
@@ -68,22 +80,18 @@ public class ConsentValidator {
     }
 
     public ConsentCheckResult checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
-        JsonNode fieldValue = null;
-        if (resourceToField.has(resource.getResourceType().toString())) {
-            logger.trace("Handling the following Profile {}", resource.getResourceType());
-            fieldValue = resourceToField.get(resource.getResourceType().toString());
-        }
+        ConsentDateMapping dateMapping = dateMappings.get(resource.getResourceType().toString());
 
-        if (fieldValue == null) {
+        if (dateMapping == null) {
             logger.warn("CONSENT_VALIDATOR_02 No supported ResourceType found for resource of type: {}", resource.getResourceType());
             return ConsentCheckResult.of(ConsentCheckOutcome.TYPE_NOT_MAPPED);
         }
-        if (fieldValue.asText().isEmpty()) {
-            logger.trace("Field value is empty, consent is automatically granted if patient has consents in general.");
+        if (!dateMapping.hasDate()) {
+            logger.trace("No date field, consent is automatically granted if patient has consents in general.");
             return ConsentCheckResult.of(ConsentCheckOutcome.NO_DATE_FIELD);
         }
 
-        List<Base> values = ctx.newFhirPath().evaluate(resource, fieldValue.asText(), Base.class);
+        List<Base> values = ctx.newFhirPath().evaluate(resource, dateMapping.dateField(), Base.class);
 
         LocalDate firstConsideredDate = null;
         for (Base value : values) {
