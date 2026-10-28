@@ -266,6 +266,8 @@ jobs:
         run: mvn -P blackbox-integration-tests -B verify
 
   performance-integration-test:
+    # Disabled while the external test FHIR server is offline (#1352)
+    if: false
     needs: build
     runs-on: ubuntu-24.04
     steps:
@@ -504,8 +506,11 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Start Docker Compose
-        working-directory: .github/workflows/infra
+        working-directory: .github/workflows/script-integration-test
         run: docker compose up --wait -d
+
+      - name: Seed source FHIR server with KDS testdata
+        run: bash .github/workflows/task-tests/seed-kds-testdata.sh
 
       - name: Run task api integration script
         run: bash .github/workflows/task-tests/${{ matrix.script }}
@@ -524,7 +529,6 @@ jobs:
       - fetch-diagnostics-integration-test
       - script-resumeability-test
       - env-var-check
-      - performance-integration-test
       - task-api-integration-test
     runs-on: ubuntu-24.04
     permissions:
