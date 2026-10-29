@@ -3,7 +3,6 @@ package de.medizininformatikinitiative.torch;
 import org.hl7.fhir.r4.model.ResourceType;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,7 +17,6 @@ import static org.assertj.core.api.Assertions.assertThat;
  * In order for the tests to work locally, a torch image must be built:
  * => mvn clean package -DskipTests && docker build -t torch:latest . && mvn -P blackbox-integration-tests -B verify
  */
-@Disabled("External test FHIR server is offline, see #1352")
 @Testcontainers
 class CdsPerformanceBlackBoxIT {
 

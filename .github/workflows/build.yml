@@ -266,8 +266,6 @@ jobs:
         run: mvn -P blackbox-integration-tests -B verify
 
   performance-integration-test:
-    # Disabled while the external test FHIR server is offline (#1352)
-    if: false
     needs: build
     runs-on: ubuntu-24.04
     steps:
@@ -529,6 +527,7 @@ jobs:
       - fetch-diagnostics-integration-test
       - script-resumeability-test
       - env-var-check
+      - performance-integration-test
       - task-api-integration-test
     runs-on: ubuntu-24.04
     permissions:
