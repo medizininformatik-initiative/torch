@@ -76,8 +76,8 @@ jobs:
           VITE_DOCS_VERSION: ${{ matrix.tag }}
         run: |
           make build
-          mkdir -p ../../out
-          mv .vitepress/dist ../../out/version
+          mkdir -p "../../out/docs-$VITE_DOCS_VERSION"
+          mv .vitepress/dist "../../out/docs-$VITE_DOCS_VERSION/version"
 
       # Deployed to the root only if the tag turns out to be the latest release.
       - name: Build Root
@@ -87,13 +87,16 @@ jobs:
           VITE_DOCS_VERSION: ${{ matrix.tag }}
         run: |
           npm run docs:build
-          mv .vitepress/dist ../../out/root
+          mv .vitepress/dist "../../out/docs-$VITE_DOCS_VERSION/root"
 
+      # The artifact contains its own docs-<tag> directory, so that the deploy job finds every
+      # version under dist/docs-<tag> regardless of how many artifacts are downloaded.
       - name: Upload Docs Artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
           name: docs-${{ matrix.tag }}
           path: out
+          if-no-files-found: error
 
   deploy:
     needs: [ tags, build ]
@@ -125,6 +128,8 @@ jobs:
         with:
           pattern: docs-*
           path: dist
+          # A single matching artifact would otherwise be extracted directly into dist.
+          merge-multiple: true
 
       # The root keeps serving the latest release so that pre-versioning deep links stay valid.
       # Files are copied over the existing root instead of replacing it, which keeps the version,
@@ -132,6 +137,9 @@ jobs:
       - name: Deploy Versions
         run: |
           for tag in $(jq -r '.[]' <<< "$TAGS"); do
+            for dir in "dist/docs-$tag/version" "dist/docs-$tag/root"; do
+              [ -d "$dir" ] || { echo "::error::Missing $dir in the docs artifact of $tag"; exit 1; }
+            done
             rm -rf "pages/$tag"
             cp -r "dist/docs-$tag/version" "pages/$tag"
             latest=$(node current/.github/scripts/update-docs-versions.mjs pages/versions.json "$tag" "$REPO")
