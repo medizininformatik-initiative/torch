@@ -7,7 +7,8 @@ import org.springframework.context.annotation.Configuration;
 @EnableConfigurationProperties({
         TorchProperties.class,
         FhirProperties.class,
-        JvmMetricsLoggerProperties.class
+        JvmMetricsLoggerProperties.class,
+        InclusionConsentCheckProperties.class
 })
 public class TorchPropertiesConfig {
 }

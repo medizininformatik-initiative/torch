@@ -1,6 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
 import ca.uhn.fhir.context.FhirContext;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.consent.ConsentCheckOutcome;
 import de.medizininformatikinitiative.torch.consent.ConsentCheckResult;
@@ -13,6 +14,7 @@ import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclus
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.model.consent.ConsentDateMapping;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
@@ -417,7 +419,9 @@ class DirectResourceLoaderTest {
         @Test
         void directLoadPatientCompartment_mustHaveResourceOutsideConsentWindow_dropsPatient() throws Exception {
             var realConsentValidator = new ConsentValidator(FhirContext.forR4(),
-                    new ObjectMapper().readTree(new File("mappings/type_to_consent.json")));
+                    new ObjectMapper().readValue(new File("mappings/type_to_consent.json"),
+                            new TypeReference<Map<String, ConsentDateMapping>>() {
+                            }));
             var loader = new DirectResourceLoader(dataStore, dseMappingTreeBase, profileMustHaveChecker,
                     realConsentValidator);
 

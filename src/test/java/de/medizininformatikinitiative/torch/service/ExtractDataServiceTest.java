@@ -1,5 +1,7 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import de.medizininformatikinitiative.torch.config.TorchProperties;
 import de.medizininformatikinitiative.torch.consent.ConsentHandler;
 import de.medizininformatikinitiative.torch.diagnostics.BatchDiagnostics;
@@ -102,6 +104,8 @@ class ExtractDataServiceTest {
     CompartmentManager compartmentManager;
     @Mock
     BatchProgressRegistry batchProgressRegistry;
+    @Mock
+    InclusionConsentChecker inclusionConsentChecker;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -140,7 +144,8 @@ class ExtractDataServiceTest {
                 postCascadeMustHaveChecker,
                 torchProperties,
                 compartmentManager,
-                batchProgressRegistry
+                batchProgressRegistry,
+                Optional.empty()
         );
         spyService = Mockito.spy(service);
     }
@@ -488,6 +493,50 @@ class ExtractDataServiceTest {
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
             verify(resultFileManager).saveConsentBatchToNDJSON(eq(jobId.toString()), eq(batchId), any());
             verify(batchProgressRegistry, timeout(1000)).clear(batchId);
+        }
+
+        @Test
+        void processBatch_whenInclusionConsentCheckRemovesAllPatients_returnsSkippedResult() {
+            service = new ExtractDataService(resultFileManager, processedGroupFactory, directResourceLoader,
+                    referenceResolver, batchCopierRedacter, cascadingDelete, batchToCoreWriter, consentHandler, dataStore,
+                    postCascadeMustHaveChecker, torchProperties, compartmentManager, batchProgressRegistry,
+                    Optional.of(inclusionConsentChecker));
+            UUID batchId = UUID.randomUUID();
+
+            AnnotatedCrtdl crtdl = mock(AnnotatedCrtdl.class);
+            TermCode termcode = new TermCode("sys", "val");
+            JsonNode cohortDefinition = JsonNodeFactory.instance.objectNode();
+            when(crtdl.consentCodes()).thenReturn(Optional.of(Set.of(termcode)));
+            when(crtdl.cohortDefinition()).thenReturn(cohortDefinition);
+
+            JobParameters params = mock(JobParameters.class);
+            when(params.crtdl()).thenReturn(crtdl);
+
+            when(processedGroupFactory.create(crtdl)).thenReturn(mock(GroupsToProcess.class));
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            BatchState batchState = mock(BatchState.class);
+            when(batchState.batchId()).thenReturn(batchId);
+            BatchState skippedState = mock(BatchState.class);
+            when(batchState.skip()).thenReturn(skippedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(jobWithParameters(UUID.randomUUID(), JobStatus.PENDING, params));
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(consentHandler.fetchAndBuildConsentInfo(Set.of(termcode), rawBatch)).thenReturn(Mono.just(bwc));
+            when(inclusionConsentChecker.filter(cohortDefinition, bwc)).thenReturn(Mono.empty());
+
+            StepVerifier.create(service.processBatch(selection))
+                    .assertNext(res -> assertThat(res.batchState()).isSameAs(skippedState))
+                    .verifyComplete();
+
+            verifyNoInteractions(directResourceLoader);
         }
 
         @Test
