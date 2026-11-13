@@ -37,6 +37,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 
@@ -45,7 +48,7 @@ class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
             new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
-            new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext());
+            new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext(), Optional.empty());
 
     @Mock
     StructureDefinitionHandler mockHandler;
@@ -85,6 +88,38 @@ class CrtdlValidatorServiceTest {
 
         assertThatThrownBy(() -> validatorService.validateAndAnnotate(crtdl)).isInstanceOf(ConsentFormatException.class)
                 .hasMessageContaining("Exclusion criteria must not contain Einwilligung consent codes.");
+    }
+
+    @Test
+    void untranslatableInclusionCriterionRejectedWhenConsentCheckEnabled() throws Exception {
+        var checker = mock(InclusionConsentChecker.class);
+        var svc = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
+                new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
+                new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext(), Optional.of(checker));
+        JsonNode cohortDefinition = new ObjectMapper().readTree("""
+                {"inclusionCriteria": [[{"context": {"code": "Einwilligung", "system": "fdpg.mii.cds"},
+                                         "termCodes": [{"system": "s1", "code": "A2"}]}]]}""");
+        doThrow(new ValidationException("cannot translate")).when(checker).validate(cohortDefinition);
+
+        assertThatThrownBy(() -> svc.validateAndAnnotate(new Crtdl(cohortDefinition, new DataExtraction(List.of(patientGroup)))))
+                .isInstanceOf(ValidationException.class)
+                .hasMessage("cannot translate");
+    }
+
+    @Test
+    void translatableInclusionCriterionAcceptedWhenConsentCheckEnabled() throws Exception {
+        var checker = mock(InclusionConsentChecker.class);
+        var svc = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
+                new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
+                new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext(), Optional.of(checker));
+        JsonNode cohortDefinition = new ObjectMapper().readTree("""
+                {"inclusionCriteria": [[{"context": {"code": "Einwilligung", "system": "fdpg.mii.cds"},
+                                         "termCodes": [{"system": "s1", "code": "A2"}]}]]}""");
+
+        var result = svc.validateAndAnnotate(new Crtdl(cohortDefinition, new DataExtraction(List.of(patientGroup))));
+
+        verify(checker).validate(cohortDefinition);
+        assertThat(result.cohortDefinition()).isEqualTo(cohortDefinition);
     }
 
     @Test
@@ -254,7 +289,7 @@ class CrtdlValidatorServiceTest {
         when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
                 .thenReturn(new String[]{"Observation.component", "Observation.component"});
 
-        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4());
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4(), Optional.empty());
 
         AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
         AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
@@ -301,7 +336,7 @@ class CrtdlValidatorServiceTest {
         when(mockFhirPathBuilder.resolve(eq("Observation.component:someSlice.code"), any()))
                 .thenReturn(new String[]{"Observation.component", "Observation.component"});
 
-        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4());
+        CrtdlValidatorService svc = new CrtdlValidatorService(mockHandler, mockAttributeGenerator, new ConsentCodeConfig(List.of()), mockFhirPathBuilder, FhirContext.forR4(), Optional.empty());
 
         AttributeGroup patientGroup = new AttributeGroup("patientGroupId", "patient-profile", List.of(), List.of());
         AttributeGroup obsGroup = new AttributeGroup("obsGroupId", "obs-profile",
@@ -324,7 +359,7 @@ class CrtdlValidatorServiceTest {
                 itSetup.structureDefinitionHandler(),
                 new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
                 new ConsentCodeConfig(List.of()),
-                mockFhirPathBuilder, itSetup.fhirContext());
+                mockFhirPathBuilder, itSetup.fhirContext(), Optional.empty());
 
         String postalCode = "Patient.address:Strassenanschrift.postalCode";
         String discriminator = "Patient.address:Strassenanschrift.type";

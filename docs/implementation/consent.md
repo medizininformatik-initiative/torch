@@ -373,7 +373,7 @@ sections 2 and 5):
 }
 ```
 
-The consent check uses a specific date field per FHIR resource type to determine whether a resource falls within the patient's consent window. If no field is configured for a resource type, all resources of that type are considered consented (see [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
+The consent check uses a specific date field per FHIR resource type to determine whether a resource falls within the patient's consent window. The search parameter configured next to it (`dateSearchParam`) is used to check inclusion criteria against the consent window on the FHIR server. The FHIR server compares consent boundaries as UTC days, so a resource timestamped within a few hours of a boundary may be judged differently than by the extraction's consent filter, which uses the date as written in the resource. If no field is configured for a resource type, all resources of that type are considered consented (see [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
 
 ---
 
