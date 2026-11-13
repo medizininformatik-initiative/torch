@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.0.4] - 2026-11-13
+
+### Changed
+
+- Update Onto To V5.2.1 [#1368](https://github.com/medizininformatik-initiative/torch/pull/1368)
+- Return 405 instead of 404 for wrong HTTP method on FHIR endpoints [#1326](https://github.com/medizininformatik-initiative/torch/pull/1326)
+- Update HAPI FHIR core from 6.10.4 to 7.0.5 [#1333](https://github.com/medizininformatik-initiative/torch/pull/1333), [#1346](https://github.com/medizininformatik-initiative/torch/pull/1346), [#1370](https://github.com/medizininformatik-initiative/torch/pull/1370)
+
+### Fixed
+
+- Fix docs release deployment for single-tag releases [#1360](https://github.com/medizininformatik-initiative/torch/pull/1360)
+
+### Documentation
+
+- Document that consent filtering precedes must-have checks [#1340](https://github.com/medizininformatik-initiative/torch/pull/1340)
+- Update implementation overview to match current pipeline [#1329](https://github.com/medizininformatik-initiative/torch/pull/1329)
+
+
 ## [v1.0.3] - 2026-10-12
 
 ### Added
