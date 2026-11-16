@@ -13,6 +13,7 @@ import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclus
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
@@ -25,6 +26,8 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ProfileMustHaveChecker;
+import org.hl7.fhir.r4.model.Account;
+import org.hl7.fhir.r4.model.Coverage;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
@@ -35,6 +38,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import reactor.core.publisher.Flux;
@@ -49,7 +54,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason.CONSENT;
+import static de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason.MULTIPLE_PATIENTS;
 import static de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason.MUST_HAVE;
+import static de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason.PATIENT_NOT_FOUND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -81,7 +88,8 @@ class DirectResourceLoaderTest {
                 dataStore,
                 dseMappingTreeBase,
                 profileMustHaveChecker,
-                consentValidator
+                consentValidator,
+                TestPatientLinkResolver.get()
         );
     }
 
@@ -221,8 +229,8 @@ class DirectResourceLoaderTest {
             observation.setSubject(new Reference("Patient/1"));
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent)))
-                    .thenReturn(Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.OUTSIDE_PERIODS)));
+            when(consentValidator.checkConsent(eq(observation), eq("1"), eq(batchWithConsent)))
+                    .thenReturn(ConsentCheckResult.of(ConsentCheckOutcome.OUTSIDE_PERIODS));
 
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
@@ -263,8 +271,8 @@ class DirectResourceLoaderTest {
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
             // ConsentValidator found the resource's patient ID but no tracked PatientResourceBundle for it —
             // a reportable outcome, not an empty result
-            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent)))
-                    .thenReturn(Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE)));
+            when(consentValidator.checkConsent(eq(observation), eq("1"), eq(batchWithConsent)))
+                    .thenReturn(ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE));
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
                             List.of(group),
@@ -305,8 +313,8 @@ class DirectResourceLoaderTest {
             observation.setSubject(new Reference("Patient/1"));
 
             when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent)))
-                    .thenReturn(Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.IN_PERIOD)));
+            when(consentValidator.checkConsent(eq(observation), eq("1"), eq(batchWithConsent)))
+                    .thenReturn(ConsentCheckResult.of(ConsentCheckOutcome.IN_PERIOD));
             when(profileMustHaveChecker.evaluateFirst(observation, group))
                     .thenReturn(new MustHaveEvaluation.Fulfilled());
 
@@ -331,41 +339,97 @@ class DirectResourceLoaderTest {
         }
 
         @Test
-        void processPatientAttributeGroups_unattributableResource_dropsResource_recordsNothing() {
-            var attr = new AnnotatedAttribute("Observation.code", "Observation.code", false);
-            var group = new AnnotatedAttributeGroup("test", "Observation", "groupRef", List.of(attr), List.of());
+        void processPatientAttributeGroups_patientLinkedViaBeneficiary_isLoadedIntoPatientBundle() {
+            var group = new AnnotatedAttributeGroup("coverage", "Coverage", "groupRef", List.of(), List.of());
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("1")));
 
-            var patientBundle = new PatientResourceBundle("1");
+            Coverage coverage = new Coverage();
+            coverage.setId("Coverage/cov");
+            coverage.setBeneficiary(new Reference("Patient/1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(coverage));
+            when(profileMustHaveChecker.evaluateFirst(eq(coverage), eq(group)))
+                    .thenReturn(new MustHaveEvaluation.Fulfilled());
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group), batchWithConsent, new HashSet<>(List.of("1"))))
+                    .assertNext(res -> assertThat(res.get("1").bundle().cache())
+                            .containsKey(ExtractionId.fromRelativeUrl("Coverage/cov")))
+                    .verifyComplete();
+        }
+
+        @Test
+        void processPatientAttributeGroups_severalPatientsLinked_recordsMultiplePatients() {
+            var group = new AnnotatedAttributeGroup("account", "Account", "groupRef", List.of(), List.of());
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("1")));
+
+            Account account = new Account();
+            account.setId("Account/acc");
+            account.addSubject(new Reference("Practitioner/x"));
+            account.addSubject(new Reference("Patient/2"));
+            account.addSubject(new Reference("Patient/1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(account));
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group), batchWithConsent, new HashSet<>(List.of("1"))))
+                    .assertNext(res -> assertThat(res.get("1").bundle().cache())
+                            .doesNotContainKey(ExtractionId.fromRelativeUrl("Account/acc")))
+                    .verifyComplete();
+            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(MULTIPLE_PATIENTS, "account", "Account/acc", "", "", "")
+            );
+        }
+
+        @Test
+        void processPatientAttributeGroups_samePatientLinkedTwice_isLoaded() {
+            var group = new AnnotatedAttributeGroup("account", "Account", "groupRef", List.of(), List.of());
+            var batchWithConsent = PatientBatchWithConsent.fromList(List.of(new PatientResourceBundle("1")));
+
+            Account account = new Account();
+            account.setId("Account/acc");
+            account.addSubject(new Reference("Patient/1"));
+            account.addSubject(new Reference("Practitioner/x"));
+            account.addSubject(new Reference("Patient/1"));
+
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(account));
+            when(profileMustHaveChecker.evaluateFirst(eq(account), eq(group)))
+                    .thenReturn(new MustHaveEvaluation.Fulfilled());
+
+            StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
+                            List.of(group), batchWithConsent, new HashSet<>(List.of("1"))))
+                    .assertNext(res -> assertThat(res.get("1").bundle().cache())
+                            .containsKey(ExtractionId.fromRelativeUrl("Account/acc")))
+                    .verifyComplete();
+        }
+
+        @ParameterizedTest
+        @ValueSource(booleans = {false, true})
+        void processPatientAttributeGroups_noPatientLinked_recordsPatientNotFoundOnce(boolean applyConsent) {
+            var group = new AnnotatedAttributeGroup("coverage", "Coverage", "groupRef", List.of(), List.of());
             var batchWithConsent = new PatientBatchWithConsent(
-                    Map.of("1", patientBundle),
-                    true,
+                    Map.of("1", new PatientResourceBundle("1")),
+                    applyConsent,
                     new ResourceBundle(),
                     UUID.randomUUID(),
                     BatchDiagnostics.empty().withConsentDiagnosticsEnabled(true)
             );
-            var safeSet = new HashSet<>(List.of("1"));
 
-            Observation observation = new Observation();
-            observation.setId("Observation/xyz");
-            observation.setSubject(new Reference("Patient/1"));
+            Coverage coverage = new Coverage();
+            coverage.setId("Coverage/cov");
+            coverage.setBeneficiary(new Reference("RelatedPerson/r"));
 
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
-            // no patient ID at all attributable to the resource — genuinely unattributable, no row possible
-            when(consentValidator.checkConsent(eq(observation), eq(batchWithConsent))).thenReturn(Optional.empty());
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(coverage));
 
             StepVerifier.create(directResourceLoader.processPatientAttributeGroups(
-                            List.of(group),
-                            batchWithConsent,
-                            safeSet
-                    ))
-                    .assertNext(res -> {
-                        assertThat(res.get("1").bundle().cache())
-                                .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
-                    })
+                            List.of(group), batchWithConsent, new HashSet<>(List.of("1"))))
+                    .assertNext(res -> assertThat(res.get("1").bundle().cache())
+                            .doesNotContainKey(ExtractionId.fromRelativeUrl("Coverage/cov")))
                     .verifyComplete();
 
-            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).isEmpty();
-            assertThat(batchWithConsent.diagnostics().consentDiagnostics().getConsideredResources()).isEmpty();
+            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(PATIENT_NOT_FOUND, "coverage", "Coverage/cov", "", "", "")
+            );
         }
 
         @Test
@@ -417,9 +481,9 @@ class DirectResourceLoaderTest {
         @Test
         void directLoadPatientCompartment_mustHaveResourceOutsideConsentWindow_dropsPatient() throws Exception {
             var realConsentValidator = new ConsentValidator(FhirContext.forR4(),
-                    new ObjectMapper().readTree(new File("mappings/type_to_consent.json")));
+                    new ObjectMapper().readTree(new File("mappings/type_to_consent.json")), TestPatientLinkResolver.get());
             var loader = new DirectResourceLoader(dataStore, dseMappingTreeBase, profileMustHaveChecker,
-                    realConsentValidator);
+                    realConsentValidator, TestPatientLinkResolver.get());
 
             var mustHaveAttr = new AnnotatedAttribute("Procedure.code", "Procedure.code", true);
             var group = new AnnotatedAttributeGroup("procedure", "Procedure", "groupId", List.of(mustHaveAttr), List.of());
@@ -530,8 +594,9 @@ class DirectResourceLoaderTest {
             var batchWithConsent = PatientBatchWithConsent.fromList(List.of(patientBundle));
             var safeSet = new HashSet<>(List.of("1"));
 
-            when(dataStore.search(any(), any())).thenReturn(Flux.just(new Observation()));
-
+            Observation observation = new Observation();
+            observation.setId("Observation/xyz");
+            when(dataStore.search(any(), any())).thenReturn(Flux.just(observation));
 
             var result = directResourceLoader.processPatientAttributeGroups(
                     List.of(attributeGroup),
@@ -546,6 +611,9 @@ class DirectResourceLoaderTest {
                                 .doesNotContainKey(ExtractionId.fromRelativeUrl("Observation/xyz"));
                     })
                     .verifyComplete();
+            assertThat(batchWithConsent.diagnostics().batchExclusions().getResourceExclusions()).containsExactly(
+                    new ResourceExclusionEvent(PATIENT_NOT_FOUND, "test", "Observation/xyz", "", "", "")
+            );
         }
 
         @Test

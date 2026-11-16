@@ -1,13 +1,13 @@
 package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.crtdl.Code;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Encounter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -42,10 +42,12 @@ public class ConsentAdjuster {
     private static final Code INPATIENT_ENCOUNTER_CLASS = new Code("http://terminology.hl7.org/CodeSystem/v3-ActCode", "IMP");
 
     private final DataStore dataStore;
+    private final PatientLinkResolver patientLinkResolver;
 
 
-    public ConsentAdjuster(DataStore dataStore) {
+    public ConsentAdjuster(DataStore dataStore, PatientLinkResolver patientLinkResolver) {
         this.dataStore = requireNonNull(dataStore);
+        this.patientLinkResolver = requireNonNull(patientLinkResolver);
     }
 
 
@@ -84,8 +86,8 @@ public class ConsentAdjuster {
      * @param batch The patient batch for which to fetch encounters.
      * @return A {@link Query} configured for the batch.
      */
-    private static Query getEncounterQuery(PatientBatch batch) {
-        return Query.of("Encounter", batch.compartmentSearchParam("Encounter")
+    private Query getEncounterQuery(PatientBatch batch) {
+        return Query.of("Encounter", batch.compartmentSearchParam(patientLinkResolver.searchParam("Encounter"))
                 .appendParam("_profile:below", stringValue(CDS_ENCOUNTER_PROFILE_URL))
                 .appendParam("class", codeValue(INPATIENT_ENCOUNTER_CLASS)));
     }
@@ -101,7 +103,7 @@ public class ConsentAdjuster {
                 .doOnSubscribe(s -> logger.trace("Fetching encounters for batch: {}", batch.ids()))
                 .flatMap(encounter -> {
                     try {
-                        String patientId = ResourceUtils.patientId(encounter);
+                        String patientId = patientLinkResolver.patientId(encounter);
                         batch.diagnostics().consentAudit().add(patientId, ConsentAuditMinimizer.minimize(encounter));
                         return Mono.just(Tuples.of(patientId, encounter));
                     } catch (PatientIdNotFoundException e) {

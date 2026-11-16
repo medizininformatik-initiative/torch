@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.util;
 import de.medizininformatikinitiative.torch.consent.ProvisionExtractor;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
@@ -57,7 +58,7 @@ class ProvisionExtractorIT {
 
     @Test
     void irrelevantCodesSkipped() throws ConsentViolatedException, PatientIdNotFoundException {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -77,7 +78,7 @@ class ProvisionExtractorIT {
 
     @Test
     void deniesExtracted() throws ConsentViolatedException, PatientIdNotFoundException {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));
         consent.setDateTime(new DateTimeType("2023-01-01").getValue());
@@ -112,7 +113,7 @@ class ProvisionExtractorIT {
     @ParameterizedTest
     @ValueSource(strings = {"VHF006_Consent.json"})
     void extractsPermits(String resource) throws IOException, ConsentViolatedException, PatientIdNotFoundException {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
         Set<TermCode> consentCodes = MII_CONSENT_CODES;
         Consent consent = (Consent) integrationTestSetup.readResource("src/test/resources/InputResources/Consent/" + resource);
 
@@ -135,7 +136,7 @@ class ProvisionExtractorIT {
 
     @Test
     void throwsConsentViolatedException_whenConsentHasNoDateTime() {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
 
         Consent consent = new Consent();
         consent.setId("consent-no-date");
@@ -150,7 +151,7 @@ class ProvisionExtractorIT {
 
     @Test
     void throwsConsentViolatedException_whenConsentDateTimeIsEmpty() {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
 
         Consent consent = new Consent();
         consent.setId("consent-empty-date");
@@ -165,7 +166,7 @@ class ProvisionExtractorIT {
 
     @Test
     void skipsProvisionsWithoutStartOrEnd() throws ConsentViolatedException, PatientIdNotFoundException {
-        ProvisionExtractor processor = new ProvisionExtractor();
+        ProvisionExtractor processor = new ProvisionExtractor(TestPatientLinkResolver.get());
 
         Consent consent = new Consent();
         consent.setPatient(new Reference("Patient/123"));

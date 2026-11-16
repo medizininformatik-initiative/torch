@@ -109,6 +109,14 @@ public class BatchExclusions {
         resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.REDACTION_FAILURE, groupId, resourceId, "", "", ""));
     }
 
+    public void addPatientNotFoundExclusion(String groupId, String resourceId) {
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.PATIENT_NOT_FOUND, groupId, resourceId, "", "", ""));
+    }
+
+    public void addMultiplePatientsExclusion(String groupId, String resourceId) {
+        resourceExclusions.add(new ResourceExclusionEvent(ResourceExclusionReason.MULTIPLE_PATIENTS, groupId, resourceId, "", "", ""));
+    }
+
     public void addPatientExclusion(PatientExclusionStage stage, String patientId) {
         patientExclusions.add(new PatientExclusionEvent(stage, patientId));
     }

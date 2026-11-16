@@ -67,14 +67,16 @@ public record PatientBatch(List<String> ids, UUID batchId, BatchDiagnostics diag
     /**
      * Returns a search param which selects all resources of Compartment of patients defined in this batch.
      *
-     * @param resourceType FHIR resource type to be searched for
+     * @param searchParam code of the search parameter linking the searched type to the patient, as determined by
+     *                    {@code PatientLinkResolver}; {@code _id} takes plain patient IDs, every other
+     *                    parameter takes {@code Patient/<id>} references
      * @return Search Param
      */
-    public QueryParams compartmentSearchParam(String resourceType) {
-        if ("Patient".equals(resourceType)) {
+    public QueryParams compartmentSearchParam(String searchParam) {
+        if ("_id".equals(searchParam)) {
             return QueryParams.of("_id", multiStringValue(ids));
         } else {
-            return QueryParams.of("patient", multiStringValue(ids.stream().map(id -> "Patient/" + id).toList()));
+            return QueryParams.of(searchParam, multiStringValue(ids.stream().map(id -> "Patient/" + id).toList()));
         }
     }
 }

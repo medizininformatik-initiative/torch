@@ -167,6 +167,8 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
                 case RESOURCE_OUTSIDE_BATCH -> exclusionsPerGroup.get(event.groupId()).incrementResOutsideBatch();
                 case CASCADING_DELETE -> exclusionsPerGroup.get(event.groupId()).incrementCascadingDelete();
                 case REDACTION_FAILURE -> exclusionsPerGroup.get(event.groupId()).incrementRedactionFailure();
+                case PATIENT_NOT_FOUND -> exclusionsPerGroup.get(event.groupId()).incrementPatientNotFound();
+                case MULTIPLE_PATIENTS -> exclusionsPerGroup.get(event.groupId()).incrementMultiplePatients();
             };
 
             exclusionsPerGroup.put(event.groupId(), newGroupSummary);
@@ -215,32 +217,42 @@ public record JobDiagnosticSummary(@JsonProperty("Num-Cohort-Patients") int numC
      * @param resOutsideBatchExclusions the sum of resource-outside-batch exclusions
      * @param cascadingDeleteExclusions the sum of cascading-delete exclusions
      * @param redactionFailureExclusions the sum of redaction-failure exclusions
+     * @param patientNotFoundExclusions  the sum of loaded resources that reference no patient
+     * @param multiplePatientsExclusions the sum of loaded resources that reference several distinct patients
      */
     public record GroupSummary(@JsonProperty("Must-Have") Map<String, Integer> mustHaveExclusions,
                                 @JsonProperty("Consent") int consentExclusions,
                                 @JsonProperty("Reference-Not-Found") int refNotFoundExclusions,
                                 @JsonProperty("Resource-Outside-Batch") int resOutsideBatchExclusions,
                                 @JsonProperty("Cascading-Delete") int cascadingDeleteExclusions,
-                                @JsonProperty("Redaction-Failure") int redactionFailureExclusions) {
+                                @JsonProperty("Redaction-Failure") int redactionFailureExclusions,
+                                @JsonProperty("Patient-Not-Found") int patientNotFoundExclusions,
+                                @JsonProperty("Multiple-Patients") int multiplePatientsExclusions) {
 
         public static GroupSummary empty() {
-            return new GroupSummary(new HashMap<>(), 0, 0, 0, 0, 0);
+            return new GroupSummary(new HashMap<>(), 0, 0, 0, 0, 0, 0, 0);
         }
 
         public GroupSummary incrementConsent() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions+1, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions+1, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions, patientNotFoundExclusions, multiplePatientsExclusions);
         }
         public GroupSummary incrementRefNotFound() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions+1, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions+1, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions, patientNotFoundExclusions, multiplePatientsExclusions);
         }
         public GroupSummary incrementResOutsideBatch() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions+1, cascadingDeleteExclusions, redactionFailureExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions+1, cascadingDeleteExclusions, redactionFailureExclusions, patientNotFoundExclusions, multiplePatientsExclusions);
         }
         public GroupSummary incrementCascadingDelete() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions+1, redactionFailureExclusions);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions+1, redactionFailureExclusions, patientNotFoundExclusions, multiplePatientsExclusions);
         }
         public GroupSummary incrementRedactionFailure() {
-            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions+1);
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions+1, patientNotFoundExclusions, multiplePatientsExclusions);
+        }
+        public GroupSummary incrementPatientNotFound() {
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions, patientNotFoundExclusions+1, multiplePatientsExclusions);
+        }
+        public GroupSummary incrementMultiplePatients() {
+            return new GroupSummary(mustHaveExclusions, consentExclusions, refNotFoundExclusions, resOutsideBatchExclusions, cascadingDeleteExclusions, redactionFailureExclusions, patientNotFoundExclusions, multiplePatientsExclusions+1);
         }
     }
 

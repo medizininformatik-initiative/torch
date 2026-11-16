@@ -6,10 +6,13 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
+import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl;
+import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
+import org.hl7.fhir.r4.model.AdverseEvent;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
@@ -35,6 +38,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static de.medizininformatikinitiative.torch.model.fhir.QueryParams.EMPTY;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @ActiveProfiles("test")
 @SpringBootTest(
@@ -132,6 +136,62 @@ class DirectResourceLoaderIT {
                 .expectNextMatches(Observation.class::isInstance)
                 .expectNextMatches(Observation.class::isInstance)
                 .verifyComplete();
+    }
+
+    @Test
+    void testExecuteQueryWithAdverseEvent() {
+        webClient.put()
+                .uri("/AdverseEvent/adverse-event-patient-1")
+                .bodyValue("""
+                        {
+                          "resourceType": "AdverseEvent",
+                          "id": "adverse-event-patient-1",
+                          "actuality": "actual",
+                          "subject": {"reference": "Patient/1"}
+                        }
+                        """)
+                .header("Content-Type", "application/fhir+json")
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+        PatientBatch batch = PatientBatch.of("1", "2");
+        Query query = new Query("AdverseEvent", EMPTY);
+
+        Flux<DomainResource> result = dLoader.executeQueryWithBatch(batch, query);
+
+        StepVerifier.create(result)
+                .expectNextMatches(resource -> resource instanceof AdverseEvent adverseEvent
+                        && "Patient/1".equals(adverseEvent.getSubject().getReference()))
+                .verifyComplete();
+    }
+
+    @Test
+    void directLoadAssignsCoverageByBeneficiary() {
+        String profile = "https://gematik.de/fhir/isik/StructureDefinition/ISiKVersicherungsverhaeltnisGesetzlich";
+        webClient.put()
+                .uri("/Coverage/coverage-patient-1")
+                .bodyValue("""
+                        {
+                          "resourceType": "Coverage",
+                          "id": "coverage-patient-1",
+                          "meta": {"profile": ["%s"]},
+                          "status": "active",
+                          "beneficiary": {"reference": "Patient/1"},
+                          "payor": [{"display": "Test Insurance"}]
+                        }
+                        """.formatted(profile))
+                .header("Content-Type", "application/fhir+json")
+                .retrieve()
+                .toBodilessEntity()
+                .block();
+        var group = new AnnotatedAttributeGroup("coverage", "Coverage", profile, List.of(), List.of());
+        var batch = PatientBatchWithConsent.fromBatch(PatientBatch.of("1", "2"));
+
+        StepVerifier.create(dLoader.directLoadPatientCompartment(List.of(group), batch))
+                .assertNext(result -> assertThat(result.get("1").bundle().cache())
+                        .containsKey(ExtractionId.fromRelativeUrl("Coverage/coverage-patient-1")))
+                .verifyComplete();
+        assertThat(batch.batchExclusions().getResourceExclusions()).isEmpty();
     }
 
     private AnnotatedCrtdl readCrdtl(String name) throws IOException, ValidationException, ConsentFormatException {

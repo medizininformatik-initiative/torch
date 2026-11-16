@@ -3,12 +3,12 @@ package de.medizininformatikinitiative.torch.consent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.service.DataStore;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Consent;
 import org.hl7.fhir.r4.model.DateTimeType;
 import org.slf4j.Logger;
@@ -41,20 +41,24 @@ public class ConsentFetcher {
     private static final String CDS_CONSENT_PROFILE_URL = "https://www.medizininformatik-initiative.de/fhir/modul-consent/StructureDefinition/mii-pr-consent-einwilligung";
     private final DataStore dataStore;
     private final ProvisionExtractor provisionExtractor;
+    private final PatientLinkResolver patientLinkResolver;
 
     /**
      * Constructs a new {@code ConsentFetcher} with the specified dependencies.
      *
      * @param dataStore          The {@link DataStore} service for Server Calls.
      * @param provisionExtractor The {@link ProvisionExtractor} for extracting provisions from consent resources.
+     * @param patientLinkResolver Resolves how Consent links to the patient.
      */
-    public ConsentFetcher(DataStore dataStore, ProvisionExtractor provisionExtractor) {
+    public ConsentFetcher(DataStore dataStore, ProvisionExtractor provisionExtractor,
+                          PatientLinkResolver patientLinkResolver) {
         this.dataStore = requireNonNull(dataStore);
         this.provisionExtractor = provisionExtractor;
+        this.patientLinkResolver = requireNonNull(patientLinkResolver);
     }
 
-    private static Query getConsentQuery(PatientBatch batch) {
-        return Query.of("Consent", (batch.compartmentSearchParam("Consent").appendParam("status", stringValue("active"))).appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
+    private Query getConsentQuery(PatientBatch batch) {
+        return Query.of("Consent", (batch.compartmentSearchParam(patientLinkResolver.searchParam("Consent")).appendParam("status", stringValue("active"))).appendParam("_profile:below", stringValue(CDS_CONSENT_PROFILE_URL)));
     }
 
     /**
@@ -76,7 +80,7 @@ public class ConsentFetcher {
                 .filter(consent -> consent.getStatus() == Consent.ConsentState.ACTIVE)
                 .concatMap(consent -> {
                     try {
-                        String patientId = ResourceUtils.patientId(consent);
+                        String patientId = patientLinkResolver.patientId(consent);
                         batch.diagnostics().consentAudit().add(patientId, ConsentAuditMinimizer.minimize(consent));
                         DateTimeType consentTime = consent.getDateTimeElement();
                         if (consentTime.isEmpty()) {

@@ -120,7 +120,7 @@ public class CrtdlValidatorService {
                 throw new ValidationException("Duplicate attribute " + attribute.attributeRef() + " in group " + attributeGroup.id());
             }
             if (standardRefs.contains(attribute.attributeRef())) {
-                if (attribute.mustHave()) {
+                if (attribute.mustHave() && isTechnicalStandardRef(definition.type(), attribute.attributeRef())) {
                     throw new ValidationException("Standard attribute " + attribute.attributeRef() + " in group " + attributeGroup.id() + " cannot be declared with mustHave: true");
                 }
                 continue;
@@ -154,6 +154,10 @@ public class CrtdlValidatorService {
         return attributeGenerator
                 .generate(attributeGroup, patientGroupId)
                 .addAttributes(annotatedAttributes);
+    }
+
+    private static boolean isTechnicalStandardRef(String resourceType, String attributeRef) {
+        return attributeRef.equals(resourceType + ".id") || attributeRef.equals(resourceType + ".meta.profile");
     }
 
     /**

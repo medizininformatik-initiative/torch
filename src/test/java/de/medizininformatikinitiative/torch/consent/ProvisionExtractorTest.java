@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
@@ -30,7 +31,7 @@ class ProvisionExtractorTest {
 
     @BeforeEach
     void setUp() {
-        extractor = new ProvisionExtractor();
+        extractor = new ProvisionExtractor(TestPatientLinkResolver.get());
     }
 
     @Test

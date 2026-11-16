@@ -7,6 +7,7 @@ import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.NonContinuousPeriod;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
@@ -639,7 +640,8 @@ class ConsentEncodingVariantsIT {
      * Returns the ids of the patient's Observations in Blaze that pass the consent check.
      */
     private List<String> eligibleObservationIds(PatientBatchWithConsent batch, String patientId) {
-        return dataStore.search(Query.of("Observation", PatientBatch.of(patientId).compartmentSearchParam("Observation")), Observation.class)
+        return dataStore.search(Query.of("Observation", PatientBatch.of(patientId)
+                .compartmentSearchParam(TestPatientLinkResolver.get().searchParam("Observation"))), Observation.class)
                 .filter(observation -> consentValidator.checkConsent(observation, batch)
                         .map(ConsentCheckResult::included)
                         .orElse(false))
