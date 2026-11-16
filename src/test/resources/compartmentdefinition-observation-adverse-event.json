@@ -1,0 +1,9 @@
+{
+  "resourceType": "CompartmentDefinition",
+  "code": "Patient",
+  "resource": [
+    {"code": "Patient", "param": ["link"]},
+    {"code": "Observation", "param": ["subject", "performer"]},
+    {"code": "AdverseEvent", "param": ["subject"]}
+  ]
+}

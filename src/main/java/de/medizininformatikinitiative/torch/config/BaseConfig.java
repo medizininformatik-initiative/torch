@@ -18,6 +18,7 @@ import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
 import de.medizininformatikinitiative.torch.jobhandling.JobExecutionContext;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.consent.ProspectiveEntry;
@@ -96,6 +97,13 @@ public class BaseConfig {
     }
 
     @Bean
+    public PatientLinkResolver patientLinkResolver(CompartmentManager compartmentManager,
+                                                                         TorchProperties torchProperties)
+            throws IOException {
+        return new PatientLinkResolver(compartmentManager, torchProperties.searchParametersFile());
+    }
+
+    @Bean
     FileIo fileIO() {
         return new DefaultFileIO();
     }
@@ -116,9 +124,11 @@ public class BaseConfig {
     @Bean
     public ConsentValidator consentValidator(FhirContext ctx,
                                              ObjectMapper mapper,
-                                             TorchProperties torchProperties)
+                                             TorchProperties torchProperties,
+                                             PatientLinkResolver patientLinkResolver)
             throws IOException {
-        return new ConsentValidator(ctx, mapper.readTree(new File(torchProperties.mapping().typeToConsent())));
+        return new ConsentValidator(ctx, mapper.readTree(new File(torchProperties.mapping().typeToConsent())),
+                patientLinkResolver);
     }
 
     @Bean

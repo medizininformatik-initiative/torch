@@ -7,7 +7,7 @@ import de.medizininformatikinitiative.torch.diagnostics.consent.ConsentConsidere
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
-import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.fhir.Query;
@@ -29,7 +29,6 @@ import reactor.core.publisher.Mono;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentSkipListSet;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -48,13 +47,16 @@ public class DirectResourceLoader {
     private final ConsentValidator consentValidator;
     private final DseMappingTreeBase dseMappingTreeBase;
     private final ProfileMustHaveChecker profileMustHaveChecker;
+    private final PatientLinkResolver patientLinkResolver;
 
     @Autowired
     public DirectResourceLoader(DataStore dataStore,
                                 DseMappingTreeBase dseMappingTreeBase,
                                 ProfileMustHaveChecker profileMustHaveChecker,
-                                ConsentValidator validator) {
+                                ConsentValidator validator,
+                                PatientLinkResolver patientLinkResolver) {
         this.dataStore = requireNonNull(dataStore);
+        this.patientLinkResolver = requireNonNull(patientLinkResolver);
         this.consentValidator = requireNonNull(validator);
         this.dseMappingTreeBase = requireNonNull(dseMappingTreeBase);
         this.profileMustHaveChecker = requireNonNull(profileMustHaveChecker);
@@ -99,58 +101,48 @@ public class DirectResourceLoader {
 
     Flux<DomainResource> executeQueryWithBatch(PatientBatch batch, Query query) {
         logger.debug("Execute query {} over {} patients", query, batch.ids().size());
-        return dataStore.search(
+        return Flux.defer(() -> dataStore.search(
                 Query.of(
                         query.type(),
-                        batch.compartmentSearchParam(query.type()).appendParams(query.params())
+                        batch.compartmentSearchParam(patientLinkResolver.searchParam(query.type()))
+                                .appendParams(query.params())
                 ),
                 DomainResource.class
-        );
+        ));
     }
 
-    private Mono<DomainResource> applyConsent(DomainResource resource,
-                                              PatientBatchWithConsent patientBatchWithConsent,
-                                              AnnotatedAttributeGroup group) {
+    private Mono<ResourceWithPatientId> applyConsent(ResourceWithPatientId tuple,
+                                                     PatientBatchWithConsent patientBatchWithConsent,
+                                                     AnnotatedAttributeGroup group) {
         if (!patientBatchWithConsent.applyConsent()) {
-            return Mono.just(resource);
+            return Mono.just(tuple);
         }
+        DomainResource resource = tuple.resource();
 
-        Optional<ConsentCheckResult> result = consentValidator.checkConsent(resource, patientBatchWithConsent);
-        if (result.isEmpty()) {
-            // resource has no attributable patient ID at all (not even an unresolved reference) — not a
-            // consent decision, and there is no Patient-ID to record a diagnostic row against
-            return Mono.empty();
-        }
-        ConsentCheckResult checkResult = result.get();
+        ConsentCheckResult checkResult = consentValidator.checkConsent(resource, tuple.patientId(), patientBatchWithConsent);
 
-        // on the common included+diagnostics-disabled path, avoid re-deriving patientID/resourceUrl (checkConsent
-        // above already resolved the patient ID once) purely to feed a considered-resource event that would no-op
+        // on the common included+diagnostics-disabled path, avoid deriving the resourceUrl purely to feed a
+        // considered-resource event that would no-op
         boolean diagnosticsEnabled = patientBatchWithConsent.diagnostics().consentDiagnostics().isEnabled();
         if (checkResult.included() && !diagnosticsEnabled) {
-            return Mono.just(resource);
+            return Mono.just(tuple);
         }
 
-        try {
-            String patientID = ResourceUtils.patientId(resource);
-            String resourceUrl = ResourceUtils.getRelativeURL(resource).toRelativeUrl();
+        String resourceUrl = ResourceUtils.getRelativeURL(resource).toRelativeUrl();
 
-            if (diagnosticsEnabled) {
-                patientBatchWithConsent.diagnostics().consentDiagnostics().addConsideredResource(
-                        new ConsentConsideredResourceEvent(patientID, resourceUrl, checkResult.included(),
-                                checkResult.consideredDate().map(Object::toString).orElse("")));
-            }
-
-            if (checkResult.included()) {
-                return Mono.just(resource);
-            }
-
-            logger.trace("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
-            patientBatchWithConsent.batchExclusions().addConsentExclusion(group.id(), resourceUrl, patientID,
-                    checkResult.outcome().toString());
-        } catch (PatientIdNotFoundException e) {
-            return Mono.empty();
+        if (diagnosticsEnabled) {
+            patientBatchWithConsent.diagnostics().consentDiagnostics().addConsideredResource(
+                    new ConsentConsideredResourceEvent(tuple.patientId(), resourceUrl, checkResult.included(),
+                            checkResult.consideredDate().map(Object::toString).orElse("")));
         }
 
+        if (checkResult.included()) {
+            return Mono.just(tuple);
+        }
+
+        logger.trace("Consent Violated for Resource {} {}", resource.getResourceType(), resource.getId());
+        patientBatchWithConsent.batchExclusions().addConsentExclusion(group.id(), resourceUrl, tuple.patientId(),
+                checkResult.outcome().toString());
         return Mono.empty();
     }
 
@@ -210,13 +202,26 @@ public class DirectResourceLoader {
                 }));
     }
 
-    private static ResourceWithPatientId extractPatientId(DomainResource resource) {
-        try {
-            return new ResourceWithPatientId(resource, ResourceUtils.patientId(resource));
-        } catch (PatientIdNotFoundException e) {
-            logger.warn("Ignoring resource {} not referencing a patient", resource.getId());
-            return null;
+    /**
+     * Assigns a loaded resource to the single patient it references. A resource referencing no patient or several
+     * distinct patients is recorded as a {@code PATIENT_NOT_FOUND} or {@code MULTIPLE_PATIENTS} exclusion and dropped
+     * (returns {@code null}).
+     */
+    private ResourceWithPatientId extractPatientId(DomainResource resource, PatientBatchWithConsent batch,
+                                                   AnnotatedAttributeGroup group) {
+        List<String> patientIds = patientLinkResolver.patientIds(resource);
+        if (patientIds.size() == 1) {
+            return new ResourceWithPatientId(resource, patientIds.getFirst());
         }
+        String resourceUrl = ResourceUtils.getRelativeURL(resource).toRelativeUrl();
+        if (patientIds.isEmpty()) {
+            logger.debug("Ignoring resource {} not referencing a patient", resource.getId());
+            batch.batchExclusions().addPatientNotFoundExclusion(group.id(), resourceUrl);
+        } else {
+            logger.debug("Ignoring resource {} referencing several patients", resource.getId());
+            batch.batchExclusions().addMultiplePatientsExclusion(group.id(), resourceUrl);
+        }
+        return null;
     }
 
     private record ResourceWithPatientId(DomainResource resource, String patientId) {
@@ -253,19 +258,18 @@ public class DirectResourceLoader {
 
         var resourceFlux = groupQueries(group)
                 .concatMap(query -> executeQueryWithBatch(batch.patientBatch(), query))
-                .concatMap(resource -> applyConsent(resource, batch, group));
+                .mapNotNull(resource -> extractPatientId(resource, batch, group))
+                .concatMap(tuple -> applyConsent(tuple, batch, group));
 
         if (AnnotatedAttributeGroup.PATIENT.equals(group.resourceType())) {
             String targetProfile = group.groupReference();
-            resourceFlux = resourceFlux.map(resource -> {
-                ((Patient) resource).getMeta().getProfile().clear();
-                ((Patient) resource).getMeta().addProfile(targetProfile);
-                return resource;
+            resourceFlux = resourceFlux.doOnNext(tuple -> {
+                ((Patient) tuple.resource()).getMeta().getProfile().clear();
+                ((Patient) tuple.resource()).getMeta().addProfile(targetProfile);
             });
         }
 
         return resourceFlux
-                .mapNotNull(DirectResourceLoader::extractPatientId)
                 .filter(tuple -> batch.bundles().containsKey(tuple.patientId))
                 .doOnDiscard(ResourceWithPatientId.class, tuple ->
                         logger.warn("Ignoring resource {} referencing patient {} not in batch",

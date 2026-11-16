@@ -1,0 +1,26 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "patient",
+        "base": ["Observation"],
+        "type": "reference",
+        "expression": "Observation.subject.where(resolve() is Patient)",
+        "target": ["Patient"]
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "subject",
+        "base": ["AdverseEvent"],
+        "type": "reference",
+        "expression": "AdverseEvent.subject",
+        "target": ["Practitioner", "Group"]
+      }
+    }
+  ]
+}

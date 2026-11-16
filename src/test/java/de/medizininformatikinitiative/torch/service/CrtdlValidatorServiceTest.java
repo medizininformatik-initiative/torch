@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.exceptions.ConsentFormatException;
 import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.management.CompartmentManager;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentCodeConfig;
 import de.medizininformatikinitiative.torch.model.crtdl.Attribute;
 import de.medizininformatikinitiative.torch.model.crtdl.AttributeGroup;
@@ -44,7 +45,7 @@ import static org.mockito.Mockito.when;
 class CrtdlValidatorServiceTest {
     private final IntegrationTestSetup itSetup = new IntegrationTestSetup();
     private final CrtdlValidatorService validatorService = new CrtdlValidatorService(itSetup.structureDefinitionHandler(),
-            new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
+            new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler(), TestPatientLinkResolver.get()),
             new ConsentCodeConfig(List.of()), itSetup.fhirPathBuilder(), itSetup.fhirContext());
 
     @Mock
@@ -200,6 +201,18 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    void patientLinkAttributeExplicitlySpecifiedWithMustHaveTrue_isAccepted() throws ValidationException, ConsentFormatException {
+        Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
+                new AttributeGroup("test", "https://gematik.de/fhir/isik/StructureDefinition/ISiKVersicherungsverhaeltnisGesetzlich",
+                        List.of(new Attribute("Coverage.beneficiary", true)), List.of()))));
+
+        var result = validatorService.validateAndAnnotate(crtdl);
+
+        assertThat(result.dataExtraction().attributeGroups().get(1).attributes()).contains(
+                new AnnotatedAttribute("Coverage.beneficiary", "Coverage.beneficiary", true, List.of("patientGroupId")));
+    }
+
+    @Test
     void standardAttributeExplicitlySpecifiedWithMustHaveTrue_failsValidation() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
                 new AttributeGroup("test", "https://www.medizininformatik-initiative.de/fhir/core/modul-labor/StructureDefinition/ObservationLab",
@@ -322,7 +335,7 @@ class CrtdlValidatorServiceTest {
         // FhirPathBuilder throws when resolving the discriminator field — caught, logged, discriminator is omitted
         CrtdlValidatorService svc = new CrtdlValidatorService(
                 itSetup.structureDefinitionHandler(),
-                new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler()),
+                new StandardAttributeGenerator(new CompartmentManager("compartmentdefinition-patient.json"), itSetup.structureDefinitionHandler(), TestPatientLinkResolver.get()),
                 new ConsentCodeConfig(List.of()),
                 mockFhirPathBuilder, itSetup.fhirContext());
 

@@ -11,6 +11,7 @@ import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsen
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
+import org.hl7.fhir.r4.model.Account;
 import org.hl7.fhir.r4.model.AllergyIntolerance;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DateTimeType;
@@ -162,7 +163,7 @@ class CrtdlConsentValidatorTest {
             // Create a resource with NO patient reference
             Observation noPatientObs = new Observation();
             noPatientObs.setEffective(new DateTimeType("2022-04-20"));
-            // subject is missing → ResourceUtils.patientId() will throw PatientIdNotFoundException
+            // subject is missing → PatientLinkResolver.patientId() will throw PatientIdNotFoundException
 
         PatientBatchWithConsent batch = new PatientBatchWithConsent(Map.of(PATIENT_ID, patientResourceBundle),
                 true, new ResourceBundle(), UUID.randomUUID(), BatchDiagnostics.empty());
@@ -231,6 +232,17 @@ class CrtdlConsentValidatorTest {
         }
 
         @Test
+        void otherPatientAlsoReferenced() {
+            Account account = new Account();
+            account.addSubject(new Reference("Patient/123"));
+            account.addSubject(new Reference("Patient/1"));
+
+            assertThatThrownBy(() -> consentValidator.checkPatientIdAndConsent(patientResourceBundle, false, account))
+                    .isInstanceOf(ReferenceToPatientException.class)
+                    .hasMessageContaining("Patient loaded reference belonging to another patient");
+        }
+
+        @Test
         void consentViolated() {
             Condition condition = new Condition();
             condition.setSubject(new Reference("Patient/123"));
@@ -248,7 +260,7 @@ class CrtdlConsentValidatorTest {
 
             assertThatThrownBy(() -> consentValidator.checkPatientIdAndConsent(patientResourceBundle, true, condition))
                     .isInstanceOf(PatientIdNotFoundException.class)
-                    .hasMessageContaining("Reference does not start with 'Patient/': Unknown/123");
+                    .hasMessageContaining("Patient Reference not found for Resource of Type Condition");
 
         }
 

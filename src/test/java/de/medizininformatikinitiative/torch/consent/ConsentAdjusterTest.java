@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.consent;
 
+import de.medizininformatikinitiative.torch.management.TestPatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
@@ -40,7 +41,7 @@ class ConsentAdjusterUnitTest {
 
     @BeforeEach
     void setUp() {
-        adjuster = new ConsentAdjuster(dataStore);
+        adjuster = new ConsentAdjuster(dataStore, TestPatientLinkResolver.get());
     }
 
     /**

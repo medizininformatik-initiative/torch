@@ -1,0 +1,46 @@
+{
+  "resourceType": "Bundle",
+  "type": "collection",
+  "entry": [
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "patient",
+        "base": ["Account", "Invoice"],
+        "type": "reference",
+        "target": ["Patient"],
+        "expression": ".subject.where(resolve() is Patient)"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "patient",
+        "base": ["Encounter"],
+        "type": "reference",
+        "target": ["Patient"],
+        "expression": "Encounter.subject.as(Reference)"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "patient",
+        "base": ["Condition"],
+        "type": "reference",
+        "target": ["Patient"],
+        "expression": "Condition.subject.where(resolve() is Patient)"
+      }
+    },
+    {
+      "resource": {
+        "resourceType": "SearchParameter",
+        "code": "patient",
+        "base": ["Observation"],
+        "type": "reference",
+        "target": ["Patient"],
+        "expression": "Condition.subject"
+      }
+    }
+  ]
+}

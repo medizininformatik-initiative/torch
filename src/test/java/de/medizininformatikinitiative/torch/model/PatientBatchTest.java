@@ -17,30 +17,39 @@ class PatientBatchTest {
     class CompartmentSearchParam {
 
         @Test
-        void typePatient() {
+        void idParamUsesPlainIds() {
             PatientBatch batch = PatientBatch.of("A");
 
-            QueryParams result = batch.compartmentSearchParam("Patient");
+            QueryParams result = batch.compartmentSearchParam("_id");
 
             assertThat(result).isEqualTo(of("_id", multiStringValue("A")));
         }
 
         @Test
-        void typeObservation() {
+        void patientParamUsesReferences() {
             PatientBatch batch = PatientBatch.of("A");
 
-            QueryParams result = batch.compartmentSearchParam("Observation");
+            QueryParams result = batch.compartmentSearchParam("patient");
 
             assertThat(result).isEqualTo(of("patient", multiStringValue("Patient/A")));
         }
 
         @Test
-        void multiPatientTypeObservation() {
+        void multiPatientPatientParam() {
             PatientBatch batch = PatientBatch.of("A", "B");
 
-            QueryParams result = batch.compartmentSearchParam("Observation");
+            QueryParams result = batch.compartmentSearchParam("patient");
 
             assertThat(result).isEqualTo(of("patient", multiStringValue("Patient/A", "Patient/B")));
+        }
+
+        @Test
+        void otherParamUsesReferences() {
+            PatientBatch batch = PatientBatch.of("A", "B");
+
+            QueryParams result = batch.compartmentSearchParam("subject");
+
+            assertThat(result).isEqualTo(of("subject", multiStringValue("Patient/A", "Patient/B")));
         }
     }
 

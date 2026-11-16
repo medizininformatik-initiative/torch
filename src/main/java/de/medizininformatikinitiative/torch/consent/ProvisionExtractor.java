@@ -2,10 +2,10 @@ package de.medizininformatikinitiative.torch.consent;
 
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.ConsentProvisions;
 import de.medizininformatikinitiative.torch.model.consent.Provision;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Consent;
@@ -20,6 +20,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static java.util.Objects.requireNonNull;
+
 /**
  * The {@code ConsentProcessor} class is a processing FHIR consent resources to extract the requested codes i.e. valid codes for the data extraction.
  */
@@ -28,6 +30,12 @@ public class ProvisionExtractor {
 
 
     public static final Logger logger = LoggerFactory.getLogger(ProvisionExtractor.class);
+
+    private final PatientLinkResolver patientLinkResolver;
+
+    public ProvisionExtractor(PatientLinkResolver patientLinkResolver) {
+        this.patientLinkResolver = requireNonNull(patientLinkResolver);
+    }
 
 
     /**
@@ -73,6 +81,6 @@ public class ProvisionExtractor {
                 }
             }
         }
-        return new ConsentProvisions(consent.getIdPart(), ResourceUtils.patientId(consent), consent.getDateTimeElement(), provisions);
+        return new ConsentProvisions(consent.getIdPart(), patientLinkResolver.patientId(consent), consent.getDateTimeElement(), provisions);
     }
 }

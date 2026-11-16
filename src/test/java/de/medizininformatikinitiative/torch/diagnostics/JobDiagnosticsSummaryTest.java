@@ -194,6 +194,8 @@ public class JobDiagnosticsSummaryTest {
             assertThat(summary.resourceSummaries().get(GROUP_1).resOutsideBatchExclusions()).isEqualTo(NUM_1+NUM_2);
             assertThat(summary.resourceSummaries().get(GROUP_1).cascadingDeleteExclusions()).isEqualTo(2*(NUM_1+NUM_2));
             assertThat(summary.resourceSummaries().get(GROUP_1).redactionFailureExclusions()).isEqualTo(2*(NUM_1+NUM_2));
+            assertThat(summary.resourceSummaries().get(GROUP_1).patientNotFoundExclusions()).isEqualTo(NUM_1+NUM_2);
+            assertThat(summary.resourceSummaries().get(GROUP_1).multiplePatientsExclusions()).isEqualTo(NUM_1+NUM_2);
         }
 
         private void increaseOtherResourceExclusionsBy(int num, BatchDiagnostics diagnostics, String groupId, String resourceId,
@@ -207,6 +209,8 @@ public class JobDiagnosticsSummaryTest {
                 diagnostics.batchExclusions().addCascadingDeleteExclusionCore(groupId, resourceId);
                 diagnostics.batchExclusions().addRedactionFailureExclusion(groupId, resourceId, patientId);
                 diagnostics.batchExclusions().addRedactionFailureExclusionCore(groupId, resourceId);
+                diagnostics.batchExclusions().addPatientNotFoundExclusion(groupId, resourceId);
+                diagnostics.batchExclusions().addMultiplePatientsExclusion(groupId, resourceId);
             }
         }
 

@@ -5,10 +5,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.ReferenceToPatientException;
+import de.medizininformatikinitiative.torch.management.PatientLinkResolver;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.consent.Period;
 import de.medizininformatikinitiative.torch.model.management.PatientResourceBundle;
-import de.medizininformatikinitiative.torch.util.ResourceUtils;
 import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Resource;
@@ -27,13 +27,18 @@ public class ConsentValidator {
 
     private final FhirContext ctx;
     private final JsonNode resourceToField;
+    private final PatientLinkResolver patientLinkResolver;
 
-    public ConsentValidator(FhirContext ctx, JsonNode resourceToField) {
+    public ConsentValidator(FhirContext ctx, JsonNode resourceToField, PatientLinkResolver patientLinkResolver) {
         this.ctx = requireNonNull(ctx);
         this.resourceToField = requireNonNull(resourceToField);
+        this.patientLinkResolver = requireNonNull(patientLinkResolver);
     }
 
     /**
+     * Kept for tests; production code resolves the patient first and calls
+     * {@link #checkConsent(DomainResource, String, PatientBatchWithConsent)}.
+     * <p>
      * Wrapper function that checks whether the provided {@link DomainResource} complies with the patient's consents.
      *
      * <p>This method extracts the relevant {@link PatientResourceBundle} for the patient associated with the resource
@@ -49,22 +54,33 @@ public class ConsentValidator {
         // Extract the patient ID from the resource
         String patientID;
         try {
-            patientID = ResourceUtils.patientId(resource);
+            patientID = patientLinkResolver.patientId(resource);
         } catch (PatientIdNotFoundException e) {
             logger.trace("Patient ID not found in resource: {}", e.getMessage());
             return Optional.empty();
         }
+        return Optional.of(checkConsent(resource, patientID, patientBatchWithConsent));
+    }
 
-        // Retrieve the PatientResourceBundle for the given patient ID
-        PatientResourceBundle patientResourceBundle = patientBatchWithConsent.bundles().get(patientID);
+    /**
+     * Checks whether the provided {@link DomainResource} complies with the consents of an already resolved patient.
+     *
+     * @param resource                The FHIR {@link DomainResource} to check for consent compliance.
+     * @param patientId               the ID of the patient the resource belongs to
+     * @param patientBatchWithConsent A batch containing consent information structured by patient ID.
+     * @return the {@link ConsentCheckResult}; {@link ConsentCheckOutcome#NO_PATIENT_BUNDLE} if the batch tracks no
+     * {@link PatientResourceBundle} for the patient
+     */
+    public ConsentCheckResult checkConsent(DomainResource resource, String patientId,
+                                           PatientBatchWithConsent patientBatchWithConsent) {
+        PatientResourceBundle patientResourceBundle = patientBatchWithConsent.bundles().get(patientId);
 
         if (patientResourceBundle == null) {
-            logger.warn("CONSENT_VALIDATOR_01 No PatientResourceBundle found for patient ID: {} in resource {}", patientID, resource.getId());
-            return Optional.of(ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE));
+            logger.warn("CONSENT_VALIDATOR_01 No PatientResourceBundle found for patient ID: {} in resource {}", patientId, resource.getId());
+            return ConsentCheckResult.of(ConsentCheckOutcome.NO_PATIENT_BUNDLE);
         }
 
-        // Delegate the consent check to the existing checkConsent method
-        return Optional.of(checkConsent(resource, patientResourceBundle));
+        return checkConsent(resource, patientResourceBundle);
     }
 
     public ConsentCheckResult checkConsent(DomainResource resource, PatientResourceBundle patientResourceBundle) {
@@ -115,8 +131,11 @@ public class ConsentValidator {
      * @return true if fitting otherwise it throws errors
      */
     public boolean checkPatientIdAndConsent(PatientResourceBundle patientBundle, boolean applyConsent, Resource resource) throws PatientIdNotFoundException, ConsentViolatedException, ReferenceToPatientException {
-        String resourcePatientId = ResourceUtils.patientId((DomainResource) resource);
-        if (!resourcePatientId.equals(patientBundle.patientId())) {
+        List<String> resourcePatientIds = patientLinkResolver.patientIds((DomainResource) resource);
+        if (resourcePatientIds.isEmpty()) {
+            throw new PatientIdNotFoundException("Patient Reference not found for Resource of Type " + resource.fhirType());
+        }
+        if (!resourcePatientIds.stream().allMatch(patientBundle.patientId()::equals)) {
             throw new ReferenceToPatientException("Patient loaded reference belonging to another patient");
         }
 
