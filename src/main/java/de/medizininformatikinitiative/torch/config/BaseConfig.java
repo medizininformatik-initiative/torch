@@ -64,7 +64,7 @@ public class BaseConfig {
 
     @Bean
     public FhirContext fhirContext() {
-        return FhirContext.forR4();
+        return FhirContext.forR4Cached();
     }
 
 

@@ -340,6 +340,8 @@ public class Redaction {
      * sibling values (e.g. other matched slices already present on a repeating property) are preserved. Its
      * own required children are then recursively redacted, since a bare {@code data-absent-reason} extension
      * on the stub does not by itself satisfy the base FHIR cardinality of children such as {@code component.code}.
+     * Other data types with required children (e.g. {@code UsageContext}, {@code SampledData}) are skipped with a
+     * warning, since a placeholder carrying only a {@code data-absent-reason} extension would be invalid.
      *
      * @param base         the parent of the child
      * @param child        property without values to be checked
@@ -356,6 +358,8 @@ public class Redaction {
                 if (stub != null) {
                     redactChildren(stub, childContexts, references, resource);
                 }
+            } else if (HapiFactory.hasRequiredChildren(type)) {
+                logger.warn("Unmaskable elementID {} in field {} Type {} has required children", base.fhirType(), child.getName(), type);
             } else {
                 Element element = HapiFactory.create(type).addExtension(createAbsentReasonExtension(MASKED));
                 base.setProperty(child.getName(), element);
