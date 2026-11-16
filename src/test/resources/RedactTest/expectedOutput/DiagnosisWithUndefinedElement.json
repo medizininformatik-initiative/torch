@@ -24,6 +24,16 @@
         "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
         "valueCode": "masked"
       }
+    ],
+    "coding": [
+      {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+            "valueCode": "masked"
+          }
+        ]
+      }
     ]
   },
   "subject": {
@@ -53,6 +63,14 @@
             }
           ]
         }
+      },
+      "_text": {
+        "extension": [
+          {
+            "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+            "valueCode": "masked"
+          }
+        ]
       }
     }
   ]

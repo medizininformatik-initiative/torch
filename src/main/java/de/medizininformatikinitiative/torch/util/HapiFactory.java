@@ -1,9 +1,11 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.BaseRuntimeChildDefinition;
 import ca.uhn.fhir.context.BaseRuntimeElementCompositeDefinition;
 import ca.uhn.fhir.context.BaseRuntimeElementDefinition;
 import ca.uhn.fhir.context.FhirContext;
 import org.hl7.fhir.exceptions.FHIRException;
+import org.hl7.fhir.r4.model.Base;
 import org.hl7.fhir.r4.model.StringType;
 import org.hl7.fhir.r4.model.Type;
 
@@ -36,13 +38,15 @@ public class HapiFactory {
     }
 
     /**
-     * Checks whether the named R4 data type is a composite with at least one child that is required by the base
-     * FHIR specification ({@code min > 0}), e.g. {@code UsageContext.code} or {@code SampledData.origin}.
+     * Checks whether the base FHIR specification requires the named child ({@code min > 0}) of the given element,
+     * e.g. {@code SampledData.origin} or {@code Observation.component.code}. Choice children are named with their
+     * {@code [x]} suffix, as in {@link Base#children()}.
      *
-     * @return {@code false} for primitives, composites without required children and unknown type names
+     * @return {@code false} for primitives and unknown child names
      */
-    public static boolean hasRequiredChildren(String name) {
-        return CONTEXT.getElementDefinition(name) instanceof BaseRuntimeElementCompositeDefinition<?> composite
-                && composite.getChildren().stream().anyMatch(child -> child.getMin() > 0);
+    public static boolean isRequiredChild(Base element, String childName) {
+        return CONTEXT.getElementDefinition(element.getClass()) instanceof BaseRuntimeElementCompositeDefinition<?> composite
+                && composite.getChildByName(childName) instanceof BaseRuntimeChildDefinition child
+                && child.getMin() > 0;
     }
 }

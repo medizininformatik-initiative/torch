@@ -13,6 +13,7 @@ import org.hl7.fhir.r4.model.Type;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.MethodSource;
 import org.junit.jupiter.params.provider.ValueSource;
 
@@ -62,15 +63,29 @@ class HapiFactoryTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"UsageContext", "Expression", "SampledData", "Signature"})
-    void detectsTypesWithRequiredChildren(String name) {
-        assertThat(HapiFactory.hasRequiredChildren(name)).isTrue();
+    @CsvSource({"SampledData, origin", "UsageContext, value[x]", "Expression, language"})
+    void detectsChildrenRequiredByBaseSpecification(String type, String child) {
+        assertThat(HapiFactory.isRequiredChild(HapiFactory.create(type), child)).isTrue();
+    }
+
+    /**
+     * HAPI R4's generated {@code listChildren()} reports min 0 for every {@link org.hl7.fhir.r4.model.Property},
+     * even for children the base specification requires, so {@link HapiFactory#isRequiredChild} has to read the
+     * cardinality from the runtime definitions instead.
+     */
+    @ParameterizedTest
+    @CsvSource({"SampledData, origin", "UsageContext, value[x]", "Expression, language"})
+    void propertyMinCardinalityIsUnreliableForBaseRequiredChildren(String type, String child) {
+        assertThat(HapiFactory.create(type).children())
+                .filteredOn(property -> property.getName().equals(child))
+                .singleElement()
+                .satisfies(property -> assertThat(property.getMinCardinality()).isZero());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Age", "Duration", "Money", "Quantity", "CodeableConcept", "string", "NoSuchType"})
-    void typesWithoutRequiredChildren(String name) {
-        assertThat(HapiFactory.hasRequiredChildren(name)).isFalse();
+    @CsvSource({"SampledData, data", "Quantity, value", "Expression, description", "Expression, noSuchChild", "string, value"})
+    void childrenNotRequiredByBaseSpecification(String type, String child) {
+        assertThat(HapiFactory.isRequiredChild(HapiFactory.create(type), child)).isFalse();
     }
 
     @Test

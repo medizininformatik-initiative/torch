@@ -2,6 +2,7 @@ package de.medizininformatikinitiative.torch.service;
 
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -47,12 +48,13 @@ public class BatchCopierRedacter {
      * @param groupMap   Immutable AttributeGroup Map shared between all Batches.
      * @param exclusions records a {@code REDACTION_FAILURE} exclusion event per group for any resource isolated
      *                   due to a transformation failure
+     * @param issues     collects required elements that redaction left absent or invalid
      * @return Mono of transformed batch.
      */
     public ExtractionPatientBatch transformBatch(ExtractionPatientBatch batch, Map<String, AnnotatedAttributeGroup> groupMap,
-                                                  BatchExclusions exclusions) {
+                                                  BatchExclusions exclusions, RedactionIssues issues) {
         batch.bundles().entrySet().parallelStream().forEach(
-                entry -> transformBundle(entry.getValue(), groupMap, exclusions, entry.getKey())
+                entry -> transformBundle(entry.getValue(), groupMap, exclusions, entry.getKey(), issues)
         );
         return batch;
     }
@@ -71,31 +73,33 @@ public class BatchCopierRedacter {
      * @param extractionBundle PatientResourceBundle to transform
      * @param groupMap         Immutable AttributeGroup Map shared between all Batches
      * @param exclusions       records the core-bundle {@code REDACTION_FAILURE} exclusion event per group
+     * @param issues           collects required elements that redaction left absent or invalid
      * @return Mono of Transformed PatientResourceBundle
      */
     public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
-                                                      BatchExclusions exclusions) {
-        return transformBundle(extractionBundle, groupMap, exclusions::addRedactionFailureExclusionCore);
+                                                      BatchExclusions exclusions, RedactionIssues issues) {
+        return transformBundle(extractionBundle, groupMap, exclusions::addRedactionFailureExclusionCore, issues);
     }
 
     /**
-     * Transforms a single patient's PatientResourceBundle. See {@link #transformBundle(ExtractionResourceBundle, Map, BatchExclusions)}
+     * Transforms a single patient's PatientResourceBundle. See {@link #transformBundle(ExtractionResourceBundle, Map, BatchExclusions, RedactionIssues)}
      * for the isolation behaviour on transformation failure.
      *
      * @param extractionBundle PatientResourceBundle to transform
      * @param groupMap         Immutable AttributeGroup Map shared between all Batches
      * @param exclusions       records the patient's {@code REDACTION_FAILURE} exclusion event per group
      * @param patientId        the patient this bundle belongs to
+     * @param issues           collects required elements that redaction left absent or invalid
      * @return Mono of Transformed PatientResourceBundle
      */
     public ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
-                                                      BatchExclusions exclusions, String patientId) {
+                                                      BatchExclusions exclusions, String patientId, RedactionIssues issues) {
         return transformBundle(extractionBundle, groupMap,
-                (groupId, resourceId) -> exclusions.addRedactionFailureExclusion(groupId, resourceId, patientId));
+                (groupId, resourceId) -> exclusions.addRedactionFailureExclusion(groupId, resourceId, patientId), issues);
     }
 
     private ExtractionResourceBundle transformBundle(ExtractionResourceBundle extractionBundle, Map<String, AnnotatedAttributeGroup> groupMap,
-                                                       BiConsumer<String, String> recordExclusion) {
+                                                       BiConsumer<String, String> recordExclusion, RedactionIssues issues) {
         Map<ExtractionId, ResourceExtractionInfo> infoMap = extractionBundle.extractionInfoMap();
 
         infoMap.keySet().parallelStream().forEach(resourceId -> {
@@ -111,7 +115,7 @@ public class BatchCopierRedacter {
                 ExtractionRedactionWrapper wrapper =
                         createWrapper(resource, info, groupMap);
 
-                Resource transformed = transformResource(wrapper);
+                Resource transformed = transformResource(wrapper, issues);
 
                 extractionBundle.put(transformed);
 
@@ -153,15 +157,16 @@ public class BatchCopierRedacter {
      * Transforms a ResourceGroupWrapper by copying attributes and applying redaction rules.
      *
      * @param extractionRedactionWrapper wrapper containing all the extraction relevant information
+     * @param issues                     collects required elements that redaction left absent or invalid
      * @return Transformed Resource
      * @throws TargetClassCreationException if target resource instantiation fails
      * @throws ReflectiveOperationException if reflective copying fails
      */
-    public Resource transformResource(ExtractionRedactionWrapper extractionRedactionWrapper) throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
+    public Resource transformResource(ExtractionRedactionWrapper extractionRedactionWrapper, RedactionIssues issues) throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
         DomainResource tgt = ResourceUtils.createTargetResource(extractionRedactionWrapper.resource().getClass());
 
         copier.copy(extractionRedactionWrapper.resource(), tgt, extractionRedactionWrapper.copyTree());
-        redaction.redact(extractionRedactionWrapper.updateWithResource(tgt));
+        redaction.redact(extractionRedactionWrapper.updateWithResource(tgt), issues);
         return tgt;
     }
 

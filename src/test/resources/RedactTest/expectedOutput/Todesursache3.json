@@ -31,7 +31,31 @@
             "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
             "valueCode": "masked"
           }
-        ]
+        ],
+        "_system": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "_version": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        },
+        "_code": {
+          "extension": [
+            {
+              "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+              "valueCode": "masked"
+            }
+          ]
+        }
       }
     ]
   },

@@ -1,0 +1,28 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-required-identifier-use",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-required-identifier-use",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithRequiredIdentifierUse",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.identifier",
+        "path": "Questionnaire.identifier",
+        "min": 1,
+        "type": [{"code": "Identifier"}]
+      },
+      {
+        "id": "Questionnaire.identifier.use",
+        "path": "Questionnaire.identifier.use",
+        "min": 1
+      }
+    ]
+  }
+}

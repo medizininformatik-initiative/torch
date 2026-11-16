@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import de.medizininformatikinitiative.torch.TestUtils;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViolation;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViolationReason;
 import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
@@ -274,6 +276,31 @@ public class JobTest {
             assertThat(after.status()).isEqualTo(JobStatus.RUNNING_PROCESS_BATCH);
             assertThat(after.batches().get(b1).status()).isEqualTo(WorkUnitStatus.FINISHED);
             assertThat(after.batches().get(b2).status()).isEqualTo(WorkUnitStatus.INIT);
+        }
+
+        @Test
+        void sameRedactionViolationFromTwoBatchesIsMergedIntoOneIssue() {
+            BatchState init1 = new BatchState(UUID.randomUUID(), WorkUnitState.initNow());
+            BatchState init2 = new BatchState(UUID.randomUUID(), WorkUnitState.initNow());
+            Job j = Job.init(UUID.randomUUID(), TestUtils.emptyJobParams())
+                    .withStatus(JobStatus.RUNNING_PROCESS_BATCH)
+                    .withBatchState(init1)
+                    .withBatchState(init2);
+
+            Job after = j.onBatchProcessingSuccess(batchWithViolation(j, init1, 2, "Observation/a"))
+                    .onBatchProcessingSuccess(batchWithViolation(j, init2, 3, "Observation/b"));
+
+            assertThat(after.issues()).singleElement().satisfies(issue -> {
+                assertThat(issue.redactionViolation().count()).isEqualTo(5);
+                assertThat(issue.redactionViolation().examples()).containsExactly("Observation/a", "Observation/b");
+                assertThat(issue.diagnostics()).isEqualTo("count=5; reason=UNMASKABLE_REQUIRED_CHILD; examples=Observation/a, Observation/b");
+            });
+        }
+
+        private static BatchResult batchWithViolation(Job job, BatchState state, long count, String example) {
+            return new BatchResult(job.id(), state.batchId(), state.finishNow(WorkUnitStatus.FINISHED), Optional.empty(), Optional.empty(),
+                    List.of(Issue.of(new RedactionViolation("Observation", "Observation.component.value[x]", "SampledData",
+                            RedactionViolationReason.UNMASKABLE_REQUIRED_CHILD, count, List.of(example)))));
         }
     }
 

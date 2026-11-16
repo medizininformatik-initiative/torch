@@ -8,6 +8,7 @@ import de.medizininformatikinitiative.torch.diagnostics.ConsentAudit;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -226,6 +227,7 @@ public class ExtractDataService {
                                                        BatchState batchState) {
         UUID batchId = batch.id();
         logMemory(batchId);
+        RedactionIssues redactionIssues = new RedactionIssues();
 
         batchProgressRegistry.enter(batchId, PipelineStage.DIRECT_LOAD);
         return executeAndMeasureAsync(PipelineStage.DIRECT_LOAD, batch.diagnostics(), () -> directResourceLoader
@@ -258,7 +260,7 @@ public class ExtractDataService {
                     batchProgressRegistry.enter(batchId, PipelineStage.COPY_REDACT);
                     ExtractionPatientBatch transformed = executeAndMeasure(PipelineStage.COPY_REDACT, patientBatch.diagnostics(), () ->
                             batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(patientBatch), groupsToProcess.allGroups(),
-                                    patientBatch.diagnostics().batchExclusions()));
+                                    patientBatch.diagnostics().batchExclusions(), redactionIssues));
                     // Non-compartment resources are handed off to processCore() via toCoreBundle() and counted there instead,
                     // to avoid counting them twice.
                     recordResourceInclusions(patientBatch.diagnostics(),
@@ -281,7 +283,7 @@ public class ExtractDataService {
                             batchState.finishNow(status),
                             Optional.of(batchToCoreWriter.toCoreBundle(extractedBatch)),
                             Optional.of(batch.diagnostics().setFinalPatientCount(extractedBatch.getNumPatients())),
-                            List.of()
+                            redactionIssues.toIssues()
                     );
                 });
     }
@@ -299,6 +301,7 @@ public class ExtractDataService {
         GroupsToProcess groupsToProcess = processedGroupFactory.create(crtdl);
 
         BatchDiagnostics diagnostics = BatchDiagnostics.empty();
+        RedactionIssues redactionIssues = new RedactionIssues();
 
         return executeAndMeasureAsync(PipelineStage.DIRECT_LOAD, diagnostics, () ->
                 directResourceLoader.processCoreAttributeGroups(
@@ -337,16 +340,16 @@ public class ExtractDataService {
                 })
                 .flatMap(cb -> {
                     ExtractionResourceBundle transformed = executeAndMeasure(PipelineStage.COPY_REDACT, diagnostics, () ->
-                                    batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions()));
+                                    batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions(), redactionIssues));
                     recordResourceInclusions(diagnostics, transformed.resourceInclusionCounts());
 
                     if (transformed.isEmpty()) {
-                        return Mono.just(new CoreResult(job.id(), List.of(), WorkUnitStatus.SKIPPED,
+                        return Mono.just(new CoreResult(job.id(), redactionIssues.toIssues(), WorkUnitStatus.SKIPPED,
                                 Optional.of(diagnostics)));
                     }
 
                     return writeBundle(job.id().toString(), transformed)
-                            .thenReturn(new CoreResult(job.id(), List.of(), WorkUnitStatus.FINISHED,
+                            .thenReturn(new CoreResult(job.id(), redactionIssues.toIssues(), WorkUnitStatus.FINISHED,
                                     Optional.of(diagnostics)));
                 })
                 .subscribeOn(Schedulers.boundedElastic());

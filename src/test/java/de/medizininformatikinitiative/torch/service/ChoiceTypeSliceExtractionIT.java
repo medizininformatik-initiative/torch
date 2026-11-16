@@ -5,6 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
 import de.medizininformatikinitiative.torch.model.crtdl.Crtdl;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttributeGroup;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -116,7 +117,7 @@ class ChoiceTypeSliceExtractionIT {
         bundle.put(parser.parseResource(MedicationStatement.class, MEDICATION_STATEMENT), "medicationStatement", true);
 
         ExtractionResourceBundle result = new BatchCopierRedacter(copier, redaction)
-                .transformBundle(ExtractionResourceBundle.of(bundle), groups, BatchExclusions.empty());
+                .transformBundle(ExtractionResourceBundle.of(bundle), groups, BatchExclusions.empty(), new RedactionIssues());
 
         Optional<Resource> allergyResult = result.getResource(ExtractionId.fromRelativeUrl("AllergyIntolerance/a1"));
         assertThat(allergyResult).containsInstanceOf(AllergyIntolerance.class);

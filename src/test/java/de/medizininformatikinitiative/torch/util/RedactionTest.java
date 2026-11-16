@@ -1,10 +1,14 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ca.uhn.fhir.context.FhirContext;
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
 import ch.qos.logback.classic.spi.ILoggingEvent;
 import ch.qos.logback.core.read.ListAppender;
-import ca.uhn.fhir.context.FhirContext;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionCause;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViolation;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViolationReason;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
@@ -15,21 +19,30 @@ import org.hl7.fhir.r4.model.CanonicalType;
 import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
+import org.hl7.fhir.r4.model.Composition;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
 import org.hl7.fhir.r4.model.Duration;
+import org.hl7.fhir.r4.model.Element;
 import org.hl7.fhir.r4.model.Encounter;
 import org.hl7.fhir.r4.model.Enumerations;
+import org.hl7.fhir.r4.model.EvidenceVariable;
+import org.hl7.fhir.r4.model.Expression;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
+import org.hl7.fhir.r4.model.MedicationStatement;
 import org.hl7.fhir.r4.model.Meta;
+import org.hl7.fhir.r4.model.Narrative;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Provenance;
 import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
+import org.hl7.fhir.r4.model.SampledData;
 import org.hl7.fhir.r4.model.StringType;
+import org.hl7.fhir.r4.model.UsageContext;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -59,6 +72,7 @@ public class RedactionTest {
     public static final String PATIENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/PatientPseudonymisiert";
     public static final String VITALSTATUS = "https://www.medizininformatik-initiative.de/fhir/core/modul-person/StructureDefinition/Vitalstatus";
     public static final String ENCOUNTER = "https://www.medizininformatik-initiative.de/fhir/core/modul-fall/StructureDefinition/KontaktGesundheitseinrichtung";
+    private static final String DATA_ABSENT_REASON_URL = "http://hl7.org/fhir/StructureDefinition/data-absent-reason";
     public static final String BLOOD_PRESSURE = "https://gematik.de/fhir/isik/StructureDefinition/ISiKBlutdruckSystemischArteriell";
 
     private final IntegrationTestSetup integrationTestSetup;
@@ -128,8 +142,8 @@ public class RedactionTest {
     /**
      * A required named slice (here {@code DiastolicBP}) entirely absent from the source data gets a masked
      * stub appended, without discarding already-processed sibling components (e.g. a present {@code SystolicBP}).
-     * The stub's own required children (e.g. {@code code}) are themselves masked rather than left absent,
-     * since a bare {@code data-absent-reason} on the stub alone does not satisfy their base FHIR cardinality.
+     * The stub's own required children are filled rather than left absent, since a bare {@code data-absent-reason}
+     * on the stub alone does not satisfy their base FHIR cardinality; {@code code} takes the slice's pattern.
      */
     @Test
     void missingRequiredSliceAppendsStubWithoutDiscardingExistingComponents() throws RedactionException {
@@ -158,8 +172,8 @@ public class RedactionTest {
 
         Observation.ObservationComponentComponent stub = tgt.getComponent().get(1);
         assertThat(stub.getExtensionsByUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason")).isNotEmpty();
-        assertThat(stub.hasCode()).isTrue();
-        assertThat(stub.getCode().getExtensionsByUrl("http://hl7.org/fhir/StructureDefinition/data-absent-reason")).isNotEmpty();
+        // the slice's patternCodeableConcept instead of a mask, so the stub still matches its own slice
+        assertThat(stub.getCode().equalsDeep(new CodeableConcept(new Coding().setSystem("http://loinc.org").setCode("8462-4")))).isTrue();
     }
 
     @Test
@@ -352,32 +366,248 @@ public class RedactionTest {
     }
 
     /**
-     * A placeholder of a type with required children (here {@code UsageContext.code 1..1}) carrying only a
-     * data-absent-reason extension would be invalid, so the element is skipped with a warning instead.
+     * A placeholder of a type with required children (here {@code UsageContext.code} and {@code UsageContext.value[x]},
+     * both 1..1 in the base specification) gets those children masked too, since a bare data-absent-reason on the
+     * placeholder alone would be invalid (#1378).
      */
     @Test
-    void missingRequiredTypeWithRequiredChildrenIsSkippedWithWarning() throws IOException, RedactionException {
+    void missingRequiredTypeWithRequiredChildrenGetsMaskedChildren() throws IOException, RedactionException {
         String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context";
         Questionnaire src = new Questionnaire();
         src.setMeta(new Meta().addProfile(profile));
         src.setStatus(Enumerations.PublicationStatus.ACTIVE);
 
+        Questionnaire tgt = (Questionnaire) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        UsageContext useContext = tgt.getUseContextFirstRep();
+        assertThat(useContext.getExtension()).singleElement()
+                .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+        assertThat(useContext.getCode().getExtension()).singleElement()
+                .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+        assertThat(useContext.getValueCodeableConcept().getExtension()).singleElement()
+                .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+    }
+
+    /**
+     * A required child of a masked placeholder that carries a profile {@code pattern[x]} gets that pattern instead
+     * of a data-absent-reason (#1378).
+     */
+    @Test
+    void missingRequiredTypeWithPatternedRequiredChildGetsPatternValue() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context-pattern";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+        Questionnaire tgt = (Questionnaire) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        UsageContext useContext = tgt.getUseContextFirstRep();
+        assertThat(useContext.getCode().equalsDeep(new Coding().setSystem("http://terminology.hl7.org/CodeSystem/usage-context-type").setCode("focus"))).isTrue();
+        assertThat(useContext.getValueCodeableConcept().getExtension()).singleElement()
+                .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+    }
+
+    /**
+     * The base-required children of a required Signature placeholder ({@code type}, {@code when} and the Reference
+     * {@code who}) are masked too, even though the profile snapshot does not list them and their type comes from
+     * HAPI's {@code Reference(...)} type code (#1378).
+     */
+    @Test
+    void missingRequiredSignatureGetsMaskedBaseRequiredChildren() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/provenance-with-required-signature";
+        Provenance src = new Provenance();
+        src.setMeta(new Meta().addProfile(profile));
+
+        Provenance tgt = (Provenance) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getSignature()).singleElement().satisfies(signature -> {
+            assertThat(signature.hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+            assertThat(signature.getType()).singleElement().satisfies(type -> assertThat(type.hasExtension(DATA_ABSENT_REASON_URL)).isTrue());
+            assertThat(signature.getWhenElement().hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+            assertThat(signature.getWho().hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+        });
+    }
+
+    /**
+     * An absent child the base specification requires ({@code Observation.status}, 1..1) is masked even if the
+     * profile snapshot does not list it.
+     */
+    @Test
+    void absentBaseRequiredChildNotInProfileIsMasked() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/observation-without-slicing";
+        Observation src = new Observation();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setCode(new CodeableConcept(new Coding("http://loinc.org", "8867-4", "Heart rate")));
+
+        Observation tgt = (Observation) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getStatusElement().hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+        assertThat(tgt.getCode().equalsDeep(src.getCode())).isTrue();
+    }
+
+    /**
+     * A Reference child only the profile requires ({@code Identifier.assigner}) is masked on the Identifier
+     * placeholder, also when the snapshot gives it no type.
+     */
+    @Test
+    void missingRequiredIdentifierGetsMaskedProfileRequiredReference() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-identifier-assigner";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+        Questionnaire tgt = (Questionnaire) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getIdentifier()).singleElement().satisfies(identifier -> {
+            assertThat(identifier.getExtension()).singleElement()
+                    .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+            assertThat(identifier.getAssigner().hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+        });
+    }
+
+    /**
+     * {@code Identifier.use} is an {@code Enumeration} in HAPI; its placeholder must keep the data-absent-reason.
+     */
+    @Test
+    void missingRequiredEnumerationChildKeepsDataAbsentReason() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-identifier-use";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+        Questionnaire tgt = (Questionnaire) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getIdentifier()).singleElement()
+                .satisfies(identifier -> assertThat(identifier.getUseElement().hasExtension(DATA_ABSENT_REASON_URL)).isTrue());
+    }
+
+    /**
+     * A required UsageContext placeholder whose base-required {@code code} cannot be built (the profile types it
+     * with an unknown type) is left out rather than attached incomplete, and a warning is logged.
+     */
+    @Test
+    void missingRequiredTypeWithUnbuildableBaseRequiredChildIsNotAttached() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context-unknown-code-type";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+        Redaction redaction = customProfileRedaction();
+
         Logger redactionLogger = (Logger) LoggerFactory.getLogger(Redaction.class);
         ListAppender<ILoggingEvent> appender = new ListAppender<>();
         appender.start();
         redactionLogger.addAppender(appender);
-        DomainResource tgt;
+        Questionnaire tgt;
         try {
-            tgt = customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+            tgt = (Questionnaire) redaction.redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
         } finally {
             redactionLogger.detachAppender(appender);
         }
 
-        assertThat(fhirContext.newJsonParser().encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().encodeResourceToString(src));
+        assertThat(tgt.getUseContext()).isEmpty();
         assertThat(appender.list)
                 .filteredOn(event -> event.getLevel() == Level.WARN)
                 .extracting(ILoggingEvent::getFormattedMessage)
-                .anySatisfy(message -> assertThat(message).contains("useContext").contains("UsageContext"));
+                .anySatisfy(message -> assertThat(message).contains("Unmaskable").contains("useContext").contains("UsageContext"));
+    }
+
+    /**
+     * A child only the profile requires ({@code Identifier.system}) that cannot be built does not keep the
+     * Identifier placeholder from being attached, since the placeholder still satisfies the base specification.
+     */
+    @Test
+    void missingRequiredTypeWithUnbuildableProfileRequiredChildIsAttached() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-identifier-unknown-system-type";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+        Questionnaire tgt = (Questionnaire) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getIdentifier()).singleElement().satisfies(identifier -> {
+            assertThat(identifier.hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+            assertThat(identifier.hasSystem()).isFalse();
+        });
+    }
+
+    /**
+     * A BackboneElement stub is attached before its children are filled, so a base-required child that cannot be
+     * built ({@code item.linkId}, typed with an unknown type) leaves the stub in place and logs a warning.
+     */
+    @Test
+    void missingRequiredBackboneWithUnbuildableBaseRequiredChildIsKeptWithWarning() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-item-unknown-link-id-type";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+        Redaction redaction = customProfileRedaction();
+
+        RedactionResult result = redactCapturingWarnings(redaction, new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(((Questionnaire) result.resource()).getItem()).singleElement().satisfies(item -> {
+            assertThat(item.hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+            assertThat(item.hasLinkId()).isFalse();
+        });
+        assertThat(result.warnings()).anySatisfy(message -> assertThat(message).contains("Unmaskable").contains("item").contains("BackboneElement"));
+    }
+
+    /**
+     * A required element wiped for matching no slice stays attached even if one of its base-required children
+     * ({@code component.code}, typed with an unknown type) cannot be built; a warning names the element ID.
+     */
+    @Test
+    void elementMatchingNoSliceWithUnbuildableBaseRequiredChildIsKeptWithWarning() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/observation-with-required-component-unknown-code-type";
+        Observation src = new Observation();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Observation.ObservationStatus.FINAL);
+        src.addComponent().setCode(new CodeableConcept(new Coding("http://loinc.org", "8480-6", "Systolic blood pressure")));
+        Redaction redaction = customProfileRedaction();
+
+        RedactionResult result = redactCapturingWarnings(redaction, new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(((Observation) result.resource()).getComponent()).singleElement().satisfies(component -> {
+            assertThat(component.hasExtension(DATA_ABSENT_REASON_URL)).isTrue();
+            assertThat(component.hasCode()).isFalse();
+        });
+        assertThat(result.warnings()).anySatisfy(message -> assertThat(message).contains("Unmaskable").contains("Observation.component"));
+    }
+
+    /**
+     * A profile that types a choice element as {@code BackboneElement} leaves no setter to attach a stub with;
+     * the element stays absent instead of failing the redaction.
+     */
+    @Test
+    void requiredBackboneWithoutSetterIsLeftAbsent() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/observation-with-backbone-typed-component-value";
+        Observation src = new Observation();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Observation.ObservationStatus.FINAL);
+        src.addComponent().setCode(new CodeableConcept(new Coding("http://loinc.org", "8480-6", "Systolic blood pressure")));
+
+        Observation tgt = (Observation) customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        assertThat(tgt.getComponent()).singleElement().satisfies(component -> assertThat(component.hasValue()).isFalse());
+    }
+
+    private record RedactionResult(DomainResource resource, List<String> warnings) {
+    }
+
+    private static RedactionResult redactCapturingWarnings(Redaction redaction, ExtractionRedactionWrapper wrapper) throws RedactionException {
+        Logger redactionLogger = (Logger) LoggerFactory.getLogger(Redaction.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        redactionLogger.addAppender(appender);
+        DomainResource resource;
+        try {
+            resource = redaction.redact(wrapper);
+        } finally {
+            redactionLogger.detachAppender(appender);
+        }
+        return new RedactionResult(resource, appender.list.stream()
+                .filter(event -> event.getLevel() == Level.WARN)
+                .map(ILoggingEvent::getFormattedMessage)
+                .toList());
     }
 
     private Redaction customProfileRedaction() throws IOException {
@@ -406,6 +636,155 @@ public class RedactionTest {
 
         assertThat(tgt.hasExtension()).isFalse();
         assertThat(tgt.hasModifierExtension()).isFalse();
+    }
+
+    /**
+     * Required elements that redaction leaves absent or invalid are recorded once per occurrence, at the outermost
+     * element that ends up absent or invalid in the output.
+     */
+    @Nested
+    class ReportsUnmaskableRequiredElements {
+
+        private RedactionIssues redact(DomainResource src, String profile) throws IOException, RedactionException {
+            src.setMeta(new Meta().addProfile(profile));
+            RedactionIssues issues = new RedactionIssues();
+            customProfileRedaction().redact(new ExtractionRedactionWrapper(src, Set.of(profile), Map.of(), new CopyTreeNode("dummy")), issues);
+            return issues;
+        }
+
+        private static Questionnaire questionnaire() {
+            Questionnaire questionnaire = new Questionnaire();
+            questionnaire.setId("q1");
+            questionnaire.setStatus(Enumerations.PublicationStatus.ACTIVE);
+            return questionnaire;
+        }
+
+        private static Observation observationWithComponent(String code) {
+            Observation observation = new Observation();
+            observation.setId("o1");
+            observation.setStatus(Observation.ObservationStatus.FINAL);
+            observation.addComponent().setCode(new CodeableConcept(new Coding("http://loinc.org", code, null)));
+            return observation;
+        }
+
+        private static RedactionViolation violation(String resourceType, String elementId, String elementType,
+                                                    RedactionViolationReason reason, String example) {
+            return new RedactionViolation(resourceType, elementId, elementType, reason, 1, List.of(example));
+        }
+
+        private static RedactionViolation unmaskableChild(String resourceType, String elementId, String elementType,
+                                                          String failedChildId, String example) {
+            return new RedactionViolation(resourceType, elementId, elementType, RedactionViolationReason.UNMASKABLE_REQUIRED_CHILD,
+                    new RedactionCause(failedChildId, "NoSuchType", RedactionViolationReason.UNRESOLVABLE_TYPE), 1, List.of(example));
+        }
+
+        @Test
+        void successfulMaskRecordsNothing() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context");
+
+            assertThat(issues.violations()).isEmpty();
+        }
+
+        @Test
+        void droppedPlaceholderIsRecordedOnceAtTheDroppedElement() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context-unknown-code-type");
+
+            assertThat(issues.violations()).containsExactly(unmaskableChild("Questionnaire", "Questionnaire.useContext", "UsageContext",
+                    "Questionnaire.useContext.code", "Questionnaire/q1"));
+        }
+
+        /**
+         * {@code useContext.value[x]} is typed as UsageContext, whose own base-required {@code value[x]} cannot be built:
+         * the issue names that innermost element, not the direct child.
+         */
+        @Test
+        void droppedPlaceholderNamesInnermostFailedChild() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-nested-unbuildable-use-context");
+
+            assertThat(issues.violations()).containsExactly(unmaskableChild("Questionnaire", "Questionnaire.useContext", "UsageContext",
+                    "Questionnaire.useContext.value[x].value[x]", "Questionnaire/q1"));
+        }
+
+        @Test
+        void backboneStubMissingBaseRequiredChildIsRecorded() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-required-item-unknown-link-id-type");
+
+            assertThat(issues.violations()).containsExactly(unmaskableChild("Questionnaire", "Questionnaire.item", "BackboneElement",
+                    "Questionnaire.item.linkId", "Questionnaire/q1"));
+        }
+
+        @Test
+        void elementMatchingNoSliceMissingBaseRequiredChildIsRecorded() throws Exception {
+            RedactionIssues issues = redact(observationWithComponent("8480-6"), "http://example.org/fhir/StructureDefinition/observation-with-required-component-unknown-code-type");
+
+            assertThat(issues.violations()).containsExactly(unmaskableChild("Observation", "Observation.component", "BackboneElement",
+                    "Observation.component.code", "Observation/o1"));
+        }
+
+        @Test
+        void complexElementMatchingNoSliceMissingBaseRequiredChildIsRecorded() throws Exception {
+            Questionnaire src = questionnaire();
+            src.addUseContext(new UsageContext(new Coding("http://terminology.hl7.org/CodeSystem/usage-context-type", "venue", null),
+                    new CodeableConcept(new Coding("http://example.org", "x", null))));
+
+            RedactionIssues issues = redact(src, "http://example.org/fhir/StructureDefinition/questionnaire-with-sliced-use-context-unknown-value-type");
+
+            assertThat(issues.violations()).containsExactly(unmaskableChild("Questionnaire", "Questionnaire.useContext", "UsageContext",
+                    "Questionnaire.useContext.value[x]", "Questionnaire/q1"));
+        }
+
+        @Test
+        void backboneWithoutSetterIsRecorded() throws Exception {
+            RedactionIssues issues = redact(observationWithComponent("8480-6"), "http://example.org/fhir/StructureDefinition/observation-with-backbone-typed-component-value");
+
+            assertThat(issues.violations()).containsExactly(violation("Observation", "Observation.component.value[x]", "BackboneElement",
+                    RedactionViolationReason.NO_SETTER, "Observation/o1"));
+        }
+
+        @Test
+        void unresolvableTypeOfAbsentRequiredElementIsRecorded() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-required-name-unknown-type");
+
+            assertThat(issues.violations()).containsExactly(violation("Questionnaire", "Questionnaire.name", "NoSuchType",
+                    RedactionViolationReason.UNRESOLVABLE_TYPE, "Questionnaire/q1"));
+        }
+
+        @Test
+        void unbuildableMissingRequiredSliceIsRecorded() throws Exception {
+            RedactionIssues issues = redact(observationWithComponent("8867-4"), "http://example.org/fhir/StructureDefinition/observation-with-unbuildable-required-slice");
+
+            assertThat(issues.violations()).containsExactly(violation("Observation", "Observation.component:systolic", "NoSuchType",
+                    RedactionViolationReason.UNRESOLVABLE_TYPE, "Observation/o1"));
+        }
+
+        /**
+         * The Identifier placeholder is attached, but lacks {@code system}, which only the profile requires.
+         */
+        @Test
+        void profileRequiredChildMissingFromAttachedStubIsRecorded() throws Exception {
+            RedactionIssues issues = redact(questionnaire(), "http://example.org/fhir/StructureDefinition/questionnaire-with-required-identifier-unknown-system-type");
+
+            assertThat(issues.violations()).containsExactly(violation("Questionnaire", "Questionnaire.identifier.system", "NoSuchType",
+                    RedactionViolationReason.UNRESOLVABLE_TYPE, "Questionnaire/q1"));
+        }
+
+        @Test
+        void sameFailureOnSeveralResourcesIsAggregated() throws Exception {
+            String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-name-unknown-type";
+            Redaction redaction = customProfileRedaction();
+            RedactionIssues issues = new RedactionIssues();
+            for (int i = 0; i < 5; i++) {
+                Questionnaire src = questionnaire();
+                src.setId("q" + i);
+                src.setMeta(new Meta().addProfile(profile));
+                redaction.redact(new ExtractionRedactionWrapper(src, Set.of(profile), Map.of(), new CopyTreeNode("dummy")), issues);
+            }
+
+            assertThat(issues.violations()).singleElement().satisfies(violation -> {
+                assertThat(violation.count()).isEqualTo(5);
+                assertThat(violation.examples()).containsExactly("Questionnaire/q0", "Questionnaire/q1", "Questionnaire/q2");
+            });
+        }
     }
 
     @Nested
@@ -670,5 +1049,153 @@ public class RedactionTest {
             assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
         }
 
+    }
+
+    /**
+     * A masked stub must still satisfy the cardinality of its type's required children (#1378), otherwise
+     * strict parsers such as the .NET FHIR SDK reject the whole resource.
+     */
+    @Nested
+    class MaskedStubRequiredChildrenTest {
+
+        private static final String EKG = "https://gematik.de/fhir/isik/StructureDefinition/ISiKEKG";
+        private static final String DYNAMISCHE_KOMPLIANCE = "https://www.medizininformatik-initiative.de/fhir/ext/modul-icu/StructureDefinition/dynamische-kompliance";
+        private static final String EIN_AUSSCHLUSS_KRITERIUM = "https://www.medizininformatik-initiative.de/fhir/modul-studie/StructureDefinition/mii-pr-studie-ein-auschluss-kriterium";
+        private static final String MEDICATION_STATEMENT = "https://www.medizininformatik-initiative.de/fhir/core/modul-medikation/StructureDefinition/MedicationStatement";
+        private static final String PATHO_COMPOSITION = "https://www.medizininformatik-initiative.de/fhir/ext/modul-patho/StructureDefinition/mii-pr-patho-composition";
+
+        private <T extends DomainResource> T redact(T resource, String profile) throws RedactionException {
+            resource.setMeta(new Meta().addProfile(profile));
+            @SuppressWarnings("unchecked")
+            T redacted = (T) integrationTestSetup.redaction().redact(new ExtractionRedactionWrapper(resource, Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+            return redacted;
+        }
+
+        private static boolean masked(Element element) {
+            return element.hasExtension(DATA_ABSENT_REASON_URL);
+        }
+
+        /**
+         * The profile tightens {@code value}, {@code system} and {@code code} of {@code boundsDuration} to 1..1,
+         * while the base Duration type has them 0..1.
+         */
+        @Test
+        void boundsDurationGetsProfileRequiredChildrenMasked() throws RedactionException {
+            MedicationStatement medicationStatement = new MedicationStatement();
+            medicationStatement.setId("bounds");
+            Duration bounds = new Duration();
+            bounds.setUnit("d");
+            medicationStatement.addDosage().getTiming().getRepeat().setBounds(bounds);
+
+            MedicationStatement tgt = redact(medicationStatement, MEDICATION_STATEMENT);
+
+            Duration redacted = tgt.getDosageFirstRep().getTiming().getRepeat().getBoundsDuration();
+            assertThat(masked(redacted.getValueElement())).isTrue();
+            assertThat(masked(redacted.getSystemElement())).isTrue();
+            assertThat(masked(redacted.getCodeElement())).isTrue();
+        }
+
+        @Test
+        void absentRequiredComplexElementGetsMaskedRequiredChildren() throws RedactionException {
+            Observation observation = new Observation();
+            observation.setId("ekg");
+            observation.setStatus(Observation.ObservationStatus.FINAL);
+            observation.setCode(new CodeableConcept(new Coding("http://loinc.org", "11524-6", "EKG study")));
+            observation.addComponent().setCode(new CodeableConcept(new Coding("urn:oid:2.16.840.1.113883.6.24", "131329", "MDC_ECG_ELEC_POTL_I")));
+
+            Observation tgt = redact(observation, EKG);
+
+            SampledData stub = tgt.getComponentFirstRep().getValueSampledData();
+            assertThat(masked(stub)).isTrue();
+            // origin, period and dimensions are required by the SampledData type itself, data only by the profile
+            assertThat(masked(stub.getOrigin())).isTrue();
+            assertThat(masked(stub.getPeriodElement())).isTrue();
+            assertThat(masked(stub.getDimensionsElement())).isTrue();
+            assertThat(masked(stub.getDataElement())).isTrue();
+            assertThat(stub.hasFactor()).isFalse();
+        }
+
+        @Test
+        void requiredChildWithFixedValueGetsThatValueInsteadOfMask() throws RedactionException {
+            Composition composition = new Composition();
+            composition.setId("patho");
+
+            Composition tgt = redact(composition, PATHO_COMPOSITION);
+
+            assertThat(masked(tgt.getText())).isTrue();
+            assertThat(tgt.getText().getStatus()).isEqualTo(Narrative.NarrativeStatus.EXTENSIONS);
+            assertThat(masked(tgt.getText().getStatusElement())).isFalse();
+            assertThat(tgt.getText().hasDiv()).isTrue();
+        }
+
+        @Test
+        void complexValueMatchingNoSliceGetsMaskedRequiredChildren() throws RedactionException {
+            EvidenceVariable evidenceVariable = new EvidenceVariable();
+            evidenceVariable.setId("criterion");
+            evidenceVariable.addCharacteristic().setDefinition(new Expression().setDescription("test").setName("test-id")
+                    .setLanguage("de").setExpression("test").setReference("http://example.org/fhir/test"));
+
+            EvidenceVariable tgt = redact(evidenceVariable, EIN_AUSSCHLUSS_KRITERIUM);
+
+            Expression stub = tgt.getCharacteristicFirstRep().getDefinitionExpression();
+            assertThat(masked(stub)).isTrue();
+            assertThat(masked(stub.getLanguageElement())).isTrue();
+            assertThat(stub.hasDescription()).isFalse();
+            assertThat(stub.hasExpression()).isFalse();
+        }
+
+        @Test
+        void sampledDataMatchingNoSliceGetsMaskedRequiredChildren() throws RedactionException {
+            Observation observation = new Observation();
+            observation.setId("compliance");
+            observation.setStatus(Observation.ObservationStatus.FINAL);
+            observation.setValue(new SampledData().setOrigin(new Quantity().setValue(0)).setPeriod(10).setDimensions(1).setData("1 2 3"));
+
+            Observation tgt = redact(observation, DYNAMISCHE_KOMPLIANCE);
+
+            SampledData stub = tgt.getValueSampledData();
+            assertThat(masked(stub)).isTrue();
+            assertThat(masked(stub.getOrigin())).isTrue();
+            assertThat(masked(stub.getPeriodElement())).isTrue();
+            assertThat(masked(stub.getDimensionsElement())).isTrue();
+            assertThat(stub.hasData()).isFalse();
+        }
+
+        @Test
+        void backboneElementMatchingNoSliceGetsMaskedRequiredChildren() throws RedactionException {
+            Observation observation = new Observation();
+            observation.setId("bp3");
+            observation.addComponent()
+                    .setCode(new CodeableConcept(new Coding("http://loinc.org", "8867-4", "Heart rate")))
+                    .setValue(new Quantity().setValue(60));
+
+            Observation tgt = redact(observation, BLOOD_PRESSURE);
+
+            assertThat(tgt.getComponent()).hasSize(1);
+            Observation.ObservationComponentComponent stub = tgt.getComponentFirstRep();
+            assertThat(masked(stub)).isTrue();
+            assertThat(masked(stub.getCode())).isTrue();
+            assertThat(stub.hasValue()).isFalse();
+        }
+
+        /**
+         * An absent required element is masked even if the profile gives it a {@code pattern[x]}: TORCH must not
+         * assert a code the source never had. Only the children of a masked stub take profile constants.
+         */
+        @Test
+        void absentRequiredElementWithPatternIsMaskedNotFilled() throws RedactionException {
+            Observation observation = new Observation();
+            observation.setId("bp4");
+            observation.setStatus(Observation.ObservationStatus.FINAL);
+
+            Observation tgt = redact(observation, BLOOD_PRESSURE);
+
+            CodeableConcept code = tgt.getCode();
+            assertThat(masked(code)).isTrue();
+            assertThat(code.getCoding()).singleElement().satisfies(coding -> {
+                assertThat(masked(coding)).isTrue();
+                assertThat(coding.hasCode()).isFalse();
+            });
+        }
     }
 }

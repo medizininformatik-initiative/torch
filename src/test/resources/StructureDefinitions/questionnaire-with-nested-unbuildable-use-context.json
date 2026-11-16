@@ -1,0 +1,33 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-nested-unbuildable-use-context",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-nested-unbuildable-use-context",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithNestedUnbuildableUseContext",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.useContext",
+        "path": "Questionnaire.useContext",
+        "min": 1,
+        "type": [{"code": "UsageContext"}]
+      },
+      {
+        "id": "Questionnaire.useContext.value[x]",
+        "path": "Questionnaire.useContext.value[x]",
+        "type": [{"code": "UsageContext"}]
+      },
+      {
+        "id": "Questionnaire.useContext.value[x].value[x]",
+        "path": "Questionnaire.useContext.value[x].value[x]",
+        "type": [{"code": "NoSuchType"}]
+      }
+    ]
+  }
+}

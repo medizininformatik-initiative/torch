@@ -1,0 +1,29 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-required-use-context-unknown-code-type",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context-unknown-code-type",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithRequiredUseContextUnknownCodeType",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.useContext",
+        "path": "Questionnaire.useContext",
+        "min": 1,
+        "type": [{"code": "UsageContext"}]
+      },
+      {
+        "id": "Questionnaire.useContext.code",
+        "path": "Questionnaire.useContext.code",
+        "min": 1,
+        "type": [{"code": "NoSuchType"}]
+      }
+    ]
+  }
+}
