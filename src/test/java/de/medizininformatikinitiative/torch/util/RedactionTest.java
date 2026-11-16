@@ -1,5 +1,9 @@
 package de.medizininformatikinitiative.torch.util;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.management.StructureDefinitionHandler;
@@ -13,13 +17,16 @@ import org.hl7.fhir.r4.model.CodeableConcept;
 import org.hl7.fhir.r4.model.Coding;
 import org.hl7.fhir.r4.model.Condition;
 import org.hl7.fhir.r4.model.DomainResource;
+import org.hl7.fhir.r4.model.Duration;
 import org.hl7.fhir.r4.model.Encounter;
+import org.hl7.fhir.r4.model.Enumerations;
 import org.hl7.fhir.r4.model.Extension;
 import org.hl7.fhir.r4.model.Identifier;
 import org.hl7.fhir.r4.model.Medication;
 import org.hl7.fhir.r4.model.Meta;
 import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
+import org.hl7.fhir.r4.model.Questionnaire;
 import org.hl7.fhir.r4.model.Quantity;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.StringType;
@@ -27,6 +34,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.slf4j.LoggerFactory;
 
 import java.io.File;
 import java.io.IOException;
@@ -324,6 +332,58 @@ public class RedactionTest {
         DomainResource tgt = redaction.redact(wrapper);
 
         assertThat(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().setPrettyPrint(true).encodeResourceToString(src));
+    }
+
+    @Test
+    void missingRequiredDurationGetsDataAbsentReasonPlaceholder() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/encounter-with-required-length";
+        Encounter src = new Encounter();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Encounter.EncounterStatus.FINISHED);
+        src.setClass_(new Coding("http://terminology.hl7.org/CodeSystem/v3-ActCode", "IMP", "inpatient encounter"));
+
+        DomainResource tgt = customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+
+        Encounter encounter = (Encounter) tgt;
+        assertThat(encounter.getLength()).isInstanceOf(Duration.class);
+        assertThat(encounter.getLength().hasValue()).isFalse();
+        assertThat(encounter.getLength().getExtension()).singleElement()
+                .satisfies(extension -> assertThat(extension.equalsDeep(createAbsentReasonExtension("masked"))).isTrue());
+    }
+
+    /**
+     * A placeholder of a type with required children (here {@code UsageContext.code 1..1}) carrying only a
+     * data-absent-reason extension would be invalid, so the element is skipped with a warning instead.
+     */
+    @Test
+    void missingRequiredTypeWithRequiredChildrenIsSkippedWithWarning() throws IOException, RedactionException {
+        String profile = "http://example.org/fhir/StructureDefinition/questionnaire-with-required-use-context";
+        Questionnaire src = new Questionnaire();
+        src.setMeta(new Meta().addProfile(profile));
+        src.setStatus(Enumerations.PublicationStatus.ACTIVE);
+
+        Logger redactionLogger = (Logger) LoggerFactory.getLogger(Redaction.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.start();
+        redactionLogger.addAppender(appender);
+        DomainResource tgt;
+        try {
+            tgt = customProfileRedaction().redact(new ExtractionRedactionWrapper(src.copy(), Set.of(profile), Map.of(), new CopyTreeNode("dummy")));
+        } finally {
+            redactionLogger.detachAppender(appender);
+        }
+
+        assertThat(fhirContext.newJsonParser().encodeResourceToString(tgt)).isEqualTo(fhirContext.newJsonParser().encodeResourceToString(src));
+        assertThat(appender.list)
+                .filteredOn(event -> event.getLevel() == Level.WARN)
+                .extracting(ILoggingEvent::getFormattedMessage)
+                .anySatisfy(message -> assertThat(message).contains("useContext").contains("UsageContext"));
+    }
+
+    private Redaction customProfileRedaction() throws IOException {
+        StructureDefinitionHandler definitionHandler = new StructureDefinitionHandler(new File("src/test/resources/StructureDefinitions/"), new ResourceReader(integrationTestSetup.fhirContext()));
+        definitionHandler.processDirectory();
+        return new Redaction(definitionHandler);
     }
 
     /**

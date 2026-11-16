@@ -2,9 +2,6 @@ package de.medizininformatikinitiative.torch.util;
 
 
 import org.hl7.fhir.exceptions.FHIRException;
-import org.hl7.fhir.r4.model.Base;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -16,8 +13,6 @@ import java.util.List;
 @Component
 public class FhirPathBuilder {
 
-
-    private static final Logger logger = LoggerFactory.getLogger(FhirPathBuilder.class);
 
     public static String[] handleSlicingForFhirPath(String input, CompiledStructureDefinition definition) throws FHIRException {
         if (input == null || input.isEmpty()) {
@@ -55,22 +50,14 @@ public class FhirPathBuilder {
                     String[] sliceParts = e.split(":");
                     String sliceName = sliceParts[1].replace(path, "").trim();
 
-                    Base element;
+                    String typeName;
                     try {
-                        element = HapiFactory.create(sliceName);
-                    } catch (FHIRException upperCaseException) {
-                        try {
-                            sliceName = sliceName.substring(0, 1).toLowerCase() + sliceName.substring(1);
-                            element = HapiFactory.create(sliceName);
-                        } catch (FHIRException lowerCaseException) {
-                            throw new FHIRException("Unsupported Choice Slicing " + sliceName);
-                        }
-                    }
-                    if (element == null) {
-                        logger.trace("Valid slicing element for {}", sliceName);
+                        typeName = HapiFactory.create(sliceName).fhirType();
+                    } catch (FHIRException unknownType) {
+                        throw new FHIRException("Unsupported Choice Slicing " + sliceName);
                     }
 
-                    fhirPath.append(".ofType(").append(sliceName).append(")");
+                    fhirPath.append(".ofType(").append(typeName).append(")");
                     terserPath.append(sliceParts[1]);
 
                 } else {

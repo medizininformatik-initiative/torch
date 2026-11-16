@@ -8,6 +8,8 @@ import org.hl7.fhir.r4.model.StructureDefinition;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -81,13 +83,27 @@ class FhirPathBuilderTest {
 
     }
 
+    @ParameterizedTest
+    @CsvSource({
+            "AllergyIntolerance.onset[x]:onsetAge, AllergyIntolerance.onset.ofType(Age), AllergyIntolerance.onsetAge",
+            "Condition.abatement[x]:abatementAge, Condition.abatement.ofType(Age), Condition.abatementAge",
+            "MedicationStatement.dosage.timing.repeat.bounds[x]:boundsDuration, MedicationStatement.dosage.timing.repeat.bounds.ofType(Duration), MedicationStatement.dosage.timing.repeat.boundsDuration",
+            "AllergyIntolerance.onset[x]:onsetDateTime, AllergyIntolerance.onset.ofType(dateTime), AllergyIntolerance.onsetDateTime",
+            "Observation.value[x]:valueQuantity, Observation.value.ofType(Quantity), Observation.valueQuantity"
+    })
+    void testChoiceSlicingUsesCanonicalTypeName(String input, String expectedFhirPath, String expectedTerserPath) {
+        String[] result = FhirPathBuilder.handleSlicingForFhirPath(input, definition);
+
+        assertThat(result).containsExactly(expectedFhirPath, expectedTerserPath);
+    }
+
     @Test
     void testSlicingWithUnknownSlice() throws FHIRException {
         String input = "Observation.value[x]:unknownSlice.code";
 
-        assertThatThrownBy(() -> FhirPathBuilder.handleSlicingForFhirPath(input, definition)).isInstanceOf(FHIRException.class);
-
-
+        assertThatThrownBy(() -> FhirPathBuilder.handleSlicingForFhirPath(input, definition))
+                .isInstanceOf(FHIRException.class)
+                .hasMessage("Unsupported Choice Slicing unknownSlice");
     }
 
     

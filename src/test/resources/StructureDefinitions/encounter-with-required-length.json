@@ -1,0 +1,23 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "encounter-with-required-length",
+  "url": "http://example.org/fhir/StructureDefinition/encounter-with-required-length",
+  "version": "1.0.0",
+  "name": "EncounterWithRequiredLength",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Encounter",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Encounter",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Encounter.length",
+        "path": "Encounter.length",
+        "min": 1,
+        "type": [{"code": "Duration"}]
+      }
+    ]
+  }
+}
