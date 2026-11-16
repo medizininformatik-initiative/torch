@@ -1,0 +1,23 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-required-name-unknown-type",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-required-name-unknown-type",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithRequiredNameUnknownType",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.name",
+        "path": "Questionnaire.name",
+        "min": 1,
+        "type": [{"code": "NoSuchType"}]
+      }
+    ]
+  }
+}

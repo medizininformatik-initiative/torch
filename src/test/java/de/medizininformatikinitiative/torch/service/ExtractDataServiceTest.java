@@ -9,6 +9,8 @@ import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionEvent;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViolationReason;
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
@@ -34,6 +36,7 @@ import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
 import de.medizininformatikinitiative.torch.model.management.TermCode;
 import de.medizininformatikinitiative.torch.util.ResultFileManager;
+import org.hl7.fhir.r4.model.Observation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -125,6 +128,18 @@ class ExtractDataServiceTest {
         );
     }
 
+    private static void recordUnmaskableComponent(RedactionIssues issues) {
+        Observation observation = new Observation();
+        observation.setId("o1");
+        issues.record(observation, "Observation.component", "BackboneElement", RedactionViolationReason.UNMASKABLE_REQUIRED_CHILD);
+    }
+
+    private static void isUnmaskableComponentIssue(Issue issue) {
+        assertThat(issue.severity()).isEqualTo(Severity.WARNING);
+        assertThat(issue.redactionViolation().elementId()).isEqualTo("Observation.component");
+        assertThat(issue.diagnostics()).isEqualTo("count=1; reason=UNMASKABLE_REQUIRED_CHILD; examples=Observation/o1");
+    }
+
     @BeforeEach
     void setUp() {
         service = new ExtractDataService(
@@ -195,7 +210,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -225,6 +240,59 @@ class ExtractDataServiceTest {
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.CASCADING_DELETE);
                 verify(batchProgressRegistry).enter(batchId, PipelineStage.COPY_REDACT);
                 verify(batchProgressRegistry, timeout(1000)).clear(batchId);
+            }
+        }
+
+        @Test
+        void processBatch_reportsRedactionIssuesInBatchResult() {
+            UUID jobId = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(any())).thenReturn(groups);
+            when(groups.directPatientCompartmentGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.ids()).thenReturn(List.of());
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            BatchState batchState = mock(BatchState.class);
+            when(batchState.finishNow(WorkUnitStatus.FINISHED)).thenReturn(mock(BatchState.class));
+
+            BatchSelection selection = mock(BatchSelection.class);
+            when(selection.job()).thenReturn(job);
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(bwc.keep(any())).thenReturn(bwc);
+            when(bwc.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            when(directResourceLoader.directLoadPatientCompartment(anyList(), any())).thenReturn(Mono.just(bwc));
+            when(referenceResolver.resolvePatientBatch(eq(bwc), anyMap())).thenReturn(Mono.just(bwc));
+            when(cascadingDelete.handlePatientBatch(eq(bwc), anyMap())).thenReturn(bwc);
+
+            ExtractionPatientBatch ofResult = mock(ExtractionPatientBatch.class);
+            try (MockedStatic<ExtractionPatientBatch> mocked = mockStatic(ExtractionPatientBatch.class)) {
+                mocked.when(() -> ExtractionPatientBatch.of(any())).thenReturn(ofResult);
+
+                ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
+                when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
+                        .thenAnswer(invocation -> {
+                            recordUnmaskableComponent(invocation.getArgument(3));
+                            return extracted;
+                        });
+                when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(mock(ExtractionResourceBundle.class));
+                doReturn(Mono.empty()).when(spyService).writeBatch(eq(jobId.toString()), eq(extracted));
+
+                StepVerifier.create(spyService.processBatch(selection))
+                        .assertNext(res -> assertThat(res.issues()).singleElement()
+                                .satisfies(ExtractDataServiceTest::isUnmaskableComponentIssue))
+                        .verifyComplete();
             }
         }
 
@@ -273,7 +341,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of("G1", 3, "G2", 1));
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -347,7 +415,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -421,7 +489,7 @@ class ExtractDataServiceTest {
 
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class)))
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                         .thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
@@ -534,7 +602,7 @@ class ExtractDataServiceTest {
                 ExtractionPatientBatch extracted = mock(ExtractionPatientBatch.class);
                 when(extracted.isEmpty()).thenReturn(true);
                 when(extracted.resourceInclusionCounts(any())).thenReturn(Map.of());
-                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class))).thenReturn(extracted);
+                when(batchCopierRedacter.transformBatch(eq(ofResult), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class))).thenReturn(extracted);
 
                 ExtractionResourceBundle coreBundle = mock(ExtractionResourceBundle.class);
                 when(batchToCoreWriter.toCoreBundle(extracted)).thenReturn(coreBundle);
@@ -662,7 +730,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(true);
 
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                     .thenReturn(transformed);
 
 
@@ -700,7 +768,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(false);
 
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
@@ -713,6 +781,38 @@ class ExtractDataServiceTest {
                     .verifyComplete();
 
             verify(spyService).writeBundle(jobId.toString(), transformed);
+        }
+
+        @Test
+        void processCore_reportsRedactionIssuesInCoreResult() {
+            UUID jobId = UUID.randomUUID();
+
+            Job job = job(jobId, JobStatus.PENDING, WorkUnitState.initNow(), Map.of(), WorkUnitState.initNow());
+
+            GroupsToProcess groups = mock(GroupsToProcess.class);
+            when(processedGroupFactory.create(job.parameters().crtdl())).thenReturn(groups);
+            when(groups.directNoPatientGroups()).thenReturn(List.of());
+            when(groups.allGroups()).thenReturn(Map.of());
+
+            ResourceBundle rb = new ResourceBundle();
+            when(directResourceLoader.processCoreAttributeGroups(anyList(), any(ResourceBundle.class), any())).thenReturn(Mono.just(rb));
+            when(referenceResolver.resolveCoreBundle(eq(rb), anyMap(), any())).thenReturn(Mono.just(rb));
+            when(dataStore.groupReferencesByTypeInChunks(any())).thenReturn(List.of());
+
+            ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
+            when(transformed.isEmpty()).thenReturn(false);
+            when(transformed.resourceInclusionCounts()).thenReturn(Map.of());
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
+                    .thenAnswer(invocation -> {
+                        recordUnmaskableComponent(invocation.getArgument(3));
+                        return transformed;
+                    });
+            doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
+
+            StepVerifier.create(spyService.processCore(job, new ExtractionResourceBundle()))
+                    .assertNext(res -> assertThat(res.issues()).singleElement()
+                            .satisfies(ExtractDataServiceTest::isUnmaskableComponentIssue))
+                    .verifyComplete();
         }
 
         @Test
@@ -739,7 +839,7 @@ class ExtractDataServiceTest {
             when(transformed.isEmpty()).thenReturn(false);
             when(transformed.resourceInclusionCounts()).thenReturn(Map.of("G1", 2));
 
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));
@@ -811,7 +911,7 @@ class ExtractDataServiceTest {
             ExtractionResourceBundle transformed = mock(ExtractionResourceBundle.class);
             when(transformed.isEmpty()).thenReturn(false);
 
-            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class)))
+            when(batchCopierRedacter.transformBundle(any(ExtractionResourceBundle.class), anyMap(), any(BatchExclusions.class), any(RedactionIssues.class)))
                     .thenReturn(transformed);
 
             doReturn(Mono.empty()).when(spyService).writeBundle(eq(jobId.toString()), eq(transformed));

@@ -1,0 +1,23 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "observation-with-backbone-typed-component-value",
+  "url": "http://example.org/fhir/StructureDefinition/observation-with-backbone-typed-component-value",
+  "version": "1.0.0",
+  "name": "ObservationWithBackboneTypedComponentValue",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Observation",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Observation",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Observation.component.value[x]",
+        "path": "Observation.component.value[x]",
+        "min": 1,
+        "type": [{"code": "BackboneElement"}]
+      }
+    ]
+  }
+}

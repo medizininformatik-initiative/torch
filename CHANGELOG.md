@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [Unreleased]
+
+### Added
+
+- Report resources that violate required cardinality after redaction as job issues [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
+
+### Fixed
+
+- Add required children to masked data-absent-reason stubs of complex types, so masked CodeableConcepts and Codings carry masked required children (e.g. coding, system, code) [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
+- Mask absent elements required by the base FHIR specification even if the profile doesn't list them (e.g. Annotation.text) [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
+- Fix masking of required Reference and canonical elements whose type names target profiles, e.g. Signature.who [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
+
+
 ## [v1.0.4] - 2026-11-13
 
 ### Changed

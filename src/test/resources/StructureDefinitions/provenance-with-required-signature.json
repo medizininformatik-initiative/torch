@@ -1,0 +1,23 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "provenance-with-required-signature",
+  "url": "http://example.org/fhir/StructureDefinition/provenance-with-required-signature",
+  "version": "1.0.0",
+  "name": "ProvenanceWithRequiredSignature",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Provenance",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Provenance",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Provenance.signature",
+        "path": "Provenance.signature",
+        "min": 1,
+        "type": [{"code": "Signature"}]
+      }
+    ]
+  }
+}

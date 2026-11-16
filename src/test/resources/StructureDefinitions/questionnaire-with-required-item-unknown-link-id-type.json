@@ -1,0 +1,28 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-required-item-unknown-link-id-type",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-required-item-unknown-link-id-type",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithRequiredItemUnknownLinkIdType",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.item",
+        "path": "Questionnaire.item",
+        "min": 1,
+        "type": [{"code": "BackboneElement"}]
+      },
+      {
+        "id": "Questionnaire.item.linkId",
+        "path": "Questionnaire.item.linkId",
+        "type": [{"code": "NoSuchType"}]
+      }
+    ]
+  }
+}

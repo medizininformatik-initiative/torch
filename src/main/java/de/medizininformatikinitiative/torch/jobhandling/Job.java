@@ -588,10 +588,13 @@ public record Job(
                 finishedAt, issues, parameters, priority, coreState, version);
     }
 
+    /**
+     * Appends {@code newIssues}; redaction-violation issues about the same element as an existing issue are merged
+     * into it instead (see {@link Issue#addMergingRedactionViolations}), so batches don't repeat them.
+     */
     public Job withIssuesAdded(List<Issue> newIssues) {
         if (newIssues.isEmpty()) return this;
-        List<Issue> merged = new ArrayList<>(issues);
-        merged.addAll(newIssues);
+        List<Issue> merged = Issue.addMergingRedactionViolations(issues, newIssues);
         return new Job(id, status, cohortState, cohortSize, batches, startedAt, Instant.now(),
                 finishedAt, merged, parameters, priority, coreState, version);
     }

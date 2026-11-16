@@ -1,0 +1,53 @@
+{
+  "resourceType": "StructureDefinition",
+  "id": "questionnaire-with-sliced-use-context-unknown-value-type",
+  "url": "http://example.org/fhir/StructureDefinition/questionnaire-with-sliced-use-context-unknown-value-type",
+  "version": "1.0.0",
+  "name": "QuestionnaireWithSlicedUseContextUnknownValueType",
+  "status": "draft",
+  "kind": "resource",
+  "abstract": false,
+  "type": "Questionnaire",
+  "baseDefinition": "http://hl7.org/fhir/StructureDefinition/Questionnaire",
+  "derivation": "constraint",
+  "snapshot": {
+    "element": [
+      {
+        "id": "Questionnaire.useContext",
+        "path": "Questionnaire.useContext",
+        "min": 1,
+        "type": [{"code": "UsageContext"}],
+        "slicing": {
+          "discriminator": [
+            {
+              "type": "pattern",
+              "path": "code"
+            }
+          ],
+          "rules": "open"
+        }
+      },
+      {
+        "id": "Questionnaire.useContext.value[x]",
+        "path": "Questionnaire.useContext.value[x]",
+        "type": [{"code": "NoSuchType"}]
+      },
+      {
+        "id": "Questionnaire.useContext:focus",
+        "path": "Questionnaire.useContext",
+        "sliceName": "focus",
+        "min": 0,
+        "max": "1"
+      },
+      {
+        "id": "Questionnaire.useContext:focus.code",
+        "path": "Questionnaire.useContext.code",
+        "min": 1,
+        "patternCoding": {
+          "system": "http://terminology.hl7.org/CodeSystem/usage-context-type",
+          "code": "focus"
+        }
+      }
+    ]
+  }
+}

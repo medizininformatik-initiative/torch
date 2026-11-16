@@ -3,6 +3,7 @@ package de.medizininformatikinitiative.torch.service;
 import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.ResourceExclusionReason;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
@@ -40,10 +41,12 @@ import java.util.stream.Stream;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 
 class BatchCopierRedacterTest {
 
@@ -102,10 +105,10 @@ class BatchCopierRedacterTest {
 
         doThrow(ex)
                 .when(transformer)
-                .transformResource(any());
+                .transformResource(any(), any());
 
         BatchExclusions exclusions = BatchExclusions.empty();
-        transformer.transformBundle(extractionBundle, Map.of(), exclusions, "pat-1");
+        transformer.transformBundle(extractionBundle, Map.of(), exclusions, "pat-1", new RedactionIssues());
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
         assertThat(exclusions.getResourceExclusions()).singleElement().satisfies(event -> {
@@ -117,6 +120,16 @@ class BatchCopierRedacterTest {
     }
 
     @org.junit.jupiter.api.Test
+    void transformBundle_passesRedactionIssuesToEachResource() throws Exception {
+        doReturn(resource).when(transformer).transformResource(any(), any());
+        RedactionIssues issues = new RedactionIssues();
+
+        transformer.transformBundle(extractionBundle, Map.of(), BatchExclusions.empty(), issues);
+
+        verify(transformer).transformResource(any(), same(issues));
+    }
+
+    @org.junit.jupiter.api.Test
     void transformBundle_removesResourceOnTargetClassCreationException() throws Exception {
 
         TargetClassCreationException ex =
@@ -124,10 +137,10 @@ class BatchCopierRedacterTest {
 
         doThrow(ex)
                 .when(transformer)
-                .transformResource(any());
+                .transformResource(any(), any());
 
         BatchExclusions exclusions = BatchExclusions.empty();
-        transformer.transformBundle(extractionBundle, Map.of(), exclusions);
+        transformer.transformBundle(extractionBundle, Map.of(), exclusions, new RedactionIssues());
 
         assertThat(extractionBundle.getResource(ExtractionId.fromRelativeUrl("Patient/dummy"))).isEmpty();
         assertThat(exclusions.getResourceExclusions()).singleElement().satisfies(event -> {
@@ -142,10 +155,10 @@ class BatchCopierRedacterTest {
     void transformBundle_propagatesUnexpectedRuntimeException() throws Exception {
         doThrow(new NullPointerException("bug"))
                 .when(transformer)
-                .transformResource(any());
+                .transformResource(any(), any());
 
         BatchExclusions exclusions = BatchExclusions.empty();
-        assertThatThrownBy(() -> transformer.transformBundle(extractionBundle, Map.of(), exclusions))
+        assertThatThrownBy(() -> transformer.transformBundle(extractionBundle, Map.of(), exclusions, new RedactionIssues()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("bug");
 
@@ -157,7 +170,7 @@ class BatchCopierRedacterTest {
     void transformBatch_threadsPatientIdFromBundleMapKey() throws Exception {
         doThrow(new RedactionException("fail"))
                 .when(transformer)
-                .transformResource(any());
+                .transformResource(any(), any());
 
         ExtractionId idA = ExtractionId.fromRelativeUrl("Patient/a");
         Resource resourceA = new Patient();
@@ -178,7 +191,7 @@ class BatchCopierRedacterTest {
         ExtractionPatientBatch batch = new ExtractionPatientBatch(Map.of("pat-a", bundleA, "pat-b", bundleB), UUID.randomUUID());
 
         BatchExclusions exclusions = BatchExclusions.empty();
-        transformer.transformBatch(batch, Map.of(), exclusions);
+        transformer.transformBatch(batch, Map.of(), exclusions, new RedactionIssues());
 
         assertThat(exclusions.getResourceExclusions())
                 .extracting(ResourceExclusionEvent::patientId)
@@ -246,9 +259,12 @@ class BatchCopierRedacterTest {
             patient.setId("dummy");
             var wrapper = new ExtractionRedactionWrapper(patient, Set.of(), Map.of(), new CopyTreeNode("Patient"));
 
-            var result = transformer.transformResource(wrapper);
+            RedactionIssues issues = new RedactionIssues();
+
+            var result = transformer.transformResource(wrapper, issues);
 
             assertThat(result).isNotNull().isInstanceOf(Patient.class);
+            verify(redaction).redact(any(), same(issues));
         }
 
         @Test
@@ -267,7 +283,7 @@ class BatchCopierRedacterTest {
 
             assertThatThrownBy(() -> {
                 var wrapper = ExtractionRedactionWrapper.of(condition, Set.of("http://example.org/profile"), Map.of(), copyTreeWithoutMetaProfile);
-                withRealCopier.transformResource(wrapper);
+                withRealCopier.transformResource(wrapper, new RedactionIssues());
             }).isInstanceOf(RedactionException.class);
         }
     }

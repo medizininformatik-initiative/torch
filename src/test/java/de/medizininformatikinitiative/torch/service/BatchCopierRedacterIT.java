@@ -5,6 +5,7 @@ import ca.uhn.fhir.parser.IParser;
 import de.medizininformatikinitiative.torch.TargetClassCreationException;
 import de.medizininformatikinitiative.torch.Torch;
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusions;
+import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionIssues;
 import de.medizininformatikinitiative.torch.exceptions.RedactionException;
 import de.medizininformatikinitiative.torch.model.consent.PatientBatchWithConsent;
 import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedAttribute;
@@ -110,6 +111,12 @@ class BatchCopierRedacterIT {
                 "extension": [ {
                   "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
                   "valueCode": "masked"
+                } ],
+                "coding": [ {
+                  "extension": [ {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "masked"
+                  } ]
                 } ]
               },
               "subject": {
@@ -134,6 +141,12 @@ class BatchCopierRedacterIT {
                 "extension": [ {
                   "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
                   "valueCode": "masked"
+                } ],
+                "coding": [ {
+                  "extension": [ {
+                    "url": "http://hl7.org/fhir/StructureDefinition/data-absent-reason",
+                    "valueCode": "masked"
+                  } ]
                 } ]
               },
               "subject": {
@@ -361,7 +374,7 @@ class BatchCopierRedacterIT {
         void testResourceWithKnownGroups() throws TargetClassCreationException, ReflectiveOperationException, RedactionException {
             Condition condition = parser.parseResource(Condition.class, CONDITION);
             Condition expectedResult = parser.parseResource(Condition.class, CONDITION_RESULT);
-            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of(ExtractionId.fromRelativeUrl("Patient/VHF00006"))), conditionGroup.copyTree().get()));
+            Resource result = batchCopierRedacter.transformResource(new ExtractionRedactionWrapper(condition, Set.of(CONDITION_PROFILE), Map.of("Condition.subject", Set.of(ExtractionId.fromRelativeUrl("Patient/VHF00006"))), conditionGroup.copyTree().get()), new RedactionIssues());
             assertThat(parser.setPrettyPrint(true).encodeResourceToString(result)).isEqualTo(parser.setPrettyPrint(true).encodeResourceToString(expectedResult));
         }
     }
@@ -377,7 +390,7 @@ class BatchCopierRedacterIT {
             bundle.put(condition, "Condition1", true);
 
 
-            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty());
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Condition/2")).get());
@@ -400,7 +413,7 @@ class BatchCopierRedacterIT {
             bundle.bundle().addAttributeToChild(expectedAttribute, validResourceGroup);
             bundle.bundle().addResourceGroupValidity(validResourceGroup, true);
             System.out.println(encounterGroup.copyTree().get());
-            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty());
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Encounter/encounter1")).get());
@@ -422,7 +435,7 @@ class BatchCopierRedacterIT {
             bundle.bundle().addAttributeToChild(expectedAttribute, validResourceGroup);
             bundle.bundle().addResourceGroupValidity(validResourceGroup, true);
 
-            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty());
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             String actualJson = parser.setPrettyPrint(true).encodeResourceToString(result.markMissing(ExtractionId.fromRelativeUrl("Condition/2")).get());
@@ -440,7 +453,7 @@ class BatchCopierRedacterIT {
             PatientResourceBundle bundle = new PatientResourceBundle("PatientBundle");
             bundle.put(encounter, "Encounter1", true);
             // WHEN
-            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty());
+            ExtractionResourceBundle result = batchCopierRedacter.transformBundle(ExtractionResourceBundle.of(bundle), attributeGroupMap, BatchExclusions.empty(), new RedactionIssues());
 
             // THEN
             assertThat(result.cache()).hasSize(1);
@@ -491,7 +504,7 @@ class BatchCopierRedacterIT {
             bundle.put(patient, "Patient1", true);
 
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
-                    ExtractionResourceBundle.of(bundle), Map.of("Patient1", group), BatchExclusions.empty());
+                    ExtractionResourceBundle.of(bundle), Map.of("Patient1", group), BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             Patient out = (Patient) result.markMissing(ExtractionId.fromRelativeUrl("Patient/p1")).orElseThrow();
@@ -541,7 +554,7 @@ class BatchCopierRedacterIT {
             bundle.put(encounter, "Encounter1", true);
 
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
-                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty());
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge")).orElseThrow();
@@ -593,7 +606,7 @@ class BatchCopierRedacterIT {
             bundle.put(encounter, "Encounter1", true);
 
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
-                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty());
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge-2")).orElseThrow();
@@ -641,7 +654,7 @@ class BatchCopierRedacterIT {
             bundle.put(encounter, "Encounter1", true);
 
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
-                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty());
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-discharge-3")).orElseThrow();
@@ -696,7 +709,7 @@ class BatchCopierRedacterIT {
             bundle.put(encounter, "Encounter1", true);
 
             ExtractionResourceBundle result = batchCopierRedacter.transformBundle(
-                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty());
+                    ExtractionResourceBundle.of(bundle), Map.of("Encounter1", group), BatchExclusions.empty(), new RedactionIssues());
 
             assertThat(result.cache()).hasSize(1);
             Encounter out = (Encounter) result.markMissing(ExtractionId.fromRelativeUrl("Encounter/enc-admission")).orElseThrow();
@@ -721,7 +734,7 @@ class BatchCopierRedacterIT {
                 PatientBatchWithConsent consentBatch = PatientBatchWithConsent.fromList(List.of(bundle));
                 bundle.put(condition, "Condition1", true);
 
-                ExtractionPatientBatch result = batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(consentBatch), attributeGroupMap, BatchExclusions.empty());
+                ExtractionPatientBatch result = batchCopierRedacter.transformBatch(ExtractionPatientBatch.of(consentBatch), attributeGroupMap, BatchExclusions.empty(), new RedactionIssues());
 
                 assertThat(result.bundles()).hasSize(1);
                 ExtractionResourceBundle resultBundle = result.get("PatientBundle");
