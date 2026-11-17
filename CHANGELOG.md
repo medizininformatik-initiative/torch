@@ -4,14 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
-## [Unreleased]
+## [v1.1.0] - 2026-11-17
 
 ### Added
 
 - Report resources that violate required cardinality after redaction as job issues [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
 
+### Changed
+
+- Update Onto To V5.2.2 [#1389](https://github.com/medizininformatik-initiative/torch/pull/1389)
+- Use CompartmentDefinition search parameters for compartment search and patient resolution [#1386](https://github.com/medizininformatik-initiative/torch/pull/1386)
+  - Compartment resources without a patient reference are excluded as `PATIENT_NOT_FOUND`, resources linked to several patients as `MULTIPLE_PATIENTS`; `job-summary.json` gets additive `Patient-Not-Found` and `Multiple-Patients` counts
+
 ### Fixed
 
+- Fix rejection of choice-type slices with types missing from HAPI R4 Factory [#1377](https://github.com/medizininformatik-initiative/torch/pull/1377)
 - Add required children to masked data-absent-reason stubs of complex types, so masked CodeableConcepts and Codings carry masked required children (e.g. coding, system, code) [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
 - Mask absent elements required by the base FHIR specification even if the profile doesn't list them (e.g. Annotation.text) [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
 - Fix masking of required Reference and canonical elements whose type names target profiles, e.g. Signature.who [#1383](https://github.com/medizininformatik-initiative/torch/pull/1383)
