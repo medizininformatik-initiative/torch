@@ -24,6 +24,7 @@ import de.medizininformatikinitiative.torch.util.FhirPathBuilder;
 import org.hl7.fhir.r4.model.ElementDefinition;
 import org.hl7.fhir.r4.model.StructureDefinition;
 import ca.uhn.fhir.context.FhirContext;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -89,6 +90,7 @@ class CrtdlValidatorServiceTest {
     }
 
     @Test
+    @Disabled("ISiKBinary profile is no longer part of ontology v5.2.2")
     void nonDomainResourceProfile() {
         Crtdl crtdl = new Crtdl(node, new DataExtraction(List.of(patientGroup,
                 new AttributeGroup("binaryGroup", "https://gematik.de/fhir/isik/StructureDefinition/ISiKBinary", List.of(), List.of()))));
