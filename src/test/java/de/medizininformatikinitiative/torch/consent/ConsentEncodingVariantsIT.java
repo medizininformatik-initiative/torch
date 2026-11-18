@@ -76,7 +76,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  * re-consent 2024. The collection lookback date is {@code 1900-01-01} ({@code mappings/consent-code-config.json}): an
  * Observation dated before the first consent is only eligible if a retrospective permit extends the collection period
  * back to it. The research-use validity gate must contain the day the test runs, so results are date-relative; the
- * table was recorded on 2026-10-13 against v1.0.3 (commit ee05decb2) and holds until the end of 2045. Requested
+ * table was recorded on 2026-10-13 against v1.0.3 (commit ee05decb2), rows 6 and 8 on 2026-11-18 (#1392), and holds
+ * until the end of 2045. Requested
  * modules: P = collection + research use, R = P + retrospective use.
  *
  * <table>
@@ -102,8 +103,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  *     <tr><td>5c newer permit after deny</td><td>P</td><td>yes</td><td>2001–2004, 2006–2014, 2023–2026</td><td>2003, 2010, 2025</td><td>expected</td></tr>
  *     <tr><td>5d retrospective permit in separate resource, same dateTime</td><td>R</td><td>yes</td><td>1900–2004</td><td>1999, 2003</td><td>expected</td></tr>
  *     <tr><td>5e research use and collection in two resources, same dateTime</td><td>P</td><td>yes</td><td>2020–2024</td><td>2021, 2024</td><td>expected</td></tr>
- *     <tr><td>6 blanket root deny</td><td>P</td><td>yes</td><td>2020–2024</td><td>2021, 2024</td><td>ambiguous</td></tr>
+ *     <tr><td>6 blanket root deny</td><td>P</td><td>no: research-use gate</td><td>-</td><td>-</td><td>expected</td></tr>
  *     <tr><td>7 expired collection, valid research use</td><td>P</td><td>yes</td><td>2015–2019</td><td>2016</td><td>expected</td></tr>
+ *     <tr><td>8a level-1-only Consent without period after permit</td><td>P</td><td>no: research-use gate</td><td>-</td><td>-</td><td>expected</td></tr>
+ *     <tr><td>8b permit after level-1-only Consent</td><td>P</td><td>yes</td><td>2024–2028</td><td>2024</td><td>expected</td></tr>
+ *     <tr><td>8c level-1-only Consent with retrospective use requested, then re-consent</td><td>R</td><td>yes</td><td>2024–2028</td><td>2024</td><td>expected</td></tr>
+ *     <tr><td>8d level-1-only Consent in the signing event of a permit</td><td>P</td><td>yes</td><td>2020–2024</td><td>2021, 2023, 2024</td><td>expected</td></tr>
  * </table>
  * <p>
  * Divergences between variants of the same will:
@@ -132,8 +137,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  *     closed as not planned.</li>
  *     <li>Scenario 5d/5e: under v1.0.2 the result depended on whether one signing event was stored as one or two
  *     resources (raised in #1275); #1321 aggregates provisions per signing event.</li>
- *     <li>Scenario 6: a root-level deny without nested provisions has no effect, since only nested provisions are
- *     evaluated. Whether a Consent consisting only of its root provision revokes earlier Consents is not specified.</li>
+ *     <li>Scenarios 6 and 8: in the MII Consent IG the root (level 1) provision is always a deny and only nested
+ *     (level 2) permits allow use. A signing event without any nested provision therefore revokes every requested
+ *     module, including the retrospective ones, over the root period or, without one, from its {@code dateTime} on
+ *     (#1392). A root-only Consent in the signing event of nested permits (8d) does not revoke them.</li>
  *     <li>Scenario 7: collection is checked at the date of the data and research use at extraction time. A single
  *     consent status at extraction time would exclude this patient, since the collection period does not contain
  *     today, although the 2016 data were collected with consent.</li>
@@ -550,8 +557,8 @@ class ConsentEncodingVariantsIT {
     }
 
     @Test
-    @DisplayName("6 [ambiguous]: blanket deny on the root provision without nested provisions is ignored")
-    void blanketDenyIsIgnored() {
+    @DisplayName("6 [expected]: blanket deny on the root provision without nested provisions revokes the research-use gate")
+    void blanketDenyRevokes() {
         // given: R1 (2020) research-use + collection permit; R2 (2025) root-level deny 2025–2050 without nested provisions
         storePatient("6", RECONSENT_REFUSAL_OBSERVATION_YEARS);
         put(consent("6-R1", "6", CONSENT_DATE,
@@ -563,7 +570,69 @@ class ConsentEncodingVariantsIT {
         var result = consentHandler.fetchAndBuildConsentInfo(PROSPECTIVE_CODES, PatientBatch.of("6"));
 
         // then
-        assertIncluded(result, "6", periods("2020-01-01", "2024-12-31"), "2021", "2024");
+        assertExcludedDuringCalculation(result, "6", GATE_EXCLUDES_TODAY);
+    }
+
+    @Test
+    @DisplayName("8a [expected]: level-1-only Consent without period after a permit revokes from its dateTime on")
+    void levelOneOnlyWithoutPeriodRevokes() {
+        // given: Consent A (2020) research-use + collection permit; Consent B (2023) root deny without period and without nested provisions
+        storePatient("8a", OBSERVATION_YEARS);
+        put(fullConsent("8a-A", "8a"));
+        put(consent("8a-B", "8a", WITHDRAWAL_DATE));
+
+        // when
+        var result = consentHandler.fetchAndBuildConsentInfo(PROSPECTIVE_CODES, PatientBatch.of("8a"));
+
+        // then
+        assertExcludedDuringCalculation(result, "8a", GATE_EXCLUDES_TODAY);
+    }
+
+    @Test
+    @DisplayName("8b [expected]: permit after a level-1-only Consent applies")
+    void permitAfterLevelOneOnlyApplies() {
+        // given: Consent A (2020) root deny without period and without nested provisions; Consent C (2024) research-use + collection permit
+        storePatient("8b", OBSERVATION_YEARS);
+        put(consent("8b-A", "8b", CONSENT_DATE));
+        put(reConsent("8b-C", "8b"));
+
+        // when
+        var result = consentHandler.fetchAndBuildConsentInfo(PROSPECTIVE_CODES, PatientBatch.of("8b"));
+
+        // then
+        assertIncluded(result, "8b", RECONSENT_WINDOW, "2024");
+    }
+
+    @Test
+    @DisplayName("8c [expected]: level-1-only Consent with retrospective use requested resets the retrospective window")
+    void levelOneOnlyResetsRetroWindow() {
+        // given: Consent A (2020) research-use + collection + retrospective permit; Consent B (2023) root deny without
+        // nested provisions; Consent C (2024) research-use + collection permit
+        storePatient("8c", OBSERVATION_YEARS);
+        put(retroConsent("8c-A", "8c"));
+        put(consent("8c-B", "8c", WITHDRAWAL_DATE));
+        put(reConsent("8c-C", "8c"));
+
+        // when
+        var result = consentHandler.fetchAndBuildConsentInfo(RETRO_CODES, PatientBatch.of("8c"));
+
+        // then: without the reset, 1900–2022 of Consent A would remain
+        assertIncluded(result, "8c", RECONSENT_WINDOW, "2024");
+    }
+
+    @Test
+    @DisplayName("8d [expected]: level-1-only Consent in the signing event of a permit does not revoke it")
+    void levelOneOnlyInSameEventAsPermitIsIgnored() {
+        // given: Consent A (2020) research-use + collection permit; Consent B (2020) root deny without nested provisions
+        storePatient("8d", OBSERVATION_YEARS);
+        put(fullConsent("8d-A", "8d"));
+        put(consent("8d-B", "8d", CONSENT_DATE));
+
+        // when
+        var result = consentHandler.fetchAndBuildConsentInfo(PROSPECTIVE_CODES, PatientBatch.of("8d"));
+
+        // then
+        assertIncluded(result, "8d", periods("2020-01-01", "2024-12-31"), "2021", "2023", "2024");
     }
 
     @Test

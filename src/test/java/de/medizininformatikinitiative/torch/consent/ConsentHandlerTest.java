@@ -166,7 +166,7 @@ public class ConsentHandlerTest {
         var consentDiagnostics = batch.diagnostics().consentDiagnostics();
         assertThat(consentDiagnostics.getRawProvisions()).containsExactly(
                 new RawProvisionEvent(PATIENT_ID, "c1", "code1", true,
-                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null));
+                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null, false));
         assertThat(consentDiagnostics.getFinalPeriods()).containsExactly(
                 new FinalPeriodEvent(PATIENT_ID, LocalDate.of(2020, 1, 1), LocalDate.of(2030, 1, 1)));
     }
@@ -220,7 +220,36 @@ public class ConsentHandlerTest {
 
         assertThat(batch.diagnostics().consentDiagnostics().getRawProvisions()).containsExactly(
                 new RawProvisionEvent(PATIENT_ID, "c1", "code1", true,
-                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 6, 1), "enc-1"));
+                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), LocalDate.of(2020, 6, 1), "enc-1", false));
     }
 
+    @Test
+    void recordsAppliedVirtualDeniesAsRawProvisions() {
+        var codes = CODES;
+        var batch = PatientBatch.of(PATIENT_ID).withConsentDiagnosticsEnabled(true);
+        var permit = new ConsentProvisions("c1", PATIENT_ID, new DateTimeType("2021-01-01T00:00:00Z"), List.of(
+                new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31)), true)));
+        var levelOneOnly = new ConsentProvisions("c2", PATIENT_ID, new DateTimeType("2024-01-01T00:00:00Z"), List.of(), List.of(
+                new Provision(new TermCode("sys", "code1"), new Period(LocalDate.of(2024, 1, 1), Period.OPEN_END), false)));
+        var fetchedProvisions = Map.of(PATIENT_ID, List.of(permit, levelOneOnly));
+        var handler = new ConsentHandler(consentFetcher, consentAdjuster, consentCalculator, consentCodeConfig, false,
+                MAX_SHIFT_DAYS);
+
+        when(consentCodeConfig.extractRequestedProspectiveCodes(codes)).thenReturn(codes);
+        when(consentCodeConfig.withRetroModifiers(codes, codes)).thenReturn(codes);
+        when(consentCodeConfig.nonGateCodes(codes)).thenReturn(codes);
+        when(consentFetcher.fetchConsentInfo(codes, batch)).thenReturn(Mono.just(fetchedProvisions));
+        when(consentCalculator.appliedVirtualDenies(List.of(permit, levelOneOnly))).thenReturn(List.of(levelOneOnly));
+        when(consentCalculator.calculateConsent(codes, fetchedProvisions)).thenReturn(consentPeriodsByPatient());
+
+        StepVerifier.create(handler.fetchAndBuildConsentInfo(codes, batch))
+                .assertNext(result -> assertThat(result.patientIds()).containsExactly(PATIENT_ID))
+                .verifyComplete();
+
+        assertThat(batch.diagnostics().consentDiagnostics().getRawProvisions()).containsExactly(
+                new RawProvisionEvent(PATIENT_ID, "c1", "code1", true,
+                        LocalDate.of(2021, 1, 1), LocalDate.of(2025, 12, 31), null, null, false),
+                new RawProvisionEvent(PATIENT_ID, "c2", "code1", false,
+                        LocalDate.of(2024, 1, 1), Period.OPEN_END, null, null, true));
+    }
 }
