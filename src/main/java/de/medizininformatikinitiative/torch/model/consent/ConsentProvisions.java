@@ -10,7 +10,21 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-public record ConsentProvisions(String id, String patientId, DateTimeType dateTime, List<Provision> provisions) {
+/**
+ * @param provisions    the consent's level 2 provisions of the requested codes
+ * @param virtualDenies a deny of every requested code derived from the level 1 provision if the consent has no level 2
+ *                      provision, otherwise empty; non-empty exactly for level-1-only consents
+ */
+public record ConsentProvisions(String id, String patientId, DateTimeType dateTime, List<Provision> provisions,
+                                List<Provision> virtualDenies) {
+
+    public ConsentProvisions(String id, String patientId, DateTimeType dateTime, List<Provision> provisions) {
+        this(id, patientId, dateTime, provisions, List.of());
+    }
+
+    public boolean isLevelOneOnly() {
+        return !virtualDenies.isEmpty();
+    }
 
     /**
      * Adjusts the start date of permitted provisions whose code is in {@code adjustableCodes} based on patient
@@ -57,7 +71,8 @@ public record ConsentProvisions(String id, String patientId, DateTimeType dateTi
                                     provisionsPeriod.permit(),
                                     new EncounterShift(provisionsPeriod.period().start(), encounter.encounterId())))
                             .orElse(provisionsPeriod);
-                }).toList()
+                }).toList(),
+                virtualDenies
         );
     }
 

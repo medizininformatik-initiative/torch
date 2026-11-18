@@ -25,6 +25,12 @@ public record Period(
 
     static final Logger logger = LoggerFactory.getLogger(Period.class);
 
+    /**
+     * The end of a period that is open in the source data, e.g. a virtual deny from a level 1 provision without
+     * {@code period}.
+     */
+    public static final LocalDate OPEN_END = LocalDate.of(9999, 12, 31);
+
     public Period {
         requireNonNull(start);
         requireNonNull(end);

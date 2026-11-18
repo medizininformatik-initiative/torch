@@ -49,7 +49,10 @@ public class ConsentCalculator {
      * deny removed, and an event denying any of a code's configured retro modifiers discards that code's
      * entire history so far rather than merely subtracting from it — a matching retro modifier permit does
      * not, since a revocation demands a conservative reset but a grant should never leave a patient worse
-     * off. Within one event the outcome does not depend on resource order.
+     * off. Within one event the outcome does not depend on resource order. An event whose resources all are
+     * level-1-only contributes their {@link ConsentProvisions#virtualDenies()} instead (see
+     * {@link #eventProvisions}), so it revokes every requested code, including the reset of a requested retro
+     * modifier.
      *
      * @param consentProvisions list of consent provisions for a patient
      * @param consentCodes      the prospective consent codes required for valid consent
@@ -107,9 +110,10 @@ public class ConsentCalculator {
     /**
      * Folds one signing event into the running period for a single code.
      * <p>
-     * If any resource of the event carries a <b>deny</b> of any of {@code entry}'s retro modifier codes —
-     * regardless of overlap — {@code running} is discarded first. Then the event's contribution (see
-     * {@link #eventContribution}) is merged in if the event as a whole permits every requested code, and finally
+     * Works on the event's provisions as given by {@link #eventProvisions}. If any of them is a <b>deny</b> of any
+     * of {@code entry}'s retro modifier codes — regardless of overlap — {@code running} is discarded first. Then
+     * the event's contribution (see {@link #eventContribution}) is merged in if the event as a whole permits every
+     * requested code, and finally
      * every deny of {@code code} itself within the event is subtracted, so a same-event deny always wins over a
      * same-event permit (see {@link #findConflicts}).
      *
@@ -130,7 +134,7 @@ public class ConsentCalculator {
         Set<TermCode> retroCodes = entry == null ? Set.of()
                 : entry.retroModifiers().stream().map(RetroModifier::code).collect(Collectors.toSet());
 
-        List<Provision> eventProvisions = event.stream().flatMap(cp -> cp.provisions().stream()).toList();
+        List<Provision> eventProvisions = eventProvisions(event);
 
         boolean retroTouched = eventProvisions.stream()
                 .anyMatch(p -> !p.permit() && retroCodes.contains(p.code()));
@@ -148,6 +152,36 @@ public class ConsentCalculator {
         }
 
         return combined;
+    }
+
+    /**
+     * Returns the provisions a signing event contributes: the virtual denies of its resources if none of them has a
+     * level 2 provision, otherwise their level 2 provisions only, so a level-1-only resource never revokes the
+     * permits of other resources of the same event.
+     */
+    private static List<Provision> eventProvisions(List<ConsentProvisions> event) {
+        boolean levelOneOnly = isLevelOneOnly(event);
+        return event.stream()
+                .flatMap(cp -> levelOneOnly ? cp.virtualDenies().stream() : cp.provisions().stream())
+                .toList();
+    }
+
+    private static boolean isLevelOneOnly(List<ConsentProvisions> event) {
+        return event.stream().allMatch(ConsentProvisions::isLevelOneOnly);
+    }
+
+    /**
+     * Returns the resources whose {@link ConsentProvisions#virtualDenies()} the calculation applies, i.e. those of
+     * signing events in which no resource has a level 2 provision.
+     *
+     * @param consentProvisions the consent provisions of one patient
+     * @return the resources of level-1-only signing events, in ascending {@code dateTime} order
+     */
+    List<ConsentProvisions> appliedVirtualDenies(List<ConsentProvisions> consentProvisions) {
+        return groupByDateTime(consentProvisions).stream()
+                .filter(ConsentCalculator::isLevelOneOnly)
+                .flatMap(List::stream)
+                .toList();
     }
 
     /**

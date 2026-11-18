@@ -103,25 +103,29 @@ public class ConsentHandler {
 
     /**
      * Records each fetched provision as a {@link RawProvisionEvent} with its fetched period, plus the shifted start
-     * and encounter if the encounter shift moved it. A no-op unless {@code consentDiagnostics} is enabled for this
-     * batch.
+     * and encounter if the encounter shift moved it, and each virtual deny the consent calculation applies. A no-op
+     * unless {@code consentDiagnostics} is enabled for this batch.
      */
     private void recordRawProvisions(PatientBatch batch, Map<String, List<ConsentProvisions>> adjustedProvisions) {
         if (!batch.diagnostics().consentDiagnostics().isEnabled()) {
             return;
         }
-        adjustedProvisions.forEach((patientId, consents) -> consents.forEach(cp ->
-                cp.provisions().forEach(provision -> batch.diagnostics().consentDiagnostics().addRawProvision(
-                        toRawProvisionEvent(patientId, cp.id(), provision)))));
+        adjustedProvisions.forEach((patientId, consents) -> {
+            consents.forEach(cp -> cp.provisions().forEach(provision -> batch.diagnostics().consentDiagnostics()
+                    .addRawProvision(toRawProvisionEvent(patientId, cp.id(), provision))));
+            consentCalculator.appliedVirtualDenies(consents).forEach(cp -> cp.virtualDenies().forEach(deny ->
+                    batch.diagnostics().consentDiagnostics().addRawProvision(new RawProvisionEvent(patientId, cp.id(),
+                            deny.code().code(), false, deny.period().start(), deny.period().end(), null, null, true))));
+        });
     }
 
     private static RawProvisionEvent toRawProvisionEvent(String patientId, String consentId, Provision provision) {
         EncounterShift shift = provision.encounterShift();
         return shift == null
                 ? new RawProvisionEvent(patientId, consentId, provision.code().code(), provision.permit(),
-                provision.period().start(), provision.period().end(), null, null)
+                provision.period().start(), provision.period().end(), null, null, false)
                 : new RawProvisionEvent(patientId, consentId, provision.code().code(), provision.permit(),
-                shift.originalStart(), provision.period().end(), provision.period().start(), shift.encounterId());
+                shift.originalStart(), provision.period().end(), provision.period().start(), shift.encounterId(), false);
     }
 
     /**
