@@ -168,6 +168,16 @@ Use TASK API instead to delete jobs.
 
 ---
 
+#### `TORCH_GC_JOB_DELETION_DELAY_MS` <Badge type="warning" text="Since 1.0.0-alpha.20"/>
+
+Delay in milliseconds between two runs of the cleanup that removes the result directories of deleted jobs. A
+deleted job's files are normally removed right after the `DELETE` request; this cleanup retries removals that
+failed and runs once at startup. Each run reads the `job.json` of every job in `TORCH_RESULTS_DIR`.
+
+**Default:** `300000` (5 minutes; was `86400000` before 1.1.1)
+
+---
+
 #### `TORCH_BATCHSIZE` <Badge type="warning" text="Since 1.0.0-alpha"/>
 
 Size of data batches processed at once.

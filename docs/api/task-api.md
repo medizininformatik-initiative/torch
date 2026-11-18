@@ -223,9 +223,13 @@ curl -s -X POST 'http://localhost:8080/fhir/Task/<jobId>/$cancel'
 
 ## Deleting a Task
 
-`DELETE /fhir/Task/{id}` removes the job **and its associated result data** (NDJSON output, diagnostics report) from
-disk. It returns `204 No Content` on success, `404` if the job doesn't exist, and `500` if the result files couldn't
-be removed.
+`DELETE /fhir/Task/{id}` removes the job **and its associated result data** (NDJSON output, diagnostics report). It
+returns `204 No Content` on success, `404` if the job doesn't exist or was already deleted, and `500` if the deletion
+couldn't be recorded (the job is then left unchanged).
+
+The job is gone from the Task API and the status endpoint as soon as the request returns. Its result files are
+removed from disk in the background right afterwards, so the file server stops serving them shortly after the
+`204`. If removing them fails, TORCH retries every few minutes and on the next startup.
 
 ```sh
 curl -s -X DELETE 'http://localhost:8080/fhir/Task/<jobId>' -o /dev/null -w '%{http_code}\n'

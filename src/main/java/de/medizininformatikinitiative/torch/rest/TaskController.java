@@ -37,6 +37,7 @@ import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Optional;
@@ -740,7 +741,7 @@ public class TaskController {
 
     @Operation(
             summary = "DELETE /fhir/Task/{id} — Delete Task",
-            description = "Deletes a task and all its associated result data.",
+            description = "Deletes a task. The task is no longer available right away; its result data is removed from disk in the background.",
             parameters = @Parameter(
                     name = "id",
                     in = ParameterIn.PATH,
@@ -768,23 +769,24 @@ public class TaskController {
                     ),
                     @ApiResponse(
                             responseCode = "500",
-                            description = "Internal Server Error — could not delete result files",
+                            description = "Internal Server Error — the deletion could not be recorded; the task is unchanged",
                             content = @Content(mediaType = "application/fhir+json",
                                     schema = @Schema(implementation = OperationOutcomeSchema.class),
                                     examples = @ExampleObject(name = "IO error", value = """
                                             {
                                               "resourceType": "OperationOutcome",
-                                              "issue": [{ "severity": "error", "code": "exception", "diagnostics": "Failed to delete result files for job 550e8400-e29b-41d4-a716-446655440000" }]
+                                              "issue": [{ "severity": "error", "code": "exception", "diagnostics": "Failed to delete job 550e8400-e29b-41d4-a716-446655440000" }]
                                             }
                                             """))
                     )
             }
     )
     /**
-     * Handles {@code DELETE /fhir/Task/{id}} — deletes a task and its associated data.
+     * Handles {@code DELETE /fhir/Task/{id}} — deletes a task; its result data is removed in the background.
      *
      * @param request the incoming server request
-     * @return a {@link Mono} emitting {@code 204 No Content} on success, or an error response on failure
+     * @return a {@link Mono} emitting {@code 204 No Content} once the deletion is recorded, {@code 404} for unknown
+     * or already deleted tasks, or {@code 500} if the deletion could not be recorded
      */
     public Mono<ServerResponse> deleteTask(ServerRequest request) {
         return parseJobId(request)
@@ -794,7 +796,15 @@ public class TaskController {
                         })
                         .subscribeOn(Schedulers.boundedElastic())
                         .flatMap(ignored -> ServerResponse.noContent().build()))
-                .onErrorResume(JobNotFoundException.class, e -> notFound(e.getMessage()));
+                .onErrorResume(JobNotFoundException.class, e -> notFound(e.getMessage()))
+                .onErrorResume(IOException.class, e -> operationOutcome(
+                        HttpStatus.INTERNAL_SERVER_ERROR,
+                        OperationOutcomeCreator.simple(
+                                Severity.ERROR,
+                                OperationOutcome.IssueType.EXCEPTION,
+                                e.getMessage()
+                        )
+                ));
     }
 
     /**

@@ -14,6 +14,7 @@ import de.medizininformatikinitiative.torch.diagnostics.redaction.RedactionViola
 import de.medizininformatikinitiative.torch.exceptions.ConsentViolatedException;
 import de.medizininformatikinitiative.torch.exceptions.MustHaveViolatedException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
+import de.medizininformatikinitiative.torch.TestUtils;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.JobPriority;
@@ -105,6 +106,8 @@ class ExtractDataServiceTest {
     CompartmentManager compartmentManager;
     @Mock
     BatchProgressRegistry batchProgressRegistry;
+    @Mock
+    JobPersistenceService persistence;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -155,7 +158,8 @@ class ExtractDataServiceTest {
                 postCascadeMustHaveChecker,
                 torchProperties,
                 compartmentManager,
-                batchProgressRegistry
+                batchProgressRegistry,
+                persistence
         );
         spyService = Mockito.spy(service);
     }
@@ -626,6 +630,16 @@ class ExtractDataServiceTest {
     @Nested
     class WriteMethodsTests {
 
+        static final UUID JOB_ID = UUID.randomUUID();
+
+        void jobIsLive() {
+            when(persistence.getJob(JOB_ID)).thenReturn(Optional.of(Job.init(JOB_ID, TestUtils.emptyJobParams())));
+        }
+
+        void jobIsDeleted() {
+            when(persistence.getJob(JOB_ID)).thenReturn(Optional.empty());
+        }
+
         @Test
         void writeBatch_success_completes() throws Exception {
             ExtractionPatientBatch batch = mock(ExtractionPatientBatch.class);
@@ -640,9 +654,10 @@ class ExtractDataServiceTest {
         void writeBatch_whenIOException_emitsError() throws Exception {
             ExtractionPatientBatch batch = mock(ExtractionPatientBatch.class);
             doThrow(new IOException("disk full"))
-                    .when(resultFileManager).saveBatchToNDJSON("job", batch);
+                    .when(resultFileManager).saveBatchToNDJSON(JOB_ID.toString(), batch);
+            jobIsLive();
 
-            StepVerifier.create(service.writeBatch("job", batch))
+            StepVerifier.create(service.writeBatch(JOB_ID.toString(), batch))
                     .verifyErrorSatisfies(e -> {
                         assertThat(e).isInstanceOf(IOException.class);
                         assertThat(e).hasMessageContaining("disk full");
@@ -663,9 +678,10 @@ class ExtractDataServiceTest {
         void writeBundle_whenIOException_emitsError() throws Exception {
             ExtractionResourceBundle bundle = mock(ExtractionResourceBundle.class);
             doThrow(new IOException("no space"))
-                    .when(resultFileManager).saveCoreBundleToNDJSON("job", bundle);
+                    .when(resultFileManager).saveCoreBundleToNDJSON(JOB_ID.toString(), bundle);
+            jobIsLive();
 
-            StepVerifier.create(service.writeBundle("job", bundle))
+            StepVerifier.create(service.writeBundle(JOB_ID.toString(), bundle))
                     .verifyErrorSatisfies(e -> {
                         assertThat(e).isInstanceOf(IOException.class);
                         assertThat(e).hasMessageContaining("no space");
@@ -688,13 +704,48 @@ class ExtractDataServiceTest {
             UUID batchId = UUID.randomUUID();
             ConsentAudit audit = ConsentAudit.empty();
             doThrow(new IOException("disk full"))
-                    .when(resultFileManager).saveConsentBatchToNDJSON("job", batchId, audit);
+                    .when(resultFileManager).saveConsentBatchToNDJSON(JOB_ID.toString(), batchId, audit);
+            jobIsLive();
 
-            StepVerifier.create(service.writeConsentAudit("job", batchId, audit))
+            StepVerifier.create(service.writeConsentAudit(JOB_ID.toString(), batchId, audit))
                     .verifyErrorSatisfies(e -> {
                         assertThat(e).isInstanceOf(IOException.class);
                         assertThat(e).hasMessageContaining("disk full");
                     });
+        }
+
+        @Test
+        void writeBatch_whenIOExceptionForDeletedJob_completes() throws Exception {
+            ExtractionPatientBatch batch = mock(ExtractionPatientBatch.class);
+            doThrow(new IOException("no such directory"))
+                    .when(resultFileManager).saveBatchToNDJSON(JOB_ID.toString(), batch);
+            jobIsDeleted();
+
+            StepVerifier.create(service.writeBatch(JOB_ID.toString(), batch))
+                    .verifyComplete();
+        }
+
+        @Test
+        void writeBundle_whenIOExceptionForDeletedJob_completes() throws Exception {
+            ExtractionResourceBundle bundle = mock(ExtractionResourceBundle.class);
+            doThrow(new IOException("no such directory"))
+                    .when(resultFileManager).saveCoreBundleToNDJSON(JOB_ID.toString(), bundle);
+            jobIsDeleted();
+
+            StepVerifier.create(service.writeBundle(JOB_ID.toString(), bundle))
+                    .verifyComplete();
+        }
+
+        @Test
+        void writeConsentAudit_whenIOExceptionForDeletedJob_completes() throws Exception {
+            UUID batchId = UUID.randomUUID();
+            ConsentAudit audit = ConsentAudit.empty();
+            doThrow(new IOException("no such directory"))
+                    .when(resultFileManager).saveConsentBatchToNDJSON(JOB_ID.toString(), batchId, audit);
+            jobIsDeleted();
+
+            StepVerifier.create(service.writeConsentAudit(JOB_ID.toString(), batchId, audit))
+                    .verifyComplete();
         }
     }
 
