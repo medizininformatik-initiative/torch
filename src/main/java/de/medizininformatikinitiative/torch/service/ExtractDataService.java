@@ -83,6 +83,7 @@ public class ExtractDataService {
     private final TorchProperties torchProperties;
     private final CompartmentManager compartmentManager;
     private final BatchProgressRegistry batchProgressRegistry;
+    private final JobPersistenceService persistence;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -96,7 +97,8 @@ public class ExtractDataService {
                               PostCascadeMustHaveChecker postCascadeMustHaveChecker,
                               TorchProperties torchProperties,
                               CompartmentManager compartmentManager,
-                              BatchProgressRegistry batchProgressRegistry) {
+                              BatchProgressRegistry batchProgressRegistry,
+                              JobPersistenceService persistence) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -110,6 +112,7 @@ public class ExtractDataService {
         this.torchProperties = requireNonNull(torchProperties);
         this.compartmentManager = requireNonNull(compartmentManager);
         this.batchProgressRegistry = requireNonNull(batchProgressRegistry);
+        this.persistence = requireNonNull(persistence);
     }
 
     private static void logMemory(UUID id) {
@@ -360,17 +363,17 @@ public class ExtractDataService {
      *
      * @param jobID owning job id (directory key)
      * @param batch extracted batch content
-     * @return completion signal; emits error if writing fails
+     * @return completion signal; emits error if writing fails, unless the job was deleted meanwhile
      */
     Mono<Void> writeBatch(String jobID, ExtractionPatientBatch batch) {
-        return Mono.defer(() -> {
+        return Mono.<Void>defer(() -> {
             try {
                 resultFileManager.saveBatchToNDJSON(jobID, batch);
                 return Mono.empty();
             } catch (IOException e) {
                 return Mono.error(e);
             }
-        });
+        }).onErrorResume(IOException.class, e -> dropIfJobDeleted(jobID, e, "result of batch " + batch.id()));
     }
 
     /**
@@ -382,17 +385,17 @@ public class ExtractDataService {
      * @param jobID        owning job id (directory key)
      * @param batchId      batch id (also used as filename key)
      * @param consentAudit collected consent audit entries for the batch
-     * @return completion signal; emits error if writing fails
+     * @return completion signal; emits error if writing fails, unless the job was deleted meanwhile
      */
     Mono<Void> writeConsentAudit(String jobID, UUID batchId, ConsentAudit consentAudit) {
-        return Mono.defer(() -> {
+        return Mono.<Void>defer(() -> {
             try {
                 resultFileManager.saveConsentBatchToNDJSON(jobID, batchId, consentAudit);
                 return Mono.empty();
             } catch (IOException e) {
                 return Mono.error(e);
             }
-        });
+        }).onErrorResume(IOException.class, e -> dropIfJobDeleted(jobID, e, "consent audit of batch " + batchId));
     }
 
     /**
@@ -400,17 +403,36 @@ public class ExtractDataService {
      *
      * @param jobID  owning job id (directory key)
      * @param bundle extracted and transformed core bundle
-     * @return completion signal; emits error if writing fails
+     * @return completion signal; emits error if writing fails, unless the job was deleted meanwhile
      */
     Mono<Void> writeBundle(String jobID, ExtractionResourceBundle bundle) {
-        return Mono.defer(() -> {
+        return Mono.<Void>defer(() -> {
             try {
                 resultFileManager.saveCoreBundleToNDJSON(jobID, bundle);
                 return Mono.empty();
             } catch (IOException e) {
                 return Mono.error(e);
             }
-        });
+        }).onErrorResume(IOException.class, e -> dropIfJobDeleted(jobID, e, "core result"));
+    }
+
+    /**
+     * Turns a failed result write into empty completion if the job was deleted while it ran.
+     * <p>
+     * Deleting a job removes its directory and result files are never written into a recreated one, so a write
+     * for a deleted job is expected to fail. Errors for jobs that still exist are propagated unchanged.
+     *
+     * @param jobID owning job id
+     * @param error the write failure
+     * @param what  what was being written, for the log message
+     * @return empty completion for a deleted job, otherwise the original error
+     */
+    private Mono<Void> dropIfJobDeleted(String jobID, IOException error, String what) {
+        if (persistence.getJob(UUID.fromString(jobID)).isPresent()) {
+            return Mono.error(error);
+        }
+        logger.debug("Job {} was deleted, dropping {}", jobID, what);
+        return Mono.empty();
     }
 
     private PatientBatchWithConsent filterPostCascadeMustHaveViolations(

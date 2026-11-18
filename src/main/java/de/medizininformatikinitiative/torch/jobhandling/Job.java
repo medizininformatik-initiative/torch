@@ -660,7 +660,7 @@ public record Job(
     /**
      * Marks this job as deleted.
      *
-     * <p>The actual directory removal is handled asynchronously by a GC process.</p>
+     * <p>The actual directory removal happens asynchronously in {@code JobPersistenceService}.</p>
      *
      * @return a deleted job
      */

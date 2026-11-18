@@ -4,6 +4,7 @@ import java.io.BufferedWriter;
 import java.io.File;
 import java.io.IOException;
 import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -84,6 +85,9 @@ public class DefaultFileIO implements FileIo {
             for (Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
                 Files.deleteIfExists(path);
             }
+        } catch (UncheckedIOException e) {
+            // Files.walk reports traversal failures, e.g. files vanishing mid-walk, unchecked
+            throw e.getCause();
         }
     }
 

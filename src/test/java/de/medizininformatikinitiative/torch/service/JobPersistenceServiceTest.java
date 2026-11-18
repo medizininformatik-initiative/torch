@@ -54,6 +54,7 @@ import java.io.StringReader;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -79,6 +80,7 @@ import static de.medizininformatikinitiative.torch.diagnostics.PipelineStage.REF
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.awaitility.Awaitility.await;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.any;
@@ -1037,14 +1039,6 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void deleteJob_marksJobAsDeleted() throws JobNotFoundException {
-            service.deleteJob(jobId);
-
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.DELETED);
-            assertThat(baseDir.resolve(jobId.toString())).exists();
-        }
-
-        @Test
         void deleteJob_throwsJobNotFoundException_whenUnknown() {
             UUID unknownId = UUID.randomUUID();
             assertThatThrownBy(() -> service.deleteJob(unknownId))
@@ -1335,7 +1329,7 @@ class JobPersistenceServiceTest {
                 var jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
                 Thread.sleep(PROCESSING_TIME);
                 persistenceService.cancelJob(jobId);
-                persistenceService.deleteJob(jobId);
+                DeleteJobTests.markDeleted(persistenceService, jobId);
                 persistenceService.updateDurationGauge();
 
                 assertThrows(MeterNotFoundException.class, () ->
@@ -1458,6 +1452,18 @@ class JobPersistenceServiceTest {
     @Nested
     class DeleteJobTests {
 
+        /**
+         * Persists the DELETED marker without starting the background removal, so GC can be tested in isolation.
+         */
+        static void markDeleted(JobPersistenceService service, UUID jobId) {
+            service.updateJobAndReturn(jobId, job -> new JobPersistenceService.JobAndResult<>(job.delete(), null));
+        }
+
+        void awaitRemoved(UUID id) {
+            await().atMost(Duration.ofSeconds(5))
+                    .untilAsserted(() -> assertThat(baseDir.resolve(id.toString())).doesNotExist());
+        }
+
         @TempDir
         Path baseDir;
 
@@ -1474,11 +1480,113 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void deleteJobdWritesDeletedMarker() throws JobNotFoundException {
+        void deleteJob_hidesJobImmediately() throws Exception {
             service.deleteJob(jobId);
 
-            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.DELETED);
-            assertThat(baseDir.resolve(jobId.toString())).exists();
+            assertThat(service.getJob(jobId)).isEmpty();
+            awaitRemoved(jobId);
+        }
+
+        @Test
+        void deleteJob_removesJobDirectoryInBackground() throws Exception {
+            service.deleteJob(jobId);
+
+            awaitRemoved(jobId);
+        }
+
+        @Test
+        void deleteJob_secondDelete_throwsJobNotFoundException() throws Exception {
+            service.deleteJob(jobId);
+
+            assertThatThrownBy(() -> service.deleteJob(jobId)).isInstanceOf(JobNotFoundException.class);
+            awaitRemoved(jobId);
+        }
+
+        @Test
+        void deleteJob_secondDeleteAfterRemoval_throwsJobNotFoundException() throws Exception {
+            service.deleteJob(jobId);
+            awaitRemoved(jobId);
+
+            assertThatThrownBy(() -> service.deleteJob(jobId)).isInstanceOf(JobNotFoundException.class);
+        }
+
+        @Test
+        void deleteJob_runningJob_lateUpdateDoesNotRecreateDirectory() throws Exception {
+            service.selectNextWorkUnit();
+            assertThat(service.getJob(jobId).orElseThrow().status()).isEqualTo(JobStatus.RUNNING_GET_COHORT);
+
+            service.deleteJob(jobId);
+            awaitRemoved(jobId);
+            service.onBatchProcessingSuccess(lateBatchResult(jobId));
+
+            assertThat(baseDir.resolve(jobId.toString())).doesNotExist();
+            assertThat(service.getJob(jobId)).isEmpty();
+        }
+
+        @Test
+        void lateBatchSuccess_whileDeletedJobIsStillRegistered_doesNotRecreateDirectory() throws Exception {
+            markDeleted(service, jobId);
+            Path jobDir = baseDir.resolve(jobId.toString());
+            try (Stream<Path> walk = Files.walk(jobDir)) {
+                for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+                    Files.delete(path);
+                }
+            }
+
+            service.onBatchProcessingSuccess(lateBatchResult(jobId));
+
+            assertThat(jobDir).doesNotExist();
+        }
+
+        /**
+         * A finished batch carrying diagnostics and a core bundle, so persisting it writes into the job directory.
+         */
+        static BatchResult lateBatchResult(UUID jobId) {
+            ResourceExtractionInfo rei = new ResourceExtractionInfo(
+                    Set.of("G1"),
+                    Map.of("Patient.name", Set.of(ExtractionId.fromRelativeUrl("r/rid-1")))
+            );
+            ExtractionResourceBundle coreBundle = new ExtractionResourceBundle(
+                    new ConcurrentHashMap<>(Map.of(ExtractionId.fromRelativeUrl("r/rid-1"), rei)),
+                    new ConcurrentHashMap<>()
+            );
+            BatchState batchState = BatchState.init();
+            batchState.finishNow(WorkUnitStatus.FINISHED);
+            return new BatchResult(jobId, batchState.batchId(), batchState,
+                    Optional.of(coreBundle), Optional.of(BatchDiagnostics.empty()), List.of());
+        }
+
+        @Test
+        void updateJob_deletedJob_skipsUpdateFunction() {
+            service.putJobForTest(service.getJob(jobId).orElseThrow().withStatus(JobStatus.DELETED));
+
+            Object result = service.updateJobAndReturn(jobId, job -> {
+                throw new AssertionError("update function must not run for a deleted job");
+            });
+
+            assertThat(result).isNull();
+        }
+
+        @Test
+        void removeDeletedJob_partialFailure_keepsDeletedMarker() throws Exception {
+            FileIo spyIo = spy(new DefaultFileIO());
+            JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
+                    new DiagnosticsStore(spyIo, MAPPER),
+                    new SimpleMeterRegistry());
+            spyService.init();
+            UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+            Path jobDir = baseDir.resolve(id.toString());
+            doThrow(new IOException("permission denied")).when(spyIo).deleteDir(jobDir.resolve("batches"));
+
+            spyService.deleteJob(id);
+            spyService.removeDeletedJob(id);
+
+            assertThat(jobDir.resolve("job.json")).exists();
+            JobPersistenceService reloaded = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER),
+                    new SimpleMeterRegistry());
+            reloaded.gcDeletedJobs();
+            assertThat(jobDir).doesNotExist();
         }
 
         @Test
@@ -1501,13 +1609,14 @@ class JobPersistenceServiceTest {
 
             doThrow(new IOException("disk full")).when(spyIo).newBufferedWriter(argThat(p -> p.toString().endsWith(".tmp")));
 
-            spyService.deleteJob(id);
+            assertThatThrownBy(() -> spyService.deleteJob(id)).isInstanceOf(IOException.class);
             assertThat(spyService.getJob(id)).isNotEmpty();
+            assertThat(baseDir.resolve(id.toString())).exists();
         }
 
         @Test
-        void gcDeletedJobs_removesDeletedDirectories() throws IOException, JobNotFoundException {
-            service.deleteJob(jobId);
+        void gcDeletedJobs_removesDeletedDirectories() {
+            markDeleted(service, jobId);
             assertThat(baseDir.resolve(jobId.toString())).exists();
 
             service.gcDeletedJobs();
@@ -1516,14 +1625,14 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void gcDeletedJobs_deleteDirFailure_doesNotThrow() throws IOException, JobNotFoundException {
+        void gcDeletedJobs_deleteDirFailure_doesNotThrow() throws IOException {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
                     new SimpleMeterRegistry());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
-            spyService.deleteJob(id);
+            markDeleted(spyService, id);
 
             doThrow(new IOException("permission denied")).when(spyIo).deleteDir(any());
 
@@ -1552,8 +1661,8 @@ class JobPersistenceServiceTest {
         }
 
         @Test
-        void init_doesNotLoadDeletedJobs() throws IOException, JobNotFoundException {
-            service.deleteJob(jobId);
+        void init_doesNotLoadDeletedJobs() throws IOException {
+            markDeleted(service, jobId);
 
             JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),

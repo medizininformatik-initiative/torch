@@ -38,6 +38,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -55,6 +56,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -195,41 +197,48 @@ public class JobPersistenceService {
      * Returns the in-memory job state (if present).
      *
      * @param jobId job id
-     * @return optional job
+     * @return optional job; empty for unknown and deleted jobs
      */
     public Optional<Job> getJob(UUID jobId) {
-        return Optional.ofNullable(jobRegistry.get(jobId));
+        return Optional.ofNullable(jobRegistry.get(jobId))
+                .filter(job -> job.status() != JobStatus.DELETED);
     }
 
 
     /**
-     * Marks a job as deleted to be removed from the registry by GC.
+     * Marks a job as deleted and starts removing its directory in the background.
      *
-     * <p>The {@link JobStatus#DELETED} marker is written to disk before the job is removed
-     * from the in-memory registry. This ensures that a concurrent job update cannot resurrect
-     * the job after deletion, and that the job is not reloaded on the next TORCH startup even
-     * if the GC sweep has not yet run. The actual removal of the job directory is handled
-     * asynchronously by {@link #gcDeletedJobs()}.</p>
+     * <p>The {@link JobStatus#DELETED} marker is written to disk first. From then on the job is hidden from
+     * {@link #getJob} and {@link #findJobs}, ignored by job updates, and not reloaded on the next TORCH startup.
+     * The directory is then removed asynchronously on {@link Schedulers#boundedElastic()}; if that fails,
+     * {@link #gcDeletedJobs()} retries it.</p>
      *
      * @param jobId job id
-     * @throws JobNotFoundException if Job is unknown to the registry
+     * @throws JobNotFoundException if the job is unknown or already deleted
+     * @throws IOException          if the deletion marker could not be written; the job is left unchanged
      */
-    public void deleteJob(UUID jobId) throws JobNotFoundException {
-        Job deleted = updateJobAndReturn(jobId, job -> {
-            Job d = job.delete();
-            return new JobAndResult<>(d, d);
-        });
-        if (deleted == null) throw new JobNotFoundException(jobId);
-        logger.info("Marked job {} as deleted – directory will be removed by GC", jobId);
+    public void deleteJob(UUID jobId) throws JobNotFoundException, IOException {
+        UpdateOutcome<Void> outcome = updateJob(jobId, job -> new JobAndResult<>(job.delete(), null), (current, e) -> current);
+        if (outcome instanceof UpdateOutcome.Skipped<Void>) {
+            throw new JobNotFoundException(jobId);
+        }
+        if (outcome instanceof UpdateOutcome.PersistFailed<Void> failed) {
+            throw new IOException("Failed to delete job " + jobId, failed.cause());
+        }
+        logger.info("Marked job {} as deleted", jobId);
+        Schedulers.boundedElastic().schedule(() -> removeDeletedJob(jobId));
     }
 
     /**
      * Removes directories of deleted jobs from disk.
      *
-     * <p>Runs on a fixed delay. Directories of jobs marked {@link JobStatus#DELETED}
-     * are removed; failures are logged and retried on the next sweep.</p>
+     * <p>Runs at startup and then on a fixed delay. Retries removals that failed after
+     * {@link #deleteJob(UUID)}, and cleans up jobs marked {@link JobStatus#DELETED} before a restart.</p>
+     *
+     * <p>Each run reads and parses the {@code job.json} of every job directory, so its cost grows with the number
+     * of jobs kept in the results directory.</p>
      */
-    @Scheduled(fixedDelayString = "${torch.gc.job-deletion-delay-ms:86400000}")
+    @Scheduled(fixedDelayString = "${torch.gc.job-deletion-delay-ms:300000}")
     void gcDeletedJobs() {
         List<Job> jobs;
         try {
@@ -238,16 +247,38 @@ public class JobPersistenceService {
             logger.warn("GC: failed to list job directories: {}", e.getMessage(), e);
             return;
         }
-        for (Job job : jobs) {
-            if (job.status() == JobStatus.DELETED) {
-                try {
-                    io.deleteDir(jobDir(job.id()));
-                    logger.info("GC: removed job directory from file system {}", job.id());
-                    jobRegistry.remove(job.id());
-                } catch (IOException e) {
-                    logger.warn("GC: failed to delete job directory {}: {}", job.id(), e.getMessage(), e);
+        jobs.stream()
+                .filter(job -> job.status() == JobStatus.DELETED)
+                .forEach(job -> removeDeletedJob(job.id()));
+    }
+
+    /**
+     * Removes the directory of a deleted job and then drops the job from the registry.
+     *
+     * <p>{@code job.json}, which holds the deletion marker, is removed last, so a partial failure leaves a
+     * directory that {@link #gcDeletedJobs()} still recognizes as deleted. Failures are logged, not thrown.</p>
+     *
+     * @param jobId id of a job marked {@link JobStatus#DELETED}
+     */
+    void removeDeletedJob(UUID jobId) {
+        Path dir = jobDir(jobId);
+        try {
+            if (io.exists(dir)) {
+                Path jobFile = dir.resolve(JOB_FILE_NAME);
+                List<Path> children;
+                try (Stream<Path> listed = io.list(dir)) {
+                    children = listed.filter(child -> !child.equals(jobFile)).toList();
                 }
+                for (Path child : children) {
+                    io.deleteDir(child);
+                }
+                io.deleteDir(dir);
             }
+            jobRegistry.remove(jobId);
+            logger.info("Removed result files of deleted job {}", jobId);
+        } catch (IOException e) {
+            logger.warn("Failed to remove result files of deleted job {}, will retry on the next GC run: {}",
+                    jobId, e.getMessage(), e);
         }
     }
 
@@ -630,25 +661,53 @@ public class JobPersistenceService {
      * Atomically updates a job in the registry and persists {@code job.json}
      * if the job changed by applying the function fn to the job.
      * <p>
+     * Deleted jobs are skipped: {@code fn} is not applied, so no state or files are written for them.
+     * If persisting fails, the job is marked failed in memory.
+     * <p>
      * Package private for testing
      *
      * @param jobId job id
      * @param fn    update function
      * @param <T>   result type
-     * @return result or {@code null} if update/persist failed
+     * @return result of {@code fn} (also when persisting failed), or {@code null} if the job is unknown or deleted
      */
     <T> T updateJobAndReturn(UUID jobId, JobUpdate<T> fn) {
+        return switch (updateJob(jobId, fn, (current, e) -> current.onJobError(e, List.of()))) {
+            case UpdateOutcome.Updated<T> updated -> updated.result();
+            case UpdateOutcome.PersistFailed<T> failed -> failed.result();
+            case UpdateOutcome.Skipped<T>() -> null;
+        };
+    }
+
+    /**
+     * Atomically applies {@code fn} to a job and persists {@code job.json} if the job changed.
+     * <p>
+     * Unknown and deleted jobs are skipped without applying {@code fn}. An {@link IOException} thrown by {@code fn}
+     * marks the job failed. If persisting fails, the registry keeps {@code onPersistFailure(current, cause)}.
+     *
+     * @param jobId            job id
+     * @param fn               update function
+     * @param onPersistFailure job to keep in the registry when {@code job.json} could not be written
+     * @param <T>              result type
+     * @return what happened to the job
+     */
+    private <T> UpdateOutcome<T> updateJob(UUID jobId, JobUpdate<T> fn,
+                                           BiFunction<Job, IOException, Job> onPersistFailure) {
         requireNonNull(jobId);
         requireNonNull(fn);
 
-        AtomicReference<T> resultRef = new AtomicReference<>();
+        AtomicReference<UpdateOutcome<T>> outcome = new AtomicReference<>(new UpdateOutcome.Skipped<>());
 
         jobRegistry.computeIfPresent(jobId, (id, current) -> {
+            if (current.status() == JobStatus.DELETED) {
+                return current;
+            }
             Job updatedJob;
+            T result;
             try {
                 JobAndResult<T> jr = fn.apply(current);
                 updatedJob = jr.job();
-                resultRef.set(jr.result());
+                result = jr.result();
             } catch (IOException e) {
                 Issue issue = Issue.fromException(
                         Severity.ERROR,
@@ -656,26 +715,30 @@ public class JobPersistenceService {
                         e
                 );
                 updatedJob = current.onJobError(e, List.of(issue));
+                result = null;
             }
             if (current.equals(updatedJob)) {
+                outcome.set(new UpdateOutcome.Updated<>(result));
                 return current;
             }
             try {
                 Job saved = saveJob(updatedJob.incrementVersion());
                 // If the caller set result == job, replace it with the version-incremented saved job
-                if (resultRef.get() == updatedJob) {
+                if (result == updatedJob) {
                     @SuppressWarnings("unchecked")
                     T savedAsT = (T) saved;
-                    resultRef.set(savedAsT);
+                    result = savedAsT;
                 }
+                outcome.set(new UpdateOutcome.Updated<>(result));
                 return saved;
             } catch (IOException e) {
                 logger.error("Failed to save job.json for {}: {}", id, e.getMessage(), e);
-                return current.onJobError(e, List.of());
+                outcome.set(new UpdateOutcome.PersistFailed<>(result, e));
+                return onPersistFailure.apply(current, e);
             }
         });
 
-        return resultRef.get();
+        return outcome.get();
     }
 
     private void initJob(Job initialJob) throws IOException {
@@ -825,6 +888,21 @@ public class JobPersistenceService {
     record JobAndResult<T>(Job job, T result) {
         JobAndResult {
             requireNonNull(job);
+        }
+    }
+
+    /**
+     * Outcome of {@link #updateJob}: the update was applied, the job was unknown or deleted, or {@code job.json}
+     * could not be written.
+     */
+    sealed interface UpdateOutcome<T> {
+        record Updated<T>(T result) implements UpdateOutcome<T> {
+        }
+
+        record Skipped<T>() implements UpdateOutcome<T> {
+        }
+
+        record PersistFailed<T>(T result, IOException cause) implements UpdateOutcome<T> {
         }
     }
 

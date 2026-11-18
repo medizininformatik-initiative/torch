@@ -27,7 +27,9 @@ import static java.util.Objects.requireNonNull;
 /**
  * Manages persistence of extraction results as NDJSON files.
  * <p>
- * Each job gets its own result directory under the configured base directory.
+ * Each job gets its own result directory under the configured base directory. The directory is created once
+ * when the job is created and never recreated here, so a write for a deleted job fails instead of bringing
+ * its result data back.
  * Patient batches and the final merged core bundle are written in NDJSON format
  * using the provided {@link FhirContext} for serialization.
  */
@@ -83,7 +85,7 @@ public class ResultFileManager {
      *
      * @param jobId the job id.
      * @param batch the patient batch to persist.
-     * @throws IOException if the output directory cannot be created or the file cannot be written.
+     * @throws IOException if the file cannot be written, including when the job directory no longer exists.
      */
     public void saveBatchToNDJSON(String jobId, ExtractionPatientBatch batch) throws IOException {
         requireNonNull(jobId);
@@ -95,7 +97,6 @@ public class ResultFileManager {
         }
 
         Path resultDir = getJobDirectory(jobId);
-        fileIo.createDirectories(resultDir);
 
         Path target = resultDir.resolve(batch.id() + NDJSON);
         Path tmp = resultDir.resolve(batch.id() + "-" + NDJSON + ".tmp");
@@ -119,7 +120,7 @@ public class ResultFileManager {
      * @param jobId        the job id.
      * @param batchId      the batch id.
      * @param consentAudit the collected consent audit entries for the batch.
-     * @throws IOException if the output directory cannot be created or the file cannot be written.
+     * @throws IOException if the file cannot be written, including when the job directory no longer exists.
      */
     public void saveConsentBatchToNDJSON(String jobId, UUID batchId, ConsentAudit consentAudit) throws IOException {
         requireNonNull(jobId);
@@ -132,7 +133,6 @@ public class ResultFileManager {
         }
 
         Path resultDir = getJobDirectory(jobId);
-        fileIo.createDirectories(resultDir);
 
         Path target = resultDir.resolve(batchId + CONSENT_NDJSON);
         Path tmp = resultDir.resolve(batchId + CONSENT_NDJSON + ".tmp");
@@ -168,14 +168,13 @@ public class ResultFileManager {
      *
      * @param jobId  the job id.
      * @param bundle the merged extraction bundle.
-     * @throws IOException if the output directory cannot be created or the file cannot be written.
+     * @throws IOException if the file cannot be written, including when the job directory no longer exists.
      */
     public void saveCoreBundleToNDJSON(String jobId, ExtractionResourceBundle bundle) throws IOException {
         requireNonNull(jobId);
         requireNonNull(bundle);
 
         Path resultDir = getJobDirectory(jobId);
-        fileIo.createDirectories(resultDir);
 
         if (bundle.isEmpty()) {
             logger.debug("Skipping core bundle for job {}, since it is empty", jobId);
