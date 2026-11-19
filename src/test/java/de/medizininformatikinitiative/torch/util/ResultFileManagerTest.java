@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.eq;
@@ -48,6 +49,7 @@ class ResultFileManagerTest {
             return null;
         }).when(bundle).writeToFhirBundle(eq(ctx), any(Writer.class), eq("jobX"));
 
+        Files.createDirectories(tempDir.resolve("jobX"));
         manager.saveCoreBundleToNDJSON("jobX", bundle);
 
         Path ndjson = tempDir.resolve("jobX").resolve("core.ndjson");
@@ -104,6 +106,7 @@ class ResultFileManagerTest {
             return null;
         }).when(batch).writeToFhirBundles(eq(ctx), any(Writer.class), eq("jobY"));
 
+        Files.createDirectories(tempDir.resolve("jobY"));
         manager.saveBatchToNDJSON("jobY", batch);
 
         Path ndjson = tempDir.resolve("jobY").resolve(batchId + ".ndjson");
@@ -142,6 +145,7 @@ class ResultFileManagerTest {
         consent2.setId("consent-2");
         audit.add("patient-2", consent2);
 
+        Files.createDirectories(tempDir.resolve("jobZ"));
         manager.saveConsentBatchToNDJSON("jobZ", batchId, audit);
 
         Path ndjson = tempDir.resolve("jobZ").resolve(batchId + "_consent.ndjson");
@@ -169,9 +173,45 @@ class ResultFileManagerTest {
         ConsentAudit audit = ConsentAudit.empty();
         audit.add("patient-1", new Consent().setId("consent-1"));
 
+        Files.createDirectories(tempDir.resolve("jobZ"));
         manager.saveConsentBatchToNDJSON("jobZ", writtenBatchId, audit);
 
         assertThat(manager.consentAuditExists("jobZ", writtenBatchId)).isTrue();
         assertThat(manager.consentAuditExists("jobZ", missingBatchId)).isFalse();
+    }
+
+    @Test
+    void saveCoreBundleToNDJSON_missingJobDirectory_failsWithoutRecreatingIt() {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+        ExtractionResourceBundle bundle = mock(ExtractionResourceBundle.class);
+        when(bundle.isEmpty()).thenReturn(false);
+
+        assertThatThrownBy(() -> manager.saveCoreBundleToNDJSON("deletedJob", bundle)).isInstanceOf(IOException.class);
+        assertThat(tempDir.resolve("deletedJob")).doesNotExist();
+    }
+
+    @Test
+    void saveBatchToNDJSON_missingJobDirectory_failsWithoutRecreatingIt() {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+        ExtractionPatientBatch batch = mock(ExtractionPatientBatch.class);
+        when(batch.isEmpty()).thenReturn(false);
+        when(batch.id()).thenReturn(UUID.randomUUID());
+
+        assertThatThrownBy(() -> manager.saveBatchToNDJSON("deletedJob", batch)).isInstanceOf(IOException.class);
+        assertThat(tempDir.resolve("deletedJob")).doesNotExist();
+    }
+
+    @Test
+    void saveConsentBatchToNDJSON_missingJobDirectory_failsWithoutRecreatingIt() {
+        FhirContext ctx = FhirContext.forR4();
+        ResultFileManager manager = new ResultFileManager(tempDir.toString(), ctx, new DefaultFileIO());
+        ConsentAudit audit = ConsentAudit.empty();
+        audit.add("patient-1", new Consent().setId("consent-1"));
+
+        assertThatThrownBy(() -> manager.saveConsentBatchToNDJSON("deletedJob", UUID.randomUUID(), audit))
+                .isInstanceOf(IOException.class);
+        assertThat(tempDir.resolve("deletedJob")).doesNotExist();
     }
 }

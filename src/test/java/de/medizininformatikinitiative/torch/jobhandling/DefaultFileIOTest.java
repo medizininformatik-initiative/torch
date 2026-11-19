@@ -6,8 +6,10 @@ import org.junit.jupiter.api.io.TempDir;
 import org.mockito.MockedStatic;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.util.stream.Stream;
@@ -127,6 +129,23 @@ class DefaultFileIOTest {
                         .isSameAs(failure);
 
                 files.verify(() -> Files.deleteIfExists(file));
+            }
+        }
+
+        @Test
+        void deleteDir_unwrapsUncheckedIOException_whenWalkFails(@TempDir Path dir) throws Exception {
+            Path root = dir.resolve("root");
+            IOException failure = new NoSuchFileException(root.resolve("vanished").toString());
+            Stream<Path> walk = Stream.of(root).map(p -> {
+                throw new UncheckedIOException(failure);
+            });
+
+            try (MockedStatic<Files> files = mockStatic(Files.class)) {
+                files.when(() -> Files.exists(root)).thenReturn(true);
+                files.when(() -> Files.walk(root)).thenReturn(walk);
+
+                assertThatThrownBy(() -> io.deleteDir(root))
+                        .isSameAs(failure);
             }
         }
 
