@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mvn -P download-ontology -B package -DskipTests)",
+      "Bash(mvn -P download-ontology -B verify)",
+      "Bash(gh issue view:*)"
+    ]
+  },
+  "attribution": {
+    "commit": "",
+    "pr": "",
+    "sessionUrl": false
+  }
+}

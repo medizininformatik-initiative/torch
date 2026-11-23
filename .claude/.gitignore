@@ -1,0 +1,5 @@
+# Claude Code local state. Only the shared settings and skills are committed.
+/*
+!/.gitignore
+!/settings.json
+!/skills/

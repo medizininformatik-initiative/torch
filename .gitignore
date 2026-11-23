@@ -23,3 +23,6 @@ fhirpkg.lock.json
 exec-crtdl.sh
 /ignoredByGit/
 docs/drawio/consent/.*.bkp
+
+# Personal agent instructions
+CLAUDE.local.md
