@@ -26,7 +26,7 @@ services:
           memory: 2G
 
   flare:
-    image: ghcr.io/medizininformatik-initiative/flare:develop
+    image: ghcr.io/medizininformatik-initiative/flare:develop@sha256:282a3ba3d0cc1c7723eb26f70763f085fbabb1d3fe83e47faef4536806be5cac
     environment:
       LOG_LEVEL: debug
       FLARE_FHIR_SERVER: http://blaze:8080/fhir
@@ -69,7 +69,7 @@ services:
 
   nginx:
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged:1.25.5-alpine
+    image: nginxinc/nginx-unprivileged:1.25.5-alpine@sha256:8265b1df5a89cc1a0a067e472bf47aca7cee52f0561c98a0dff91312dcdd8adb
     ports:
       - "8080"
     volumes:
