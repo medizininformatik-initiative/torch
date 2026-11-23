@@ -25,7 +25,7 @@ services:
 
   nginx:
     restart: unless-stopped
-    image: nginxinc/nginx-unprivileged:1.25.5-alpine
+    image: nginxinc/nginx-unprivileged:1.25.5-alpine@sha256:8265b1df5a89cc1a0a067e472bf47aca7cee52f0561c98a0dff91312dcdd8adb
     ports:
       - "8080"
     volumes:
