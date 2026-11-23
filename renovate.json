@@ -20,6 +20,16 @@
       "matchPackageNames": [
         "/ca.uhn.hapi.fhir/"
       ]
+    },
+    {
+      "description": "Temurin uses 3- and 4-part versions (e.g. 25.0.4_7, 25.0.5.1_2); docker versioning treats them as incompatible",
+      "matchDatasources": [
+        "docker"
+      ],
+      "matchPackageNames": [
+        "eclipse-temurin"
+      ],
+      "versioning": "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)(?:\\.(?<build>\\d+))?_(?<revision>\\d+)-(?<compatibility>.+)$"
     }
   ],
   "prConcurrentLimit": 3
