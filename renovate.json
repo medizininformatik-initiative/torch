@@ -5,6 +5,9 @@
     "helpers:pinGitHubActionDigests",
     "docker:pinDigests"
   ],
+  "ignorePresets": [
+    ":ignoreModulesAndTests"
+  ],
   "packageRules": [
     {
       "groupName": "jackson",
