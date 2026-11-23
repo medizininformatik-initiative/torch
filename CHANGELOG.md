@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.1.1] - 2026-11-23
+
+### Security
+
+- Update the Java runtime in the Torch Docker image to Eclipse Temurin JRE `25.0.5.1` to address CVE-2026-114938. [#1409](https://github.com/medizininformatik-initiative/torch/pull/1409)
+
+### Changed
+
+- Update HAPI FHIR Core to `7.0.6`. [#1399](https://github.com/medizininformatik-initiative/torch/pull/1399)
+- Update the OpenAPI UI to `3.2.1`. [#1411](https://github.com/medizininformatik-initiative/torch/pull/1411)
+- Update the UCUM library for units of measure to `1.0.11`. [#1410](https://github.com/medizininformatik-initiative/torch/pull/1410)
+
 ## [v1.1.0] - 2026-11-17
 
 ### Added
