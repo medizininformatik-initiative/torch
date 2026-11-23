@@ -22,7 +22,59 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     permissions:
-      actions: write          # Upload artifacts
+      actions: write  # Upload artifacts
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Cache Local Maven Repo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.m2/repository
+          key: build-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: build-maven-
+
+      - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
+
+      - name: Download Ontology, Build Without Tests
+        run: mvn -P download-ontology -B package -DskipTests
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
+
+      - name: Build and Export to Docker
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
+        with:
+          context: .
+          tags: torch:latest
+          outputs: type=docker,dest=/tmp/torch.tar
+
+      - name: Upload Torch Jar
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: torch-jar
+          path: target/torch.jar
+
+      - name: Upload Torch Image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: torch-image
+          path: /tmp/torch.tar
+
+  codeql:
+    runs-on: ubuntu-24.04
+    permissions:
+      actions: read           # Required by CodeQL
+      contents: read          # Check out repository
       security-events: write  # Upload CodeQL results
     steps:
       - name: Check out Git repository
@@ -39,6 +91,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: build-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: build-maven-
 
       - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
         with:
@@ -51,33 +104,15 @@ jobs:
           languages: java
           queries: security-and-quality
 
-      - name: Download Ontology, Build Without Tests
-        run: mvn -P download-ontology -B package -DskipTests
+      - name: Build Without Tests
+        run: mvn -B package -DskipTests
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4
-
-      - name: Build and Export to Docker
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7
-        with:
-          context: .
-          tags: torch:latest
-          outputs: type=docker,dest=/tmp/torch.tar
-                
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4
-
-      - name: Upload Torch Jar
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
-          name: torch-jar
-          path: target/torch.jar
-
-      - name: Upload Torch Image
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
-        with:
-          name: torch-image
-          path: /tmp/torch.tar
+          # Keep the category CodeQL had while it ran in the build job, so the existing
+          # code scanning configuration and its alerts carry over.
+          category: .github/workflows/build.yml:build
 
   image-scan:
     needs: build
@@ -134,6 +169,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: license-check-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: license-check-maven-
 
       - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
         with:
@@ -191,8 +227,7 @@ jobs:
       - name: Run docker-entrypoint shell tests
         run: bats src/test/shell/docker-entrypoint.bats
 
-  test:
-    needs: build
+  unit-tests:
     runs-on: ubuntu-24.04
     steps:
       - name: Check out Git repository
@@ -209,28 +244,92 @@ jobs:
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: tests-maven-
 
       - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
         with:
           servers: |
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
-      - name: Download Ontology and Run Tests
-        env:
-          TESTCONTAINERS_RYUK_DISABLED: "true"
-        run: mvn -P download-ontology -B verify
+      - name: Check Integration Test Shards
+        run: .github/scripts/check-it-shards.sh
+
+      - name: Download Ontology and Run Unit Tests
+        run: mvn -P download-ontology -B verify -DskipITs
 
       - name: Upload Coverage to Codecov
         uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
         with:
           files: target/site/jacoco/jacoco.xml
+          flags: unit
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+  integration-tests:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: consent
+            pattern: '**/consent/*IT'
+          - shard: service
+            pattern: '**/service/*IT'
+          - shard: other
+            pattern: 'FhirControllerIT,PrometheusEndpointIT,**/util/*IT'
+
+    name: integration-tests (${{ matrix.shard }})
+    steps:
+      - name: Check out Git repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
+        with:
+          distribution: 'temurin'
+          java-version: 21
+
+      - name: Cache Local Maven Repo
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
+        with:
+          path: ~/.m2/repository
+          key: tests-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: tests-maven-
+
+      - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
+        with:
+          servers: |
+            [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
+
+      - name: Download Ontology and Run Integration Tests
+        env:
+          TESTCONTAINERS_RYUK_DISABLED: "true"
+        run: >
+          mvn -P download-ontology -B verify
+          -DskipUTs=true
+          -Dit.test='${{ matrix.pattern }}'
+
+      - name: Upload Coverage to Codecov
+        uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7
+        with:
+          files: target/site/jacoco/jacoco.xml
+          flags: integration-${{ matrix.shard }}
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
   blackbox-integration-tests:
     needs: build
     runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - shard: performance
+            pattern: 'CdsPerformanceBlackBoxIT'
+          - shard: other
+            pattern: '*BlackBoxIT,!CdsPerformanceBlackBoxIT'
 
+    name: blackbox-integration-tests (${{ matrix.shard }})
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -256,6 +355,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: tests-maven-
 
       - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
         with:
@@ -263,7 +363,7 @@ jobs:
             [{"id": "mii", "username": "${{ github.actor }}", "password": "${{ secrets.GITHUB_TOKEN }}"}]
 
       - name: Run Blackbox Integration Tests
-        run: mvn -P blackbox-integration-tests -B verify
+        run: mvn -P blackbox-integration-tests -B verify -Dit.test='${{ matrix.pattern }}'
 
   performance-integration-test:
     needs: build
@@ -519,7 +619,9 @@ jobs:
 
   push-image:
     needs:
-      - test
+      - codeql
+      - unit-tests
+      - integration-tests
       - image-scan
       - blackbox-integration-tests
       - script-integration-test
@@ -551,6 +653,7 @@ jobs:
         with:
           path: ~/.m2/repository
           key: tests-maven-${{ hashFiles('pom.xml') }}
+          restore-keys: tests-maven-
 
       - uses: s4u/maven-settings-action@4cfd36368400327fd45dcb28f190ae7b85533deb # v4.1.0
         with:

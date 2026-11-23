@@ -1,0 +1,14 @@
+# Coverage is uploaded by 4 CI jobs: unit-tests + 3 integration-tests shards (build.yml).
+# Keep after_n_builds equal to that number, or Codecov reports partial coverage / waits forever.
+codecov:
+  notify:
+    after_n_builds: 4
+comment:
+  after_n_builds: 4
+# Codecov merges the per-job JaCoCo reports per line, without knowing which branches each covered,
+# so a line whose branches are covered by different jobs counts as partial. Tolerate that small drop.
+coverage:
+  status:
+    project:
+      default:
+        threshold: 0.1%
