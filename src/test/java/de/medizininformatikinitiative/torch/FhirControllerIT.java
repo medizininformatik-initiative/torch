@@ -69,7 +69,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 @SpringBootTest(
         properties = {"spring.main.allow-bean-definition-overriding=true"},
-        classes = Torch.class,
         webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT
 )
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
