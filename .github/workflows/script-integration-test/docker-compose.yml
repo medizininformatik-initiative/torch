@@ -14,6 +14,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+      start_interval: 2s
 
   target-fhir-server:
     container_name: target-fhir-server
@@ -30,6 +31,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+      start_interval: 2s
   torch:
     container_name: torch
     restart: unless-stopped

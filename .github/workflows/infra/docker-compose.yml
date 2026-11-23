@@ -14,6 +14,7 @@ services:
       timeout: 10s
       retries: 5
       start_period: 40s
+      start_interval: 2s
   torch:
     container_name: torch
     restart: unless-stopped
@@ -42,6 +43,7 @@ services:
       timeout: 5s
       retries: 12
       start_period: 5s
+      start_interval: 2s
     container_name: nginx
     depends_on:
       - torch
