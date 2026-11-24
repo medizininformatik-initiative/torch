@@ -1,7 +1,7 @@
 services:
   # many of the settings are set to get Blaze as slow as possible
   blaze:
-    image: samply/blaze:1.4.2@sha256:c5388a0ab18c6cb6686444f97273a2ab75b1908471bd9259c5463312c65aed3b
+    image: samply/blaze:1.14.0@sha256:a63809007496d26664e875e20baa1cc2f438b1370feb66542e732babc92c747a
     environment:
       BASE_URL: http://blaze:8080
       LOG_LEVEL: debug
