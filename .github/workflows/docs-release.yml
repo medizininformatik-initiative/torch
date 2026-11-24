@@ -14,7 +14,7 @@ permissions: read-all
 
 jobs:
   tags:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     outputs:
       tags: ${{ steps.tags.outputs.tags }}
     steps:
@@ -32,7 +32,7 @@ jobs:
   # deploy job, which runs no build tooling, can push to gh-pages.
   build:
     needs: tags
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
     strategy:
@@ -100,7 +100,7 @@ jobs:
 
   deploy:
     needs: [ tags, build ]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Serialize all gh-pages pushes globally, shared with docs.yml.
     concurrency:
       group: docs-deploy
