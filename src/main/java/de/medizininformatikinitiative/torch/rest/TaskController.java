@@ -210,6 +210,8 @@ public class TaskController {
                                                           { "url": "batchSize", "valueInteger": 500 },
                                                           { "url": "batchesTotal", "valueInteger": 3 },
                                                           { "url": "batchesCompleted", "valueInteger": 1 },
+                                                          { "url": "totalProgress", "valueDecimal": 25.0 },
+                                                          { "url": "coreStatus", "valueString": "INIT" },
                                                           {
                                                             "url": "activeBatch",
                                                             "extension": [
@@ -317,6 +319,8 @@ public class TaskController {
                                                     { "url": "batchSize", "valueInteger": 500 },
                                                     { "url": "batchesTotal", "valueInteger": 3 },
                                                     { "url": "batchesCompleted", "valueInteger": 1 },
+                                                    { "url": "totalProgress", "valueDecimal": 25.0 },
+                                                    { "url": "coreStatus", "valueString": "INIT" },
                                                     {
                                                       "url": "activeBatch",
                                                       "extension": [

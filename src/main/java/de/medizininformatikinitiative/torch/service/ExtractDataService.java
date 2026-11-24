@@ -303,16 +303,21 @@ public class ExtractDataService {
         BatchDiagnostics diagnostics = BatchDiagnostics.empty();
         RedactionIssues redactionIssues = new RedactionIssues();
 
+        batchProgressRegistry.enter(job.id(), PipelineStage.DIRECT_LOAD);
         return executeAndMeasureAsync(PipelineStage.DIRECT_LOAD, diagnostics, () ->
                 directResourceLoader.processCoreAttributeGroups(
                         groupsToProcess.directNoPatientGroups(),
                         new ResourceBundle(),
                         diagnostics.batchExclusions()
                 ))
-                .flatMap(cb -> executeAndMeasureAsync(PipelineStage.REFERENCE_RESOLVE, diagnostics, () ->
-                        referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions())))
+                .flatMap(cb -> {
+                    batchProgressRegistry.enter(job.id(), PipelineStage.REFERENCE_RESOLVE);
+                    return executeAndMeasureAsync(PipelineStage.REFERENCE_RESOLVE, diagnostics, () ->
+                            referenceResolver.resolveCoreBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions()));
+                })
                 .flatMap(cb -> {
                     logger.debug("Running final cascading delete on core bundle");
+                    batchProgressRegistry.enter(job.id(), PipelineStage.CASCADING_DELETE);
                     Set<ResourceGroup> newlyInvalidatedGroups = executeAndMeasure(PipelineStage.CASCADING_DELETE, diagnostics,
                             () -> cascadingDelete.handleBundle(cb, groupsToProcess.allGroups()));
                     newlyInvalidatedGroups.forEach(group -> diagnostics.batchExclusions()
@@ -339,6 +344,7 @@ public class ExtractDataService {
                             .then(Mono.just(merged));
                 })
                 .flatMap(cb -> {
+                    batchProgressRegistry.enter(job.id(), PipelineStage.COPY_REDACT);
                     ExtractionResourceBundle transformed = executeAndMeasure(PipelineStage.COPY_REDACT, diagnostics, () ->
                                     batchCopierRedacter.transformBundle(cb, groupsToProcess.allGroups(), diagnostics.batchExclusions(), redactionIssues));
                     recordResourceInclusions(diagnostics, transformed.resourceInclusionCounts());
@@ -352,6 +358,7 @@ public class ExtractDataService {
                             .thenReturn(new CoreResult(job.id(), redactionIssues.toIssues(), WorkUnitStatus.FINISHED,
                                     Optional.of(diagnostics)));
                 })
+                .doFinally(signal -> batchProgressRegistry.clear(job.id()))
                 .subscribeOn(Schedulers.boundedElastic());
     }
 

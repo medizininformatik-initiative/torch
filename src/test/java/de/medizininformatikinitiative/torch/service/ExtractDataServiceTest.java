@@ -781,6 +781,11 @@ class ExtractDataServiceTest {
                     .verifyComplete();
 
             verify(spyService).writeBundle(jobId.toString(), transformed);
+            verify(batchProgressRegistry).enter(jobId, PipelineStage.DIRECT_LOAD);
+            verify(batchProgressRegistry).enter(jobId, PipelineStage.REFERENCE_RESOLVE);
+            verify(batchProgressRegistry).enter(jobId, PipelineStage.CASCADING_DELETE);
+            verify(batchProgressRegistry).enter(jobId, PipelineStage.COPY_REDACT);
+            verify(batchProgressRegistry, timeout(1000)).clear(jobId);
         }
 
         @Test
@@ -883,6 +888,7 @@ class ExtractDataServiceTest {
             verify(postCascadeMustHaveChecker).validate(rb, directNoPatientGroups);
             verify(spyService, never()).writeBundle(anyString(), any());
             verifyNoInteractions(dataStore);
+            verify(batchProgressRegistry, timeout(1000)).clear(jobId);
         }
 
         @Test

@@ -8,11 +8,12 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Tracks which {@link PipelineStage} each currently in-progress batch is executing, so that
- * mid-run progress can be reported (e.g. via the Task API) without waiting for a batch to finish.
+ * Tracks which {@link PipelineStage} each currently in-progress batch or core is executing, so
+ * that mid-run progress can be reported (e.g. via the Task API) without waiting for it to finish.
+ * Batches are keyed by batch id, the core by its job id.
  *
- * <p>An entry is written each time a batch enters a stage and removed once its processing
- * attempt terminates, so a retried batch never reports a stage left over from a previous
+ * <p>An entry is written each time a work unit enters a stage and removed once its processing
+ * attempt terminates, so a retried work unit never reports a stage left over from a previous
  * attempt.
  */
 @Component

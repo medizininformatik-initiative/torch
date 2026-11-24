@@ -1,15 +1,21 @@
 package de.medizininformatikinitiative.torch.management;
 
+import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
+import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.Job;
 import de.medizininformatikinitiative.torch.jobhandling.JobParameters;
 import de.medizininformatikinitiative.torch.jobhandling.JobStatus;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Issue;
 import de.medizininformatikinitiative.torch.jobhandling.failure.Severity;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitState;
+import de.medizininformatikinitiative.torch.jobhandling.workunit.WorkUnitStatus;
 import org.hl7.fhir.r4.model.OperationOutcome;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -97,7 +103,7 @@ class OperationOutcomeCreatorTest {
 
             Job j = job(id, JobStatus.FAILED, issues);
 
-            OperationOutcome oo = OperationOutcomeCreator.fromJob(j);
+            OperationOutcome oo = OperationOutcomeCreator.fromJob(j, Optional.empty());
 
             // 5 mapped + 1 summary
             assertThat(oo.getIssue()).hasSize(6);
@@ -129,7 +135,9 @@ class OperationOutcomeCreatorTest {
             assertThat(summary.getDiagnostics())
                     .contains("Job " + id)
                     .contains("status: " + JobStatus.FAILED)
-                    .contains("batch progress: ")
+                    .contains("total progress: 0.0%")
+                    .contains("batches: 0/0")
+                    .contains("core: INIT")
                     .contains("cohort Size: 0");
         }
 
@@ -142,7 +150,7 @@ class OperationOutcomeCreatorTest {
                     JobStatus.PENDING,
                     List.of(issue(Severity.ERROR, "Something failed", "details"))
             );
-            OperationOutcome oo1 = OperationOutcomeCreator.fromJob(withDetails);
+            OperationOutcome oo1 = OperationOutcomeCreator.fromJob(withDetails, Optional.empty());
 
             assertThat(oo1.getIssueFirstRep().getDiagnostics())
                     .isEqualTo("Something failed :: details");
@@ -152,10 +160,40 @@ class OperationOutcomeCreatorTest {
                     JobStatus.PENDING,
                     List.of(issue(Severity.ERROR, "Something failed", ""))
             );
-            OperationOutcome oo2 = OperationOutcomeCreator.fromJob(withoutDetails);
+            OperationOutcome oo2 = OperationOutcomeCreator.fromJob(withoutDetails, Optional.empty());
 
             assertThat(oo2.getIssueFirstRep().getDiagnostics())
                     .isEqualTo("Something failed");
+        }
+
+        @Test
+        void fromJob_whileCoreRuns_reportsTotalProgressAndCoreStage() {
+            UUID id = UUID.randomUUID();
+            UUID batchId = UUID.randomUUID();
+            Job j = Job.init(id, mock(JobParameters.class))
+                    .initBatches(Map.of(batchId, new BatchState(batchId, WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED))), 7)
+                    .withStatus(JobStatus.RUNNING_PROCESS_CORE)
+                    .withCoreState(WorkUnitState.startNow());
+
+            OperationOutcome oo = OperationOutcomeCreator.fromJob(j, Optional.of(PipelineStage.REFERENCE_RESOLVE));
+
+            assertThat(oo.getIssueFirstRep().getDiagnostics()).isEqualTo("""
+                    Job %s
+                     status: RUNNING_PROCESS_CORE
+                     total progress: 50.0%%
+                     batches: 1/1
+                     core: IN_PROGRESS (REFERENCE_RESOLVE)
+                     cohort Size: 7""".formatted(id));
+        }
+
+        @Test
+        void fromJob_omitsCoreStage_whenCoreNotInProgress() {
+            Job j = Job.init(UUID.randomUUID(), mock(JobParameters.class))
+                    .withCoreState(WorkUnitState.initNow().finishNow(WorkUnitStatus.FINISHED));
+
+            OperationOutcome oo = OperationOutcomeCreator.fromJob(j, Optional.of(PipelineStage.COPY_REDACT));
+
+            assertThat(oo.getIssueFirstRep().getDiagnostics()).contains("core: FINISHED\n");
         }
     }
 }
