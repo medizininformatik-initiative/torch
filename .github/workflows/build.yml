@@ -31,7 +31,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -84,7 +84,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -162,7 +162,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -237,7 +237,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -287,7 +287,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -348,7 +348,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
@@ -646,7 +646,7 @@ jobs:
         uses: actions/setup-java@d1374f8ac74474200d16ef8ecee22c7ae7a51880 # v6
         with:
           distribution: 'temurin'
-          java-version: 21
+          java-version: 25
 
       - name: Cache Local Maven Repo
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6
