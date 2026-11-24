@@ -20,7 +20,7 @@ permissions: read-all
 jobs:
   build-pages:
     if: github.event.action != 'closed'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     concurrency:
       group: docs-build-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
       cancel-in-progress: true
@@ -63,7 +63,7 @@ jobs:
   deploy-pages:
     needs: build-pages
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' || github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Serialize all gh-pages pushes globally to prevent concurrent-push conflicts
     concurrency:
       group: docs-deploy
@@ -130,7 +130,7 @@ jobs:
             }
 
   cleanup-preview-page:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
     concurrency:
       group: docs-deploy

@@ -20,7 +20,7 @@ concurrency:
 
 jobs:
   build:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       actions: write  # Upload artifacts
     steps:
@@ -71,7 +71,7 @@ jobs:
           path: /tmp/torch.tar
 
   codeql:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       actions: read           # Required by CodeQL
       contents: read          # Check out repository
@@ -116,7 +116,7 @@ jobs:
 
   image-scan:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       security-events: write  # Upload Trivy SARIF results
     steps:
@@ -151,7 +151,7 @@ jobs:
           sarif_file: trivy-results.sarif
 
   license-check:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       actions: write  # Upload artifacts
     steps:
@@ -216,7 +216,7 @@ jobs:
           path: DEPENDENCIES
 
   shell-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Check out Git repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -228,7 +228,7 @@ jobs:
         run: bats src/test/shell/docker-entrypoint.bats
 
   unit-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Check out Git repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -266,7 +266,7 @@ jobs:
           fail_ci_if_error: true
 
   integration-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -319,7 +319,7 @@ jobs:
 
   blackbox-integration-tests:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -367,7 +367,7 @@ jobs:
 
   performance-integration-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -401,7 +401,7 @@ jobs:
   
   script-integration-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -455,7 +455,7 @@ jobs:
 
   evaluate-cohort-integration-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -478,7 +478,7 @@ jobs:
 
   fetch-diagnostics-integration-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -501,7 +501,7 @@ jobs:
 
   script-resumeability-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
 
     strategy:
       fail-fast: false
@@ -544,7 +544,7 @@ jobs:
   
   env-var-check:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Download Torch Image
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
@@ -569,7 +569,7 @@ jobs:
 
   task-api-integration-test:
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     strategy:
       fail-fast: false
       matrix:
@@ -631,7 +631,7 @@ jobs:
       - env-var-check
       - performance-integration-test
       - task-api-integration-test
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       packages: write  # Push to GitHub Container Registry
       id-token: write  # For Cosign signing
