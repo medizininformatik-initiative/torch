@@ -1,7 +1,7 @@
 services:
   # many of the settings are set to get Blaze as slow as possible
   blaze:
-    image: samply/blaze:1.14.0@sha256:a63809007496d26664e875e20baa1cc2f438b1370feb66542e732babc92c747a
+    image: samply/blaze:1.14.0@sha256:fdfc93c77458b26dbfbc2cdc2cef60e285ae3870253c6aa62b783999f15c7200
     environment:
       BASE_URL: http://blaze:8080
       LOG_LEVEL: debug
@@ -13,7 +13,7 @@ services:
     ports:
       - "8080"
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080/health" ]
+      test: [ "CMD", "wget", "--spider", "-q", "http://localhost:8080/health" ]
       interval: 30s
       timeout: 10s
       retries: 5
