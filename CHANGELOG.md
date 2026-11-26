@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
+## [v1.1.2] - 2026-11-26
+
+### Security
+
+- Update Spring Boot to `4.2.0` to address [CVE-2026-75595](https://nvd.nist.gov/vuln/detail/CVE-2026-75595) in Netty. [#1414](https://github.com/medizininformatik-initiative/torch/pull/1414)
+- Update HAPI FHIR to `9.0.0` to address [CVE-2026-102554](https://nvd.nist.gov/vuln/detail/CVE-2026-102554) in Guava. [#1433](https://github.com/medizininformatik-initiative/torch/pull/1433)
+
+### Added
+
+- Include a CycloneDX SBOM in the Torch jar. [#1385](https://github.com/medizininformatik-initiative/torch/pull/1385)
+
+### Changed
+
+- Update HAPI FHIR Core to `7.0.7`. [#1436](https://github.com/medizininformatik-initiative/torch/pull/1436)
+
+### Fixed
+
+- Remove deleted Tasks and their result files immediately. [#1394](https://github.com/medizininformatik-initiative/torch/pull/1394)
+- Exclude resources with an empty patient reference instead of failing the batch. [#1435](https://github.com/medizininformatik-initiative/torch/pull/1435)
+
 ## [v1.1.1] - 2026-11-23
 
 ### Security
