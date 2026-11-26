@@ -29,7 +29,7 @@ Diagnostics are recorded per batch in `BatchDiagnostics`: `BatchExclusions` coll
 - **CRTDL** (`model/crtdl/`) — JSON input with `cohortDefinition` (structured query) and `dataExtraction` (attribute groups per resource type). `CrtdlValidatorService` validates → `AnnotatedCrtdl`.
 - **AnnotatedCrtdl / AnnotatedAttributeGroup** — enriched CRTDL with StructureDefinition metadata resolved and attached; produced once at job creation, reused across all batches.
 - **StructureDefinitionHandler** — loads all FHIR StructureDefinition JSON from `ontology/structureDefinitions/` at startup.
-- **JobPersistenceService** — in-memory `ConcurrentHashMap` job registry backed by on-disk JSON (`output/<jobId>/job.json`); jobs recovered from disk on restart. On job completion `DiagnosticsStore` merges the per-batch diagnostics into `output/<jobId>/reports/`:
+- **JobPersistenceService** — in-memory `ConcurrentHashMap` job registry backed by on-disk JSON (`output/<jobId>/job.json`); jobs recovered from disk on restart. If the inclusion consent check is enabled, the inclusion criteria are translated once at job creation into `output/<jobId>/inclusion-queries.json` (kept out of `job.json`, which is rewritten on every update) and cached in memory per running job. On job completion `DiagnosticsStore` merges the per-batch diagnostics into `output/<jobId>/reports/`:
   - `patient-exclusions.csv`, `resource-exclusions.csv` — one row per excluded patient or resource.
   - `raw-provisions.csv`, `final-periods.csv`, `consent-considered-resources.csv`, `consent-conflicts.csv` — consent diagnostics.
   - `job-summary.json` — FHIR OperationOutcome with job-level totals, stage timings, and exclusion counts.

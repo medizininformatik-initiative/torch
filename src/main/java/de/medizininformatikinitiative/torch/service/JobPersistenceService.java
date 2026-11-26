@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.opencsv.exceptions.CsvValidationException;
@@ -8,6 +9,7 @@ import de.medizininformatikinitiative.torch.diagnostics.DiagnosticsStore;
 import de.medizininformatikinitiative.torch.diagnostics.JobDiagnosticSummary;
 import de.medizininformatikinitiative.torch.diagnostics.PipelineStage;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.exceptions.VersionConflictException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -27,6 +29,7 @@ import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.mapping.MappingException;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.MultiGauge;
@@ -42,6 +45,8 @@ import reactor.core.scheduler.Schedulers;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.UncheckedIOException;
 import java.io.Writer;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -70,6 +75,9 @@ public class JobPersistenceService {
     private static final String JOB_FILE_NAME = "job.json";
     private static final String BATCH_DIR_NAME = "batches";
     private static final String CORE_DIR_NAME = "core_batches";
+    private static final String INCLUSION_QUERIES_FILE_NAME = "inclusion-queries.json";
+    private static final TypeReference<List<List<OrQuery>>> INCLUSION_QUERIES_TYPE = new TypeReference<>() {
+    };
 
     private final FileIo io;
     private final ObjectMapper mapper;
@@ -79,6 +87,8 @@ public class JobPersistenceService {
 
     private final DiagnosticsStore diagnosticsStore;
     private final MultiGauge jobDurationGauge;
+    private final Optional<InclusionConsentChecker> inclusionConsentChecker;
+    private final Map<UUID, List<List<OrQuery>>> inclusionQueriesCache = new ConcurrentHashMap<>();
 
     public JobPersistenceService(
             FileIo io,
@@ -86,9 +96,11 @@ public class JobPersistenceService {
             @Value("${torch.results.dir}") String dir,
             @Value("${torch.batchsize}") int batchSize,
             DiagnosticsStore diagnosticsStore,
-            MeterRegistry meterRegistry
+            MeterRegistry meterRegistry,
+            Optional<InclusionConsentChecker> inclusionConsentChecker
     ) {
         this.io = requireNonNull(io);
+        this.inclusionConsentChecker = requireNonNull(inclusionConsentChecker);
         this.mapper = requireNonNull(mapper);
         this.diagnosticsStore = requireNonNull(diagnosticsStore);
         this.baseDir = Paths.get(dir).toAbsolutePath();
@@ -179,18 +191,102 @@ public class JobPersistenceService {
     /**
      * Creates a new job and persists its initial state.
      *
+     * <p>If the inclusion consent check is enabled and the CRTDL has consent codes, the inclusion criteria are
+     * translated and {@linkplain InclusionConsentChecker#validate validated} now and stored next to the job, so that
+     * all batches use the same translation (see {@link #inclusionQueries}).</p>
+     *
      * @param crtdl              annotated CRTDL
      * @param patientIds         initial cohort patient ids
      * @param consentDiagnostics whether the opt-in raw-provisions/final-periods/consent-considered-resources
      *                           diagnostics are recorded for this job's batches
      * @return created job id
-     * @throws IOException if persistence fails
+     * @throws IllegalArgumentException if an inclusion criterion cannot be checked against consent; nothing is written
+     * @throws IOException              if persistence fails; the job is not created
      */
     public UUID createJob(AnnotatedCrtdl crtdl, List<String> patientIds, boolean consentDiagnostics, String kickOffUrl) throws IOException {
         UUID jobId = UUID.randomUUID();
         Job initial = Job.init(jobId, new JobParameters(crtdl, patientIds, kickOffUrl, consentDiagnostics));
+        if (inclusionConsentChecker.isPresent() && crtdl.consentCodes().isPresent()) {
+            List<List<OrQuery>> inclusionQueries = translateInclusionQueries(inclusionConsentChecker.get(), crtdl);
+            try {
+                inclusionConsentChecker.get().validate(inclusionQueries);
+            } catch (ValidationException e) {
+                throw new IllegalArgumentException(e.getMessage(), e);
+            }
+            ensureDirectoryStructure(jobId);
+            saveInclusionQueries(jobId, inclusionQueries);
+        }
         initJob(initial);
         return jobId;
+    }
+
+    /**
+     * Returns the inclusion criteria of a job as translated at job creation, for the inclusion consent check.
+     *
+     * <p>Blocking: reads the translation from the job directory on first access and caches it in memory until the job
+     * reaches a final status. A stored translation is never redone, also not after a restart, so the job keeps its
+     * translation even if the ontology changes. Only if the file is missing, e.g. for a job created before
+     * translations were stored, the criteria are translated once more and the file is written.</p>
+     *
+     * <p>Must only be called if the inclusion consent check is enabled and the job's CRTDL has consent codes.</p>
+     *
+     * @param jobId job id
+     * @return the OR-groups (combined with AND), each holding its queries (combined with OR)
+     * @throws JobNotFoundException     if the job is unknown or deleted
+     * @throws IllegalArgumentException if a missing translation cannot be redone
+     * @throws IOException              if the stored translation cannot be read, or a missing one cannot be written
+     */
+    public List<List<OrQuery>> inclusionQueries(UUID jobId) throws IOException {
+        Job job = getJob(jobId).orElseThrow(() -> new JobNotFoundException(jobId));
+        List<List<OrQuery>> inclusionQueries;
+        try {
+            inclusionQueries = inclusionQueriesCache.computeIfAbsent(jobId, id -> {
+                try {
+                    return loadOrTranslateInclusionQueries(job);
+                } catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            });
+        } catch (UncheckedIOException e) {
+            throw e.getCause();
+        }
+        // a batch still running when the job finished must not re-add the evicted entry
+        if (getJob(jobId).map(current -> current.status().isFinal()).orElse(true)) {
+            inclusionQueriesCache.remove(jobId);
+        }
+        return inclusionQueries;
+    }
+
+    private List<List<OrQuery>> loadOrTranslateInclusionQueries(Job job) throws IOException {
+        Path file = jobDir(job.id()).resolve(INCLUSION_QUERIES_FILE_NAME);
+        if (io.exists(file)) {
+            try (Reader reader = io.newBufferedReader(file)) {
+                return mapper.readValue(reader, INCLUSION_QUERIES_TYPE);
+            }
+        }
+        logger.warn("Job {} has no {}, translating its inclusion criteria with the current ontology",
+                job.id(), INCLUSION_QUERIES_FILE_NAME);
+        List<List<OrQuery>> inclusionQueries = translateInclusionQueries(inclusionConsentChecker.orElseThrow(),
+                job.parameters().crtdl());
+        saveInclusionQueries(job.id(), inclusionQueries);
+        return inclusionQueries;
+    }
+
+    private static List<List<OrQuery>> translateInclusionQueries(InclusionConsentChecker checker, AnnotatedCrtdl crtdl) {
+        try {
+            return checker.translate(crtdl.cohortDefinition());
+        } catch (JsonProcessingException | MappingException e) {
+            throw new IllegalArgumentException("Inclusion criterion cannot be checked against consent: " + e.getMessage(), e);
+        }
+    }
+
+    private void saveInclusionQueries(UUID jobId, List<List<OrQuery>> inclusionQueries) throws IOException {
+        Path file = jobDir(jobId).resolve(INCLUSION_QUERIES_FILE_NAME);
+        Path tmp = file.resolveSibling(INCLUSION_QUERIES_FILE_NAME + ".tmp");
+        try (Writer out = io.newBufferedWriter(tmp)) {
+            mapper.writeValue(out, inclusionQueries);
+        }
+        io.atomicMove(tmp, file);
     }
 
     /**
@@ -723,6 +819,9 @@ public class JobPersistenceService {
             }
             try {
                 Job saved = saveJob(updatedJob.incrementVersion());
+                if (saved.status().isFinal()) {
+                    inclusionQueriesCache.remove(id);
+                }
                 // If the caller set result == job, replace it with the version-incremented saved job
                 if (result == updatedJob) {
                     @SuppressWarnings("unchecked")

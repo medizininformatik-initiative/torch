@@ -75,6 +75,28 @@ public record QueryParams(List<Param> params) {
                 requireNonNull(value));
     }
 
+    /**
+     * Joins token values (concepts, codes or already joined values) into one comma-separated value, which a FHIR
+     * search matches if any of the values matches.
+     *
+     * @throws IllegalArgumentException if {@code values} is empty or contains a value that is not a token value
+     */
+    public static Value orValue(List<Value> values) {
+        if (values.isEmpty() || !values.stream().allMatch(QueryParams::isToken)) {
+            throw new IllegalArgumentException("Only a non-empty list of token values can be joined.");
+        }
+        return new OrValue(values.stream()
+                .flatMap(value -> value instanceof OrValue(var joined) ? joined.stream() : Stream.of(value))
+                .toList());
+    }
+
+    /**
+     * @return whether {@code value} is a token value that can be joined with {@link #orValue(List)}
+     */
+    public static boolean isToken(Value value) {
+        return value instanceof ConceptValue || value instanceof CodeValue || value instanceof OrValue;
+    }
+
     private record CodeValue(Code value) implements Value {
 
         private CodeValue {
@@ -171,6 +193,18 @@ public record QueryParams(List<Param> params) {
         @Override
         public String toString() {
             return String.join(",", values);
+        }
+    }
+
+    private record OrValue(List<Value> values) implements Value {
+
+        private OrValue {
+            values = List.copyOf(values);
+        }
+
+        @Override
+        public String toString() {
+            return values.stream().map(Value::toString).collect(Collectors.joining(","));
         }
     }
 

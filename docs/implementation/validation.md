@@ -130,6 +130,13 @@ During validation, TORCH extracts consent codes from the CRTDL.
 
 If the consent definition is malformed, validation fails with a consent-related validation error.
 
+If `TORCH_INCLUSIONCONSENTCHECK_ENABLED` is set and the CRTDL contains consent codes, TORCH translates the inclusion
+criteria into FHIR search queries once, when it creates the job, and rejects the request with `400 Bad Request` if an
+inclusion criterion cannot be translated, queries a resource type missing from `type_to_consent.json`, expands into
+more than 1000 FHIR searches, or uses a search parameter that the FHIR server's CapabilityStatement does not declare.
+The last check only applies once TORCH has fetched the CapabilityStatement, which happens with the first batch checked
+(see [`TORCH_INCLUSIONCONSENTCHECK_ENABLED`](../configuration.md#torch-inclusionconsentcheck-enabled)).
+
 ## Annotation of Attributes
 
 After validation, user-defined attributes are converted into annotated attributes.
