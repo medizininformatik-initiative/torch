@@ -174,7 +174,7 @@ Delay in milliseconds between two runs of the cleanup that removes the result di
 deleted job's files are normally removed right after the `DELETE` request; this cleanup retries removals that
 failed and runs once at startup. Each run reads the `job.json` of every job in `TORCH_RESULTS_DIR`.
 
-**Default:** `300000` (5 minutes; was `86400000` before 1.1.1)
+**Default:** `300000` (5 minutes; was `86400000` before 1.1.2)
 
 ---
 
