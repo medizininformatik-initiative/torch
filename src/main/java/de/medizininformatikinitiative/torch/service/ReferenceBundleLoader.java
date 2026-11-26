@@ -13,7 +13,6 @@ import de.medizininformatikinitiative.torch.model.management.PatientResourceBund
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
 import de.medizininformatikinitiative.torch.model.mapping.DseMappingTreeBase;
 import de.medizininformatikinitiative.torch.util.ResourceUtils;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.r4.model.Bundle;
 import org.hl7.fhir.r4.model.Resource;
 import org.slf4j.Logger;
@@ -131,7 +130,7 @@ public class ReferenceBundleLoader {
      * @param chunkSize   number of elements each resulting chunk should contain
      * @return list of set where each set represents one chunk (still mapping from group ID to references)
      */
-    public List<Set<String>> chunkRefs(@MonotonicNonNull List<ExtractionId> refsOfGroup, int chunkSize) {
+    public List<Set<String>> chunkRefs(List<ExtractionId> refsOfGroup, int chunkSize) {
         List<Set<String>> chunks = new ArrayList<>();
         Set<String> currentChunk = new HashSet<>();
         int currentChunkSize = 0;

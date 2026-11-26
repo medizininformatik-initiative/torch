@@ -5,7 +5,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.management.ResourceGroup;
-import org.checkerframework.checker.nullness.qual.MonotonicNonNull;
 import org.hl7.fhir.r4.model.Resource;
 import org.springframework.core.io.ClassPathResource;
 
@@ -53,7 +52,7 @@ public class CompartmentManager {
      * @param input String to be handled
      * @return true if prefeix
      */
-    public boolean isInCompartment(@MonotonicNonNull ExtractionId input) {
+    public boolean isInCompartment(ExtractionId input) {
         return isInCompartment(input.resourceType());
     }
 
