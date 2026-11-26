@@ -4,6 +4,7 @@ import ca.uhn.fhir.context.FhirContext;
 import de.medizininformatikinitiative.torch.exceptions.PatientIdNotFoundException;
 import org.hl7.fhir.r4.model.Account;
 import org.hl7.fhir.r4.model.Appointment;
+import org.hl7.fhir.r4.model.CodeType;
 import org.hl7.fhir.r4.model.BodyStructure;
 import org.hl7.fhir.r4.model.Consent;
 import org.hl7.fhir.r4.model.Coverage;
@@ -13,6 +14,7 @@ import org.hl7.fhir.r4.model.Observation;
 import org.hl7.fhir.r4.model.Patient;
 import org.hl7.fhir.r4.model.Reference;
 import org.hl7.fhir.r4.model.RelatedPerson;
+import org.hl7.fhir.r4.model.StringType;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -297,6 +299,30 @@ class PatientLinkResolverTest {
             assertThat(resolver.patientIds(withoutBeneficiary)).isEmpty();
             assertThat(resolver.patientIds(withEmptyBeneficiary)).isEmpty();
             assertThat(resolver.patientIds(withDisplayOnly)).isEmpty();
+        }
+
+        @Test
+        void dataAbsentReferenceIsNoPatient() {
+            Observation observation = new Observation();
+            observation.setSubject(new Reference().setReferenceElement(dataAbsent()));
+
+            assertThat(resolver.patientIds(observation)).isEmpty();
+            assertThatThrownBy(() -> resolver.patientId(observation)).isInstanceOf(PatientIdNotFoundException.class);
+        }
+
+        @Test
+        void dataAbsentReferenceNextToPatientReference() {
+            Appointment appointment = new Appointment();
+            appointment.addParticipant().setActor(new Reference().setReferenceElement(dataAbsent()));
+            appointment.addParticipant().setActor(new Reference("Patient/1"));
+
+            assertThat(resolver.patientIds(appointment)).containsExactly("1");
+        }
+
+        private static StringType dataAbsent() {
+            StringType reference = new StringType();
+            reference.addExtension("http://hl7.org/fhir/StructureDefinition/data-absent-reason", new CodeType("unknown"));
+            return reference;
         }
     }
 }

@@ -120,7 +120,8 @@ parameter of the compartment definition that can reference a `Patient`. Only the
 | Schedule      | `actor`          | `Schedule.actor`                 |
 | SupplyRequest | `subject`        | `SupplyRequest.deliverTo`        |
 
-Only relative references of the form `Patient/<id>` count, optionally versioned (`Patient/<id>/_history/<v>`).
+Only relative references of the form `Patient/<id>` count, optionally versioned (`Patient/<id>/_history/<v>`). A
+reference without a value, e.g. one carrying only a data-absent-reason, counts as no patient.
 
 A loaded resource is handled as follows:
 

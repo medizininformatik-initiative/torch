@@ -175,7 +175,7 @@ public class PatientLinkResolver {
      * @param resource the resource to inspect
      * Only references through the chosen search parameter's element paths count; patient references in other
      * elements (e.g. {@code Coverage.subscriber}) are ignored. Only relative references {@code Patient/<id>} count,
-     * optionally versioned.
+     * optionally versioned; references without a value (e.g. only a data-absent-reason extension) are ignored.
      *
      * @return the distinct IDs of the patients the resource references through its element paths, in document order;
      * the resource's own ID for a {@code Patient}; empty if it references no patient, is a {@code Patient} without an
@@ -193,8 +193,10 @@ public class PatientLinkResolver {
         Set<String> ids = new LinkedHashSet<>();
         for (String path : link.elementPaths()) {
             for (Base element : elements(resource, path)) {
+                // hasReference() is true but getReference() null for a reference carrying only extensions,
+                // e.g. a data-absent-reason
                 if (element instanceof Reference reference && reference.hasReference()
-                        && reference.getReference().startsWith(PATIENT_REFERENCE_PREFIX)) {
+                        && reference.getReference() != null && reference.getReference().startsWith(PATIENT_REFERENCE_PREFIX)) {
                     IdType id = new IdType(reference.getReference());
                     if (id.hasIdPart()) {
                         ids.add(id.getIdPart());
