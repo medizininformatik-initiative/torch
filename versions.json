@@ -1,8 +1,13 @@
 [
   {
+    "version": "v1.1.2",
+    "path": "/torch/v1.1.2/",
+    "latest": true
+  },
+  {
     "version": "v1.1.1",
     "path": "/torch/v1.1.1/",
-    "latest": true
+    "latest": false
   },
   {
     "version": "v1.1.0",
