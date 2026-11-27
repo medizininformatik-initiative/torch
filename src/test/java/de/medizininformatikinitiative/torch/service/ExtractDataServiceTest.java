@@ -31,6 +31,8 @@ import de.medizininformatikinitiative.torch.model.crtdl.annotated.AnnotatedCrtdl
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionPatientBatch;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.GroupsToProcess;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
 import de.medizininformatikinitiative.torch.model.management.ResourceBundle;
@@ -108,6 +110,8 @@ class ExtractDataServiceTest {
     BatchProgressRegistry batchProgressRegistry;
     @Mock
     JobPersistenceService persistence;
+    @Mock
+    InclusionConsentChecker inclusionConsentChecker;
 
     ExtractDataService service;
     ExtractDataService spyService;
@@ -159,7 +163,8 @@ class ExtractDataServiceTest {
                 torchProperties,
                 compartmentManager,
                 batchProgressRegistry,
-                persistence
+                persistence,
+                Optional.empty()
         );
         spyService = Mockito.spy(service);
     }
@@ -560,6 +565,52 @@ class ExtractDataServiceTest {
             verifyNoInteractions(directResourceLoader, referenceResolver, batchCopierRedacter, batchToCoreWriter);
             verify(resultFileManager).saveConsentBatchToNDJSON(eq(jobId.toString()), eq(batchId), any());
             verify(batchProgressRegistry, timeout(1000)).clear(batchId);
+        }
+
+        @Test
+        void processBatch_whenInclusionConsentCheckRemovesAllPatients_returnsSkippedResult() throws IOException {
+            service = new ExtractDataService(resultFileManager, processedGroupFactory, directResourceLoader,
+                    referenceResolver, batchCopierRedacter, cascadingDelete, batchToCoreWriter, consentHandler, dataStore,
+                    postCascadeMustHaveChecker, torchProperties, compartmentManager, batchProgressRegistry, persistence,
+                    Optional.of(inclusionConsentChecker));
+            UUID batchId = UUID.randomUUID();
+
+            AnnotatedCrtdl crtdl = mock(AnnotatedCrtdl.class);
+            TermCode termcode = new TermCode("sys", "val");
+            when(crtdl.consentCodes()).thenReturn(Optional.of(Set.of(termcode)));
+
+            JobParameters params = mock(JobParameters.class);
+            when(params.crtdl()).thenReturn(crtdl);
+
+            when(processedGroupFactory.create(crtdl)).thenReturn(mock(GroupsToProcess.class));
+
+            PatientBatch rawBatch = mock(PatientBatch.class);
+            when(rawBatch.batchId()).thenReturn(batchId);
+            when(rawBatch.diagnostics()).thenReturn(BatchDiagnostics.empty());
+
+            BatchState batchState = mock(BatchState.class);
+            when(batchState.batchId()).thenReturn(batchId);
+            BatchState skippedState = mock(BatchState.class);
+            when(batchState.skip()).thenReturn(skippedState);
+
+            BatchSelection selection = mock(BatchSelection.class);
+            UUID jobId = UUID.randomUUID();
+            when(selection.job()).thenReturn(jobWithParameters(jobId, JobStatus.PENDING, params));
+            when(selection.batchState()).thenReturn(batchState);
+            when(selection.batch()).thenReturn(rawBatch);
+
+            PatientBatchWithConsent bwc = mock(PatientBatchWithConsent.class);
+            when(consentHandler.fetchAndBuildConsentInfo(Set.of(termcode), rawBatch)).thenReturn(Mono.just(bwc));
+            List<List<OrQuery>> orGroups = List.of(List.of(
+                    OrQuery.of(Query.of("Condition", QueryParams.of("code", QueryParams.stringValue("icd10|E11"))), Optional.empty())));
+            when(persistence.inclusionQueries(jobId)).thenReturn(orGroups);
+            when(inclusionConsentChecker.filter(orGroups, bwc)).thenReturn(Mono.empty());
+
+            StepVerifier.create(service.processBatch(selection))
+                    .assertNext(res -> assertThat(res.batchState()).isSameAs(skippedState))
+                    .verifyComplete();
+
+            verifyNoInteractions(directResourceLoader);
         }
 
         @Test

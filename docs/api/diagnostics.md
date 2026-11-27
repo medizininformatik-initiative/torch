@@ -41,11 +41,11 @@ their corresponding resources will not be processed further and the patient is t
 
 ### Explanation
 
-| Column       | Description                                                                                             |
-|--------------|---------------------------------------------------------------------------------------------------------|
-| `Batch-ID`   | The ID of the batch in which the patient was part of                                                    |
-| `Stage`      | The stage at which the patient was excluded (one of `CONSENT_FETCH`, `DIRECT_LOAD`, `CASCADING_DELETE`) |
-| `Patient-ID` | The ID of the patient that was excluded                                                                 |
+| Column       | Description                                                                                                                  |
+|--------------|------------------------------------------------------------------------------------------------------------------------------|
+| `Batch-ID`   | The ID of the batch in which the patient was part of                                                                         |
+| `Stage`      | The stage at which the patient was excluded (one of `CONSENT_FETCH`, `INCLUSION_CONSENT`, `DIRECT_LOAD`, `CASCADING_DELETE`) |
+| `Patient-ID` | The ID of the patient that was excluded                                                                                      |
 
 
 In some cases it is not trivial to state a single reason why a patient was excluded. For example, if there are 10 resources

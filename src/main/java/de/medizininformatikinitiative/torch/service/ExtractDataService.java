@@ -84,6 +84,7 @@ public class ExtractDataService {
     private final CompartmentManager compartmentManager;
     private final BatchProgressRegistry batchProgressRegistry;
     private final JobPersistenceService persistence;
+    private final Optional<InclusionConsentChecker> inclusionConsentChecker;
 
     public ExtractDataService(ResultFileManager resultFileManager,
                               ProcessedGroupFactory processedGroupFactory,
@@ -98,7 +99,8 @@ public class ExtractDataService {
                               TorchProperties torchProperties,
                               CompartmentManager compartmentManager,
                               BatchProgressRegistry batchProgressRegistry,
-                              JobPersistenceService persistence) {
+                              JobPersistenceService persistence,
+                              Optional<InclusionConsentChecker> inclusionConsentChecker) {
         this.resultFileManager = requireNonNull(resultFileManager);
         this.processedGroupFactory = requireNonNull(processedGroupFactory);
         this.directResourceLoader = requireNonNull(directResourceLoader);
@@ -113,6 +115,7 @@ public class ExtractDataService {
         this.compartmentManager = requireNonNull(compartmentManager);
         this.batchProgressRegistry = requireNonNull(batchProgressRegistry);
         this.persistence = requireNonNull(persistence);
+        this.inclusionConsentChecker = requireNonNull(inclusionConsentChecker);
     }
 
     private static void logMemory(UUID id) {
@@ -141,6 +144,10 @@ public class ExtractDataService {
      * <p>If {@code torch.disableConsentCalculation} is set, consent resolution is skipped entirely
      * and every patient in the batch is treated as fully consented.
      *
+     * <p>If {@code torch.inclusion-consent-check.enabled} is set and consent is resolved, patients whose inclusion
+     * criteria are only met by unconsented resources are removed before loading (see {@link InclusionConsentChecker}),
+     * using the job's inclusion criteria as translated at job creation.
+     *
      * @param selection identifies the job and batch to process
      * @return mono emitting the resulting {@link BatchResult}, or an error
      */
@@ -159,7 +166,8 @@ public class ExtractDataService {
             batchProgressRegistry.enter(batch.batchId(), PipelineStage.CONSENT_FETCH);
             batchWithConsent = executeAndMeasureAsync(PipelineStage.CONSENT_FETCH, batch.diagnostics(), () ->
                     crtdl.consentCodes()
-                            .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch))
+                            .map(code -> consentHandler.fetchAndBuildConsentInfo(code, batch)
+                                    .flatMap(bwc -> filterUnconsentedInclusions(jobId, bwc)))
                             .orElse(unconsented)
                             .onErrorResume(ConsentViolatedException.class, ex -> {
                                 logger.warn("Batch {} skipped: no consenting patients", batch.batchId());
@@ -184,6 +192,14 @@ public class ExtractDataService {
                                     ))
                             ))))
                 .doFinally(signal -> batchProgressRegistry.clear(batch.batchId()));
+    }
+
+    private Mono<PatientBatchWithConsent> filterUnconsentedInclusions(UUID jobId, PatientBatchWithConsent batch) {
+        return inclusionConsentChecker
+                .map(checker -> Mono.fromCallable(() -> persistence.inclusionQueries(jobId))
+                        .subscribeOn(Schedulers.boundedElastic())
+                        .flatMap(orGroups -> checker.filter(orGroups, batch)))
+                .orElseGet(() -> Mono.just(batch));
     }
 
     private <T> Mono<T> executeAndMeasureAsync(PipelineStage stage, BatchDiagnostics diagnostics, Supplier<Mono<T>> f) {

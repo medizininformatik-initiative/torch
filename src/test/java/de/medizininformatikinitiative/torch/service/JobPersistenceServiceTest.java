@@ -1,5 +1,6 @@
 package de.medizininformatikinitiative.torch.service;
 
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -16,6 +17,7 @@ import de.medizininformatikinitiative.torch.diagnostics.exclusions.BatchExclusio
 import de.medizininformatikinitiative.torch.diagnostics.exclusions.PatientExclusionStage;
 import de.medizininformatikinitiative.torch.exceptions.JobNotFoundException;
 import de.medizininformatikinitiative.torch.exceptions.StateConflictException;
+import de.medizininformatikinitiative.torch.exceptions.ValidationException;
 import de.medizininformatikinitiative.torch.jobhandling.BatchState;
 import de.medizininformatikinitiative.torch.jobhandling.DefaultFileIO;
 import de.medizininformatikinitiative.torch.jobhandling.FileIo;
@@ -35,7 +37,11 @@ import de.medizininformatikinitiative.torch.jobhandling.result.CoreResult;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionId;
 import de.medizininformatikinitiative.torch.model.extraction.ExtractionResourceBundle;
 import de.medizininformatikinitiative.torch.model.extraction.ResourceExtractionInfo;
+import de.medizininformatikinitiative.torch.model.fhir.Query;
+import de.medizininformatikinitiative.torch.model.fhir.QueryParams;
 import de.medizininformatikinitiative.torch.model.management.PatientBatch;
+import de.medizininformatikinitiative.torch.model.management.TermCode;
+import de.medizininformatikinitiative.torch.model.mapping.MappingException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.search.MeterNotFoundException;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
@@ -87,7 +93,9 @@ import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -150,7 +158,7 @@ class JobPersistenceServiceTest {
                             baseDir.toString(),
                             5,
                             new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                            new SimpleMeterRegistry()
+                            new SimpleMeterRegistry(), Optional.empty()
                     );
             persistenceService.init();
         }
@@ -193,7 +201,7 @@ class JobPersistenceServiceTest {
 
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
 
             // WHEN
             serviceWithSpy.init(); // This calls loadAllJobs -> loadJobFromDirectory
@@ -220,7 +228,7 @@ class JobPersistenceServiceTest {
                     baseDir.toString(),
                     5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry()
+                    new SimpleMeterRegistry(), Optional.empty()
             );
             reloaded.init();
 
@@ -328,7 +336,7 @@ class JobPersistenceServiceTest {
         @BeforeEach
         void init() {
             service = new JobPersistenceService(io, MAPPER, "Any", 10, new DiagnosticsStore(io, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
         }
 
         @Test
@@ -371,7 +379,7 @@ class JobPersistenceServiceTest {
             when(io.exists(baseDir)).thenReturn(false);
             JobPersistenceService serviceWithMock = new JobPersistenceService(io, MAPPER, baseDir.toString(), 5
                     , new DiagnosticsStore(io, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
 
             // WHEN - init calls loadAllJobs
             serviceWithMock.init();
@@ -422,7 +430,7 @@ class JobPersistenceServiceTest {
                     baseDir.toString(),
                     5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry()
+                    new SimpleMeterRegistry(), Optional.empty()
             );
             s.init();
             return s;
@@ -629,7 +637,7 @@ class JobPersistenceServiceTest {
                     baseDir.toString(),
                     5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry()
+                    new SimpleMeterRegistry(), Optional.empty()
             );
             service.init();
         }
@@ -740,7 +748,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 2,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -851,7 +859,7 @@ class JobPersistenceServiceTest {
             // We must pass the mock and the mapper explicitly here.
             service = new JobPersistenceService(mockIo, mapper, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
         }
 
         @Test
@@ -925,7 +933,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 10,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
         }
 
@@ -996,7 +1004,7 @@ class JobPersistenceServiceTest {
 
             JobPersistenceService s = new JobPersistenceService(spyIo, MAPPER, tempDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
 
             // WHEN
             // This hits the loop: loads job -> tries to save reconciled state -> fails -> logs warn
@@ -1011,7 +1019,7 @@ class JobPersistenceServiceTest {
             FileIo mockIo = mock(FileIo.class);
             JobPersistenceService s = new JobPersistenceService(mockIo, MAPPER, tempDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
 
             when(mockIo.exists(any())).thenReturn(false);
 
@@ -1033,7 +1041,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1101,7 +1109,7 @@ class JobPersistenceServiceTest {
         void setUp() {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
         }
 
         @Test
@@ -1252,7 +1260,7 @@ class JobPersistenceServiceTest {
         void setUp() {
             meterRegistry.clear();
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
-                    new DiagnosticsStore(new DefaultFileIO(), MAPPER), meterRegistry);
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER), meterRegistry, Optional.empty());
         }
 
         @Nested
@@ -1354,7 +1362,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService service = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit();
@@ -1395,7 +1403,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             persistenceService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             persistenceService.init();
             jobId = persistenceService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             persistenceService.selectNextWorkUnit(); // advance PENDING → RUNNING_GET_COHORT
@@ -1437,7 +1445,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = org.mockito.Mockito.spy(new DefaultFileIO());
             JobPersistenceService serviceWithSpy = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             serviceWithSpy.putJobForTest(persistenceService.getJob(jobId).orElseThrow());
             org.mockito.Mockito.doThrow(new IOException("Disk quota exceeded"))
                     .when(spyIo).newBufferedWriter(org.mockito.ArgumentMatchers.argThat(p -> p.toString().endsWith(".tmp")));
@@ -1474,7 +1482,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1572,7 +1580,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             Path jobDir = baseDir.resolve(id.toString());
@@ -1584,7 +1592,7 @@ class JobPersistenceServiceTest {
             assertThat(jobDir.resolve("job.json")).exists();
             JobPersistenceService reloaded = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             reloaded.gcDeletedJobs();
             assertThat(jobDir).doesNotExist();
         }
@@ -1603,7 +1611,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
 
@@ -1629,7 +1637,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             spyService.init();
             UUID id = spyService.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             markDeleted(spyService, id);
@@ -1644,7 +1652,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spyService = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             spyService.init();
 
             doThrow(new IOException("list failed")).when(spyIo).list(any());
@@ -1666,7 +1674,7 @@ class JobPersistenceServiceTest {
 
             JobPersistenceService freshService = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             freshService.init();
 
             assertThat(freshService.getJob(jobId)).isEmpty();
@@ -1686,7 +1694,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
         }
 
@@ -1708,7 +1716,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
         }
 
@@ -1753,7 +1761,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1810,7 +1818,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1870,7 +1878,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -1952,7 +1960,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -2009,7 +2017,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId1 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             jobId2 = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
@@ -2088,7 +2096,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
         }
@@ -2099,7 +2107,7 @@ class JobPersistenceServiceTest {
             FileIo spyIo = spy(new DefaultFileIO());
             JobPersistenceService spySvc = new JobPersistenceService(spyIo, MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(spyIo, MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             spySvc.init();
             UUID id = spySvc.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             spySvc.selectNextWorkUnit();
@@ -2125,7 +2133,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
             jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
             service.selectNextWorkUnit(); // PENDING → RUNNING_GET_COHORT
@@ -2172,7 +2180,7 @@ class JobPersistenceServiceTest {
         void setUp() throws IOException {
             service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
                     new DiagnosticsStore(new DefaultFileIO(), MAPPER),
-                    new SimpleMeterRegistry());
+                    new SimpleMeterRegistry(), Optional.empty());
             service.init();
         }
 
@@ -2184,6 +2192,186 @@ class JobPersistenceServiceTest {
             assertThatThrownBy(() -> service.tryStartBatch(jobId, missingBatchId))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining(missingBatchId.toString());
+        }
+    }
+
+    @Nested
+    class InclusionQueriesTests {
+
+        static final List<List<OrQuery>> TRANSLATION = List.of(List.of(OrQuery.of(
+                Query.of("Condition", QueryParams.of("code", QueryParams.stringValue("icd10|E11,icd10|E12"))),
+                Optional.of("recorded-date"))));
+        static final List<List<OrQuery>> OTHER_TRANSLATION = List.of(List.of(OrQuery.of(
+                Query.of("Patient", QueryParams.of("gender", QueryParams.stringValue("female"))), Optional.empty())));
+        static final AnnotatedCrtdl CRTDL_WITH_CONSENT = new AnnotatedCrtdl(
+                JsonNodeFactory.instance.objectNode().put("version", "cohort"),
+                new AnnotatedDataExtraction(List.of()),
+                Optional.of(Set.of(new TermCode("sys", "consent"))));
+
+        @TempDir
+        Path baseDir;
+
+        JobPersistenceService service(InclusionConsentChecker checker) throws IOException {
+            var service = new JobPersistenceService(new DefaultFileIO(), MAPPER, baseDir.toString(), 5,
+                    new DiagnosticsStore(new DefaultFileIO(), MAPPER), new SimpleMeterRegistry(), Optional.of(checker));
+            service.init();
+            return service;
+        }
+
+        static InclusionConsentChecker checkerTranslatingTo(List<List<OrQuery>> translation) throws Exception {
+            var checker = mock(InclusionConsentChecker.class);
+            when(checker.translate(CRTDL_WITH_CONSENT.cohortDefinition())).thenReturn(translation);
+            return checker;
+        }
+
+        Path inclusionQueriesFile(UUID jobId) {
+            return baseDir.resolve(jobId.toString()).resolve("inclusion-queries.json");
+        }
+
+        void overwriteInclusionQueriesFile(UUID jobId, List<List<OrQuery>> orGroups) throws IOException {
+            Files.writeString(inclusionQueriesFile(jobId), MAPPER.writeValueAsString(orGroups));
+        }
+
+        @Test
+        void createJob_translatesOnceAndServesTheTranslationToEveryBatch() throws Exception {
+            var checker = checkerTranslatingTo(TRANSLATION);
+            var service = service(checker);
+
+            UUID jobId = service.createJob(CRTDL_WITH_CONSENT, List.of(), null);
+
+            assertThat(inclusionQueriesFile(jobId)).exists();
+            assertThat(service.inclusionQueries(jobId)).isEqualTo(TRANSLATION);
+            assertThat(service.inclusionQueries(jobId)).isEqualTo(TRANSLATION);
+            verify(checker, times(1)).translate(any());
+        }
+
+        @Test
+        void createJob_withoutConsentCodes_doesNotTranslate() throws Exception {
+            var checker = mock(InclusionConsentChecker.class);
+            var service = service(checker);
+
+            UUID jobId = service.createJob(EMPTY_PARAMETERS.crtdl(), List.of(), null);
+
+            assertThat(inclusionQueriesFile(jobId)).doesNotExist();
+            verify(checker, never()).translate(any());
+        }
+
+        void assertNoJobCreated(JobPersistenceService service) throws IOException {
+            assertThat(service.findJobs(Set.of(), Set.of())).isEmpty();
+            try (var entries = Files.list(baseDir)) {
+                assertThat(entries).isEmpty();
+            }
+        }
+
+        @Test
+        void createJob_validatesTheTranslation() throws Exception {
+            var checker = checkerTranslatingTo(TRANSLATION);
+
+            service(checker).createJob(CRTDL_WITH_CONSENT, List.of(), null);
+
+            verify(checker).validate(TRANSLATION);
+        }
+
+        @Test
+        void createJob_rejectsTheCrtdlWithoutCreatingTheJob_whenTranslationFails() throws Exception {
+            var checker = mock(InclusionConsentChecker.class);
+            when(checker.translate(any())).thenThrow(new MappingException("no mapping"));
+            var service = service(checker);
+
+            assertThatThrownBy(() -> service.createJob(CRTDL_WITH_CONSENT, List.of(), null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Inclusion criterion cannot be checked against consent: no mapping");
+            assertNoJobCreated(service);
+        }
+
+        @Test
+        void createJob_rejectsTheCrtdlWithoutCreatingTheJob_whenACriterionCannotBeParsed() throws Exception {
+            var checker = mock(InclusionConsentChecker.class);
+            when(checker.translate(any())).thenThrow(new JsonMappingException(null, "bad criterion"));
+            var service = service(checker);
+
+            assertThatThrownBy(() -> service.createJob(CRTDL_WITH_CONSENT, List.of(), null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Inclusion criterion cannot be checked against consent: bad criterion");
+            assertNoJobCreated(service);
+        }
+
+        @Test
+        void createJob_rejectsTheCrtdlWithoutCreatingTheJob_whenValidationFails() throws Exception {
+            var checker = checkerTranslatingTo(TRANSLATION);
+            doThrow(new ValidationException("Inclusion criterion cannot be checked against consent: unsupported"))
+                    .when(checker).validate(TRANSLATION);
+            var service = service(checker);
+
+            assertThatThrownBy(() -> service.createJob(CRTDL_WITH_CONSENT, List.of(), null))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessage("Inclusion criterion cannot be checked against consent: unsupported");
+            assertNoJobCreated(service);
+        }
+
+        @Test
+        void inclusionQueries_afterRestart_usesTheFileWithoutTranslatingAgain() throws Exception {
+            UUID jobId = service(checkerTranslatingTo(TRANSLATION)).createJob(CRTDL_WITH_CONSENT, List.of(), null);
+            var changedOntology = checkerTranslatingTo(OTHER_TRANSLATION);
+
+            var restarted = service(changedOntology);
+
+            assertThat(restarted.inclusionQueries(jobId)).isEqualTo(TRANSLATION);
+            verify(changedOntology, never()).translate(any());
+        }
+
+        @Test
+        void inclusionQueries_whenFileIsMissing_translatesOnceAndWritesTheFile() throws Exception {
+            UUID jobId = service(checkerTranslatingTo(TRANSLATION)).createJob(CRTDL_WITH_CONSENT, List.of(), null);
+            Files.delete(inclusionQueriesFile(jobId));
+            var checker = checkerTranslatingTo(OTHER_TRANSLATION);
+            var restarted = service(checker);
+
+            assertThat(restarted.inclusionQueries(jobId)).isEqualTo(OTHER_TRANSLATION);
+            assertThat(restarted.inclusionQueries(jobId)).isEqualTo(OTHER_TRANSLATION);
+
+            verify(checker, times(1)).translate(any());
+            assertThat(service(checkerTranslatingTo(TRANSLATION)).inclusionQueries(jobId)).isEqualTo(OTHER_TRANSLATION);
+        }
+
+        @Test
+        void inclusionQueries_whenFileIsCorrupt_failsWithoutTranslating() throws Exception {
+            var checker = checkerTranslatingTo(TRANSLATION);
+            var service = service(checker);
+            UUID jobId = service.createJob(CRTDL_WITH_CONSENT, List.of(), null);
+            Files.writeString(inclusionQueriesFile(jobId), "{ corrupt");
+
+            assertThatThrownBy(() -> service(checker).inclusionQueries(jobId)).isInstanceOf(IOException.class);
+            verify(checker, times(1)).translate(any());
+        }
+
+        @Test
+        void inclusionQueries_areCachedWhileTheJobRunsAndEvictedWhenItIsCancelled() throws Exception {
+            var service = service(checkerTranslatingTo(TRANSLATION));
+            UUID jobId = service.createJob(CRTDL_WITH_CONSENT, List.of(), null);
+            service.inclusionQueries(jobId);
+            overwriteInclusionQueriesFile(jobId, OTHER_TRANSLATION);
+
+            assertThat(service.inclusionQueries(jobId)).isEqualTo(TRANSLATION);
+
+            service.cancelJob(jobId);
+
+            assertThat(service.inclusionQueries(jobId)).isEqualTo(OTHER_TRANSLATION);
+            overwriteInclusionQueriesFile(jobId, TRANSLATION);
+            assertThat(service.inclusionQueries(jobId)).isEqualTo(TRANSLATION);
+        }
+
+        @Test
+        void inclusionQueries_ofADeletedJob_failsWithoutTranslating() throws Exception {
+            var checker = checkerTranslatingTo(TRANSLATION);
+            var service = service(checker);
+            UUID jobId = service.createJob(CRTDL_WITH_CONSENT, List.of(), null);
+            service.inclusionQueries(jobId);
+
+            service.deleteJob(jobId);
+
+            assertThatThrownBy(() -> service.inclusionQueries(jobId)).isInstanceOf(JobNotFoundException.class);
+            verify(checker, times(1)).translate(any());
         }
     }
 }

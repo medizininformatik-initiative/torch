@@ -1,0 +1,19 @@
+{
+  "MedicationStatement": "effective",
+  "List": "date",
+  "MedicationRequest": "authoredon",
+  "MedicationAdministration": "effective-time",
+  "Observation": "date",
+  "Procedure": "date",
+  "Specimen": "collected",
+  "Condition": "recorded-date",
+  "DocumentReference": "date",
+  "Consent": "date",
+  "Provenance": "recorded",
+  "Encounter": "date",
+  "Task": "authored-on",
+  "FamilyMemberHistory": "date",
+  "DiagnosticReport": "date",
+  "ServiceRequest": "authored",
+  "RiskAssessment": "date"
+}

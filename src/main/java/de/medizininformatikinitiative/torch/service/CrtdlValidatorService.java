@@ -41,7 +41,9 @@ public class CrtdlValidatorService {
     private final FhirPathBuilder fhirPathBuilder;
     private final FhirContext fhirContext;
 
-    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator, ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder, FhirContext fhirContext) {
+    public CrtdlValidatorService(StructureDefinitionHandler profileHandler, StandardAttributeGenerator attributeGenerator,
+                                 ConsentCodeConfig consentCodeConfig, FhirPathBuilder fhirPathBuilder,
+                                 FhirContext fhirContext) {
         this.profileHandler = profileHandler;
         this.attributeGenerator = attributeGenerator;
         this.consentCodeConfig = consentCodeConfig;

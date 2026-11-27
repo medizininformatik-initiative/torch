@@ -244,6 +244,17 @@ Consent is enforced at two points in the extraction pipeline — both before res
 
 Core resources (resources outside the patient compartment) are not consent-filtered.
 
+### Inclusion Criteria Check <Badge type="warning" text="Experimental"/>
+
+If `TORCH_INCLUSIONCONSENTCHECK_ENABLED` is set, TORCH also removes patients from a batch, before direct load, if
+none of the resources fulfilling an inclusion criterion group lies inside their consent window. The removed patients
+appear in the [Patient Exclusions](../api/diagnostics.md#patient-exclusions) diagnostic with stage `INCLUSION_CONSENT`. The inclusion
+criteria are translated into FHIR search queries once, when the job is created, and stored as `inclusion-queries.json`
+in the job directory, so all batches of a job, also after a restart, use the same queries. The FHIR server compares
+the consent dates using the search parameters of `type_to_consent_search_param.json`. TORCH checks the queried search parameters
+against the FHIR server's CapabilityStatement, because Blaze ignores unknown search parameters. For details and
+limitations, see [`TORCH_INCLUSIONCONSENTCHECK_ENABLED`](../configuration.md#torch-inclusionconsentcheck-enabled).
+
 ---
 
 ## 7. Integration with CRTDL
@@ -373,7 +384,7 @@ sections 2 and 5):
 }
 ```
 
-The consent check uses a specific date field per FHIR resource type to determine whether a resource falls within the patient's consent window. If no field is configured for a resource type, all resources of that type are considered consented (see [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
+The consent check uses a specific date field per FHIR resource type to determine whether a resource falls within the patient's consent window. The search parameter that searches this field, configured in [type_to_consent_search_param.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent_search_param.json), is used to check inclusion criteria against the consent window on the FHIR server. The FHIR server compares consent boundaries as UTC days, so a resource timestamped within a few hours of a boundary may be judged differently than by the extraction's consent filter, which uses the date as written in the resource. If no field is configured for a resource type, all resources of that type are considered consented (see [type_to_consent.json](https://github.com/medizininformatik-initiative/torch/blob/main/mappings/type_to_consent.json)).
 
 ---
 
