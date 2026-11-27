@@ -41,7 +41,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.doThrow;
@@ -659,6 +661,25 @@ class FhirControllerTest {
                     .exchange()
                     .expectStatus().isAccepted()
                     .expectHeader().valueMatches("Content-Location", ".*/fhir/__status/" + createdJobId);
+        }
+
+        @Test
+        void createJobRunsOnBoundedElastic() throws Exception {
+            AtomicReference<String> createJobThread = new AtomicReference<>();
+            when(extractDataParametersParser.parseParameters(any())).thenReturn(params);
+            when(validator.validateAndAnnotate(any())).thenReturn(annotated);
+            when(jobPersistenceService.createJob(any(), any(), anyBoolean(), any())).thenAnswer(invocation -> {
+                createJobThread.set(Thread.currentThread().getName());
+                return UUID.randomUUID();
+            });
+
+            client.post().uri("/fhir/$extract-data")
+                    .contentType(MediaType.valueOf("application/fhir+json"))
+                    .bodyValue("{}")
+                    .exchange()
+                    .expectStatus().isAccepted();
+
+            assertThat(createJobThread.get()).startsWith("boundedElastic");
         }
 
         @Test

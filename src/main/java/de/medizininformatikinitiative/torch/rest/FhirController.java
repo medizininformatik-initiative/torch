@@ -43,6 +43,7 @@ import org.springframework.web.reactive.function.server.RouterFunction;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.time.format.DateTimeFormatter;
@@ -244,21 +245,17 @@ public class FhirController {
                     } catch (ValidationException | ConsentFormatException e) {
                         return Mono.error(new IllegalArgumentException(e.getMessage()));
                     }
-                    UUID jobId;
-                    try {
-                        jobId = persistence.createJob(
-                                annotated,
-                                parameters.patientIds(),
-                                parameters.consentDiagnostics(),
-                                baseUrl + "/fhir/$extract-data"
-                        );
-                    } catch (IOException ioe) {
-                        return Mono.error(ioe);
-                    }
-                    return accepted()
-                            .header("Content-Location",
-                                    baseUrl + "/fhir/__status/" + jobId)
-                            .build();
+                    return Mono.fromCallable(() -> persistence.createJob(
+                                    annotated,
+                                    parameters.patientIds(),
+                                    parameters.consentDiagnostics(),
+                                    baseUrl + "/fhir/$extract-data"
+                            ))
+                            .subscribeOn(Schedulers.boundedElastic())
+                            .flatMap(jobId -> accepted()
+                                    .header("Content-Location",
+                                            baseUrl + "/fhir/__status/" + jobId)
+                                    .build());
                 }).onErrorResume(Exception.class, e -> {
                     HttpStatus status = (e instanceof IllegalArgumentException)
                             ? HttpStatus.BAD_REQUEST
