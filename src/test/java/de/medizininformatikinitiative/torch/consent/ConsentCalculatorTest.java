@@ -24,6 +24,7 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Stream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -893,6 +894,98 @@ class ConsentCalculatorTest {
                     List.of(shiftedPermit, new Provision(PROSPECTIVE, p("2019-01-01", "2019-12-31"), false)));
 
             assertThat(calculator.findConflicts(Map.of("patient1", List.of(cp)))).isEmpty();
+        }
+    }
+
+    @Nested
+    class LevelOneOnlyConsentTests {
+        @BeforeEach
+        void setUp() {
+            calculator = new ConsentCalculator(retroConfig());
+        }
+
+        private static ConsentProvisions permit(String id, String dateTime, Period period) {
+            return new ConsentProvisions(id, "patient1", dt(dateTime), List.of(new Provision(PROSPECTIVE, period, true)));
+        }
+
+        private static ConsentProvisions levelOneOnly(String id, String dateTime, Period period, TermCode... codes) {
+            return new ConsentProvisions(id, "patient1", dt(dateTime), List.of(),
+                    Stream.of(codes).map(code -> new Provision(code, period, false)).toList());
+        }
+
+        @Test
+        void laterLevelOneOnlyConsentRemovesPeriodsFromItsStartOnwards() {
+            ConsentProvisions full = permit("a", "2021-01-01T00:00:00Z", p("2021-01-01", "2050-12-31"));
+            ConsentProvisions revocation = levelOneOnly("b", "2025-01-01T00:00:00Z", p("2025-01-01", "2055-12-31"),
+                    PROSPECTIVE);
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(full, revocation), Set.of(PROSPECTIVE));
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2021-01-01", "2024-12-31"));
+        }
+
+        @Test
+        void laterPermitAppliesAfterLevelOneOnlyConsent() {
+            ConsentProvisions revocation = levelOneOnly("a", "2021-01-01T00:00:00Z",
+                    new Period(LocalDate.parse("2021-01-01"), Period.OPEN_END), PROSPECTIVE);
+            ConsentProvisions full = permit("b", "2025-01-01T00:00:00Z", p("2025-01-01", "2030-12-31"));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(revocation, full), Set.of(PROSPECTIVE));
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2025-01-01", "2030-12-31"));
+        }
+
+        @Test
+        void levelOneOnlyConsentWithRequestedRetroModifierResetsRetroHistory() {
+            ConsentProvisions full = permit("a", "2020-01-01T00:00:00Z", p("2020-01-01", "2030-12-31"));
+            ConsentProvisions revocation = levelOneOnly("b", "2025-01-01T00:00:00Z", p("2025-01-01", "2025-12-31"),
+                    PROSPECTIVE, RETRO);
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(full, revocation), Set.of(PROSPECTIVE));
+
+            // the virtual retro deny discards the 2020–2024 period, too, though the level 1 period starts in 2025
+            assertThat(result).isEmpty();
+        }
+
+        @Test
+        void levelOneOnlyResourceOfSameEventAsLevelTwoPermitsCreatesNoVirtualDeny() {
+            ConsentProvisions full = permit("a", "2021-01-01T00:00:00Z", p("2021-01-01", "2050-12-31"));
+            ConsentProvisions sameEvent = levelOneOnly("b", "2021-01-01T00:00:00Z",
+                    new Period(LocalDate.parse("2021-01-01"), Period.OPEN_END), PROSPECTIVE, RETRO);
+            Map<String, List<ConsentProvisions>> consents = Map.of("patient1", List.of(full, sameEvent));
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(full, sameEvent), Set.of(PROSPECTIVE));
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2021-01-01", "2050-12-31"));
+            assertThat(calculator.findConflicts(consents)).isEmpty();
+            assertThat(calculator.appliedVirtualDenies(consents.get("patient1"))).isEmpty();
+        }
+
+        @Test
+        void openEndedLevelOneOnlyConsentRemovesEverythingFromItsDateTime() {
+            ConsentProvisions full = permit("a", "2021-01-01T00:00:00Z", p("2021-01-01", "2050-12-31"));
+            ConsentProvisions revocation = levelOneOnly("b", "2025-06-15T00:00:00Z",
+                    new Period(LocalDate.parse("2025-06-15"), Period.OPEN_END), PROSPECTIVE);
+
+            Map<TermCode, NonContinuousPeriod> result = calculator.subtractAndMergeByCode(
+                    List.of(full, revocation), Set.of(PROSPECTIVE));
+
+            assertThat(result.get(PROSPECTIVE).periods()).containsExactly(p("2021-01-01", "2025-06-14"));
+        }
+
+        @Test
+        void appliedVirtualDeniesListOnlyLevelOneOnlyEvents() {
+            ConsentProvisions full = permit("a", "2021-01-01T00:00:00Z", p("2021-01-01", "2050-12-31"));
+            ConsentProvisions sameEvent = levelOneOnly("b", "2021-01-01T00:00:00Z", p("2021-01-01", "2050-12-31"),
+                    PROSPECTIVE);
+            ConsentProvisions revocation = levelOneOnly("c", "2025-01-01T00:00:00Z", p("2025-01-01", "2055-12-31"),
+                    PROSPECTIVE);
+
+            assertThat(calculator.appliedVirtualDenies(List.of(revocation, sameEvent, full))).containsExactly(revocation);
         }
     }
 }

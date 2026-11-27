@@ -149,14 +149,16 @@ evaluation produced no final periods has no rows in `final-periods.csv`, but is 
 ### Raw Provisions
 
 `raw-provisions.csv` lists every consent provision fetched from the patients' `Consent` resources — TORCH's "Initial
-Provision Periods" — together with the outcome of the encounter shift (see
-[Consent Documentation](../implementation/consent.md)).
+Provision Periods" — together with the outcome of the encounter shift, and every virtual deny applied for a
+`Consent` without nested provisions (see [Consent Documentation](../implementation/consent.md)).
 
 #### Example
 ```csv
-"Batch-ID","Patient-ID","Consent-ID","Code","Permit","Period-Start","Period-End","Shifted-Period-Start","Encounter-ID"
-"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.6","true","2021-01-01","2025-12-31","2020-12-28","encounter-1"
-"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.8","true","2021-01-01","2025-12-31","",""
+"Batch-ID","Patient-ID","Consent-ID","Code","Permit","Period-Start","Period-End","Shifted-Period-Start","Encounter-ID","Virtual"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.6","true","2021-01-01","2025-12-31","2020-12-28","encounter-1","false"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-1","2.16.840.1.113883.3.1937.777.24.5.3.8","true","2021-01-01","2025-12-31","","","false"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-2","2.16.840.1.113883.3.1937.777.24.5.3.6","false","2024-03-01","9999-12-31","","","true"
+"fe95e52b-7db6-428b-b610-df697b13dae0","pat-1","consent-2","2.16.840.1.113883.3.1937.777.24.5.3.8","false","2024-03-01","9999-12-31","","","true"
 ```
 
 #### Explanation
@@ -172,6 +174,7 @@ Provision Periods" — together with the outcome of the encounter shift (see
 | `Period-End`           | The provision's period end                                                                               |
 | `Shifted-Period-Start` | The provision's period start after the encounter shift; empty if the encounter shift did not move it     |
 | `Encounter-ID`         | The ID of the `Encounter` whose start the provision was shifted to; empty if the encounter shift did not move it |
+| `Virtual`              | Whether the row is a virtual deny derived from the top-level provision of a `Consent` without nested provisions (`true`) rather than a provision of the resource itself; an open end is `9999-12-31` |
 
 ### Final Periods
 

@@ -387,5 +387,88 @@ class ProvisionExtractorTest {
                 .hasMessageContaining("consent-null-date has no valid consent date");
     }
 
+    private static Consent levelOneConsent(String dateTime, org.hl7.fhir.r4.model.Period levelOnePeriod,
+                                           Consent.ProvisionComponent... nested) {
+        Consent consent = new Consent();
+        consent.setId("consent-level-1");
+        consent.setPatient(new Reference("Patient/123"));
+        consent.setDateTimeElement(new DateTimeType(dateTime));
+        consent.getProvision().setType(Consent.ConsentProvisionType.DENY).setPeriod(levelOnePeriod);
+        for (Consent.ProvisionComponent provision : nested) {
+            consent.getProvision().addProvision(provision);
+        }
+        return consent;
+    }
 
+    private static org.hl7.fhir.r4.model.Period fhirPeriod(String start, String end) {
+        return new org.hl7.fhir.r4.model.Period()
+                .setStartElement(new DateTimeType(start))
+                .setEndElement(new DateTimeType(end));
+    }
+
+    @Test
+    void levelOneOnlyConsentYieldsVirtualDenyOfEveryRequiredCodeOverLevelOnePeriod() throws Exception {
+        Consent consent = levelOneConsent("2025-01-01", fhirPeriod("2025-01-01", "2055-12-31"));
+
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1, CODE_2));
+
+        assertThat(result.provisions()).isEmpty();
+        assertThat(result.isLevelOneOnly()).isTrue();
+        assertThat(result.virtualDenies()).containsExactlyInAnyOrder(
+                new Provision(CODE_1, Period.of("2025-01-01", "2055-12-31"), false),
+                new Provision(CODE_2, Period.of("2025-01-01", "2055-12-31"), false));
+    }
+
+    @Test
+    void levelOneOnlyConsentWithoutPeriodYieldsOpenEndedVirtualDenyFromDateTime() throws Exception {
+        Consent consent = levelOneConsent("2025-03-04T10:00:00+01:00", null);
+
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        assertThat(result.virtualDenies()).containsExactly(
+                new Provision(CODE_1, new Period(LocalDate.of(2025, 3, 4), Period.OPEN_END), false));
+    }
+
+    @Test
+    void consentWithoutAnyProvisionYieldsOpenEndedVirtualDenyFromDateTime() throws Exception {
+        Consent consent = new Consent();
+        consent.setId("consent-no-provision");
+        consent.setPatient(new Reference("Patient/123"));
+        consent.setDateTimeElement(new DateTimeType("2025-03-04"));
+
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        assertThat(result.virtualDenies()).containsExactly(
+                new Provision(CODE_1, new Period(LocalDate.of(2025, 3, 4), Period.OPEN_END), false));
+    }
+
+    @Test
+    void levelOneDenyWithLevelTwoPermitsYieldsNoVirtualDeny() throws Exception {
+        Consent.ProvisionComponent permit = new Consent.ProvisionComponent()
+                .setType(Consent.ConsentProvisionType.PERMIT)
+                .setPeriod(fhirPeriod("2025-01-01", "2055-12-31"));
+        permit.addCode(new CodeableConcept(new Coding("sys", "code1", null)));
+        Consent consent = levelOneConsent("2025-01-01", fhirPeriod("2025-01-01", "2055-12-31"), permit);
+
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1, CODE_2));
+
+        assertThat(result.isLevelOneOnly()).isFalse();
+        assertThat(result.virtualDenies()).isEmpty();
+        assertThat(result.provisions()).containsExactly(
+                new Provision(CODE_1, Period.of("2025-01-01", "2055-12-31"), true));
+    }
+
+    @Test
+    void levelTwoProvisionOfUnrequestedCodeYieldsNoVirtualDeny() throws Exception {
+        Consent.ProvisionComponent otherPermit = new Consent.ProvisionComponent()
+                .setType(Consent.ConsentProvisionType.PERMIT)
+                .setPeriod(fhirPeriod("2025-01-01", "2055-12-31"));
+        otherPermit.addCode(new CodeableConcept(new Coding("sys", "code3", null)));
+        Consent consent = levelOneConsent("2025-01-01", null, otherPermit);
+
+        ConsentProvisions result = extractor.extractProvisionsPeriodByCode(consent, Set.of(CODE_1));
+
+        assertThat(result.provisions()).isEmpty();
+        assertThat(result.virtualDenies()).isEmpty();
+    }
 }

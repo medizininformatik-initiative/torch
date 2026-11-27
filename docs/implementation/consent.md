@@ -31,6 +31,9 @@ permissions and applicable regulations.
   initial signing, a revocation, a recalculated consent, etc.) — it reads the permit and deny provisions directly
   and calculates the effective consent periods from them. A patient may have multiple Consent resources, each
   contributing its own provisions.
+- In the MII Consent IG the top-level (level 1) provision is always a deny, and only nested (level 2) permits allow
+  use. A Consent resource without any nested provision is therefore a **level-1-only** consent that revokes
+  everything (see pipeline step 6).
 - Consent records define:
     - **Who** has granted consent
     - **What** data may be accessed
@@ -103,6 +106,14 @@ Before any data extraction:
    in the event is *subtracted*. A later permit can therefore reinstate a period an earlier deny had removed, while
    within one event a deny always wins over a permit, and the result never depends on resource ids. Revocation
    documents that carry only a deny still count, in the order their `dateTime` places them.
+   If **no** resource of a signing event has a nested (level 2) provision — whatever its code or period — the event
+   is treated as a global deny: TORCH folds in a **virtual deny** of every fetched code (the supported codes plus the
+   retro modifiers requested in the CRTDL, see step 4) over the level 1 provision's `period`. If that period is
+   missing (or has no day-precise start and end), the virtual deny runs from the day of `Consent.dateTime` with an
+   open end (`9999-12-31`). A virtual retro modifier deny triggers the reset of step 7. An event in which any
+   resource has a nested provision is evaluated as before; a level-1-only resource in it contributes nothing, so it
+   neither revokes the permits of its event nor causes a conflict. The applied virtual denies are listed in the
+   opt-in [Raw Provisions](../api/diagnostics.md#raw-provisions) diagnostic with `Virtual` set to `true`.
    A signed consent document records one decision per code, so a permit and a deny of the same code with
    overlapping periods in one signing event are an invalid encoding. The deny wins for the overlap, because that
    never extracts data of a patient who did not consent, and the conflict is reported in the always-on
@@ -396,7 +407,7 @@ The consent check uses a specific date field per FHIR resource type to determine
 Consent handling in TORCH is:
 
 - **Standards-based** (FHIR Consent, MII KDS profile, MII broad consent structure)
-- Per-patient, order-sensitive: Consent resources are grouped into signing events of equal `dateTime` and folded in ascending `dateTime` order (within an event, resets come first, then permits, then denies); permits only count from events that carry the complete required package (`.6` AND `.8`); a later permit can reinstate a period an earlier deny removed; overlapping permits and denies of the same code within one event are reported as conflicts, and the deny wins. Retro modifier extension stays scoped to the signing event it appears in, but a retro modifier **deny** resets a code's whole history accumulated by earlier events, from any resource
+- Per-patient, order-sensitive: Consent resources are grouped into signing events of equal `dateTime` and folded in ascending `dateTime` order (within an event, resets come first, then permits, then denies); permits only count from events that carry the complete required package (`.6` AND `.8`); a later permit can reinstate a period an earlier deny removed; overlapping permits and denies of the same code within one event are reported as conflicts, and the deny wins; an event without any nested provision denies every fetched code. Retro modifier extension stays scoped to the signing event it appears in, but a retro modifier **deny** resets a code's whole history accumulated by earlier events, from any resource
 - Driven by `consent-code-config.json` — no code changes required for new consent codes that follow the same
   combination logic as the default set. **This is a fundamental limitation:** TORCH can only handle the validity-gate
     + data-window + retrospective-modifier model hardcoded in its pipeline. New codes that require different combination

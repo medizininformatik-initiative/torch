@@ -10,7 +10,8 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Records a single consent provision as fetched from a {@code Consent} resource — torch's "Initial Provision
- * Periods" — together with the outcome of the encounter shift (see {@code torch.enableEncounterShift}).
+ * Periods" — together with the outcome of the encounter shift (see {@code torch.enableEncounterShift}), or a virtual
+ * deny the consent calculation applied for a level-1-only consent.
  *
  * @param patientId   the ID of the patient the provision belongs to
  * @param consentId   the ID of the source {@code Consent} resource
@@ -20,10 +21,12 @@ import static java.util.Objects.requireNonNull;
  * @param periodEnd   the provision's period end
  * @param shiftedPeriodStart the provision's period start after the encounter shift, or {@code null} if it was not shifted
  * @param encounterId the ID of the encounter the start was shifted to, or {@code null} if it was not shifted
+ * @param virtual     whether the provision is a virtual deny derived from the level 1 provision of a consent without
+ *                    level 2 provisions, rather than a provision of the resource itself
  */
 public record RawProvisionEvent(String patientId, String consentId, String code, boolean permit,
                                 LocalDate periodStart, LocalDate periodEnd,
-                                LocalDate shiftedPeriodStart, String encounterId) {
+                                LocalDate shiftedPeriodStart, String encounterId, boolean virtual) {
 
     public RawProvisionEvent {
         requireNonNull(patientId);
@@ -49,7 +52,8 @@ public record RawProvisionEvent(String patientId, String consentId, String code,
                 LocalDate.parse(csvRow[CsvField.PERIOD_END.columnIndex()]),
                 Optional.ofNullable(emptyToNull(csvRow[CsvField.SHIFTED_PERIOD_START.columnIndex()]))
                         .map(LocalDate::parse).orElse(null),
-                emptyToNull(csvRow[CsvField.ENCOUNTER_ID.columnIndex()]));
+                emptyToNull(csvRow[CsvField.ENCOUNTER_ID.columnIndex()]),
+                Boolean.parseBoolean(csvRow[CsvField.VIRTUAL.columnIndex()]));
     }
 
     private static String emptyToNull(String value) {
@@ -72,7 +76,8 @@ public record RawProvisionEvent(String patientId, String consentId, String code,
         PERIOD_START("Period-Start", e -> e.periodStart().toString()),
         PERIOD_END("Period-End", e -> e.periodEnd().toString()),
         SHIFTED_PERIOD_START("Shifted-Period-Start", e -> e.shiftedPeriodStart() == null ? "" : e.shiftedPeriodStart().toString()),
-        ENCOUNTER_ID("Encounter-ID", e -> e.encounterId() == null ? "" : e.encounterId());
+        ENCOUNTER_ID("Encounter-ID", e -> e.encounterId() == null ? "" : e.encounterId()),
+        VIRTUAL("Virtual", e -> Boolean.toString(e.virtual()));
 
         private final String headerName;
         private final Function<RawProvisionEvent, String> fieldExtractor;
